@@ -1,0 +1,140 @@
+QWidget {
+    font-size: 14px;
+}
+
+/* 所有 QPushButton 的样式 */
+QPushButton{
+    font-family: iconfont;
+    font-size:20px;
+    background-color: none;
+    color: #C0C0C0;
+    margin:0px;
+    border: none;
+    border-radius: 5px;
+}
+
+
+QPushButton:hover {
+    background-color: #616161;
+    margin:0px;
+}
+
+QPushButton:pressed {
+    background-color: #005a9e;
+}
+
+QToolBar{
+    background: background;
+}
+
+QToolButton{
+    font-family: "Segoe UI", "Helvetica Neue", "Noto Sans", "DejaVu Sans", sans-serif;
+    font-size:12px;
+    background-color: none;
+    color: #E1E1E1;
+    border: none;
+    border-radius: 5px;
+    text-align: center;
+    padding-left:10px;
+    padding-right:20px;
+}
+
+QToolButton::menu-indicator{
+    font-family: "Segoe UI", "Helvetica Neue", "Noto Sans", "DejaVu Sans", sans-serif;
+    font-size:12px;
+    width: 8px;
+    height: 8px;
+    subcontrol-position: right center;
+    padding-right:20px;
+}
+
+QToolButton::icon {
+    padding-right:20px;
+}
+
+QToolButton:hover {
+    background-color: #717171;
+}
+
+QToolButton:pressed {
+    background-color: #005a9e;
+}
+
+QSplitter::handle{
+    width:1px;
+    background-color: #323436;
+}
+
+#main_window {
+    background-color: #1e1f22;
+    border-radius: 10px;
+    border:1px solid #505254;
+}
+
+#main_window_top_bar {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-top:1px solid #505254;
+    border-left:1px solid #505254;
+    border-right:1px solid #505254;
+    border-bottom:1px solid #1e1f22;
+    background-color: #3d3f4e;
+}
+
+#main_window_left_bar {
+    background-color: #292b2e;
+    border-left:1px solid #505254;
+    border-right:1px solid #1e1f22;
+}
+
+#main_window_right_bar {
+    background-color: #292b2e;
+    border-right:1px solid #505254;
+    border-left:1px solid #1e1f22;
+}
+
+#main_window_bottom_bar {
+    background-color: #292b2e;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border-top:1px solid #1e1f22;
+    border-bottom:1px solid #505254;
+    border-left:1px solid #505254;
+    border-right:1px solid #505254;
+}
+
+#main_window_h_layout{
+    background-color: #323436;
+}
+
+#main_window_workspace{
+    background-color: #323436;
+}
+
+#main_window_workspace_splitter{
+    background-color: #323436;
+}
+
+#main_window_workspace_top{
+    background-color: #323436;
+}
+
+#main_window_workspace_top_splitter{
+    background-color: #323436;
+}
+
+#main_window_workspace_top_left{
+    background-color: #2b2d30;
+}
+
+#main_window_workspace_top_center{
+    background-color: #1e1f22;
+}
+
+#main_window_workspace_top_right{
+    background-color: #2b2d30;
+}
+
+#main_window_workspace_bottom{
+    background-color: #1e1f22;
+}

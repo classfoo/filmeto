@@ -1,0 +1,8 @@
+.venv
+workspace
+workspace/*
+.idea/
+.idea
+__pycache__
+.qoder/
+QWEN.md

@@ -1,0 +1,16 @@
+current_tool: imgedit
+img2video:
+  input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/1/image.png
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 小猫抬起强瞄准镜头，发射火枪
+  timeline_index: 1
+  tool: img2video
+text2img:
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 真实风格，一只小猫穿着靴子，带着帽子，腰间别着一把火枪，站在城门口
+  timeline_index: 1
+  tool: text2img

@@ -1,0 +1,41 @@
+drawing:
+  current_tool: shape
+  tool_settings:
+    adjust: {}
+    brush:
+      Color: '#000000'
+      Line Style: solid
+      Opacity: '100'
+      Size: '5'
+      color: '#00ff00'
+      line_style: dot
+      opacity: '100'
+      size: '36'
+    eraser:
+      Size: '20'
+      size: '75'
+    move: {}
+    pen:
+      Color: '#000000'
+      Size: '8'
+      color: '#000000'
+      size: '20'
+    select: {}
+    shape:
+      Line Style: solid
+      Shape: rectangle
+      Stroke Color: '#000000'
+      Stroke Size: '2'
+      line_style: solid
+      shape: rectangle
+      stroke_color: '#000000'
+      stroke_size: '2'
+    text:
+      Font Size: '14'
+      Text Color: '#000000'
+      font_size: '14'
+      text_color: '#000000'
+    zoom: {}
+task_index: 1
+timeline_index: 6
+timeline_size: 7
