@@ -1,0 +1,7 @@
+{
+    "task_id": "1",
+    "title": "下载大型文件",
+    "task_type": "download",
+    "progress": 45,
+    "status": "running"
+}
