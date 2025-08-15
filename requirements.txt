@@ -1,0 +1,9 @@
+PySide6>=6.5.0
+modelscope
+pyyaml
+qasync
+diffusers
+dashscope
+pandas
+websockets
+blinker
