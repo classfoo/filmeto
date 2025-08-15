@@ -1,0 +1,9 @@
+current_tool: img2video
+img2video:
+  input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/3/image.png
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 小猫继续向前走动，镜头拉远，从空中鸟瞰中世纪城镇
+  timeline_index: 3
+  tool: img2video

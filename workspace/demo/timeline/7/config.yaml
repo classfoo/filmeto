@@ -1,0 +1,9 @@
+current_tool: img2video
+img2video:
+  input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/7/image.png
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 一只带着帽子的小猫火枪手背对镜头投入视野，黑龙在天上朝着远处飞去
+  timeline_index: 7
+  tool: img2video

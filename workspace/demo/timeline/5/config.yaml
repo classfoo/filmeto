@@ -1,0 +1,9 @@
+current_tool: img2video
+img2video:
+  input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/5/image.png
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 小猫公主挥舞粉色丝巾，一条黑龙突然闯入抓住公主飞到天空
+  timeline_index: 5
+  tool: img2video

@@ -1,0 +1,9 @@
+current_tool: img2video
+img2video:
+  input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/6/image.png
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 黑龙抱住公主在空中朝地面吐火，然后飞向远方，地面一片火海
+  timeline_index: 6
+  tool: img2video

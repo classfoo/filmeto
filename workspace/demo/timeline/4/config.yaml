@@ -1,0 +1,16 @@
+current_tool: img2video
+img2video:
+  input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/4/image.png
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 小猫公主挥舞丝巾，士兵们整齐的踏步前进，镜头从远到近聚焦到公主
+  timeline_index: 4
+  tool: img2video
+text2img:
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 小猫公主站在阳台上，挥舞着粉红的丝巾，向下面的一群穿着皮靴戴着帽子的小猫火枪手致意
+  timeline_index: 4
+  tool: text2img

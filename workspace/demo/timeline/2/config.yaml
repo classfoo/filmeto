@@ -1,0 +1,9 @@
+current_tool: img2video
+img2video:
+  input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/2/image.png
+  logs: ✅ 执行完成
+  model: comfy_ui
+  percent: 100
+  prompt: 小猫转身进入城门，背影渐渐消失
+  timeline_index: 2
+  tool: img2video
