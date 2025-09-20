@@ -4,6 +4,7 @@ import json
 import os
 import time
 import uuid
+import random
 from typing import Dict, Any, List, Optional, Tuple  # 使用大写导入
 
 import aiohttp
@@ -162,6 +163,9 @@ if __name__ == "__main__":
     with open("test.json", "r", encoding="utf-8") as f:
         content = f.read()
         content = content.replace('$prompt','1 girl')
+        seed = random.getrandbits(32)
+        print(seed)  # 输出 0 ~ 4294967295 之间的数
+        content = content.replace('818381787480535', str(seed))
         workflow = json.loads(content)
 
     # 创建客户端

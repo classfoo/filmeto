@@ -1,8 +1,10 @@
 import os
 
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QTextEdit
+from qasync import asyncSlot
 
 from app.plugins.models.bailian.bailian_model import BaiLianModel
+from app.plugins.models.comfy_ui.comfy_ui_model import ComfyUiModel
 from app.ui.base_widget import BaseWidget
 
 class Text2Image(BaseWidget):
@@ -31,8 +33,9 @@ class Text2Image(BaseWidget):
             "prompt":self.prompt.toPlainText()
         }
 
-    def execute(self, task):
+    @asyncSlot()
+    async def execute(self, task):
         print(task.options)
-        model = BaiLianModel()
-        model.text2img(task.options['prompt'],os.path.join(task.path,"result.png"))
+        model = ComfyUiModel()
+        await model.text2img(task.options['prompt'],os.path.join(task.path,"result.png"))
         return
