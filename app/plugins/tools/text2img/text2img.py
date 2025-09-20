@@ -6,8 +6,10 @@ from qasync import asyncSlot
 from app.plugins.models.bailian.bailian_model import BaiLianModel
 from app.plugins.models.comfy_ui.comfy_ui_model import ComfyUiModel
 from app.ui.base_widget import BaseWidget
+from utils.progress_utils import Progress
 
-class Text2Image(BaseWidget):
+
+class Text2Image(BaseWidget,Progress):
 
     def __init__(self, window,workspace):
         super(Text2Image,self).__init__()
@@ -29,13 +31,19 @@ class Text2Image(BaseWidget):
 
     def params(self):
         return {
-            "type":"text2img",
+            "tool":"text2img",
+            "model":"comfy_ui",
             "prompt":self.prompt.toPlainText()
         }
+
+    def onProgress(self, percent:int):
+        self.percent = percent
+        #刷新进度
+        return
 
     @asyncSlot()
     async def execute(self, task):
         print(task.options)
         model = ComfyUiModel()
-        await model.text2img(task.options['prompt'],os.path.join(task.path,"result.png"))
-        return
+        await model.text2img(task.options['prompt'],task.path, self)
+        #刷新当前页面显示

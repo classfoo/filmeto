@@ -10,6 +10,8 @@ from typing import Dict, Any, List, Optional, Tuple  # 使用大写导入
 import aiohttp
 import websockets
 
+from utils.progress_utils import Progress
+
 
 class ComfyUIClient:
     def __init__(self, base_url: str = "http://192.168.1.100:3000"):
@@ -107,8 +109,9 @@ class ComfyUIClient:
         self,
         workflow_json: Dict[str, Any],
         output_node_ids: List[str],
+        progress: Progress,
         save_dir: str = "output_images",
-        timeout: float = 120.0
+        timeout: float = 120.0,
     ) -> Dict[str, Any]:
         """
         运行工作流并下载输出
