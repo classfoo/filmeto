@@ -82,7 +82,6 @@ class App():
         self.server = Server()
         self.window = MainWindow(self.workspace)
         self.window.show()
-
         asyncio.ensure_future(self.workspace.start())
         # 运行主循环
         with loop:

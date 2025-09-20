@@ -24,7 +24,7 @@ class Text2Image(BaseWidget,Progress):
         self.prompt.setText("一个比基尼模特，车展")
         self.layout.addWidget(self.prompt)
         self.button.clicked.connect(self.generate_image)
-        self.workspace.task_manager.task_execute.connect(self.execute)
+        self.workspace.connect_task_execute(self.execute)
 
     def generate_image(self):
         self.workspace.submit_task(self.params())

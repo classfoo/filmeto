@@ -11,17 +11,18 @@ class Workspace():
         self.workspace_path = workspace_path
         self.project_name = project_name
         self.project_path = os.path.join(self.workspace_path,self.project_name)
-        self.tasks_path = os.path.join(self.project_path,"tasks")
-        self.task_manager = TaskManager(self, self.tasks_path)
-        self.task_manager.task_execute.connect
+        self.project_obj = Project(self, self.project_path, self.project_name)
         return
 
     def project(self):
-        return Project(self.project_path, self.project_name)
+        return self.project_obj
+
+    async def start(self):
+        await self.project_obj.start()
+
+    def connect_task_execute(self, func):
+        self.project_obj.connect_task_execute(func)
 
     def submit_task(self,params):
         print(params)
-        self.task_manager.submit_task(params)
-
-    async def start(self):
-        await self.task_manager.start()
+        self.project_obj.submit_task(params)
