@@ -23,6 +23,14 @@ class Workspace():
     def connect_task_execute(self, func):
         self.project_obj.connect_task_execute(func)
 
+    def connect_task_finished(self, func):
+        self.project_obj.connect_task_finished(func)
+
     def submit_task(self,params):
         print(params)
         self.project_obj.submit_task(params)
+
+    def on_task_finished(self,result):
+        self.project_obj.on_task_finished(result)
+
+

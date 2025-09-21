@@ -46,3 +46,4 @@ class  ComfyUiModel():
                 print(f"  - {f}")
         else:
             print(f"💥 失败: {result['error']}")
+        return result

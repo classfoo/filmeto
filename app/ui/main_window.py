@@ -15,7 +15,7 @@ from app.ui.timeline import HorizontalTimeline
 class MainWindowTopBar(BaseWidget):
 
     def __init__(self, window,workspace:Workspace):
-        super(MainWindowTopBar,self).__init__()
+        super(MainWindowTopBar,self).__init__(workspace)
         self.setObjectName("main_window_top_bar")
         self.window = window
         #central_widget = QWidget(self)
@@ -68,8 +68,8 @@ class MainWindowTopBar(BaseWidget):
 
 class MainWindowBottomBar(BaseWidget):
 
-    def __init__(self, parent):
-        super(MainWindowBottomBar,self).__init__()
+    def __init__(self, workspace,parent):
+        super(MainWindowBottomBar,self).__init__(workspace)
         self.setObjectName("main_window_bottom_bar")
         self.parent = parent
         self.setFixedHeight(28)
@@ -85,8 +85,8 @@ class MainWindowBottomBar(BaseWidget):
 
 class MainWindowLeftBar(BaseWidget):
 
-    def __init__(self, parent):
-        super(MainWindowLeftBar,self).__init__()
+    def __init__(self, workspace,parent):
+        super(MainWindowLeftBar,self).__init__(workspace)
         self.setObjectName("main_window_left_bar")
         self.parent = parent
         self.setFixedWidth(40)
@@ -125,8 +125,8 @@ class MainWindowLeftBar(BaseWidget):
 
 class MainWindowRightBar(BaseWidget):
 
-    def __init__(self, parent):
-        super(MainWindowRightBar,self).__init__()
+    def __init__(self, workspace:Workspace, parent):
+        super(MainWindowRightBar,self).__init__(workspace)
         self.setObjectName("main_window_right_bar")
         self.parent = parent
         self.setFixedWidth(40)
@@ -143,7 +143,7 @@ class MainWindowRightBar(BaseWidget):
 class MainWindowWorkspaceTop(BaseWidget):
 
     def __init__(self, parent, workspace):
-        super(MainWindowWorkspaceTop,self).__init__()
+        super(MainWindowWorkspaceTop,self).__init__(workspace)
         self.setObjectName("main_window_workspace_top")
         self.parent = parent
         # 主布局
@@ -172,7 +172,7 @@ class MainWindowWorkspaceTop(BaseWidget):
 class MainWindowWorkspaceBottom(BaseWidget):
 
     def __init__(self, parent,workspace:Workspace):
-        super(MainWindowWorkspaceBottom,self).__init__()
+        super(MainWindowWorkspaceBottom,self).__init__(workspace)
         self.setObjectName("main_window_workspace_bottom")
         self.parent = parent
         self.layout = QHBoxLayout(self)
@@ -184,7 +184,7 @@ class MainWindowWorkspaceBottom(BaseWidget):
 class MainWindowWorkspace(BaseWidget):
 
     def __init__(self, parent,workspace:Workspace):
-        super(MainWindowWorkspace,self).__init__()
+        super(MainWindowWorkspace,self).__init__(workspace)
         self.setObjectName("main_window_workspace")
         self.parent = parent
 
@@ -204,18 +204,18 @@ class MainWindowWorkspace(BaseWidget):
 class MainWindowHLayout(BaseWidget):
 
     def __init__(self, parent,workspace:Workspace):
-        super(MainWindowHLayout,self).__init__()
+        super(MainWindowHLayout,self).__init__(workspace)
         self.setObjectName("main_window_h_layout")
         self.parent = parent
         # 主布局
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        self.left_bar = MainWindowLeftBar(self)
+        self.left_bar = MainWindowLeftBar(workspace, self)
         layout.addWidget(self.left_bar)
         self.workspace  = MainWindowWorkspace(self,workspace)
         layout.addWidget(self.workspace, 1)
-        self.right_bar = MainWindowRightBar(self)
+        self.right_bar = MainWindowRightBar(workspace, self)
         layout.addWidget(self.right_bar)
 
 
@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.top_bar)
         self.h_layout = MainWindowHLayout(self,workspace)
         layout.addWidget(self.h_layout, 1)
-        self.bottom_bar = MainWindowBottomBar(self)
+        self.bottom_bar = MainWindowBottomBar(workspace, self)
         self.bottom_bar.setObjectName("main_window_bottom_bar")
         layout.addWidget(self.bottom_bar)
         central_widget.setLayout(layout)

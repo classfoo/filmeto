@@ -12,7 +12,7 @@ from utils.progress_utils import Progress
 class Text2Image(BaseWidget,Progress):
 
     def __init__(self, window,workspace):
-        super(Text2Image,self).__init__()
+        super(Text2Image,self).__init__(workspace)
         self.setObjectName("tool_text_to_image")
         self.window = window
         self.workspace = workspace
@@ -45,5 +45,6 @@ class Text2Image(BaseWidget,Progress):
     async def execute(self, task):
         print(task.options)
         model = ComfyUiModel()
-        await model.text2img(task.options['prompt'],task.path, self)
+        result = await model.text2img(task.options['prompt'],task.path, self)
         #刷新当前页面显示
+        self.workspace.on_task_finished(result)

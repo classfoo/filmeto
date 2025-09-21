@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from PySide6.QtCore import Signal, QObject
+from blinker import signal
 
 from utils.queue_utils import AsyncQueueManager
 from utils.yaml_utils import load_yaml, save_yaml
@@ -14,12 +14,13 @@ class Task():
         self.options = options
         return
 
-class TaskManager(QObject):
+class TaskManager():
 
-    task_execute = Signal(Task)
+    task_execute = signal("task_execute")
+
+    task_finished = signal("task_finished")
 
     def __init__(self,workspace, project, tasks_path):
-        QObject.__init__(self)
         self.workspace = workspace
         self.project = project
         self.tasks_path = tasks_path
@@ -42,6 +43,9 @@ class TaskManager(QObject):
     def connect_task_execute(self,func):
         self.task_execute.connect(func)
 
+    def connect_task_finished(self,func):
+        self.task_finished.connect(func)
+
     def submit_task(self, options:dict):
         self.task_consumer.put(options)
 
@@ -51,5 +55,8 @@ class TaskManager(QObject):
         task_fold_path = os.path.join(self.tasks_path, str(num))
         os.makedirs(task_fold_path, exist_ok=True)
         save_yaml(os.path.join(task_fold_path, "config.yaml"), options)
-        self.task_execute.emit(Task(task_fold_path,options))
+        self.task_execute.send(Task(task_fold_path,options))
         return
+
+    def on_task_finished(self,result):
+        self.task_finished.send(result)

@@ -9,7 +9,7 @@ from app.ui.base_widget import BaseWidget
 class ProjectMenu(BaseWidget):
 
     def __init__(self,workspace:Workspace):
-        super(ProjectMenu,self).__init__()
+        super(ProjectMenu,self).__init__(workspace)
         self.setObjectName("project_menu")
         self.workspace = workspace
         self.layout = QVBoxLayout(self)

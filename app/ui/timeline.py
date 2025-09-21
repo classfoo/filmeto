@@ -8,16 +8,16 @@ from PySide6.QtGui import QFont, QKeyEvent, QPixmap, QColor
 
 from app.data.timeline import Timeline
 from app.data.workspace import Workspace
-from app.ui.base_widget import BaseWidget
+from app.ui.base_widget import BaseWidget, BaseTaskWidget
 from app.ui.draggable_scroll_area import DraggableScrollArea
 from app.ui.hover_zoom_frame import HoverZoomFrame
 
 
-class HorizontalTimeline(BaseWidget):
+class HorizontalTimeline(BaseTaskWidget):
     """左右滑动的卡片式时间线主窗口"""
     def __init__(self,parent:QWidget,workspace:Workspace):
-        super().__init__()
-        self.setWindowTitle("左右滑动卡片式时间线")
+        super().__init__(workspace)
+        self.setWindowTitle("TimeLine")
         self.resize(parent.width(), parent.height())
         self.setContentsMargins(5,5,5,5)
 
@@ -32,7 +32,7 @@ class HorizontalTimeline(BaseWidget):
             }}
         """)
         # ------------------- 创建内容容器和布局 -------------------
-        self.content_widget = BaseWidget()
+        self.content_widget = BaseWidget(workspace)
         self.content_widget.setStyleSheet(f"""
             QWidget {{
                 background-color: #1e1f22;
@@ -47,12 +47,14 @@ class HorizontalTimeline(BaseWidget):
         # ------------------- 添加一些示例卡片 -------------------
         timeline = workspace.project().timeline()
         timeline_item_count = timeline.itemCount()
+        self.cards = []
         for i in range(timeline_item_count):  # 创建 10 个示例卡片
             timeline_item = timeline.getItem(i+1)
             snapshot_image = timeline_item.getSnapshotImage()
             title = f"# {i+1}"
             card = HoverZoomFrame(title, snapshot_image,self)
             self.timeline_layout.addWidget(card)
+            self.cards.append(card)
         self.timeline_layout.addStretch()
         # ------------------- 主窗口布局 -------------------
         main_layout = QVBoxLayout(self)
@@ -85,6 +87,13 @@ class HorizontalTimeline(BaseWidget):
                 super().keyPressEvent(event)
         else:
             super().keyPressEvent(event)
+
+    def on_task_finished(self, result):
+        card = self.cards[0]
+        snapshot_path = result['output_files'][0]
+        original_pixmap= QPixmap(snapshot_path)
+        card.setImage(original_pixmap)
+        return
 
 # ------------------- 运行应用 -------------------
 if __name__ == "__main__":

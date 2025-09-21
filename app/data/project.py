@@ -20,6 +20,9 @@ class Project():
     def connect_task_execute(self,func):
         self.task_manager.connect_task_execute(func)
 
+    def connect_task_finished(self,func):
+        self.task_manager.connect_task_finished(func)
+
     def timeline(self):
         return Timeline(os.path.join(self.project_path, 'timeline'))
 
@@ -30,3 +33,6 @@ class Project():
     def submit_task(self,params):
         print(params)
         self.task_manager.submit_task(params)
+
+    def on_task_finished(self,result):
+        self.task_manager.on_task_finished(result)

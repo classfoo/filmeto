@@ -171,6 +171,9 @@ class HoverZoomFrame(QFrame):
         """设置显示的文本内容"""
         self.content_label.setText(text)
 
+    def setImage(self,snapshot:QPixmap):
+        scaled_image = snapshot.scaled(QSize(80,150),Qt.KeepAspectRatioByExpanding,Qt.SmoothTransformation)
+        self.content_label.setPixmap(scaled_image)
 
 class MainWindow(QMainWindow):
     def __init__(self):

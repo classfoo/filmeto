@@ -6,3 +6,4 @@ diffusers
 dashscope
 pandas
 websockets
+blinker
