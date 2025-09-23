@@ -138,7 +138,7 @@ class ComfyUIClient:
                         filename = img["filename"]
                         subfolder = img["subfolder"]
                         ext = os.path.splitext(filename)[1]
-                        save_path = os.path.join(save_dir, f"{prompt_id}_{filename}")
+                        save_path = os.path.join(save_dir, f"output.png")
                         success = await self.download_image(filename, subfolder, save_path)
                         if success:
                             output_files.append(save_path)

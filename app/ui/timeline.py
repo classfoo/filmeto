@@ -89,8 +89,9 @@ class HorizontalTimeline(BaseTaskWidget):
             super().keyPressEvent(event)
 
     def on_task_finished(self, result):
-        card = self.cards[0]
-        snapshot_path = result['output_files'][0]
+        timeline_index = result.get_timeline()
+        card = self.cards[timeline_index-1]
+        snapshot_path = result.get_image()
         original_pixmap= QPixmap(snapshot_path)
         card.setImage(original_pixmap)
         return

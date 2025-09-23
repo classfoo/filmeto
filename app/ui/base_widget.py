@@ -2,6 +2,7 @@ from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QWidget, QStyleOption, QStyle
 from qasync import asyncSlot
 
+from app.data.task import TaskResult
 from app.data.workspace import Workspace
 
 
@@ -26,5 +27,5 @@ class BaseTaskWidget(BaseWidget):
         workspace.connect_task_finished(self.on_task_finished)
 
     @asyncSlot()
-    async def on_task_finished(self,result):
+    async def on_task_finished(self,result:TaskResult):
         return

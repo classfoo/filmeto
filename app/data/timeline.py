@@ -1,7 +1,10 @@
 import os.path
+import shutil
 from pathlib import Path
 
 from PySide6.QtGui import QPixmap
+
+from app.data.task import TaskResult
 
 
 class TimelineItem:
@@ -9,11 +12,15 @@ class TimelineItem:
     def __init__(self, timelinePath:str,index:int):
         self.time_line_path = timelinePath
         self.index = index
+        self.snapshot_path = os.path.join(self.time_line_path,str(self.index),"snapshot.png")
+
 
     def getSnapshotImage(self):
-        snapshot_path = os.path.join(self.time_line_path,str(self.index),"snapshot.png")
-        original_pixmap= QPixmap(snapshot_path)
+        original_pixmap= QPixmap(self.snapshot_path)
         return original_pixmap
+
+    def update_snapshot(self,image_path:str):
+        shutil.copy2(image_path, self.snapshot_path)
 
 class Timeline:
 
@@ -41,3 +48,8 @@ class Timeline:
 
     def getItem(self, index:int):
         return TimelineItem(self.time_line_path,index)
+
+
+    def on_task_finished(self,result:TaskResult):
+        item = self.getItem(result.get_timeline())
+        item.update_snapshot(result.get_image())

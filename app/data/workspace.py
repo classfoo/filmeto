@@ -2,7 +2,7 @@ import asyncio
 import os
 
 from app.data.project import Project
-from app.data.task import TaskManager
+from app.data.task import TaskManager, TaskResult
 
 
 class Workspace():
@@ -30,7 +30,7 @@ class Workspace():
         print(params)
         self.project_obj.submit_task(params)
 
-    def on_task_finished(self,result):
+    def on_task_finished(self,result:TaskResult):
         self.project_obj.on_task_finished(result)
 
 

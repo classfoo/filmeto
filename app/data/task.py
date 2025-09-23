@@ -3,6 +3,7 @@ from typing import Any
 
 from blinker import signal
 
+from app.spi.model import BaseModelResult
 from utils.queue_utils import AsyncQueueManager
 from utils.yaml_utils import load_yaml, save_yaml
 
@@ -13,6 +14,19 @@ class Task():
         self.path = path
         self.options = options
         return
+
+class TaskResult():
+    def __init__(self,task:Task, result:BaseModelResult):
+        self.task = task
+        self.result = result
+        return
+
+    def get_timeline(self):
+        return 1
+
+    def get_image(self):
+        return self.result.get_image()
+
 
 class TaskManager():
 
@@ -58,5 +72,5 @@ class TaskManager():
         self.task_execute.send(Task(task_fold_path,options))
         return
 
-    def on_task_finished(self,result):
+    def on_task_finished(self,result:TaskResult):
         self.task_finished.send(result)

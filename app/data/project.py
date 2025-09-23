@@ -1,6 +1,6 @@
 import os.path
 
-from app.data.task import TaskManager
+from app.data.task import TaskManager, TaskResult
 from app.data.timeline import Timeline
 from utils.yaml_utils import load_yaml, save_yaml
 
@@ -13,6 +13,8 @@ class Project():
         self.config = load_yaml(os.path.join(self.project_path, "project.yaml"))
         self.tasks_path = os.path.join(self.project_path,"tasks")
         self.task_manager = TaskManager(self.workspace, self, self.tasks_path)
+        self.timeline_obj =  Timeline(os.path.join(self.project_path, 'timeline'))
+
 
     async def start(self):
         await self.task_manager.start()
@@ -24,7 +26,7 @@ class Project():
         self.task_manager.connect_task_finished(func)
 
     def timeline(self):
-        return Timeline(os.path.join(self.project_path, 'timeline'))
+        return self.timeline_obj
 
     def update_config(self, key,value):
         self.config[key]=value
@@ -34,5 +36,6 @@ class Project():
         print(params)
         self.task_manager.submit_task(params)
 
-    def on_task_finished(self,result):
+    def on_task_finished(self,result:TaskResult):
+        self.timeline_obj.on_task_finished(result)
         self.task_manager.on_task_finished(result)

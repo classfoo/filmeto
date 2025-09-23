@@ -3,18 +3,16 @@ import os
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QTextEdit
 from qasync import asyncSlot
 
-from app.plugins.models.bailian.bailian_model import BaiLianModel
+from app.data.task import TaskResult
 from app.plugins.models.comfy_ui.comfy_ui_model import ComfyUiModel
-from app.ui.base_widget import BaseWidget
-from utils.progress_utils import Progress
+from app.spi.tool import BaseTool
 
 
-class Text2Image(BaseWidget,Progress):
+class Text2Image(BaseTool):
 
-    def __init__(self, window,workspace):
+    def __init__(self, workspace):
         super(Text2Image,self).__init__(workspace)
         self.setObjectName("tool_text_to_image")
-        self.window = window
         self.workspace = workspace
         self.layout = QVBoxLayout(self)
         self.button = QPushButton("生成")
@@ -45,6 +43,7 @@ class Text2Image(BaseWidget,Progress):
     async def execute(self, task):
         print(task.options)
         model = ComfyUiModel()
-        result = await model.text2img(task.options['prompt'],task.path, self)
+        result = await model.text2image(task.options['prompt'],task.path, self)
         #刷新当前页面显示
-        self.workspace.on_task_finished(result)
+        task_result = TaskResult(task, result)
+        self.workspace.on_task_finished(task_result)

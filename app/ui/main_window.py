@@ -157,7 +157,7 @@ class MainWindowWorkspaceTop(BaseWidget):
         #self.resource_tree.load_directory("workspace")
         #self.left.setObjectName("main_window_workspace_top_left")
         #self.splitter.addWidget(self.resource_tree)
-        self.tool = Text2Image(self, workspace)
+        self.tool = Text2Image(workspace)
         self.splitter.addWidget(self.tool)
         self.center = MediaPreviewWidget(self)
         self.center.load_file("workspace/demo/timeline/00000000/snapshot.png")

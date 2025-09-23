@@ -3,19 +3,31 @@ import json
 import os
 import random
 import threading
+from typing import Any
 
 import qasync
 
+from app.data.task import TaskResult
+from app.spi.model import BaseModel, BaseModelResult
 from utils.comfy_ui_utils import ComfyUIClient
 from utils.progress_utils import Progress
 
+class ComfyUiModelResult(BaseModelResult):
 
-class  ComfyUiModel():
+    def __init__(self,options:Any):
+        super(ComfyUiModelResult, self).__init__()
+        self.options = options
+
+    def get_image(self):
+        return self.options['output_files'][0]
+
+class  ComfyUiModel(BaseModel):
 
     def __init__(self):
+        super(ComfyUiModel, self).__init__()
         return
 
-    async def text2img(self,prompt,save_dir, progress:Progress):
+    async def text2image(self,prompt:str,save_dir:str, progress:Progress):
         # 示例：加载本地 workflow.json 并运行
         current_path = os.path.dirname(__file__)
         json_path = os.path.join(current_path, "workflows/text_to_image_qwen_image.json")
@@ -46,4 +58,4 @@ class  ComfyUiModel():
                 print(f"  - {f}")
         else:
             print(f"💥 失败: {result['error']}")
-        return result
+        return ComfyUiModelResult(result)
