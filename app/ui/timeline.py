@@ -179,7 +179,7 @@ class HorizontalTimeline(BaseTaskWidget):
             new_timeline_item = TimelineItem(timeline.time_line_path, new_index)
             snapshot_image = new_timeline_item.get_image()
             title = f"# {new_index}"
-            new_card = HoverZoomFrame(self, title, snapshot_image)
+            new_card = HoverZoomFrame(self, title, snapshot_image,new_index)
             
             # Add the new card
             self.timeline_layout.addWidget(new_card)
