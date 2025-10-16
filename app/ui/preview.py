@@ -43,6 +43,7 @@ class MediaPreviewWidget(BaseTaskWidget):
         self.current_aspect_ratio_key = "16:9 (HD/FHD/UHD)"  # 默认比例
         self.auto_play_on_load = True  # Flag to control auto-play behavior
         self.video_duration = 0  # Store the video duration for seamless looping
+        self.timeline_index = None  # Track current timeline index
         # ------------------- 创建内部控件 -------------------
         # 用于显示图片的 QLabel
         self.image_label = QLabel("暂无预览")
@@ -159,13 +160,11 @@ class MediaPreviewWidget(BaseTaskWidget):
         # Clean up any existing media resources
         self.gif_timer.stop()
         
-        # For video files, we need to make sure the video player is properly reset
-        if ext in self.VIDEO_FORMATS:
+        # CRITICAL: Always stop video completely when loading any new file
+        # This prevents background video loops from interfering
+        if ext not in self.VIDEO_FORMATS:
+            # If loading a non-video file, completely stop video playback
             self._stop_video()
-        else:
-            # For non-video files, just stop video playback
-            if self.media_player.isPlaying():
-                self.media_player.stop()
 
         if ext in self.IMAGE_FORMATS:
             if ext == '.gif':
@@ -180,6 +179,9 @@ class MediaPreviewWidget(BaseTaskWidget):
 
     def _load_image(self, image_path):
         """加载静态图片"""
+        # CRITICAL: Stop video playback completely before loading image
+        self._stop_video()
+        
         reader = QImageReader(image_path)
         reader.setAutoTransform(True)
         image = reader.read()
@@ -199,6 +201,9 @@ class MediaPreviewWidget(BaseTaskWidget):
 
     def _load_gif(self, gif_path):
         """加载 GIF 动画"""
+        # CRITICAL: Stop video playback completely before loading GIF
+        self._stop_video()
+        
         movie = QMovie(gif_path)
         if movie.isValid():
             self.image_label.setMovie(movie)
@@ -254,13 +259,18 @@ class MediaPreviewWidget(BaseTaskWidget):
     def _on_media_status_changed(self, status):
         """媒体状态变化"""
         if status == QMediaPlayer.MediaStatus.EndOfMedia:
-            # For seamless looping, reset position to beginning immediately
-            # to avoid the black screen during transition
-            self.media_player.setPosition(0)
-            # If the video was playing, continue playing to maintain seamless playback
-            if self.is_playing:
-                # The play command might cause a small delay, so we need to ensure smoothness
+            # Only loop if we're still displaying a video (not switched to image)
+            # and if the video is still playing
+            if self.video_widget.isVisible() and self.is_playing:
+                # For seamless looping, reset position to beginning immediately
+                # to avoid the black screen during transition
+                self.media_player.setPosition(0)
+                # Continue playing to maintain seamless playback
                 self.media_player.play()
+            else:
+                # If video widget is hidden or not playing, stop the loop
+                self.is_playing = False
+                self.play_pause_btn.setText("▶ 播放")
         elif status == QMediaPlayer.MediaStatus.LoadingMedia:
             self._show_placeholder("加载视频中...")
         elif status == QMediaPlayer.MediaStatus.LoadedMedia:
@@ -307,9 +317,11 @@ class MediaPreviewWidget(BaseTaskWidget):
         """更新进度条"""
         self.position_slider.setValue(position)
         
+        # Only loop if we're still displaying the video (not switched to image)
         # For seamless looping, check if we're getting close to the end
         # and loop before reaching the actual end to prevent black screen
-        if (self.video_duration > 0 and 
+        if (self.video_widget.isVisible() and
+            self.video_duration > 0 and 
             self.is_playing and 
             self.video_duration - position < 200):  # Loop 200ms before end
             # Reset to beginning slightly before video ends
@@ -435,9 +447,21 @@ class MediaPreviewWidget(BaseTaskWidget):
 
     def on_task_finished(self,result:TaskResult):
         timeline_index = result.get_timeline_index()
-        if timeline_index==self.timeline_index:
-            item = self.workspace.get_project().get_timeline().get_item(timeline_index)
-            self.load_file(item.get_preview_path())
+        # Only update if viewing the same timeline item
+        if timeline_index == self.timeline_index:
+            # Check what type of media was generated
+            new_image_path = result.get_image_path()
+            new_video_path = result.get_video_path()
+            
+            # Only update the currently displayed media type to avoid unexpected switches
+            # If currently showing video and a new video was generated, update it
+            if new_video_path and self.video_widget.isVisible():
+                self.load_file(new_video_path)
+            # If currently showing image and a new image was generated (and no video is being displayed), update it
+            elif new_image_path and self.image_label.isVisible():
+                self.load_file(new_image_path)
+            # Otherwise, don't automatically switch media types
+            # The user can manually switch by clicking the timeline item again
 
 # ------------------- 使用示例 -------------------
 class MainWindow(QWidget):
