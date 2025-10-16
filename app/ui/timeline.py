@@ -74,6 +74,9 @@ class HorizontalTimeline(BaseTaskWidget):
         self.resize(parent.width(), parent.height())
         self.setContentsMargins(5,5,5,5)
         self.selected_card_index = None  # 跟踪当前选中的卡片索引
+        
+        # Set size policy to prevent vertical expansion
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         # ------------------- 创建可滚动区域 -------------------
         self.scroll_area = DraggableScrollArea()

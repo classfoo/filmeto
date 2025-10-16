@@ -39,6 +39,10 @@ class TaskListWidget(BaseTaskWidget):
 
         # 设置背景色匹配右栏
         self.setStyleSheet("background-color: #292b2e;")
+        
+        # Set size policy to prevent expansion
+        from PySide6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
         # 刷新按钮
         top_layout = QHBoxLayout()

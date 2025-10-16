@@ -178,25 +178,38 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.layout.setSpacing(0)
         self.splitter = QSplitter(Qt.Horizontal)
         self.setObjectName("main_window_workspace_top_splitter")
-        #self.left = QWidget(self)
-        #self.resource_tree = ResourceTreeWidget(self)
-        #self.resource_tree.load_directory("workspace")
-        #self.left.setObjectName("main_window_workspace_top_left")
-        #self.splitter.addWidget(self.resource_tree)
+        # Disable stretching on splitter to maintain fixed sizes
+        self.splitter.setChildrenCollapsible(False)
+        
+        # Left panel - tool widgets
         self.v_splitter = QSplitter(Qt.Vertical)
+        self.v_splitter.setChildrenCollapsible(False)
         self.splitter.addWidget(self.v_splitter)
         self.text2image = Text2Image(workspace)
         self.image2video = Image2Video(workspace)
         self.v_splitter.addWidget(self.text2image)
         self.v_splitter.addWidget(self.image2video)
+        
+        # Center panel - preview (this should expand)
         self.center = MediaPreviewWidget(workspace)
         self.center.load_file("workspace/demo/timeline/0/image.png")
         self.center.setObjectName("main_window_workspace_top_center")
         self.splitter.addWidget(self.center)
+        
+        # Right panel - task list (fixed width)
         self.right = TaskListWidget(self, workspace)
         self.right.setObjectName("main_window_workspace_top_right")
+        self.right.setMinimumWidth(300)
+        self.right.setMaximumWidth(400)
         self.splitter.addWidget(self.right)
-        self.splitter.setSizes([300,1000,300])
+        
+        # Set initial sizes and stretch factors
+        # Left panel: 300px, Center: expand, Right panel: 300px
+        self.splitter.setSizes([300, 1000, 300])
+        self.splitter.setStretchFactor(0, 0)  # Left panel: don't stretch
+        self.splitter.setStretchFactor(1, 1)  # Center panel: stretch
+        self.splitter.setStretchFactor(2, 0)  # Right panel: don't stretch
+        
         self.layout.addWidget(self.splitter)
 
 class MainWindowWorkspaceBottom(BaseWidget):
@@ -208,6 +221,9 @@ class MainWindowWorkspaceBottom(BaseWidget):
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0,0,0,0)
         self.timeline = HorizontalTimeline(self,workspace)
+        # Set fixed height for timeline to prevent it from expanding
+        self.setMinimumHeight(180)
+        self.setMaximumHeight(220)
         self.layout.addWidget(self.timeline)
 
 
@@ -224,11 +240,20 @@ class MainWindowWorkspace(BaseWidget):
         self.layout.setSpacing(0)
         self.splitter = QSplitter(Qt.Vertical)
         self.splitter.setObjectName("main_window_workspace_splitter")
+        self.splitter.setChildrenCollapsible(False)
+        
         self.workspace_top = MainWindowWorkspaceTop(self,workspace)
         self.splitter.addWidget(self.workspace_top)
+        
         self.workspace_bottom = MainWindowWorkspaceBottom(self,workspace)
         self.splitter.addWidget(self.workspace_bottom)
-        self.splitter.setSizes([1200,360])
+        
+        # Set initial sizes and stretch factors
+        # Top area should expand, bottom (timeline) should stay fixed
+        self.splitter.setSizes([1200, 200])
+        self.splitter.setStretchFactor(0, 1)  # Top: stretch
+        self.splitter.setStretchFactor(1, 0)  # Bottom (timeline): don't stretch
+        
         self.layout.addWidget(self.splitter)
 
 class MainWindowHLayout(BaseWidget):
