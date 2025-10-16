@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton,    QLabel, QGroupBox, QRadioButton, QSpinBox,     QFileDialog, QMessageBox, QProgressBar, QFrame
 from app.ui.base_widget import BaseWidget
 from .export_dialog import ExportDialog, ExportWorker
+from utils.i18n_utils import tr, translation_manager
 
 
 class ExportVideoWidget(BaseWidget):
@@ -40,7 +41,7 @@ class ExportVideoWidget(BaseWidget):
         layout.setSpacing(0)
         
         # Export options
-        options_group = QGroupBox("Export Options")
+        options_group = QGroupBox(tr("导出选项"))
         options_group.setStyleSheet("""
             QGroupBox {
                 font-size: 13px;
@@ -67,8 +68,8 @@ class ExportVideoWidget(BaseWidget):
         # Quick export buttons
         quick_buttons_layout = QHBoxLayout()
         
-        self.export_all_button = QPushButton("Export All as One Video")
-        self.export_all_button.setToolTip("Export all timeline items as a single video")
+        self.export_all_button = QPushButton(tr("导出所有为一个视频"))
+        self.export_all_button.setToolTip(tr("将所有时间线项导出为单个视频"))
         self.export_all_button.setStyleSheet("""
             QPushButton {
                 background-color: #4e73df;
@@ -88,8 +89,8 @@ class ExportVideoWidget(BaseWidget):
             }
         """)
         
-        self.export_grouped_button = QPushButton("Export in Groups")
-        self.export_grouped_button.setToolTip("Export timeline items in groups of N")
+        self.export_grouped_button = QPushButton(tr("分组导出"))
+        self.export_grouped_button.setToolTip(tr("将时间线项分N组导出"))
         self.export_grouped_button.setStyleSheet("""
             QPushButton {
                 background-color: #4e73df;
@@ -109,8 +110,8 @@ class ExportVideoWidget(BaseWidget):
             }
         """)
         
-        self.export_individual_button = QPushButton("Export Individually") 
-        self.export_individual_button.setToolTip("Export each item as a separate video")
+        self.export_individual_button = QPushButton(tr("逐个导出")) 
+        self.export_individual_button.setToolTip(tr("将每个项导出为单独的视频"))
         self.export_individual_button.setStyleSheet("""
             QPushButton {
                 background-color: #4e73df;
@@ -152,7 +153,7 @@ class ExportVideoWidget(BaseWidget):
         
         # FPS setting
         fps_layout = QHBoxLayout()
-        fps_label = QLabel("FPS:")
+        fps_label = QLabel(tr("帧率:"))
         fps_label.setStyleSheet("font-weight: bold; color: #495057; min-width: 130px;")
         fps_layout.addWidget(fps_label)
         self.fps_spin = QSpinBox()
@@ -178,7 +179,7 @@ class ExportVideoWidget(BaseWidget):
         
         # Items per video (for grouped export)
         items_per_video_layout = QHBoxLayout()
-        items_per_video_label = QLabel("Items per video (grouped export):")
+        items_per_video_label = QLabel(tr("每个视频的项数（分组导出）:"))
         items_per_video_label.setStyleSheet("font-weight: bold; color: #495057; min-width: 130px;")
         items_per_video_layout.addWidget(items_per_video_label)
         self.items_per_video_spin = QSpinBox()
@@ -204,7 +205,7 @@ class ExportVideoWidget(BaseWidget):
         
         # Output directory
         output_layout = QHBoxLayout()
-        output_label = QLabel("Output Directory:")
+        output_label = QLabel(tr("输出目录:"))
         output_label.setStyleSheet("font-weight: bold; color: #495057; min-width: 130px;")
         output_layout.addWidget(output_label)
         self.output_dir_label = QLabel(os.path.expanduser("~"))
@@ -221,7 +222,7 @@ class ExportVideoWidget(BaseWidget):
         output_layout.addWidget(self.output_dir_label)
         
         # Add both browse and save as buttons
-        self.browse_button = QPushButton("Browse...")
+        self.browse_button = QPushButton(tr("浏览..."))
         self.browse_button.setStyleSheet("""
             QPushButton {
                 background-color: #1cc88a;
@@ -241,7 +242,7 @@ class ExportVideoWidget(BaseWidget):
         """)
         output_layout.addWidget(self.browse_button)
         
-        self.save_as_button = QPushButton("Save As...")
+        self.save_as_button = QPushButton(tr("另存为..."))
         self.save_as_button.setStyleSheet("""
             QPushButton {
                 background-color: #36b9cc;
@@ -286,7 +287,7 @@ class ExportVideoWidget(BaseWidget):
         layout.addWidget(self.progress_bar)
         
         # Export button
-        self.export_button = QPushButton("Export")
+        self.export_button = QPushButton(tr("导出"))
         self.export_button.setStyleSheet("""
             QPushButton {
                 background-color: #36b9cc;
@@ -309,6 +310,88 @@ class ExportVideoWidget(BaseWidget):
         
         layout.addStretch()  # Add stretch to push everything up
         
+        # Connect to language change signal
+        translation_manager.language_changed.connect(self.retranslateUi)
+        
+    def retranslateUi(self):
+        """更新所有UI文本当语言变化时"""
+        # Update buttons
+        self.export_all_button.setText(tr("导出所有为一个视频"))
+        self.export_all_button.setToolTip(tr("将所有时间线项导出为单个视频"))
+        self.export_grouped_button.setText(tr("分组导出"))
+        self.export_grouped_button.setToolTip(tr("将时间线项分N组导出"))
+        self.export_individual_button.setText(tr("逐个导出"))
+        self.export_individual_button.setToolTip(tr("将每个项导出为单独的视频"))
+    def retranslateUi(self):
+        """Update all UI text when language changes"""
+        # Block signals during update to prevent unwanted events
+        widgets_to_block = [
+            self.export_all_button,
+            self.export_grouped_button,
+            self.export_individual_button,
+            self.browse_button,
+            self.save_as_button,
+            self.export_button
+        ]
+        
+        for widget in widgets_to_block:
+            widget.blockSignals(True)
+        
+        # Update buttons
+        self.export_all_button.setText(tr("导出所有为一个视频"))
+        self.export_all_button.setToolTip(tr("将所有时间线项导出为单个视频"))
+        self.export_grouped_button.setText(tr("分组导出"))
+        self.export_grouped_button.setToolTip(tr("将时间线项分N组导出"))
+        self.export_individual_button.setText(tr("逐个导出"))
+        self.export_individual_button.setToolTip(tr("将每个项导出为单独的视频"))
+        self.browse_button.setText(tr("浏览..."))
+        self.save_as_button.setText(tr("另存为..."))
+        self.export_button.setText(tr("导出"))
+        
+        # Re-enable signals
+        for widget in widgets_to_block:
+            widget.blockSignals(False)
+        
+        # Update group box and labels without triggering layout recalculations
+        for i in range(self.layout().count()):
+            item = self.layout().itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, QGroupBox):
+                    widget.setTitle(tr("导出选项"))
+                    # Update labels inside - but be careful not to trigger resize
+                    self._update_labels_recursive(widget)
+                    break
+    
+    def _update_labels_recursive(self, parent):
+        """递归更新所有标签 - 仅当文本实际变化时更新"""
+        if hasattr(parent, 'layout') and parent.layout():
+            layout = parent.layout()
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item:
+                    if item.widget():
+                        widget = item.widget()
+                        if isinstance(widget, QLabel):
+                            old_text = widget.text()
+                            new_text = None
+                            
+                            # Determine new text based on current text
+                            if "帧率" in old_text or "FPS" in old_text:
+                                new_text = tr("帧率:")
+                            elif "每个视频" in old_text or "Items per video" in old_text:
+                                new_text = tr("每个视频的项数（分组导出）:")
+                            elif "输出目录" in old_text or "Output Directory" in old_text:
+                                new_text = tr("输出目录:")
+                            
+                            # Only update if text changed
+                            if new_text and old_text != new_text:
+                                widget.setText(new_text)
+                        elif hasattr(widget, 'layout'):
+                            self._update_labels_recursive(widget)
+                    elif item.layout():
+                        self._update_labels_recursive(item.layout())
+    
     def connect_signals(self):
         """Connect UI signals"""
         # Quick export buttons
@@ -334,7 +417,7 @@ class ExportVideoWidget(BaseWidget):
         
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Select Export Directory",
+            tr("选择导出目录"),
             last_dir
         )
         
@@ -351,9 +434,9 @@ class ExportVideoWidget(BaseWidget):
         # Use getSaveFileName but we'll just use the directory part
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Save Exported Video",
+            tr("保存导出视频"),
             os.path.join(last_dir, "exported_video.mp4"),
-            "Video Files (*.mp4 *.avi *.mov);;All Files (*)"
+            tr("视频文件 (*.mp4 *.avi *.mov);;所有文件 (*)")
         )
         
         if file_path:
@@ -402,7 +485,7 @@ class ExportVideoWidget(BaseWidget):
         # Validate export directory
         output_dir = self.output_dir_label.text()
         if not os.path.exists(output_dir):
-            QMessageBox.warning(self, "Warning", "Export directory does not exist!")
+            QMessageBox.warning(self, tr("警告"), tr("导出目录不存在！"))
             return
         
         # Disable UI during export
@@ -415,7 +498,7 @@ class ExportVideoWidget(BaseWidget):
         timeline_items = timeline.get_items()  # Assuming this returns items in order
         
         if not timeline_items:
-            QMessageBox.warning(self, "Warning", "No timeline items to export!")
+            QMessageBox.warning(self, tr("警告"), tr("没有时间线项可导出！"))
             self._set_ui_enabled(True)
             self.progress_bar.setVisible(False)
             return
@@ -466,7 +549,7 @@ class ExportVideoWidget(BaseWidget):
 
     def _export_error(self, error_msg):
         """Handle export error"""
-        QMessageBox.critical(self, "Error", f"Export failed: {error_msg}")
+        QMessageBox.critical(self, tr("错误"), tr("导出失败: {}").format(error_msg))
         self._set_ui_enabled(True)
         self.progress_bar.setVisible(False)
 
@@ -532,6 +615,12 @@ class FloatingExportPanel(QFrame):
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             }
         """)
+        
+        # Store title label reference for retranslateUi
+        self.title_label = None
+        
+        # Connect to language change signal
+        translation_manager.language_changed.connect(self.retranslateUi)
 
     def _create_title_bar(self):
         """Create a title bar with minimize and close buttons"""
@@ -550,7 +639,7 @@ class FloatingExportPanel(QFrame):
         title_layout.setSpacing(0)
         
         # Title label
-        title_label = QLabel("Export Video")
+        title_label = QLabel(tr("导出视频"))
         title_label.setStyleSheet("""
             QLabel {
                 color: white;
@@ -559,6 +648,9 @@ class FloatingExportPanel(QFrame):
             }
         """)
         title_layout.addWidget(title_label)
+        
+        # Store reference for retranslateUi
+        self.title_label = title_label
         
         title_layout.addStretch()
         
@@ -585,6 +677,11 @@ class FloatingExportPanel(QFrame):
         title_layout.addWidget(close_button)
         
         return title_bar
+    
+    def retranslateUi(self):
+        """更新所有UI文本当语言变化时"""
+        if self.title_label:
+            self.title_label.setText(tr("导出视频"))
 
     def _on_export_started(self):
         """Called when export starts - disable panel during export"""

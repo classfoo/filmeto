@@ -7,6 +7,7 @@ from .task_item_widget import TaskItemWidget
 import os
 
 from ..base_widget import BaseWidget, BaseTaskWidget
+from utils.i18n_utils import tr, translation_manager
 
 
 class TaskListWidget(BaseTaskWidget):
@@ -46,7 +47,7 @@ class TaskListWidget(BaseTaskWidget):
 
         # 刷新按钮
         top_layout = QHBoxLayout()
-        self.refresh_btn = QPushButton("🔄 刷新任务")
+        self.refresh_btn = QPushButton(tr("🔄 刷新任务"))
         self.refresh_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3d3f4e;
@@ -92,7 +93,14 @@ class TaskListWidget(BaseTaskWidget):
 
         # 滚动到底部加载更多
         self.scroll_area.verticalScrollBar().valueChanged.connect(self.check_scroll)
+        
+        # Connect to language change signal
+        translation_manager.language_changed.connect(self.retranslateUi)
 
+    def retranslateUi(self):
+        """更新所有UI文本当语言变化时"""
+        self.refresh_btn.setText(tr("🔄 刷新任务"))
+    
     def on_task_create(self,task):
         self.refresh_tasks()
 

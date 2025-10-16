@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QPushButton, QWidget, QVBoxLayout, QLabel, QStyle,
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
+from utils.i18n_utils import tr
 
 
 class ProjectMenu(BaseWidget):
@@ -26,23 +27,23 @@ class ProjectMenu(BaseWidget):
         self.button.setIconSize(QSize(24,24))
         toolbar_menu = QMenu(self)
         self.button.setMenu(toolbar_menu)
-        tb_action1 = QAction("工具栏选项 00000000", self)
-        tb_action2 = QAction("工具栏选项 2", self)
+        tb_action1 = QAction(tr("工具栏选项1"), self)
+        tb_action2 = QAction(tr("工具栏选项2"), self)
         toolbar_menu.addAction(tb_action1)
         toolbar_menu.addAction(tb_action2)
 
-        tb_action1.triggered.connect(lambda: self.on_menu_action_triggered("工具栏选项 00000000"))
-        tb_action2.triggered.connect(lambda: self.on_menu_action_triggered("工具栏选项 2"))
+        tb_action1.triggered.connect(lambda: self.on_menu_action_triggered(tr("工具栏选项1")))
+        tb_action2.triggered.connect(lambda: self.on_menu_action_triggered(tr("工具栏选项2")))
 
     def on_menu_action_triggered(self, action_text):
         """处理菜单项被触发"""
         print(f"菜单项 '{action_text}' 被触发")
-        QMessageBox.information(self, "菜单项触发", f"你点击了: {action_text}")
+        QMessageBox.information(self, tr("菜单项触发"), tr("你点击了: {}").format(action_text))
 
     def on_menu_button_main_clicked(self):
         """处理 MenuButtonPopup 模式下按钮主要区域的点击"""
         print("MenuButtonPopup 按钮的主要区域被点击")
-        QMessageBox.information(self, "按钮点击", "你点击了 MenuButton 的主要区域！")
+        QMessageBox.information(self, tr("按钮点击"), tr("你点击了 MenuButton 的主要区域！"))
 
 
     def create_rounded_letter_icon(self,letter, size=32, bg_color=QColor("transparent"), text_color=QColor("black"), font_family="Sans-serif", corner_radius_ratio=0.2):

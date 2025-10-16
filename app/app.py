@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QApplication
 from app.data.workspace import Workspace
 from app.ui.main_window import MainWindow
 from server.server import Server
+from utils.i18n_utils import translation_manager
 
 def load_stylesheet(main_path):
     """loading QSS style files"""
@@ -71,6 +72,12 @@ class App():
 
     def start(self):
         app = QApplication(sys.argv)
+        
+        # Initialize translation system
+        translation_manager.set_app(app)
+        # Set default language (can be loaded from config later)
+        translation_manager.switch_language("zh_CN")
+        
         # 启动消费者
         loop = QEventLoop(app)
         asyncio.set_event_loop(loop)

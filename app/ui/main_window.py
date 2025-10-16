@@ -1,8 +1,8 @@
 import os
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout,
-                               QPushButton, QVBoxLayout, QSplitter)
-from PySide6.QtCore import Qt
+                               QPushButton, QVBoxLayout, QSplitter, QMenu)
+from PySide6.QtCore import Qt, Signal
 
 from app.data.workspace import Workspace
 from app.plugins.tools.img2video.img2video import Image2Video
@@ -13,9 +13,12 @@ from app.ui.preview import MediaPreviewWidget
 from app.ui.project_menu import ProjectMenu
 from app.ui.task_list import TaskListWidget
 from app.ui.timeline import HorizontalTimeline
+from utils.i18n_utils import translation_manager, tr
 
 
 class MainWindowTopBar(BaseWidget):
+    # Signal to notify when language changes
+    language_changed = Signal(str)
 
     def __init__(self, window,workspace:Workspace):
         super(MainWindowTopBar,self).__init__(workspace)
@@ -43,10 +46,18 @@ class MainWindowTopBar(BaseWidget):
         self.layout.addWidget(QPushButton("\ue622", self))
 
         self.layout.addStretch()
+        
+        # Language switcher button
+        self.language_button = QPushButton("🌐", self)
+        self.language_button.setObjectName("main_window_top_bar_button")
+        self.language_button.setToolTip(tr("切换语言"))
+        self.language_button.clicked.connect(self._show_language_menu)
+        self.layout.addWidget(self.language_button)
+        
         # Export button
         self.export_button = QPushButton("\ue846", self)
         self.export_button.setObjectName("main_window_top_bar_button")
-        self.export_button.setToolTip("Export Timeline")
+        self.export_button.setToolTip(tr("导出时间线"))
         self.export_button.clicked.connect(self._show_export_dialog)
         self.layout.addWidget(self.export_button)
         # settings
@@ -56,6 +67,9 @@ class MainWindowTopBar(BaseWidget):
         # mouse move
         self.draggable = True
         self.drag_start_position = None
+        
+        # Connect to language change signal
+        translation_manager.language_changed.connect(self._on_language_changed)
 
     def mousePressEvent(self, event: QMouseEvent):
         self.draggable = True
@@ -74,6 +88,56 @@ class MainWindowTopBar(BaseWidget):
         self.draggable = False
         self.window.mouseReleaseEvent(event)
         
+    def _show_language_menu(self):
+        """Show language selection menu"""
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #2c2c2c;
+                color: #E1E1E1;
+                border: 1px solid #505254;
+            }
+            QMenu::item:selected {
+                background-color: #4080ff;
+            }
+        """)
+        
+        # Get available languages
+        languages = translation_manager.get_available_languages()
+        current_lang = translation_manager.get_current_language()
+        
+        for lang_code, lang_name in languages.items():
+            action = menu.addAction(lang_name)
+            action.setData(lang_code)
+            # Mark current language
+            if lang_code == current_lang:
+                action.setText(f"✓ {lang_name}")
+            action.triggered.connect(lambda checked=False, code=lang_code: self._switch_language(code))
+        
+        # Show menu below the button
+        menu.exec(self.language_button.mapToGlobal(
+            self.language_button.rect().bottomLeft()))
+    
+    def _switch_language(self, language_code):
+        """Switch application language"""
+        if translation_manager.switch_language(language_code):
+            # Language changed signal will trigger _on_language_changed
+            pass
+    
+    def _on_language_changed(self, language_code):
+        """Called when language changes - update all UI text"""
+        # Temporarily disable layout updates to prevent window expansion
+        self.setUpdatesEnabled(False)
+        self._update_ui_text()
+        self.setUpdatesEnabled(True)
+        # Force a single repaint
+        self.update()
+    
+    def _update_ui_text(self):
+        """Update UI text after language change"""
+        self.language_button.setToolTip(tr("切换语言"))
+        self.export_button.setToolTip(tr("导出时间线"))
+    
     def _show_export_dialog(self):
         """Show the floating export panel"""
         # Import here to avoid circular imports

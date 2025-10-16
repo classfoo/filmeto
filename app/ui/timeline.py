@@ -14,6 +14,7 @@ from app.ui.base_widget import BaseWidget, BaseTaskWidget
 from app.ui.draggable_scroll_area import DraggableScrollArea
 from app.ui.hover_zoom_frame import HoverZoomFrame
 from utils import qt_utils
+from utils.i18n_utils import tr, translation_manager
 
 
 class AddCardFrame(QFrame):
@@ -48,7 +49,7 @@ class AddCardFrame(QFrame):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
         # Title label
-        self.title_label = QLabel("Add Card")
+        self.title_label = QLabel(tr("Add Card"))
         self.title_label.setAlignment(Qt.AlignCenter)
         font = self.title_label.font()
         font.setPointSize(10)
@@ -70,7 +71,7 @@ class HorizontalTimeline(BaseTaskWidget):
     """左右滑动的卡片式时间线主窗口"""
     def __init__(self,parent:QWidget,workspace:Workspace):
         super().__init__(workspace)
-        self.setWindowTitle("TimeLine")
+        self.setWindowTitle(tr("TimeLine"))
         self.resize(parent.width(), parent.height())
         self.setContentsMargins(5,5,5,5)
         self.selected_card_index = None  # 跟踪当前选中的卡片索引
@@ -146,7 +147,17 @@ class HorizontalTimeline(BaseTaskWidget):
         # 聚焦以接收键盘事件
         self.scroll_area.setFocusPolicy(Qt.StrongFocus)
         self.scroll_area.setFocus()
+        
+        # Connect to language change signal
+        translation_manager.language_changed.connect(self.retranslateUi)
 
+    def retranslateUi(self):
+        """更新所有UI文本当语言变化时"""
+        self.setWindowTitle(tr("TimeLine"))
+        # Update Add Card button label
+        if hasattr(self, 'add_card_button') and self.add_card_button:
+            self.add_card_button.title_label.setText(tr("Add Card"))
+    
     def keyPressEvent(self, event: QKeyEvent):
         """重写键盘事件，支持左右方向键滑动"""
         if isinstance(event, QKeyEvent):
