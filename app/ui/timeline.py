@@ -73,6 +73,7 @@ class HorizontalTimeline(BaseTaskWidget):
         self.setWindowTitle("TimeLine")
         self.resize(parent.width(), parent.height())
         self.setContentsMargins(5,5,5,5)
+        self.selected_card_index = None  # 跟踪当前选中的卡片索引
 
         # ------------------- 创建可滚动区域 -------------------
         self.scroll_area = DraggableScrollArea()
@@ -114,9 +115,16 @@ class HorizontalTimeline(BaseTaskWidget):
         current_index = workspace.get_project().get_timeline_index()
         if 1 <= current_index <= timeline_item_count:
             timeline.set_item_index(current_index)
+            self.selected_card_index = current_index
+            # 设置当前选中的卡片为选中状态
+            if self.cards:
+                self.cards[current_index - 1].set_selected(True)
         else:
             # If current index is out of bounds, default to 1
             timeline.set_item_index(1)
+            self.selected_card_index = 1
+            if self.cards:
+                self.cards[0].set_selected(True)
         # Add the "Add Card" button at the end
         self.add_card_button = AddCardFrame(self)
         self.timeline_layout.addWidget(self.add_card_button)
@@ -197,8 +205,16 @@ class HorizontalTimeline(BaseTaskWidget):
             print(f"Error adding new card: {e}")
 
     def on_mouse_press_card(self,index):
+        # 取消之前选中卡片的选中状态
+        if self.selected_card_index is not None and 1 <= self.selected_card_index <= len(self.cards):
+            self.cards[self.selected_card_index - 1].set_selected(False)
+        
+        # 设置新选中的卡片
+        self.selected_card_index = index
+        if 1 <= index <= len(self.cards):
+            self.cards[index - 1].set_selected(True)
+        
         self.workspace.get_project().get_timeline().set_item_index(index)
-        pass
 
 # ------------------- 运行应用 -------------------
 if __name__ == "__main__":
