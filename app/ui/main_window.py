@@ -11,6 +11,7 @@ from app.ui.base_widget import BaseWidget
 from app.ui.mac_button import MacTitleBar
 from app.ui.preview import MediaPreviewWidget
 from app.ui.project_menu import ProjectMenu
+from app.ui.prompt_input import PromptInputWidget
 from app.ui.task_list import TaskListWidget
 from app.ui.timeline import HorizontalTimeline
 from utils.i18n_utils import translation_manager, tr
@@ -258,7 +259,14 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.center = MediaPreviewWidget(workspace)
         self.center.load_file("workspace/demo/timeline/0/image.png")
         self.center.setObjectName("main_window_workspace_top_center")
-        self.splitter.addWidget(self.center)
+
+        self.center_v_splitter = QSplitter(Qt.Vertical)
+        self.center_v_splitter.addWidget(self.center)
+        self.prompt_widget = PromptInputWidget(self.workspace)
+        #self.prompt_widget.prompt_submitted.connect(self._on_prompt_submitted)
+        #self.prompt_widget.prompt_changed.connect(self._on_prompt_changed)
+        self.center_v_splitter.addWidget(self.prompt_widget)
+        self.splitter.addWidget(self.center_v_splitter)
         
         # Right panel - task list (fixed width)
         self.right = TaskListWidget(self, workspace)
