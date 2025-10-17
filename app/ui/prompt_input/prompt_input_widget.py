@@ -82,7 +82,7 @@ class PromptInputWidget(BaseWidget):
         self.char_counter.hide()  # Hidden by default
         
         input_layout.addWidget(self.text_edit, 1)
-        input_layout.addWidget(self.send_button, 0, Qt.AlignmentFlag.AlignVCenter)  # Vertical center alignment
+        input_layout.addWidget(self.send_button, 0, Qt.AlignTop)
         
         # Template dropdown container
         self.template_dropdown_container = QFrame()
