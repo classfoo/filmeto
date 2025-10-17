@@ -7,7 +7,7 @@ from app.data.workspace import Workspace
 from app.plugins.tools.img2video.img2video import Image2Video
 from app.plugins.tools.text2img.text2img import Text2Image
 from app.ui.base_widget import BaseWidget
-from app.ui.editor import EditorWidget
+from app.ui.editor import ToolEditorWidget
 from app.ui.mac_button import MacTitleBar
 from app.ui.project_menu import ProjectMenu
 from app.ui.task_list import TaskListWidget
@@ -254,7 +254,7 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.v_splitter.addWidget(self.image2video)
         
         # Center panel - preview (this should expand)
-        self.center: EditorWidget = EditorWidget(workspace)
+        self.center: ToolEditorWidget = ToolEditorWidget(workspace)
         self.splitter.addWidget(self.center)
         
         # Right panel - task list (fixed width)

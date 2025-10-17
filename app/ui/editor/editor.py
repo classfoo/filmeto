@@ -1,7 +1,14 @@
 """
 AI Image/Video Editor Component
 A comprehensive editor widget with preview area and prompt input controls.
+Supports dynamic tool loading from plugins/tools directory.
 """
+
+import os
+import importlib
+import inspect
+from pathlib import Path
+from typing import Dict, Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
@@ -16,12 +23,13 @@ from app.ui.prompt_input.prompt_input_widget import PromptInputWidget
 from app.data.workspace import Workspace
 from app.data.task import TaskResult, Task
 from app.data.timeline import TimelineItem
+from app.spi.tool import BaseTool
 from utils.i18n_utils import tr
 
 
 class EditorWidget(BaseTaskWidget):
     """
-    AI Image/Video Editor Component
+    AI Image/Video Editor Component with Dynamic Tool Loading
     
     Layout Structure:
     ┌─────────────────────────────────┐
@@ -31,21 +39,21 @@ class EditorWidget(BaseTaskWidget):
     ├─────────────────────────────────┤
     │  Control Area (Bottom)          │
     │  ┌───────────┬─────────────┐   │
-    │  │Mode Switch│Prompt Input │   │
+    │  │Tool Buttons│Prompt Input│   │
     │  └───────────┴─────────────┘   │
     └─────────────────────────────────┘
+    
+    Tools are dynamically loaded from app/plugins/tools/
+    Each tool provides:
+    - Tool name/identifier
+    - Icon (Unicode character)
+    - Display name
+    - params() method for generating task parameters
     """
     
-    # Editing modes
-    MODE_TEXT_TO_IMAGE = "text_to_image"
-    MODE_IMAGE_TO_VIDEO = "image_to_video"
-    MODE_TEXT_TO_VIDEO = "text_to_video"
-    MODE_IMAGE_EDIT = "image_edit"
-    MODE_VIDEO_EDIT = "video_edit"
-    
     # Signals
-    mode_changed = Signal(str)  # Emitted when editing mode changes
-    prompt_submitted = Signal(str, str)  # Emitted with (mode, prompt)
+    tool_changed = Signal(str)  # Emitted when tool changes
+    task_submitted = Signal(dict)  # Emitted when task is submitted
     
     def __init__(self, workspace: Workspace, parent=None):
         """
@@ -60,13 +68,23 @@ class EditorWidget(BaseTaskWidget):
             self.setParent(parent)
         
         self.workspace = workspace
-        self._current_mode = self.MODE_TEXT_TO_IMAGE
+        self._current_tool: Optional[str] = None
         self._is_processing = False
+        self._tools: Dict[str, 'ToolInfo'] = {}  # tool_id -> ToolInfo
+        self._tool_instances: Dict[str, BaseTool] = {}  # tool_id -> tool instance
+        
+        # Load available tools
+        self._discover_tools()
         
         self._setup_ui()
         self._connect_signals()
         self._apply_styles()
         self._update_ui_text()
+        
+        # Set initial tool if any available
+        if self._tools:
+            first_tool = list(self._tools.keys())[0]
+            self._current_tool = first_tool
     
     def _setup_ui(self):
         """Initialize UI components"""
