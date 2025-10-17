@@ -379,13 +379,13 @@ class ToolEditorWidget(BaseTaskWidget):
             return
         
         if not self._current_tool:
-            await self._update_status(tr("No tool selected"))
+            self._update_status(tr("No tool selected"))
             return
         
         # Get tool instance
         tool = self._get_tool_instance(self._current_tool)
         if not tool:
-            await self._update_status(tr("Tool not available"))
+            self._update_status(tr("Tool not available"))
             return
         
         try:
@@ -405,37 +405,37 @@ class ToolEditorWidget(BaseTaskWidget):
                 self.task_submitted.emit(params)
                 
                 # Update status
-                await self._set_processing(True)
-                await self._update_status(tr("Task submitted..."))
+                self._set_processing(True)
+                self._update_status(tr("Task submitted..."))
             else:
-                await self._update_status(tr("Tool does not support params()"))
+                self._update_status(tr("Tool does not support params()"))
         
         except Exception as e:
             print(f"Error submitting task: {e}")
-            await self._update_status(tr("Error submitting task"))
+            self._update_status(tr("Error submitting task"))
     
     # ========== Task Event Handlers ==========
     
     async def on_task_create(self, params):
         """Handle task creation (must be sync - called via blinker signal)"""
-        await self._set_processing(True)
-        await  self._update_status(tr("Task created"))
+        self._set_processing(True)
+        self._update_status(tr("Task created"))
     
     async def on_task_execute(self, task: Task):
         """Handle task execution (can be async - called via AsyncQueue)"""
-        await  self._set_processing(True)
-        await self._update_status(tr("Executing..."))
+        self._set_processing(True)
+        self._update_status(tr("Executing..."))
     
     async def on_task_finished(self, result: TaskResult):
         """Handle task completion (must be sync - called via blinker signal)"""
-        await self._set_processing(False)
+        self._set_processing(False)
         
         if result.get_image_path() or result.get_video_path():
-            await  self._update_status(tr("Completed"))
+            self._update_status(tr("Completed"))
         else:
-            await self._update_status(tr("Task finished"))
+            self._update_status(tr("Task finished"))
 
-    def on_timeline_switch(self, item: TimelineItem):
+    async def on_timeline_switch(self, item: TimelineItem):
         """Handle timeline item switch"""
         # Let tool handle it if it wants
         if self._current_tool:
@@ -463,13 +463,13 @@ class ToolEditorWidget(BaseTaskWidget):
     
     # ========== Helper Methods ==========
     
-    async def _set_processing(self, is_processing: bool):
+    def _set_processing(self, is_processing: bool):
         """Update processing state"""
         self._is_processing = is_processing
         for btn in self._tool_buttons.values():
             btn.setEnabled(not is_processing)
     
-    async def _update_status(self, message: str):
+    def _update_status(self, message: str):
         """Update status label"""
         self.status_label.setText(message)
         if not self._is_processing:
