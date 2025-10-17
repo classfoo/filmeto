@@ -49,10 +49,14 @@ Successfully implemented a comprehensive AI Image/Video Editor component (`Edito
   - Playback controls
   - Multiple aspect ratios
   
-- **Bottom Section (30%)**: Control area
-  - Mode selection dropdown
-  - Status indicator
-  - Prompt input with templates
+- **Bottom Section (30%)**: Control area with horizontal layout
+  - **Left**: Mode icon buttons (5 buttons, 40x40px each)
+    - Text to Image (icon: \ue82c)
+    - Image to Video (icon: \ue874) 
+    - Text to Video (icon: \ue84b)
+    - Image Edit (icon: \ue837)
+    - Video Edit (icon: \ue834)
+  - **Right**: Prompt input with templates (stretches to fill)
 
 ### Functionality
 - ✅ Resizable splitter between sections

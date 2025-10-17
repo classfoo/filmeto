@@ -155,17 +155,42 @@ Emitted when the user submits a prompt.
 
 ### Control Area
 
-#### Mode Selection
-- Dropdown combo box for mode switching
-- Visual feedback on mode change
-- Context-aware prompt placeholders
+#### Mode Selection (Icon Buttons)
+- **Layout**: Horizontal row of icon buttons with highlight selection
+- **Icons**: 
+  - Text to Image: `\ue82c`
+  - Image to Video: `\ue874`
+  - Text to Video: `\ue84b`
+  - Image Edit: `\ue837`
+  - Video Edit: `\ue834`
+- **States**:
+  - Normal: Gray background (#3d3f4e)
+  - Hover: Lighter background (#4a4c5e)
+  - Selected: Blue highlight (#4080ff)
+- **Visual feedback**: Border highlight (2px) on selected mode
+- **Position**: Left side of control area
 
 #### Prompt Input (`PromptInputWidget`)
+- **Layout**: Takes remaining horizontal space (right side)
 - Expandable text area
 - Template autocomplete
 - Character counter
 - Submit button
 - Keyboard shortcuts (Enter to submit)
+
+#### Layout Structure
+```
+┌─────────────────────────────────────────┐
+│  Control Area (Horizontal Layout)      │
+│  ┌──────┬──────┬──────┬──────┬──────┐  │
+│  │ T→I  │ I→V  │ T→V  │ IE   │ VE   │  │ Mode Buttons
+│  └──────┴──────┴──────┴──────┴──────┘  │
+│  ┌─────────────────────────────────┐   │
+│  │  Prompt Input Widget            │   │ Prompt Area
+│  │  [Text area with templates]     │   │
+│  └─────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
 
 ## Styling
 

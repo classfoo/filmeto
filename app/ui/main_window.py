@@ -1,5 +1,3 @@
-import os
-from typing import Any
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout,
                                QPushButton, QVBoxLayout, QSplitter, QMenu)
@@ -11,9 +9,7 @@ from app.plugins.tools.text2img.text2img import Text2Image
 from app.ui.base_widget import BaseWidget
 from app.ui.editor import EditorWidget
 from app.ui.mac_button import MacTitleBar
-from app.ui.preview import MediaPreviewWidget
 from app.ui.project_menu import ProjectMenu
-from app.ui.prompt_input import PromptInputWidget
 from app.ui.task_list import TaskListWidget
 from app.ui.timeline import HorizontalTimeline
 from utils.i18n_utils import translation_manager, tr

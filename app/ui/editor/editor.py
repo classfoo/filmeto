@@ -4,11 +4,11 @@ A comprehensive editor widget with preview area and prompt input controls.
 """
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QLabel, QComboBox, QFrame, QSplitter
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
+    QComboBox, QFrame, QSplitter
 )
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QCursor, Qt as QtGui
+from PySide6.QtGui import QCursor
 
 from app.ui.base_widget import BaseTaskWidget
 from app.ui.preview import MediaPreviewWidget
@@ -95,15 +95,31 @@ class EditorWidget(BaseTaskWidget):
         self.control_container.setObjectName("editor_control_container")
         control_main_layout = QVBoxLayout(self.control_container)
         control_main_layout.setContentsMargins(12, 12, 12, 12)
-        control_main_layout.setSpacing(12)
+        control_main_layout.setSpacing(0)  # No spacing, content determines height
         
-        # Mode switching section
+        # Create horizontal layout for mode buttons and prompt input
+        control_h_layout = QHBoxLayout()
+        control_h_layout.setSpacing(12)
+        control_h_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Mode switching section (left)
         mode_section = self._create_mode_section()
-        control_main_layout.addWidget(mode_section)
+        control_h_layout.addWidget(mode_section, 0)  # Don't stretch
         
-        # Prompt input section
+        # Prompt input section (right)
         self.prompt_input = PromptInputWidget(self.workspace)
-        control_main_layout.addWidget(self.prompt_input)
+        # Set fixed height to match mode buttons (40px)
+        self.prompt_input.text_edit.setFixedHeight(40)
+        self.prompt_input.text_edit.setMaximumHeight(40)
+        self.prompt_input.send_button.setFixedSize(40, 40)  # Match button height
+        # Disable expand/collapse behavior
+        self.prompt_input._is_expanded = False
+        control_h_layout.addWidget(self.prompt_input, 1)  # Stretch to fill
+        
+        control_main_layout.addLayout(control_h_layout)
+        
+        # Set fixed height for control container to match content (40px + padding)
+        self.control_container.setFixedHeight(40 + 24)  # 40px content + 12px top + 12px bottom
         
         # Add containers to splitter
         self.splitter.addWidget(self.preview_container)
@@ -115,7 +131,7 @@ class EditorWidget(BaseTaskWidget):
         
         # Set minimum sizes
         self.preview_container.setMinimumHeight(300)
-        self.control_container.setMinimumHeight(150)
+        # Control container has fixed height, no minimum needed
         
         # Add splitter to main layout
         main_layout.addWidget(self.splitter)
@@ -123,37 +139,51 @@ class EditorWidget(BaseTaskWidget):
         self.setLayout(main_layout)
     
     def _create_mode_section(self) -> QWidget:
-        """Create mode switching section"""
+        """Create mode switching section with icon buttons"""
         mode_widget = QFrame()
         mode_widget.setObjectName("editor_mode_section")
         mode_layout = QHBoxLayout(mode_widget)
         mode_layout.setContentsMargins(0, 0, 0, 0)
         mode_layout.setSpacing(8)
         
-        # Mode label
-        self.mode_label = QLabel(tr("Mode:"))
-        self.mode_label.setObjectName("editor_mode_label")
+        # Mode buttons container
+        buttons_container = QWidget()
+        buttons_layout = QHBoxLayout(buttons_container)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(4)
         
-        # Mode selector (combo box)
-        self.mode_combo = QComboBox()
-        self.mode_combo.setObjectName("editor_mode_combo")
-        self.mode_combo.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.mode_combo.setMinimumWidth(200)
+        # Create mode buttons with icons
+        self.mode_buttons = {}
+        mode_configs = [
+            (self.MODE_TEXT_TO_IMAGE, "\ue82c", tr("Text to Image")),
+            (self.MODE_IMAGE_TO_VIDEO, "\ue874", tr("Image to Video")),
+            (self.MODE_TEXT_TO_VIDEO, "\ue84b", tr("Text to Video")),
+            (self.MODE_IMAGE_EDIT, "\ue837", tr("Image Edit")),
+            (self.MODE_VIDEO_EDIT, "\ue834", tr("Video Edit")),
+        ]
         
-        # Add modes
-        self.mode_combo.addItem(tr("Text to Image"), self.MODE_TEXT_TO_IMAGE)
-        self.mode_combo.addItem(tr("Image to Video"), self.MODE_IMAGE_TO_VIDEO)
-        self.mode_combo.addItem(tr("Text to Video"), self.MODE_TEXT_TO_VIDEO)
-        self.mode_combo.addItem(tr("Image Edit"), self.MODE_IMAGE_EDIT)
-        self.mode_combo.addItem(tr("Video Edit"), self.MODE_VIDEO_EDIT)
+        for mode, icon, tooltip in mode_configs:
+            btn = QPushButton(icon)
+            btn.setObjectName("editor_mode_button")
+            btn.setToolTip(tooltip)
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.setCheckable(True)
+            btn.setFixedSize(40, 40)
+            # Store mode as button property to avoid lambda closure issue
+            btn.setProperty("mode", mode)
+            btn.clicked.connect(self._handle_mode_button_click)
+            self.mode_buttons[mode] = btn
+            buttons_layout.addWidget(btn)
+        
+        # Set initial mode
+        self.mode_buttons[self.MODE_TEXT_TO_IMAGE].setChecked(True)
         
         # Status indicator
         self.status_label = QLabel(tr("Ready"))
         self.status_label.setObjectName("editor_status_label")
         
         # Layout
-        mode_layout.addWidget(self.mode_label)
-        mode_layout.addWidget(self.mode_combo)
+        mode_layout.addWidget(buttons_container)
         mode_layout.addStretch()
         mode_layout.addWidget(self.status_label)
         
@@ -161,9 +191,6 @@ class EditorWidget(BaseTaskWidget):
     
     def _connect_signals(self):
         """Connect signals and slots"""
-        # Mode change
-        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
-        
         # Prompt submission
         self.prompt_input.prompt_submitted.connect(self._on_prompt_submitted)
         
@@ -188,47 +215,34 @@ class EditorWidget(BaseTaskWidget):
             }
         """)
         
-        # Mode section
-        self.mode_label.setStyleSheet("""
-            QLabel#editor_mode_label {
-                color: #E1E1E1;
-                font-size: 14px;
-                font-weight: bold;
-            }
-        """)
-        
-        # Mode combo box
-        self.mode_combo.setStyleSheet("""
-            QComboBox#editor_mode_combo {
+        # Mode buttons
+        mode_button_style = """
+            QPushButton#editor_mode_button {
+                font-family: iconfont;
+                font-size: 18px;
                 background-color: #3d3f4e;
-                border: 1px solid #505254;
+                border: 2px solid #505254;
                 border-radius: 6px;
-                padding: 6px 12px;
-                color: #E1E1E1;
-                font-size: 13px;
+                color: #888888;
             }
-            QComboBox#editor_mode_combo:hover {
-                border: 1px solid #4080ff;
-            }
-            QComboBox#editor_mode_combo::drop-down {
-                border: none;
-                padding-right: 8px;
-            }
-            QComboBox#editor_mode_combo::down-arrow {
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #E1E1E1;
-                margin-right: 4px;
-            }
-            QComboBox#editor_mode_combo QAbstractItemView {
-                background-color: #3d3f4e;
-                border: 1px solid #505254;
-                selection-background-color: #4080ff;
-                selection-color: #ffffff;
+            QPushButton#editor_mode_button:hover {
+                background-color: #4a4c5e;
+                border: 2px solid #5a5c6e;
                 color: #E1E1E1;
             }
-        """)
+            QPushButton#editor_mode_button:checked {
+                background-color: #4080ff;
+                border: 2px solid #4080ff;
+                color: #ffffff;
+            }
+            QPushButton#editor_mode_button:checked:hover {
+                background-color: #5090ff;
+                border: 2px solid #5090ff;
+            }
+        """
+        
+        for btn in self.mode_buttons.values():
+            btn.setStyleSheet(mode_button_style)
         
         # Status label
         self.status_label.setStyleSheet("""
@@ -254,49 +268,60 @@ class EditorWidget(BaseTaskWidget):
     
     def _update_ui_text(self):
         """Update all translatable UI text"""
-        # Update mode combo items
-        for i in range(self.mode_combo.count()):
-            mode_data = self.mode_combo.itemData(i)
-            if mode_data == self.MODE_TEXT_TO_IMAGE:
-                self.mode_combo.setItemText(i, tr("Text to Image"))
-            elif mode_data == self.MODE_IMAGE_TO_VIDEO:
-                self.mode_combo.setItemText(i, tr("Image to Video"))
-            elif mode_data == self.MODE_TEXT_TO_VIDEO:
-                self.mode_combo.setItemText(i, tr("Text to Video"))
-            elif mode_data == self.MODE_IMAGE_EDIT:
-                self.mode_combo.setItemText(i, tr("Image Edit"))
-            elif mode_data == self.MODE_VIDEO_EDIT:
-                self.mode_combo.setItemText(i, tr("Video Edit"))
+        # Update mode button tooltips
+        tooltips = {
+            self.MODE_TEXT_TO_IMAGE: tr("Text to Image"),
+            self.MODE_IMAGE_TO_VIDEO: tr("Image to Video"),
+            self.MODE_TEXT_TO_VIDEO: tr("Text to Video"),
+            self.MODE_IMAGE_EDIT: tr("Image Edit"),
+            self.MODE_VIDEO_EDIT: tr("Video Edit"),
+        }
         
-        # Update labels
-        self.mode_label.setText(tr("Mode:"))
+        for mode, btn in self.mode_buttons.items():
+            btn.setToolTip(tooltips[mode])
+        
+        # Update status
         if not self._is_processing:
             self.status_label.setText(tr("Ready"))
     
     # ========== Signal Handlers ==========
     
-    @Slot(int)
-    def _on_mode_changed(self, index: int):
-        """Handle mode change"""
-        if index < 0:
+    def _handle_mode_button_click(self):
+        """Handle mode button click - wrapper to get mode from sender"""
+        button = self.sender()
+        if button:
+            mode = button.property("mode")
+            self._on_mode_button_clicked(mode)
+    
+    def _on_mode_button_clicked(self, mode: str):
+        """Handle mode button click"""
+        # Always update selection, even if clicking the same mode
+        # This ensures only one button is checked
+        
+        # Uncheck all buttons first
+        for btn in self.mode_buttons.values():
+            btn.setChecked(False)
+        
+        # Check the clicked button
+        self.mode_buttons[mode].setChecked(True)
+        
+        # Only update mode if different
+        if mode == self._current_mode:
             return
         
-        new_mode = self.mode_combo.itemData(index)
-        if new_mode == self._current_mode:
-            return
-        
-        self._current_mode = new_mode
+        self._current_mode = mode
         
         # Update placeholder based on mode
-        placeholder = self._get_mode_placeholder(new_mode)
+        placeholder = self._get_mode_placeholder(mode)
         self.prompt_input.set_placeholder(placeholder)
         
         # Emit signal
-        self.mode_changed.emit(new_mode)
+        self.mode_changed.emit(mode)
         
         # Update status
+        mode_name = self.mode_buttons[mode].toolTip()
         self._update_status(tr("Mode changed to: {mode}").replace(
-            "{mode}", self.mode_combo.currentText()
+            "{mode}", mode_name
         ))
     
     @Slot(str)
@@ -356,10 +381,8 @@ class EditorWidget(BaseTaskWidget):
     
     def set_mode(self, mode: str):
         """Set editing mode programmatically"""
-        for i in range(self.mode_combo.count()):
-            if self.mode_combo.itemData(i) == mode:
-                self.mode_combo.setCurrentIndex(i)
-                break
+        if mode in self.mode_buttons:
+            self._on_mode_button_clicked(mode)
     
     def get_prompt_text(self) -> str:
         """Get current prompt text"""
@@ -398,8 +421,9 @@ class EditorWidget(BaseTaskWidget):
         """Update processing state"""
         self._is_processing = is_processing
         
-        # Disable/enable controls during processing
-        self.mode_combo.setEnabled(not is_processing)
+        # Disable/enable mode buttons during processing
+        for btn in self.mode_buttons.values():
+            btn.setEnabled(not is_processing)
         # prompt_input handles its own state
     
     def _update_status(self, message: str):
