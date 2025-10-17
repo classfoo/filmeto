@@ -344,5 +344,31 @@
         <translation>Unsupported file format:</translation>
     </message>
     
+    <!-- Prompt Input Component -->
+    <message>
+        <source>Enter your prompt here...</source>
+        <translation>Enter your prompt here...</translation>
+    </message>
+    <message>
+        <source>Submit prompt</source>
+        <translation>Submit prompt</translation>
+    </message>
+    <message>
+        <source>{count} characters</source>
+        <translation>{count} characters</translation>
+    </message>
+    <message>
+        <source>Empty Input</source>
+        <translation>Empty Input</translation>
+    </message>
+    <message>
+        <source>Please enter a prompt</source>
+        <translation>Please enter a prompt</translation>
+    </message>
+    <message>
+        <source>0 characters</source>
+        <translation>0 characters</translation>
+    </message>
+    
 </context>
 </TS>
