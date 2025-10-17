@@ -5,3 +5,4 @@ workspace/*
 .idea
 __pycache__
 __pycache__/*
+.qoder/
