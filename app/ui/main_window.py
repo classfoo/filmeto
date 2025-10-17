@@ -1,4 +1,5 @@
 import os
+from typing import Any
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout,
                                QPushButton, QVBoxLayout, QSplitter, QMenu)
@@ -8,6 +9,7 @@ from app.data.workspace import Workspace
 from app.plugins.tools.img2video.img2video import Image2Video
 from app.plugins.tools.text2img.text2img import Text2Image
 from app.ui.base_widget import BaseWidget
+from app.ui.editor import EditorWidget
 from app.ui.mac_button import MacTitleBar
 from app.ui.preview import MediaPreviewWidget
 from app.ui.project_menu import ProjectMenu
@@ -256,17 +258,8 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.v_splitter.addWidget(self.image2video)
         
         # Center panel - preview (this should expand)
-        self.center = MediaPreviewWidget(workspace)
-        self.center.load_file("workspace/demo/timeline/0/image.png")
-        self.center.setObjectName("main_window_workspace_top_center")
-
-        self.center_v_splitter = QSplitter(Qt.Vertical)
-        self.center_v_splitter.addWidget(self.center)
-        self.prompt_widget = PromptInputWidget(self.workspace)
-        #self.prompt_widget.prompt_submitted.connect(self._on_prompt_submitted)
-        #self.prompt_widget.prompt_changed.connect(self._on_prompt_changed)
-        self.center_v_splitter.addWidget(self.prompt_widget)
-        self.splitter.addWidget(self.center_v_splitter)
+        self.center: EditorWidget = EditorWidget(workspace)
+        self.splitter.addWidget(self.center)
         
         # Right panel - task list (fixed width)
         self.right = TaskListWidget(self, workspace)
