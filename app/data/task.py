@@ -86,8 +86,6 @@ class TaskManager():
 
     task_create = signal("task_create")
 
-    #task_execute = signal("task_execute")
-
     task_finished = signal("task_finished")
 
     task_progress = signal("task_progress")
@@ -100,7 +98,6 @@ class TaskManager():
         self.create_consumer = AsyncQueue()
         self.create_consumer.connect("create", self.create_task)
         self.execute_consumer = AsyncQueue()
-        #self.execute_consumer.connect("execute", self.execute_task)
         return
 
     async def start(self):
@@ -132,9 +129,6 @@ class TaskManager():
         self.task_create.send(task)
         self.execute_consumer.add("execute", task)
         return
-
-    async def execute_task(self, task:Task):
-        self.task_execute.send(task)
 
     def on_task_progress(self, task_progress:TaskProgress):
         self.task_progress.send(task_progress)

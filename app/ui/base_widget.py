@@ -27,22 +27,17 @@ class BaseTaskWidget(BaseWidget):
         super(BaseTaskWidget, self).__init__(workspace)
         self.workspace = workspace
         self.workspace.connect_task_create(self.on_task_create)
-        self.workspace.connect_task_execute(self.on_task_execute)
         self.workspace.connect_task_finished(self.on_task_finished)
         self.workspace.connect_timeline_switch(self.on_timeline_switch)
 
-    @asyncSlot()
-    async def on_task_create(self,params):
+    def on_task_create(self,params):
         return
 
-    @asyncSlot()
-    async def on_task_execute(self,result:Task):
+    # def on_task_execute(self,result:Task):
+    #     return
+
+    def on_task_finished(self,result:TaskResult):
         return
 
-    @asyncSlot()
-    async def on_task_finished(self,result:TaskResult):
-        return
-
-    @asyncSlot()
-    async def on_timeline_switch(self,item:TimelineItem):
+    def on_timeline_switch(self,item:TimelineItem):
         return

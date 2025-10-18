@@ -445,7 +445,7 @@ class MediaPreviewWidget(BaseTaskWidget):
         self.timeline_index = item.get_index()
         return
 
-    async def on_task_finished(self,result:TaskResult):
+    def on_task_finished(self,result:TaskResult):
         timeline_index = result.get_timeline_index()
         # Only update if viewing the same timeline item
         if timeline_index == self.timeline_index:

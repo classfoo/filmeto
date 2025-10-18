@@ -101,7 +101,7 @@ class TaskListWidget(BaseTaskWidget):
         """更新所有UI文本当语言变化时"""
         self.refresh_btn.setText(tr("🔄 刷新任务"))
     
-    async def on_task_create(self,task):
+    def on_task_create(self,task):
         self.refresh_tasks()
 
     def load_all_task_dirs(self):

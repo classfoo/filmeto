@@ -373,7 +373,7 @@ class ToolEditorWidget(BaseTaskWidget):
             self._update_status(tr("Tool: {tool}").replace("{tool}", tool_info.name))
     
     @Slot(str)
-    async def _on_prompt_submitted(self, prompt: str):
+    def _on_prompt_submitted(self, prompt: str):
         """Handle prompt submission - call tool's params() and submit task"""
         if not prompt.strip():
             return
@@ -416,17 +416,17 @@ class ToolEditorWidget(BaseTaskWidget):
     
     # ========== Task Event Handlers ==========
     
-    async def on_task_create(self, params):
+    def on_task_create(self, params):
         """Handle task creation (must be sync - called via blinker signal)"""
         self._set_processing(True)
         self._update_status(tr("Task created"))
     
-    async def on_task_execute(self, task: Task):
-        """Handle task execution (can be async - called via AsyncQueue)"""
-        self._set_processing(True)
-        self._update_status(tr("Executing..."))
+    # def on_task_execute(self, task: Task):
+    #     """Handle task execution (can be async - called via AsyncQueue)"""
+    #     self._set_processing(True)
+    #     self._update_status(tr("Executing..."))
     
-    async def on_task_finished(self, result: TaskResult):
+    def on_task_finished(self, result: TaskResult):
         """Handle task completion (must be sync - called via blinker signal)"""
         self._set_processing(False)
         
@@ -435,7 +435,7 @@ class ToolEditorWidget(BaseTaskWidget):
         else:
             self._update_status(tr("Task finished"))
 
-    async def on_timeline_switch(self, item: TimelineItem):
+    def on_timeline_switch(self, item: TimelineItem):
         """Handle timeline item switch"""
         # Let tool handle it if it wants
         if self._current_tool:

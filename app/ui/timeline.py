@@ -176,7 +176,7 @@ class HorizontalTimeline(BaseTaskWidget):
         else:
             super().keyPressEvent(event)
 
-    async def on_task_finished(self, result):
+    def on_task_finished(self, result):
         timeline_index = result.get_timeline_index()
         card = self.cards[timeline_index-1]
         image_path = result.get_image_path()
