@@ -87,9 +87,9 @@ class MediaPreviewWidget(BaseTaskWidget):
 
         # 控制布局
         control_layout = QHBoxLayout()
-        control_layout.addWidget(QLabel("比例:"))
+        #control_layout.addWidget(QLabel("比例:"))
         #control_layout.addWidget(self.aspect_ratio_combo, 1) # combo 占据更多空间
-        control_layout.addStretch()
+        #control_layout.addStretch()
         control_layout.addWidget(self.play_pause_btn)
         control_layout.addWidget(self.position_slider)
 
