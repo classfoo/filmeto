@@ -216,8 +216,14 @@ class LayersWidget(BaseTaskWidget):
         if not self.layer_manager:
             return
         
-        layer = self.layer_manager.add_layer(layer_type)
-        self._reload_layers(self.layer_manager)
+        try:
+            layer = self.layer_manager.add_layer(layer_type)
+            self._reload_layers(self.layer_manager)
+        except ValueError as e:
+            print(f"Error adding layer: {e}")
+            # 可以在这里添加用户提示，例如弹出消息框
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Error", f"Cannot add layer: {str(e)}")
     
     def _on_layer_added(self, layer: Layer):
         """Handle layer added from external source (e.g. CanvasWidget)"""

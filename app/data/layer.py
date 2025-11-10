@@ -37,9 +37,13 @@ class Layer:
         self.width = width
         self.height = height
         self.timeline_item = timeline_item
-        self.layers_path = self.timeline_item.get_layers_path()
+        # 修复：检查timeline_item是否为None，避免AttributeError
+        self.layers_path = self.timeline_item.get_layers_path() if self.timeline_item else None
 
     def get_layer_path(self) -> str:
+        # 修复：检查layers_path是否存在
+        if not self.layers_path:
+            return None
         if self.type==LayerType.IMAGE:
             return os.path.join(self.layers_path, f"{self.id}.png")
         if self.type==LayerType.VIDEO:
@@ -106,6 +110,10 @@ class LayerManager:
         self.timeline_item.set_config_value("layers", layers_data)
 
     def add_layer(self, layer_type: LayerType = LayerType.IMAGE) -> Layer:
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
         # 生成新的图层ID（基于现有最大ID+1，避免删除后的ID冲突）
         if self.layers:
             existing_ids = list(self.layers.keys())
@@ -117,7 +125,7 @@ class LayerManager:
         # 创建图层对应的文件
         if layer_type == LayerType.VIDEO:
             # 视频图层创建mp4文件
-            layer = Layer(new_id, f"Layer-{new_id}", layer_type, self.timeline_item)
+            layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False, 0, 0, 720, 1280, self.timeline_item)
             # Create a minimal placeholder mp4 file
             # For now, we'll create a placeholder file with zeros
             with open(layer.get_layer_path(), 'wb') as f:
@@ -138,6 +146,10 @@ class LayerManager:
         return self._add_layer(layer)
 
     def add_layer_from_file(self, source_path: str, layer_type: LayerType = LayerType.IMAGE) -> Layer:
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
         # 生成新的图层ID（基于现有最大ID+1，避免删除后的ID冲突）
         if self.layers:
             existing_ids = list(self.layers.keys())
@@ -180,11 +192,15 @@ class LayerManager:
         self._save_layers()
         # Emit the general layer_changed signal only if the current timeline_item 
         # in this layer manager is the currently selected timeline_item
-        if self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
+        if self.timeline_item and self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
             self.layer_changed.send(self, layer=layer, change_type='added')
         return layer
 
     def remove_layer(self, layer_id: int) -> bool:
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
         # 直接通过ID访问图层
         if layer_id in self.layers:
             layer = self.layers[layer_id]
