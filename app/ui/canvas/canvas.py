@@ -10,7 +10,7 @@ from app.ui.base_widget import BaseTaskWidget
 from app.data.layer import Layer, LayerType, LayerManager
 from app.data.timeline import TimelineItem
 from app.data.workspace import Workspace
-from app.ui.canvas.canvas_layer import CanvasLayerWidget, DrawingMode
+from app.ui.canvas.canvas_layer import CanvasImageLayerWidget, CanvasVideoLayerWidget, CanvasLayerWidget, DrawingMode
 import os
 
 
@@ -139,7 +139,10 @@ class CanvasWidget(BaseTaskWidget):
         layer_widget_width = getattr(layer, 'width')
         layer_widget_height = getattr(layer, 'height')
         # Pass layer's x and y coordinates to the LayerWidget, along with canvas reference
-        layer_widget = CanvasLayerWidget(self,layer.id, layer, layer_widget_width, layer_widget_height, layer_widget_x, layer_widget_y)
+        if layer.type == LayerType.VIDEO:
+            layer_widget = CanvasVideoLayerWidget(self, layer.id, layer, layer_widget_width, layer_widget_height, layer_widget_x, layer_widget_y)
+        else:
+            layer_widget = CanvasImageLayerWidget(self, layer.id, layer, layer_widget_width, layer_widget_height, layer_widget_x, layer_widget_y)
         return layer_widget
 
     def paintEvent(self, event):

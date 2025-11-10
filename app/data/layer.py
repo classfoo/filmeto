@@ -234,6 +234,10 @@ class LayerManager:
         return False
 
     def toggle_visibility(self, layer_id: int) -> Optional[bool]:
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
         # 直接通过ID访问图层
         if layer_id in self.layers:
             layer = self.layers[layer_id]
@@ -248,6 +252,10 @@ class LayerManager:
         return None
 
     def toggle_lock(self, layer_id: int) -> Optional[bool]:
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
         # 直接通过ID访问图层
         if layer_id in self.layers:
             layer = self.layers[layer_id]
@@ -262,6 +270,10 @@ class LayerManager:
         return None
 
     def rename_layer(self, layer_id: int, new_name: str) -> bool:
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
         # 直接通过ID访问图层
         if layer_id in self.layers:
             layer = self.layers[layer_id]
@@ -276,6 +288,10 @@ class LayerManager:
         return False
 
     def move_layer(self, layer_id: int, new_position: int) -> bool:
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
         # 获取按ID排序的图层列表
         sorted_layer_ids = sorted(self.layers.keys())
         if new_position < 0 or new_position >= len(sorted_layer_ids):
@@ -305,6 +321,10 @@ class LayerManager:
         return result
 
     def get_visible_layers(self):
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+            
         if not self.layers:
             return []
         
@@ -350,6 +370,10 @@ class LayerManager:
         return visible_layers
 
     def generate_visible_file(self, output_path, canvas_size=(1920, 1080)):
+        # 检查timeline_item是否已加载
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+            
         # 获取可见图层列表
         visible_layers = self.get_visible_layers()
         

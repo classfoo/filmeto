@@ -7,13 +7,13 @@ from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QCursor, QPainterPath
 
-from app.ui.base_widget import BaseWidget
-from app.data.layer import Layer, LayerType
-from app.data.timeline import TimelineItem
-from app.data.workspace import Workspace
+from app.data.layer import Layer
 from PySide6.QtGui import QImage, QPixmap
 from app.ui.canvas.canvas_pixmap import CanvasPixMap
 
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QImage
+import cv2
 
 class DrawingMode(Enum):
     """Enumeration for different drawing modes"""
@@ -34,9 +34,10 @@ class BrushType(Enum):
 
 class CanvasLayerWidget(QWidget):
     """
-    A transparent widget representing a single layer that can be drawn on
+    Abstract base class for canvas layer widgets. Provides common geometry,
+    scaling, mode handling, and centering behavior. Subclasses implement
+    specific painting and interactions.
     """
-
     def __init__(self, canvas_widget, layer_id: int, layer: Layer, width: int, height: int, layer_x: int = 0,
                  layer_y: int = 0):
         super().__init__(canvas_widget)
@@ -45,13 +46,88 @@ class CanvasLayerWidget(QWidget):
         self.layer = layer
         self.layer_width = width
         self.layer_height = height
+        self.layer_x = layer_x
+        self.layer_y = layer_y
+        self.scale_factor = 1.0
+        self.current_mode = getattr(self.canvas_widget, 'current_mode', DrawingMode.BRUSH)
+
+        # General widget setup
+        self.setMouseTracking(True)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_StaticContents, False)
+        self.setVisible(True)
+        self.on_canvas_resize(self.canvas_widget.width(), self.canvas_widget.height())
+        self.show()
+
+    def on_canvas_resize(self, canvas_width, canvas_height):
+        width_scale = canvas_width / self.layer_width if self.layer_width > 0 else 1.0
+        height_scale = canvas_height / self.layer_height if self.layer_height > 0 else 1.0
+        scale_factor = min(width_scale, height_scale)
+        self.set_scale_factor(scale_factor)
+        widget_width = self.layer_width * scale_factor
+        widget_height = self.layer_height * scale_factor
+        self.setFixedSize(widget_width, widget_height)
+        center_x = max(0, (canvas_width - widget_width) // 2)
+        center_y = max(0, (canvas_height - widget_height) // 2)
+        self.move(center_x, center_y)
+
+    def set_mode(self, mode):
+        self.current_mode = mode
+        if mode == DrawingMode.BRUSH:
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        elif mode == DrawingMode.ERASER:
+            eraser_pixmap = QPixmap(20, 20)
+            eraser_pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(eraser_pixmap)
+            painter.setPen(QPen(QColor(Qt.GlobalColor.red), 2))
+            painter.drawRect(0, 0, 19, 19)
+            painter.end()
+            eraser_cursor = QCursor(eraser_pixmap)
+            self.setCursor(eraser_cursor)
+        elif mode == DrawingMode.SELECT:
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+        elif mode == DrawingMode.SHAPE:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def set_scale_factor(self, scale: float):
+        if scale <= 0:
+            return
+        self.scale_factor = scale
+        self.setFixedSize(int(self.layer_width * self.scale_factor), int(self.layer_height * self.scale_factor))
+        self.update()
+
+    def paintEvent(self, event):
+        raise NotImplementedError("Subclasses must implement paintEvent")
+
+    def draw_shape(self, *args, **kwargs):
+        pass
+
+    def clear_draw(self):
+        pass
+
+
+class CanvasImageLayerWidget(CanvasLayerWidget):
+    """
+    A transparent widget representing a single layer that can be drawn on
+    """
+
+    def __init__(self, canvas_widget, layer_id: int, layer: Layer, width: int, height: int, layer_x: int = 0,
+                 layer_y: int = 0):
+        super().__init__(canvas_widget, layer_id, layer, width, height, layer_x, layer_y)
+        self.canvas_widget = canvas_widget
+        self.layer_id = layer_id
+        self.layer = layer
+        self.layer_width = width
+        self.layer_height = height
         self.layer_x = layer_x  # X offset of the layer
         self.layer_y = layer_y  # Y offset of the layer
         self.scale_factor = 1.0  # Default scale
+        
+        # Initialize canvas_pixmap first to avoid AttributeError
         layer_path = layer.get_layer_path()
         layer_pixmap = QPixmap(layer_path)
-        
-        # Wrap the layer pixmap in a CanvasPixMap component
         self.canvas_pixmap = CanvasPixMap(layer_pixmap)
 
         self.setFixedSize(self.layer_width, self.layer_height)
@@ -89,20 +165,6 @@ class CanvasLayerWidget(QWidget):
         self.setVisible(True)
         self.on_canvas_resize(self.canvas_widget.width(), self.canvas_widget.height())
         self.show()
-
-    def on_canvas_resize(self, canvas_width, canvas_height):
-        width_scale = canvas_width / self.layer_width if self.layer_width > 0 else 1.0
-        height_scale = canvas_height / self.layer_height if self.layer_height > 0 else 1.0
-        scale_factor = min(width_scale, height_scale)
-        self.set_scale_factor(scale_factor)
-        widget_width = self.layer_width * scale_factor
-        widget_height = self.layer_height * scale_factor
-        self.setFixedSize(widget_width, widget_height)
-        # Calculate center position
-        center_x = max(0, (canvas_width - widget_width) // 2)
-        center_y = max(0, (canvas_height - widget_height) // 2)
-        # Position the layer widget to center it
-        self.move(center_x, center_y)
 
     def save_level_image(self):
         image_path = self.layer.get_layer_path()
@@ -145,17 +207,6 @@ class CanvasLayerWidget(QWidget):
             painter.setPen(QPen(QColor(255, 0, 0), 1))
             painter.drawRect(0, 0, self.width(), self.height())
 
-    def set_scale_factor(self, scale: float):
-        """Set the scale factor for this layer widget"""
-        if scale <= 0:
-            return
-        self.scale_factor = scale
-        # Update the scale factor in CanvasPixMap
-        self.canvas_pixmap.set_scale_factor(scale)
-        self.setFixedSize(int(self.layer_width * self.scale_factor),
-                          int(self.layer_height * self.scale_factor))
-        self.update()  # Trigger repaint with new scale
-
     def set_brush_properties(self, color: QColor, size: int, brush_type: BrushType):
         """Set the brush properties for this layer"""
         self.brush_color = color
@@ -180,10 +231,6 @@ class CanvasLayerWidget(QWidget):
         update_rect = QRect(start_point, end_point).normalized()
         update_rect.adjust(-self.brush_size, -self.brush_size, self.brush_size, self.brush_size)
         self.update(update_rect)
-
-        # # Process events to ensure immediate update
-        # from PySide6.QtWidgets import QApplication
-        # QApplication.processEvents()
 
     def mousePressEvent(self, event):
         """Handle mouse press events directly on the layer"""
@@ -326,7 +373,6 @@ class CanvasLayerWidget(QWidget):
                                 int(shape_start_pos.y() / scale_factor)) + canvas_offset
         adjusted_end = QPoint(int(shape_end_pos.x() / scale_factor),
                               int(shape_end_pos.y() / scale_factor)) + canvas_offset
-        
         # Use CanvasPixMap to draw the shape
         self.canvas_pixmap.draw_shape(
             'rectangle',
@@ -342,3 +388,77 @@ class CanvasLayerWidget(QWidget):
         """Clear the drawing using CanvasPixMap"""
         self.canvas_pixmap.clear()
         self.update()
+
+
+class CanvasVideoLayerWidget(CanvasLayerWidget):
+    """
+    Video layer implementation that previews and plays video via OpenCV frames
+    rendered into the widget.
+    """
+    def __init__(self, canvas_widget, layer_id: int, layer: Layer, width: int, height: int, layer_x: int = 0,
+                 layer_y: int = 0):
+        super().__init__(canvas_widget, layer_id, layer, width, height, layer_x, layer_y)
+        self.video_path = layer.get_layer_path()
+        self.cap = cv2.VideoCapture(self.video_path) if self.video_path else None
+        self.fps = 30
+        if self.cap and self.cap.isOpened():
+            fps_val = self.cap.get(cv2.CAP_PROP_FPS)
+            if fps_val and fps_val > 0:
+                self.fps = int(fps_val)
+        self.timer = QTimer(self)
+        self.timer.setInterval(int(1000 / max(1, self.fps)))
+        self.timer.timeout.connect(self._update_frame)
+        self.current_frame_pixmap = None
+        self.play()
+
+    def play(self):
+        if self.cap and self.cap.isOpened():
+            self.timer.start()
+
+    def pause(self):
+        self.timer.stop()
+
+    def stop(self):
+        self.timer.stop()
+        if self.cap:
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        self.current_frame_pixmap = None
+        self.update()
+
+    def _update_frame(self):
+        if not self.cap:
+            return
+        ret, frame = self.cap.read()
+        if not ret:
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret, frame = self.cap.read()
+            if not ret:
+                return
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, _ = frame_rgb.shape
+        bytes_per_line = 3 * w
+        qimg = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        target_w = int(self.layer_width * self.scale_factor)
+        target_h = int(self.layer_height * self.scale_factor)
+        scaled_img = qimg.scaled(target_w, target_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.current_frame_pixmap = QPixmap.fromImage(scaled_img)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if self.current_frame_pixmap:
+            painter.drawPixmap(0, 0, self.current_frame_pixmap)
+        else:
+            painter.fillRect(self.rect(), QColor(30, 30, 30))
+        if self.canvas_widget and self.canvas_widget.active_layer_id == self.layer_id:
+            painter.setPen(QPen(QColor(0, 128, 255), 1))
+            painter.drawRect(0, 0, self.width(), self.height())
+
+    def mousePressEvent(self, event):
+        event.ignore()
+
+    def mouseMoveEvent(self, event):
+        event.ignore()
+
+    def mouseReleaseEvent(self, event):
+        event.ignore()
