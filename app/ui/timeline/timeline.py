@@ -193,9 +193,11 @@ class HorizontalTimeline(BaseTaskWidget):
             new_index = timeline.add_item()
             self.timeline_layout.removeWidget(self.add_card_button)
             qt_utils.remove_last_stretch(self.timeline_layout)
-            snapshot_image = new_index.get_image()
+            # 修复：使用新索引获取时间线项，然后获取图像
+            new_timeline_item = timeline.get_item(new_index)
+            snapshot_image = new_timeline_item.get_image()
             title = f"# {new_index}"
-            new_card = HoverZoomFrame(self, title, snapshot_image,new_index)
+            new_card = HoverZoomFrame(self, title, snapshot_image, new_index)
             
             # Add the new card
             self.timeline_layout.addWidget(new_card)
@@ -214,6 +216,8 @@ class HorizontalTimeline(BaseTaskWidget):
             
         except Exception as e:
             print(f"Error adding new card: {e}")
+            import traceback
+            traceback.print_exc()
 
     def on_timeline_switch(self, item: TimelineItem):
         """Handle timeline switch to update card images"""
