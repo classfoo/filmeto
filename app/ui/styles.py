@@ -2,6 +2,100 @@
 样式库文件，用于定义全局样式和组件样式
 """
 
+# Drawing tools widget styles
+DRAWING_TOOLS_WIDGET_STYLE = """
+/* Tool buttons */
+QToolButton[objectName^="tool_"] {
+    background-color: #3c3f41;
+    border: 1px solid #555555;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    margin: 2px;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+QToolButton[objectName^="tool_"]:hover {
+    background-color: #4c5052;
+    border: 1px solid #666666;
+}
+
+QToolButton[objectName^="tool_"]:checked {
+    background-color: #365880;
+    border: 1px solid #4a80b0;
+    font-weight: bold;
+}
+
+QToolButton[objectName^="tool_"]:pressed {
+    background-color: #2c2f31;
+}
+
+/* Floating panel for tool configurations */
+QFrame {
+    background-color: #2d2d2d;
+    border: 1px solid #555555;
+    border-radius: 8px;
+    padding: 10px;
+    min-width: 200px;
+    color: #ffffff;
+}
+
+/* Labels in the configuration panel */
+QLabel {
+    font-size: 12px;
+    color: #ffffff;
+    padding: 2px;
+}
+
+/* Comboboxes in the configuration panel */
+QComboBox {
+    background-color: #3c3f41;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px;
+    color: #ffffff;
+    min-width: 120px;
+}
+
+QComboBox:hover {
+    border: 1px solid #666666;
+}
+
+/* Spin boxes in the configuration panel */
+QSpinBox {
+    background-color: #3c3f41;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px;
+    color: #ffffff;
+    min-width: 80px;
+}
+
+QSpinBox:hover {
+    border: 1px solid #666666;
+}
+
+/* Buttons in the configuration panel */
+QToolButton {
+    background-color: #3c3f41;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 5px;
+    min-width: 80px;
+    color: #ffffff;
+}
+
+QToolButton:hover {
+    background-color: #4c5052;
+    border: 1px solid #666666;
+}
+
+QToolButton:pressed {
+    background-color: #2c2f31;
+}
+"""
+
 # 图层管理组件样式
 LAYERS_WIDGET_STYLE = """
 LayersWidget {
@@ -211,7 +305,7 @@ CanvasToolsWidget QSpinBox::down-button:hover {
 """
 
 # 全局样式
-GLOBAL_STYLE = """
+GLOBAL_STYLE = """ 
 QWidget {
     background-color: #2b2b2b;
     color: #ffffff;
