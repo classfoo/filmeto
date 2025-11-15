@@ -144,11 +144,10 @@ class DrawingToolsWidget(QWidget):
             layout.addWidget(btn)
         
         # Vertical separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator = QWidget()
+        separator.setFixedWidth(1)
         separator.setFixedHeight(24)
-        separator.setStyleSheet("""QFrame { color: #505254; background-color: #505254; }""")
+        separator.setStyleSheet("background-color: #505254;")
         layout.addWidget(separator)
         
         # Settings buttons container (dynamic)
