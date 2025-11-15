@@ -1,0 +1,142 @@
+"""
+SizeSetting - Size adjustment setting for drawing tools
+"""
+from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QSpinBox
+from PySide6.QtCore import Qt
+from app.ui.drawing_tools.drawing_setting import DrawingSetting
+
+
+class SizeSetting(DrawingSetting):
+    """
+    Size adjustment setting with slider.
+    Button shows current size value.
+    """
+    
+    def __init__(self, name: str = "Size", min_size: int = 1, max_size: int = 50, default_size: int = 5):
+        super().__init__(name, icon="\uE648")  # Brush icon
+        self._value = default_size
+        self._min_size = min_size
+        self._max_size = max_size
+    
+    def create_button(self) -> QPushButton:
+        """Create size indicator button (28x28px)"""
+        btn = QPushButton()
+        btn.setFixedSize(28, 28)
+        btn.setObjectName("setting_size_btn")
+        
+        self._update_button_text(btn)
+        
+        btn.setStyleSheet("""
+            QPushButton#setting_size_btn {
+                background-color: #3d3f4e;
+                color: #E1E1E1;
+                border: 1px solid #505254;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton#setting_size_btn:hover {
+                background-color: #4a4c5e;
+                border: 1px solid #5a5c6e;
+            }
+        """)
+        
+        return btn
+    
+    def _update_button_text(self, btn: QPushButton):
+        """Update button to show current size"""
+        btn.setText(str(self._value))
+        btn.setToolTip(f"{self.name}: {self._value}px")
+    
+    def create_panel(self) -> QFrame:
+        """Create size adjustment panel"""
+        panel = QFrame()
+        panel.setObjectName("setting_panel")
+        panel.setFixedWidth(240)
+        
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        
+        # Title
+        title = QLabel(f"{self.name} Adjustment")
+        title.setStyleSheet("font-weight: bold; color: #E1E1E1; font-size: 12px;")
+        layout.addWidget(title)
+        
+        # Slider and spinbox
+        control_layout = QHBoxLayout()
+        
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(self._min_size, self._max_size)
+        slider.setValue(self._value)
+        slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                background: #1e1f22;
+                height: 4px;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                background: #4080ff;
+                width: 12px;
+                margin: -4px 0;
+                border-radius: 6px;
+            }
+        """)
+        
+        spinbox = QSpinBox()
+        spinbox.setRange(self._min_size, self._max_size)
+        spinbox.setValue(self._value)
+        spinbox.setFixedWidth(55)
+        spinbox.setStyleSheet("""
+            QSpinBox {
+                background-color: #1e1f22;
+                color: #E1E1E1;
+                border: 1px solid #505254;
+                border-radius: 3px;
+                padding: 2px;
+                font-size: 11px;
+            }
+        """)
+        
+        # Connect controls
+        slider.valueChanged.connect(spinbox.setValue)
+        spinbox.valueChanged.connect(slider.setValue)
+        slider.valueChanged.connect(self.set_value)
+        
+        control_layout.addWidget(slider, 1)
+        control_layout.addWidget(spinbox)
+        layout.addLayout(control_layout)
+        
+        # Size preview
+        preview_label = QLabel()
+        preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        preview_label.setFixedHeight(35)
+        
+        def update_preview(size):
+            dot_size = min(size, 20)  # Cap visual size at 20
+            preview_label.setText(f"● {size}px")
+            preview_label.setStyleSheet(f"font-size: {dot_size}px; color: #E1E1E1;")
+        
+        slider.valueChanged.connect(update_preview)
+        update_preview(self._value)
+        
+        layout.addWidget(preview_label)
+        
+        panel.setStyleSheet("""
+            QFrame#setting_panel {
+                background-color: #2b2d30;
+                border: 1px solid #505254;
+                border-radius: 6px;
+            }
+        """)
+        
+        return panel
+    
+    def get_value(self) -> int:
+        return self._value
+    
+    def set_value(self, value: int):
+        self._value = value
+        if self._button:
+            self._update_button_text(self._button)
+        self.value_changed.emit(value)
