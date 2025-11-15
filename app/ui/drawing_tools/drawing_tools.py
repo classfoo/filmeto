@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtGui import QFont
+from functools import partial
 from .drawing_tool import DrawingTool
 from .settings import DrawingSetting, ColorSetting, SizeSetting, OpacitySetting, BrushTypeSetting, ShapeTypeSetting
 from .tools.move_tool import MoveTool
@@ -137,7 +138,7 @@ class DrawingToolsWidget(QWidget):
             btn.setFixedSize(28, 28)
             btn.setToolTip(tool.get_name())
             btn.setChecked(tool_id == self.current_tool)
-            btn.clicked.connect(lambda checked, tid=tool_id: self._on_tool_clicked(tid))
+            btn.clicked.connect(lambda checked=False, tid=tool_id: self._on_tool_clicked(tid))
             
             self.tool_buttons[tool_id] = btn
             layout.addWidget(btn)
@@ -212,7 +213,7 @@ class DrawingToolsWidget(QWidget):
         while self.settings_layout.count():
             item = self.settings_layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().setParent(None)  # 立即移除父级关系，避免信号连接时对象已删除的问题
         
         # Get settings for this tool
         settings = self.tool_settings_map.get(tool_id, [])
@@ -220,7 +221,8 @@ class DrawingToolsWidget(QWidget):
         # Create setting buttons
         for setting in settings:
             btn = setting.get_button()
-            btn.clicked.connect(lambda checked, s=setting, b=btn: self._on_setting_clicked(s, b))
+            # 使用partial函数修复闭包问题
+            btn.clicked.connect(partial(self._on_setting_clicked, setting, btn))
             self.settings_layout.addWidget(btn)
         
         # Add stretch to push settings to the left

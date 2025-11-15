@@ -95,7 +95,7 @@ class ColorSetting(DrawingSetting):
                     border: 2px solid #4080ff;
                 }}
             """)
-            color_btn.clicked.connect(lambda checked, c=color: self.set_value(c))
+            color_btn.clicked.connect(lambda checked=False, c=color: self.set_value(c))
             palette_grid.addWidget(color_btn, row, col)
         
         layout.addLayout(palette_grid)

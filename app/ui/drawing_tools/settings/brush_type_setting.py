@@ -98,7 +98,7 @@ class BrushTypeSetting(DrawingSetting):
                 }
             """)
             radio.setChecked(type_key == self._value)
-            radio.toggled.connect(lambda checked, tk=type_key: self._on_type_selected(checked, tk))
+            radio.toggled.connect(lambda checked=False, tk=type_key: self._on_type_selected(checked, tk))
             button_group.addButton(radio)
             layout.addWidget(radio)
         
