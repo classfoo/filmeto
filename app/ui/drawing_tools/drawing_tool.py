@@ -3,8 +3,10 @@ DrawingTool interface definition
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, List
 from PySide6.QtWidgets import QWidget
+
+from app.ui.drawing_tools.drawing_setting import DrawingSetting
 
 
 class DrawingTool(ABC):
@@ -66,3 +68,14 @@ class DrawingTool(ABC):
             config (Dict[str, Any]): The configuration data to set
         """
         pass
+
+    def get_settings(self) -> List[DrawingSetting]:
+        """
+        Get the list of settings for this tool.
+        By default, return an empty list (no settings).
+        Override in subclasses to provide tool-specific settings.
+        
+        Returns:
+            List[DrawingSetting]: The list of settings for this tool
+        """
+        return []

@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtGui import QFont
 from functools import partial
 from .drawing_tool import DrawingTool
-from .settings import DrawingSetting, ColorSetting, SizeSetting, OpacitySetting, BrushTypeSetting, ShapeTypeSetting
+from .settings import DrawingSetting
 from .tools.move_tool import MoveTool
 from .tools.select_tool import SelectTool
 from .tools.pen_tool import PenTool
@@ -50,10 +50,6 @@ class DrawingToolsWidget(QWidget):
         self.tools = self._load_tools()
         self.current_tool = "pen"
         
-        # Tool-specific settings configuration
-        self.tool_settings_map: Dict[str, List[DrawingSetting]] = {}
-        self._init_tool_settings()
-        
         # Active setting panel reference
         self._active_panel: Optional[QFrame] = None
         self._active_panel_button: Optional[QPushButton] = None
@@ -80,45 +76,6 @@ class DrawingToolsWidget(QWidget):
         
         tools_dict = {tool.get_id(): tool for tool in tool_instances}
         return tools_dict
-    
-    def _init_tool_settings(self):
-        """Initialize settings for each tool."""
-        # Brush tool: color, size, opacity, line type
-        self.tool_settings_map["brush"] = [
-            ColorSetting("Color"),
-            SizeSetting("Size", min_size=1, max_size=50, default_size=5),
-            OpacitySetting("Opacity", default_opacity=100),
-            BrushTypeSetting("Line Style")
-        ]
-        
-        # Pen tool: color, size (shared settings with brush)
-        self.tool_settings_map["pen"] = [
-            ColorSetting("Color"),
-            SizeSetting("Size", min_size=1, max_size=20, default_size=2)
-        ]
-        
-        # Eraser tool: size only (larger range)
-        self.tool_settings_map["eraser"] = [
-            SizeSetting("Size", min_size=5, max_size=100, default_size=20)
-        ]
-        
-        # Shape tool: shape type, color, size, line type
-        self.tool_settings_map["shape"] = [
-            ShapeTypeSetting("Shape"),
-            ColorSetting("Stroke Color"),
-            SizeSetting("Stroke Size", min_size=1, max_size=20, default_size=2),
-            BrushTypeSetting("Line Style")
-        ]
-        
-        # Text tool: color, size
-        self.tool_settings_map["text"] = [
-            ColorSetting("Text Color"),
-            SizeSetting("Font Size", min_size=8, max_size=72, default_size=14)
-        ]
-        
-        # Move, Select, Zoom, Adjust tools: no settings
-        for tool_id in ["move", "select", "zoom", "adjust"]:
-            self.tool_settings_map[tool_id] = []
     
     def init_ui(self):
         """Initialize the user interface."""
@@ -214,8 +171,13 @@ class DrawingToolsWidget(QWidget):
             if item.widget():
                 item.widget().setParent(None)  # 立即移除父级关系，避免信号连接时对象已删除的问题
         
-        # Get settings for this tool
-        settings = self.tool_settings_map.get(tool_id, [])
+        # Get the tool instance
+        tool = self.tools.get(tool_id)
+        if not tool:
+            return
+            
+        # Get settings for this tool from the tool itself
+        settings = tool.get_settings()
         
         # Create setting buttons
         for setting in settings:
@@ -279,7 +241,11 @@ class DrawingToolsWidget(QWidget):
     
     def get_setting_value(self, tool_id: str, setting_name: str):
         """Get value of a specific setting for a tool."""
-        settings = self.tool_settings_map.get(tool_id, [])
+        tool = self.tools.get(tool_id)
+        if not tool:
+            return None
+            
+        settings = tool.get_settings()
         for setting in settings:
             if setting.name == setting_name:
                 return setting.get_value()
@@ -287,7 +253,11 @@ class DrawingToolsWidget(QWidget):
     
     def set_setting_value(self, tool_id: str, setting_name: str, value):
         """Set value of a specific setting for a tool."""
-        settings = self.tool_settings_map.get(tool_id, [])
+        tool = self.tools.get(tool_id)
+        if not tool:
+            return
+            
+        settings = tool.get_settings()
         for setting in settings:
             if setting.name == setting_name:
                 setting.set_value(value)

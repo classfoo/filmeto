@@ -2,9 +2,11 @@
 Brush tool implementation
 """
 
-from typing import Dict, Any
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QComboBox, QSpinBox
+from typing import Dict, Any, List
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QComboBox, QSpinBox, QPushButton
 from app.ui.drawing_tools.drawing_tool import DrawingTool
+from app.ui.drawing_tools.settings import DrawingSetting
+from app.ui.drawing_tools.settings import ColorSetting, SizeSetting, OpacitySetting, BrushTypeSetting
 
 
 class BrushTool(DrawingTool):
@@ -17,6 +19,13 @@ class BrushTool(DrawingTool):
             "opacity": 100
         }
         self.config_panel = None
+        # Define settings for this tool
+        self._settings = [
+            ColorSetting("Color"),
+            SizeSetting("Size", min_size=1, max_size=50, default_size=5),
+            OpacitySetting("Opacity", default_opacity=100),
+            BrushTypeSetting("Line Style")
+        ]
 
     def get_id(self) -> str:
         return "brush"
@@ -99,3 +108,11 @@ class BrushTool(DrawingTool):
             self.config["opacity"] = config["opacity"]
             if self.config_panel and hasattr(self, 'opacity_spin'):
                 self.opacity_spin.setValue(self.config["opacity"])
+
+    def get_settings(self) -> List[DrawingSetting]:
+        """
+        Get the list of settings for the brush tool.
+        Returns:
+            List[DrawingSetting]: The list of settings for this tool
+        """
+        return self._settings

@@ -2,9 +2,12 @@
 Shape tool implementation
 """
 
-from typing import Dict, Any
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QComboBox, QSpinBox
+from typing import Dict, Any, List
+from PySide6.QtWidgets import QWidget, QPushButton
+from PySide6.QtWidgets import QGridLayout, QLabel, QComboBox, QSpinBox
 from app.ui.drawing_tools.drawing_tool import DrawingTool
+from app.ui.drawing_tools.settings import DrawingSetting
+from app.ui.drawing_tools.settings import ColorSetting, SizeSetting, BrushTypeSetting, ShapeTypeSetting
 
 
 class ShapeTool(DrawingTool):
@@ -12,20 +15,28 @@ class ShapeTool(DrawingTool):
 
     def __init__(self):
         self.config = {
-            "type": "矩形",
-            "fill": "实心",
-            "width": 2
+            "shape": "rectangle",
+            "stroke_color": "#000000",
+            "stroke_size": 2,
+            "line_style": "solid"
         }
         self.config_panel = None
+        # Define settings for this tool
+        self._settings = [
+            ShapeTypeSetting("Shape"),
+            ColorSetting("Stroke Color"),
+            SizeSetting("Stroke Size", min_size=1, max_size=20, default_size=2),
+            BrushTypeSetting("Line Style")
+        ]
 
     def get_id(self) -> str:
         return "shape"
 
     def get_name(self) -> str:
-        return "图形工具"
+        return "形状工具"
 
     def get_icon(self) -> str:
-        return "\uE716"  # shape
+        return "\uE6BC"  # 形状
 
     def create_config_panel(self) -> QWidget:
         if self.config_panel is None:
@@ -37,64 +48,87 @@ class ShapeTool(DrawingTool):
         layout = QGridLayout(widget)
 
         # Shape type label and combo
-        type_label = QLabel("形状类型:")
-        layout.addWidget(type_label, 0, 0)
+        shape_label = QLabel("形状:")
+        layout.addWidget(shape_label, 0, 0)
 
-        self.type_combo = QComboBox()
-        self.type_combo.addItems(["矩形", "椭圆", "直线", "多边形"])
-        self.type_combo.setCurrentText(self.config["type"])
-        layout.addWidget(self.type_combo, 0, 1)
+        self.shape_combo = QComboBox()
+        self.shape_combo.addItems(["矩形", "圆形", "线条", "箭头"])
+        layout.addWidget(self.shape_combo, 0, 1)
 
-        # Fill style label and combo
-        fill_label = QLabel("填充样式:")
-        layout.addWidget(fill_label, 1, 0)
+        # Stroke color label and button
+        color_label = QLabel("描边颜色:")
+        layout.addWidget(color_label, 1, 0)
 
-        self.fill_combo = QComboBox()
-        self.fill_combo.addItems(["实心", "空心", "渐变"])
-        self.fill_combo.setCurrentText(self.config["fill"])
-        layout.addWidget(self.fill_combo, 1, 1)
+        self.color_btn = QPushButton()
+        self.color_btn.setText("选择颜色")
+        layout.addWidget(self.color_btn, 1, 1)
 
-        # Line width label and spinner
-        width_label = QLabel("线条宽度:")
-        layout.addWidget(width_label, 2, 0)
+        # Stroke size label and spinner
+        size_label = QLabel("描边粗细:")
+        layout.addWidget(size_label, 2, 0)
 
-        self.width_spin = QSpinBox()
-        self.width_spin.setRange(1, 20)
-        self.width_spin.setValue(self.config["width"])
-        layout.addWidget(self.width_spin, 2, 1)
+        self.size_spin = QSpinBox()
+        self.size_spin.setRange(1, 20)
+        self.size_spin.setValue(self.config["stroke_size"])
+        layout.addWidget(self.size_spin, 2, 1)
+
+        # Line style label and combo
+        style_label = QLabel("线条样式:")
+        layout.addWidget(style_label, 3, 0)
+
+        self.style_combo = QComboBox()
+        self.style_combo.addItems(["实线", "虚线", "点线", "点划线"])
+        layout.addWidget(self.style_combo, 3, 1)
 
         # Add some spacing
-        layout.setRowStretch(3, 1)
+        layout.setRowStretch(4, 1)
         
         # Connect signals
-        self.type_combo.currentTextChanged.connect(self._on_type_changed)
-        self.fill_combo.currentTextChanged.connect(self._on_fill_changed)
-        self.width_spin.valueChanged.connect(self._on_width_changed)
+        self.shape_combo.currentTextChanged.connect(self._on_shape_changed)
+        self.color_btn.clicked.connect(self._on_color_clicked)
+        self.size_spin.valueChanged.connect(self._on_size_changed)
+        self.style_combo.currentTextChanged.connect(self._on_style_changed)
         
         return widget
     
-    def _on_type_changed(self, shape_type: str):
-        self.config["type"] = shape_type
+    def _on_shape_changed(self, shape: str):
+        self.config["shape"] = shape
     
-    def _on_fill_changed(self, fill: str):
-        self.config["fill"] = fill
+    def _on_color_clicked(self):
+        # In a full implementation, this would open a color picker dialog
+        pass
     
-    def _on_width_changed(self, width: int):
-        self.config["width"] = width
+    def _on_size_changed(self, size: int):
+        self.config["stroke_size"] = size
+    
+    def _on_style_changed(self, style: str):
+        self.config["line_style"] = style
 
     def get_config(self) -> Dict[str, Any]:
         return self.config.copy()
 
     def set_config(self, config: Dict[str, Any]) -> None:
-        if "type" in config:
-            self.config["type"] = config["type"]
-            if self.config_panel and hasattr(self, 'type_combo'):
-                self.type_combo.setCurrentText(self.config["type"])
-        if "fill" in config:
-            self.config["fill"] = config["fill"]
-            if self.config_panel and hasattr(self, 'fill_combo'):
-                self.fill_combo.setCurrentText(self.config["fill"])
-        if "width" in config:
-            self.config["width"] = config["width"]
-            if self.config_panel and hasattr(self, 'width_spin'):
-                self.width_spin.setValue(self.config["width"])
+        if "shape" in config:
+            self.config["shape"] = config["shape"]
+            if self.config_panel and hasattr(self, 'shape_combo'):
+                # Would need to map from internal value to display value
+                pass
+        if "stroke_color" in config:
+            self.config["stroke_color"] = config["stroke_color"]
+        if "stroke_size" in config:
+            self.config["stroke_size"] = config["stroke_size"]
+            if self.config_panel and hasattr(self, 'size_spin'):
+                self.size_spin.setValue(self.config["stroke_size"])
+        if "line_style" in config:
+            self.config["line_style"] = config["line_style"]
+            if self.config_panel and hasattr(self, 'style_combo'):
+                # Would need to map from internal value to display value
+                pass
+
+    def get_settings(self) -> List[DrawingSetting]:
+        """
+        Get the list of settings for the shape tool.
+        Returns:
+            List[DrawingSetting]: The list of settings for this tool
+        """
+        return self._settings

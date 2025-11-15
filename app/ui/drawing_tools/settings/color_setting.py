@@ -40,11 +40,12 @@ class ColorSetting(DrawingSetting):
             QPushButton#setting_color_btn {{
                 background-color: {color.name()};
                 color: {text_color};
-                border: 1px solid #555555;
+                border: 2px solid #4080ff;  /* 始终显示高亮边框 */
                 border-radius: 4px;
             }}
             QPushButton#setting_color_btn:hover {{
                 border: 2px solid #4080ff;
+                background-color: {color.lighter(120).name()};  /* 悬停时稍微亮一点 */
             }}
         """)
     

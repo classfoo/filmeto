@@ -2,9 +2,12 @@
 Pen tool implementation
 """
 
-from typing import Dict, Any
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QSpinBox, QPushButton
+from typing import Dict, Any, List
+from PySide6.QtWidgets import QWidget, QPushButton
+from PySide6.QtWidgets import QGridLayout, QLabel, QSpinBox
 from app.ui.drawing_tools.drawing_tool import DrawingTool
+from app.ui.drawing_tools.settings import DrawingSetting
+from app.ui.drawing_tools.settings import ColorSetting, SizeSetting
 
 
 class PenTool(DrawingTool):
@@ -16,6 +19,11 @@ class PenTool(DrawingTool):
             "color": "#000000"
         }
         self.config_panel = None
+        # Define settings for this tool
+        self._settings = [
+            ColorSetting("Color"),
+            SizeSetting("Size", min_size=1, max_size=20, default_size=2)
+        ]
 
     def get_id(self) -> str:
         return "pen"
@@ -78,3 +86,11 @@ class PenTool(DrawingTool):
                 self.size_spin.setValue(self.config["size"])
         if "color" in config:
             self.config["color"] = config["color"]
+
+    def get_settings(self) -> List[DrawingSetting]:
+        """
+        Get the list of settings for the pen tool.
+        Returns:
+            List[DrawingSetting]: The list of settings for this tool
+        """
+        return self._settings

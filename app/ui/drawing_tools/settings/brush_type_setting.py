@@ -1,7 +1,9 @@
 """
-BrushTypeSetting - Brush/line style setting for drawing tools
+BrushTypeSetting - Brush line style setting for drawing tools
 """
+from typing import Optional
 from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QButtonGroup, QRadioButton
+from PySide6.QtCore import Qt
 from app.ui.drawing_tools.drawing_setting import DrawingSetting
 
 
@@ -39,13 +41,13 @@ class BrushTypeSetting(DrawingSetting):
             QPushButton#setting_brush_type_btn {
                 background-color: #3d3f4e;
                 color: #E1E1E1;
-                border: 1px solid #505254;
+                border: 2px solid #4080ff;  /* 始终显示高亮边框 */
                 border-radius: 4px;
                 font-size: 16px;
             }
             QPushButton#setting_brush_type_btn:hover {
                 background-color: #4a4c5e;
-                border: 1px solid #5a5c6e;
+                border: 2px solid #4080ff;
             }
         """)
         
