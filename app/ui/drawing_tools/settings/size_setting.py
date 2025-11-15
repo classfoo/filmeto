@@ -2,7 +2,7 @@
 SizeSetting - Size adjustment setting for drawing tools
 """
 from typing import Optional
-from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QSlider, QSpinBox, QHBoxLayout, QWidget
+from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QSlider, QSpinBox, QHBoxLayout, QWidget, QSizePolicy
 from PySide6.QtCore import Qt
 from app.ui.drawing_tools.drawing_setting import DrawingSetting
 
@@ -29,11 +29,12 @@ class SizeSetting(DrawingSetting):
         # Create the text label
         label = QLabel(self.name)
         label.setStyleSheet("color: #E1E1E1; font-size: 11px; background: transparent; border: none;")
-        label.setFixedWidth(32)
         label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         label.setWordWrap(False)
         label.setTextFormat(Qt.PlainText)
         label.setTextInteractionFlags(Qt.NoTextInteraction)
+        label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        label.adjustSize()  # Fit to text content
         
         # Create the size button
         btn = QPushButton()
