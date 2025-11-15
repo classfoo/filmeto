@@ -13,7 +13,6 @@ class AdjustTool(DrawingTool):
 
     def __init__(self):
         self.config = {}
-        self.config_panel = None
 
     def get_id(self) -> str:
         return "adjust"
@@ -22,12 +21,7 @@ class AdjustTool(DrawingTool):
         return "调整工具"
 
     def get_icon(self) -> str:
-        return "\uE6B2"  # 调整
-
-    def create_config_panel(self) -> QWidget:
-        if self.config_panel is None:
-            self.config_panel = QWidget()
-        return self.config_panel
+        return "\uE658"  # 调整
 
     def get_config(self) -> Dict[str, Any]:
         return self.config.copy()

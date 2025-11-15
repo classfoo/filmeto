@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 from PySide6.QtWidgets import QWidget
 
-from app.ui.drawing_tools.drawing_setting import DrawingSetting
+from .settings import DrawingSetting
 
 
 class DrawingTool(ABC):
@@ -39,15 +39,6 @@ class DrawingTool(ABC):
         Get the icon character for this tool.
         Returns:
             str: The icon character (unicode) for the tool
-        """
-        pass
-
-    @abstractmethod
-    def create_config_panel(self) -> QWidget:
-        """
-        Create and return the configuration panel widget for this tool.
-        Returns:
-            QWidget: The configuration panel for the tool
         """
         pass
 

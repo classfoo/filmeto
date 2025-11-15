@@ -6,6 +6,27 @@
   "description": "filmeto",
   "glyphs": [
     {
+      "icon_id": "430361",
+      "name": "饱和度",
+      "font_class": "baohedu",
+      "unicode": "e658",
+      "unicode_decimal": 58968
+    },
+    {
+      "icon_id": "535928",
+      "name": "魔棒",
+      "font_class": "mobang",
+      "unicode": "e659",
+      "unicode_decimal": 58969
+    },
+    {
+      "icon_id": "11641866",
+      "name": "铅笔",
+      "font_class": "qianbi",
+      "unicode": "e65a",
+      "unicode_decimal": 58970
+    },
+    {
       "icon_id": "1305399",
       "name": "保存",
       "font_class": "baocun",

@@ -13,7 +13,6 @@ class ZoomTool(DrawingTool):
 
     def __init__(self):
         self.config = {}
-        self.config_panel = None
 
     def get_id(self) -> str:
         return "zoom"
@@ -22,12 +21,7 @@ class ZoomTool(DrawingTool):
         return "缩放工具"
 
     def get_icon(self) -> str:
-        return "\uE603"  # 放大镜
-
-    def create_config_panel(self) -> QWidget:
-        if self.config_panel is None:
-            self.config_panel = QWidget()
-        return self.config_panel
+        return "\uE671"  # 放大镜
 
     def get_config(self) -> Dict[str, Any]:
         return self.config.copy()
