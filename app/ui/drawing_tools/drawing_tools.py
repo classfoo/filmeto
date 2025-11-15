@@ -181,10 +181,25 @@ class DrawingToolsWidget(QWidget):
         
         # Create setting buttons
         for setting in settings:
-            btn = setting.get_button()
+            btn_container = setting.get_button()
             # 使用partial函数修复闭包问题
-            btn.clicked.connect(partial(self._on_setting_clicked, setting, btn))
-            self.settings_layout.addWidget(btn)
+            # 对于新的容器组件，我们需要连接到正确的按钮
+            if hasattr(btn_container, 'color_button'):
+                btn_to_connect = btn_container.color_button
+            elif hasattr(btn_container, 'size_button'):
+                btn_to_connect = btn_container.size_button
+            elif hasattr(btn_container, 'opacity_button'):
+                btn_to_connect = btn_container.opacity_button
+            elif hasattr(btn_container, 'brush_type_button'):
+                btn_to_connect = btn_container.brush_type_button
+            elif hasattr(btn_container, 'shape_type_button'):
+                btn_to_connect = btn_container.shape_type_button
+            else:
+                # Default to the container itself if no specific button found
+                btn_to_connect = btn_container
+                
+            btn_to_connect.clicked.connect(partial(self._on_setting_clicked, setting, btn_to_connect))
+            self.settings_layout.addWidget(btn_container)
         
         # Add stretch to push settings to the left
         self.settings_layout.addStretch()

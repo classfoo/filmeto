@@ -2,7 +2,7 @@
 ColorSetting - Color picker setting for drawing tools
 """
 from typing import Optional
-from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QColorDialog, QGridLayout
+from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QColorDialog, QGridLayout, QWidget, QHBoxLayout
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 from app.ui.drawing_tools.drawing_setting import DrawingSetting
@@ -18,17 +18,41 @@ class ColorSetting(DrawingSetting):
         super().__init__(name, icon="\uE6CF")  # Palette icon
         self._value = default_color if default_color else QColor(Qt.GlobalColor.black)
     
-    def create_button(self) -> QPushButton:
-        """Create color preview button (28x28px)"""
+    def create_button(self) -> QWidget:
+        """Create color preview button with text label"""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        
+        # Create the text label
+        label = QLabel(self.name)
+        label.setStyleSheet("color: #E1E1E1; font-size: 11px; background: transparent; border: none;")
+        label.setFixedWidth(32)
+        label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        label.setWordWrap(False)
+        label.setTextFormat(Qt.PlainText)
+        label.setTextInteractionFlags(Qt.NoTextInteraction)
+        
+        # Create the color button
         btn = QPushButton()
         btn.setFixedSize(28, 28)
         btn.setToolTip(self.name)
         btn.setObjectName("setting_color_btn")
         
+        # Add widgets to layout (text on the left, button on the right)
+        layout.addWidget(label)
+        layout.addWidget(btn)
+        layout.addStretch()
+        
         # Apply initial color
         self._apply_color_to_button(btn, self._value)
         
-        return btn
+        # Store references for later use
+        container.color_button = btn
+        container.label = label
+        
+        return container
     
     def _apply_color_to_button(self, btn: QPushButton, color: QColor):
         """Apply color as button background with adaptive text color"""
@@ -141,5 +165,5 @@ class ColorSetting(DrawingSetting):
     def set_value(self, value: QColor):
         self._value = value
         if self._button:
-            self._apply_color_to_button(self._button, value)
+            self._apply_color_to_button(self._button.color_button, value)
         self.value_changed.emit(value)

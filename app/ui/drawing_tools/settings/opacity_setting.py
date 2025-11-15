@@ -2,7 +2,7 @@
 OpacitySetting - Opacity adjustment setting for drawing tools
 """
 from typing import Optional
-from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QSlider, QSpinBox, QHBoxLayout
+from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QSlider, QSpinBox, QHBoxLayout, QWidget
 from PySide6.QtCore import Qt
 from app.ui.drawing_tools.drawing_setting import DrawingSetting
 
@@ -17,12 +17,33 @@ class OpacitySetting(DrawingSetting):
         super().__init__(name, icon="\uE6D1")  # Opacity icon
         self._value = default_opacity  # 0-100
     
-    def create_button(self) -> QPushButton:
-        """Create opacity indicator button (28x28px)"""
+    def create_button(self) -> QWidget:
+        """Create opacity indicator button with text label"""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        
+        # Create the text label
+        label = QLabel(self.name)
+        label.setStyleSheet("color: #E1E1E1; font-size: 11px; background: transparent; border: none;")
+        label.setFixedWidth(32)
+        label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        label.setWordWrap(False)
+        label.setTextFormat(Qt.PlainText)
+        label.setTextInteractionFlags(Qt.NoTextInteraction)
+        
+        # Create the opacity button
         btn = QPushButton()
         btn.setFixedSize(28, 28)
         btn.setObjectName("setting_opacity_btn")
         
+        # Add widgets to layout (text on the left, button on the right)
+        layout.addWidget(label)
+        layout.addWidget(btn)
+        layout.addStretch()
+        
+        # Update button text
         self._update_button_text(btn)
         
         btn.setStyleSheet("""
@@ -40,7 +61,11 @@ class OpacitySetting(DrawingSetting):
             }
         """)
         
-        return btn
+        # Store references for later use
+        container.opacity_button = btn
+        container.label = label
+        
+        return container
     
     def _update_button_text(self, btn: QPushButton):
         """Update button to show current opacity"""
@@ -123,5 +148,5 @@ class OpacitySetting(DrawingSetting):
     def set_value(self, value: int):
         self._value = value
         if self._button:
-            self._update_button_text(self._button)
+            self._update_button_text(self._button.opacity_button)
         self.value_changed.emit(value)

@@ -2,7 +2,7 @@
 BrushTypeSetting - Brush line style setting for drawing tools
 """
 from typing import Optional
-from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QButtonGroup, QRadioButton
+from PySide6.QtWidgets import QPushButton, QFrame, QVBoxLayout, QLabel, QButtonGroup, QRadioButton, QWidget, QHBoxLayout
 from PySide6.QtCore import Qt
 from app.ui.drawing_tools.drawing_setting import DrawingSetting
 
@@ -29,12 +29,33 @@ class BrushTypeSetting(DrawingSetting):
             "dash-dot": "╍"
         }
     
-    def create_button(self) -> QPushButton:
-        """Create line type indicator button (28x28px)"""
+    def create_button(self) -> QWidget:
+        """Create line type indicator button with text label"""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        
+        # Create the text label
+        label = QLabel(self.name)
+        label.setStyleSheet("color: #E1E1E1; font-size: 11px; background: transparent; border: none;")
+        label.setFixedWidth(32)
+        label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        label.setWordWrap(False)
+        label.setTextFormat(Qt.PlainText)
+        label.setTextInteractionFlags(Qt.NoTextInteraction)
+        
+        # Create the brush type button
         btn = QPushButton()
         btn.setFixedSize(28, 28)
         btn.setObjectName("setting_brush_type_btn")
         
+        # Add widgets to layout (text on the left, button on the right)
+        layout.addWidget(label)
+        layout.addWidget(btn)
+        layout.addStretch()
+        
+        # Update button display
         self._update_button_display_internal(btn)
         
         btn.setStyleSheet("""
@@ -51,7 +72,11 @@ class BrushTypeSetting(DrawingSetting):
             }
         """)
         
-        return btn
+        # Store references for later use
+        container.brush_type_button = btn
+        container.label = label
+        
+        return container
     
     def _update_button_display_internal(self, btn: QPushButton):
         """Update button visual"""
@@ -125,7 +150,7 @@ class BrushTypeSetting(DrawingSetting):
     def set_value(self, value: str):
         self._value = value
         if self._button:
-            self._update_button_display_internal(self._button)
+            self._update_button_display_internal(self._button.brush_type_button)
         # Recreate panel to update selected state
         if self._panel:
             self._panel.deleteLater()

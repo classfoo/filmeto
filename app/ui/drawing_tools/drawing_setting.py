@@ -3,8 +3,9 @@ DrawingSetting - Base interface for all drawing tool settings
 """
 from abc import ABC, abstractmethod
 from typing import Any, Optional
-from PySide6.QtWidgets import QPushButton, QFrame
+from PySide6.QtWidgets import QPushButton, QFrame, QHBoxLayout, QWidget
 from PySide6.QtCore import Signal, QObject
+from PySide6.QtGui import QFont
 
 
 class DrawingSetting(QObject):
@@ -31,17 +32,17 @@ class DrawingSetting(QObject):
         self.name = name
         self.icon = icon
         self._value: Any = None
-        self._button: Optional[QPushButton] = None
+        self._button: Optional[QWidget] = None  # Changed from QPushButton to QWidget to accommodate layout
         self._panel: Optional[QFrame] = None
     
     @abstractmethod
-    def create_button(self) -> QPushButton:
+    def create_button(self) -> QWidget:
         """
         Create a status button showing current setting value.
-        Button must be 28x28px to fit in 30px toolbar.
+        Button must fit in 30px toolbar.
         
         Returns:
-            QPushButton with visual indication of current value
+            QWidget with visual indication of current value
         """
         pass
     
@@ -65,7 +66,7 @@ class DrawingSetting(QObject):
         """Set setting value and update button display"""
         pass
     
-    def get_button(self) -> QPushButton:
+    def get_button(self) -> QWidget:
         """Get or create the status button"""
         if self._button is None:
             self._button = self.create_button()
