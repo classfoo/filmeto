@@ -14,6 +14,7 @@ QPushButton[objectName^="tool_"] {
     margin: 2px;
     color: #ffffff;
     font-size: 14px;
+    text-align: center;
 }
 
 QPushButton[objectName^="tool_"]:hover {
@@ -82,7 +83,6 @@ QPushButton {
     border: 1px solid #555555;
     border-radius: 4px;
     padding: 5px;
-    min-width: 80px;
     color: #ffffff;
 }
 

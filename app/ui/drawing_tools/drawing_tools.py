@@ -2,13 +2,21 @@
 DrawingToolsWidget - A component for drawing tools with selection and configuration panels
 """
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QPushButton, QFrame, QLabel, QSpinBox,
-    QComboBox, QVBoxLayout, QGridLayout, QStackedWidget
+    QWidget, QHBoxLayout, QPushButton, QFrame, QVBoxLayout, QStackedWidget
 )
-from PySide6.QtCore import Qt, QSize, Signal
-from PySide6.QtGui import QFont, QPalette, QIcon, QPixmap, QPainter, QColor
-import json
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
 import os
+import importlib.util
+from .tools.move_tool import MoveTool
+from .tools.select_tool import SelectTool
+from .tools.pen_tool import PenTool
+from .tools.brush_tool import BrushTool
+from .tools.eraser_tool import EraserTool
+from .tools.shape_tool import ShapeTool
+from .tools.text_tool import TextTool
+from .tools.zoom_tool import ZoomTool
+from .tools.adjust_tool import AdjustTool
 
 
 class DrawingToolsWidget(QWidget):
@@ -18,20 +26,8 @@ class DrawingToolsWidget(QWidget):
         super().__init__(parent)
         self.parent_widget = parent
         
-        # Load iconfont mappings
-        self.iconfont_map = self.load_iconfont_map()
-        
-        # Define tools with their properties
-        self.tools = [
-            {"id": "move", "name": "移动工具", "icon": "move"},
-            {"id": "select", "name": "框选工具", "icon": "mti-quanxuan"},
-            {"id": "pen", "name": "铅笔工具", "icon": "shougong"},
-            {"id": "brush", "name": "画笔工具", "icon": "huabi"},
-            {"id": "shape", "name": "图形工具", "icon": "shape"},
-            {"id": "text", "name": "文字工具", "icon": "wenzi"},
-            {"id": "zoom", "name": "缩放工具", "icon": "zoom"},
-            {"id": "adjust", "name": "色彩调整工具", "icon": "diaoseban"}
-        ]
+        # Load tools dynamically
+        self.tools = self._load_tools()
         
         # Initialize selected tool
         self.current_tool = "pen"
@@ -40,20 +36,26 @@ class DrawingToolsWidget(QWidget):
         self.init_ui()
         self.setup_connections()
         
-    def load_iconfont_map(self):
-        """Load iconfont mapping with direct unicode values."""
-        # Using direct unicode values instead of loading from JSON
-        return {
-            "move": "\uE61B",         # 平移
-            "mti-quanxuan": "\uE9E8",  # mti-圈选
-            "shougong": "\uE772",      # 手工2
-            "huabi": "\uE648",         # 37画笔
-            "shape": "\uE716",         # shape
-            "wenzi": "\uE647",         # 文字
-            "zoom": "\uE6E2",          # zoom
-            "diaoseban": "\uE619"      # 调色板
-        }
+    def _load_tools(self):
+        """Load all available drawing tools."""
+        # In a more advanced implementation, this could dynamically discover and load tools
+        # For now, we'll manually instantiate our tool classes
+        tool_instances = [
+            MoveTool(),
+            SelectTool(),
+            PenTool(),
+            BrushTool(),
+            EraserTool(),
+            ShapeTool(),
+            TextTool(),
+            ZoomTool(),
+            AdjustTool()
+        ]
         
+        # Convert to dictionary for easier access
+        tools_dict = {tool.get_id(): tool for tool in tool_instances}
+        return tools_dict
+    
     def init_ui(self):
         """Initialize the user interface."""
         layout = QHBoxLayout(self)
@@ -63,26 +65,26 @@ class DrawingToolsWidget(QWidget):
         # Create tool buttons
         self.tool_buttons = {}
         
-        for tool in self.tools:
+        # Create buttons for all loaded tools
+        for tool_id, tool in self.tools.items():
             btn = QPushButton(self)
-            btn.setObjectName(f"tool_{tool['id']}")
+            btn.setObjectName(f"tool_{tool_id}")
             btn.setCheckable(True)
             btn.setFixedSize(32, 32)
-            btn.setToolTip(tool["name"])
+            btn.setToolTip(tool.get_name())
             
-            # Set icon using iconfont character
-            icon_char = self.iconfont_map.get(tool["icon"], tool["icon"][0].upper())
-            btn.setText(icon_char)
+            # Set icon using iconfont character directly
+            btn.setText(tool.get_icon())
             
             # Set font for icon display
             font = QFont("iconfont", 12)
             btn.setFont(font)
             
             # If this is the current tool, check it
-            if tool["id"] == self.current_tool:
+            if tool_id == self.current_tool:
                 btn.setChecked(True)
                 
-            self.tool_buttons[tool["id"]] = btn
+            self.tool_buttons[tool_id] = btn
             layout.addWidget(btn)
         
         # Create floating panel for tool options
@@ -96,6 +98,10 @@ class DrawingToolsWidget(QWidget):
         self.setStyleSheet(DRAWING_TOOLS_WIDGET_STYLE)
         self.floating_panel.setStyleSheet(DRAWING_TOOLS_WIDGET_STYLE)
         
+        # Ensure tool buttons remain square
+        for btn in self.tool_buttons.values():
+            btn.setFixedSize(32, 32)
+        
         # Create stacked widget for different tool configurations
         self.config_stack = QStackedWidget()
         
@@ -108,267 +114,20 @@ class DrawingToolsWidget(QWidget):
         
     def create_tool_configs(self):
         """Create configuration panels for different tools."""
-        # Select tool configuration
-        select_config = self.create_select_config()
-        self.config_stack.addWidget(select_config)
-        self.tool_config_widgets = {"select": select_config}
+        self.tool_config_widgets = {}
         
-        # Pen tool configuration
-        pen_config = self.create_pen_config()
-        self.config_stack.addWidget(pen_config)
-        self.tool_config_widgets["pen"] = pen_config
+        # Create configuration panels for all tools
+        for tool_id, tool in self.tools.items():
+            config_widget = tool.create_config_panel()
+            self.config_stack.addWidget(config_widget)
+            self.tool_config_widgets[tool_id] = config_widget
         
-        # Brush tool configuration
-        brush_config = self.create_brush_config()
-        self.config_stack.addWidget(brush_config)
-        self.tool_config_widgets["brush"] = brush_config
-        
-        # Shape tool configuration
-        shape_config = self.create_shape_config()
-        self.config_stack.addWidget(shape_config)
-        self.tool_config_widgets["shape"] = shape_config
-        
-        # Text tool configuration
-        text_config = self.create_text_config()
-        self.config_stack.addWidget(text_config)
-        self.tool_config_widgets["text"] = text_config
-        
-        # Zoom tool configuration
-        zoom_config = self.create_zoom_config()
-        self.config_stack.addWidget(zoom_config)
-        self.tool_config_widgets["zoom"] = zoom_config
-        
-        # Adjust tool configuration
-        adjust_config = self.create_adjust_config()
-        self.config_stack.addWidget(adjust_config)
-        self.tool_config_widgets["adjust"] = adjust_config
-        
-        # For tools without specific config, create empty panels
-        for tool_id in ["move"]:
-            empty_config = QWidget()
-            self.config_stack.addWidget(empty_config)
-            self.tool_config_widgets[tool_id] = empty_config
-        
-    def create_select_config(self):
-        """Create configuration for selection tool."""
-        widget = QWidget()
-        layout = QGridLayout(widget)
-        
-        # Selection mode label
-        label = QLabel("选择模式:")
-        layout.addWidget(label, 0, 0)
-        
-        # Selection mode combo box
-        self.select_mode_combo = QComboBox()
-        self.select_mode_combo.addItems(["矩形选择", "椭圆选择", "套索选择", "智能选择"])
-        layout.addWidget(self.select_mode_combo, 0, 1)
-        
-        # Add some spacing
-        layout.setRowStretch(1, 1)
-        
-        return widget
-    
-    def create_pen_config(self):
-        """Create configuration for pen tool."""
-        widget = QWidget()
-        layout = QGridLayout(widget)
-        
-        # Brush size label and spinner
-        size_label = QLabel("笔尖粗细:")
-        layout.addWidget(size_label, 0, 0)
-        
-        self.pen_size_spin = QSpinBox()
-        self.pen_size_spin.setRange(1, 50)
-        self.pen_size_spin.setValue(2)
-        layout.addWidget(self.pen_size_spin, 0, 1)
-        
-        # Color label and button
-        color_label = QLabel("颜色:")
-        layout.addWidget(color_label, 1, 0)
-        
-        self.pen_color_btn = QPushButton()
-        self.pen_color_btn.setText("选择颜色")
-        layout.addWidget(self.pen_color_btn, 1, 1)
-        
-        # Add some spacing
-        layout.setRowStretch(2, 1)
-        
-        return widget
-    
-    def create_brush_config(self):
-        """Create configuration for brush tool."""
-        widget = QWidget()
-        layout = QGridLayout(widget)
-        
-        # Brush style label and combo
-        style_label = QLabel("笔刷样式:")
-        layout.addWidget(style_label, 0, 0)
-        
-        self.brush_style_combo = QComboBox()
-        self.brush_style_combo.addItems(["圆形", "方块", "纹理1", "纹理2"])
-        layout.addWidget(self.brush_style_combo, 0, 1)
-        
-        # Brush size label and spinner
-        size_label = QLabel("笔尖粗细:")
-        layout.addWidget(size_label, 1, 0)
-        
-        self.brush_size_spin = QSpinBox()
-        self.brush_size_spin.setRange(1, 50)
-        self.brush_size_spin.setValue(5)
-        layout.addWidget(self.brush_size_spin, 1, 1)
-        
-        # Opacity label and spinner
-        opacity_label = QLabel("不透明度:")
-        layout.addWidget(opacity_label, 2, 0)
-        
-        self.brush_opacity_spin = QSpinBox()
-        self.brush_opacity_spin.setRange(1, 100)
-        self.brush_opacity_spin.setValue(100)
-        self.brush_opacity_spin.setSuffix("%")
-        layout.addWidget(self.brush_opacity_spin, 2, 1)
-        
-        # Add some spacing
-        layout.setRowStretch(3, 1)
-        
-        return widget
-    
-    def create_shape_config(self):
-        """Create configuration for shape tool."""
-        widget = QWidget()
-        layout = QGridLayout(widget)
-        
-        # Shape type label and combo
-        type_label = QLabel("形状类型:")
-        layout.addWidget(type_label, 0, 0)
-        
-        self.shape_type_combo = QComboBox()
-        self.shape_type_combo.addItems(["矩形", "椭圆", "直线", "多边形"])
-        layout.addWidget(self.shape_type_combo, 0, 1)
-        
-        # Fill style label and combo
-        fill_label = QLabel("填充样式:")
-        layout.addWidget(fill_label, 1, 0)
-        
-        self.shape_fill_combo = QComboBox()
-        self.shape_fill_combo.addItems(["实心", "空心", "渐变"])
-        layout.addWidget(self.shape_fill_combo, 1, 1)
-        
-        # Line width label and spinner
-        width_label = QLabel("线条宽度:")
-        layout.addWidget(width_label, 2, 0)
-        
-        self.shape_width_spin = QSpinBox()
-        self.shape_width_spin.setRange(1, 20)
-        self.shape_width_spin.setValue(2)
-        layout.addWidget(self.shape_width_spin, 2, 1)
-        
-        # Add some spacing
-        layout.setRowStretch(3, 1)
-        
-        return widget
-    
-    def create_text_config(self):
-        """Create configuration for text tool."""
-        widget = QWidget()
-        layout = QGridLayout(widget)
-        
-        # Font size label and spinner
-        size_label = QLabel("字体大小:")
-        layout.addWidget(size_label, 0, 0)
-        
-        self.text_size_spin = QSpinBox()
-        self.text_size_spin.setRange(8, 72)
-        self.text_size_spin.setValue(16)
-        layout.addWidget(self.text_size_spin, 0, 1)
-        
-        # Font family label and combo
-        font_label = QLabel("字体:")
-        layout.addWidget(font_label, 1, 0)
-        
-        self.text_font_combo = QComboBox()
-        self.text_font_combo.addItems(["Arial", "Times", "Courier", "Helvetica"])
-        layout.addWidget(self.text_font_combo, 1, 1)
-        
-        # Text alignment label and combo
-        align_label = QLabel("对齐方式:")
-        layout.addWidget(align_label, 2, 0)
-        
-        self.text_align_combo = QComboBox()
-        self.text_align_combo.addItems(["左对齐", "居中", "右对齐", "两端对齐"])
-        layout.addWidget(self.text_align_combo, 2, 1)
-        
-        # Add some spacing
-        layout.setRowStretch(3, 1)
-        
-        return widget
-    
-    def create_zoom_config(self):
-        """Create configuration for zoom tool."""
-        widget = QWidget()
-        layout = QGridLayout(widget)
-        
-        # Zoom level label and combo
-        zoom_label = QLabel("缩放级别:")
-        layout.addWidget(zoom_label, 0, 0)
-        
-        self.zoom_level_combo = QComboBox()
-        self.zoom_level_combo.addItems(["25%", "50%", "75%", "100%", "150%", "200%", "400%"])
-        self.zoom_level_combo.setCurrentText("100%")
-        layout.addWidget(self.zoom_level_combo, 0, 1)
-        
-        # Fit to screen button
-        self.fit_screen_btn = QPushButton()
-        self.fit_screen_btn.setText("适应屏幕")
-        layout.addWidget(self.fit_screen_btn, 1, 0, 1, 2)
-        
-        # Add some spacing
-        layout.setRowStretch(2, 1)
-        
-        return widget
-    
-    def create_adjust_config(self):
-        """Create configuration for color adjustment tool."""
-        widget = QWidget()
-        layout = QGridLayout(widget)
-        
-        # Brightness label and spinner
-        bright_label = QLabel("亮度:")
-        layout.addWidget(bright_label, 0, 0)
-        
-        self.adjust_brightness_spin = QSpinBox()
-        self.adjust_brightness_spin.setRange(-100, 100)
-        self.adjust_brightness_spin.setValue(0)
-        layout.addWidget(self.adjust_brightness_spin, 0, 1)
-        
-        # Contrast label and spinner
-        contrast_label = QLabel("对比度:")
-        layout.addWidget(contrast_label, 1, 0)
-        
-        self.adjust_contrast_spin = QSpinBox()
-        self.adjust_contrast_spin.setRange(-100, 100)
-        self.adjust_contrast_spin.setValue(0)
-        layout.addWidget(self.adjust_contrast_spin, 1, 1)
-        
-        # Saturation label and spinner
-        sat_label = QLabel("饱和度:")
-        layout.addWidget(sat_label, 2, 0)
-        
-        self.adjust_saturation_spin = QSpinBox()
-        self.adjust_saturation_spin.setRange(-100, 100)
-        self.adjust_saturation_spin.setValue(0)
-        layout.addWidget(self.adjust_saturation_spin, 2, 1)
-        
-        # Add some spacing
-        layout.setRowStretch(3, 1)
-        
-        return widget
-    
     def setup_connections(self):
         """Setup signal connections."""
         # Connect button signals
         for btn in self.tool_buttons.values():
             btn.clicked.connect(self.on_tool_button_clicked)
-        
+            
     def on_tool_button_clicked(self):
         """Handle tool button click."""
         # Get the clicked button
@@ -382,6 +141,14 @@ class DrawingToolsWidget(QWidget):
                 break
         
         if tool_id:
+            # Deselect all other buttons first
+            for tid, btn in self.tool_buttons.items():
+                if tid != tool_id:
+                    btn.setChecked(False)
+            
+            # Select the current button
+            button.setChecked(True)
+            
             self.current_tool = tool_id
             self.tool_selected.emit(tool_id)
             self.show_floating_panel(button)
@@ -434,3 +201,20 @@ class DrawingToolsWidget(QWidget):
                 widget_at_pos = self.parent_widget.childAt(self.parent_widget.mapFromGlobal(global_pos))
                 if widget_at_pos not in self.tool_buttons.values():
                     self.hide_floating_panel()
+    
+    def load_iconfont_map(self):
+        """Load iconfont mapping with direct unicode values."""
+        # This method is no longer needed as we're using direct iconfont characters
+        # Keeping it for backward compatibility
+        return {}
+        
+    def get_tool_config(self, tool_id):
+        """Get configuration data for a specific tool."""
+        if tool_id in self.tools:
+            return self.tools[tool_id].get_config()
+        return None
+        
+    def set_tool_config(self, tool_id, config):
+        """Set configuration data for a specific tool."""
+        if tool_id in self.tools:
+            self.tools[tool_id].set_config(config)
