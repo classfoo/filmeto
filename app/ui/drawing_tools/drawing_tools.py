@@ -2,8 +2,8 @@
 DrawingToolsWidget - A component for drawing tools with selection and configuration panels
 """
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QToolButton, QFrame, QLabel, QSpinBox,
-    QComboBox, QButtonGroup, QVBoxLayout, QGridLayout, QStackedWidget
+    QWidget, QHBoxLayout, QPushButton, QFrame, QLabel, QSpinBox,
+    QComboBox, QVBoxLayout, QGridLayout, QStackedWidget
 )
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QFont, QPalette, QIcon, QPixmap, QPainter, QColor
@@ -34,41 +34,25 @@ class DrawingToolsWidget(QWidget):
         ]
         
         # Initialize selected tool
-        self.current_tool = "select"
+        self.current_tool = "pen"
         
         # Create UI
         self.init_ui()
         self.setup_connections()
         
     def load_iconfont_map(self):
-        """Load iconfont mapping from JSON file."""
-        try:
-            # Try to load iconfont.json from textures directory
-            iconfont_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "textures", "iconfont.json")
-            iconfont_path = os.path.abspath(iconfont_path)
-            
-            with open(iconfont_path, 'r', encoding='utf-8') as f:
-                iconfont_data = json.load(f)
-            
-            # Map font_class to unicode
-            icon_map = {}
-            for glyph in iconfont_data.get("glyphs", []):
-                icon_map[glyph["font_class"]] = chr(glyph["unicode_decimal"])
-                
-            return icon_map
-        except Exception as e:
-            print(f"Error loading iconfont: {e}")
-            # Return basic mapping in case of error
-            return {
-                "move": "↖",  # Using a fallback character
-                "mti-quanxuan": "□",  # Using a fallback character
-                "shougong": "✏",  # Using a fallback character
-                "huabi": "🖌",  # Using a fallback character
-                "shape": "⋄",  # Using a fallback character
-                "wenzi": "T",  # Using a fallback character
-                "zoom": "+",  # Using a fallback character
-                "diaoseban": "🎨"  # Using a fallback character
-            }
+        """Load iconfont mapping with direct unicode values."""
+        # Using direct unicode values instead of loading from JSON
+        return {
+            "move": "\uE61B",         # 平移
+            "mti-quanxuan": "\uE9E8",  # mti-圈选
+            "shougong": "\uE772",      # 手工2
+            "huabi": "\uE648",         # 37画笔
+            "shape": "\uE716",         # shape
+            "wenzi": "\uE647",         # 文字
+            "zoom": "\uE6E2",          # zoom
+            "diaoseban": "\uE619"      # 调色板
+        }
         
     def init_ui(self):
         """Initialize the user interface."""
@@ -77,11 +61,10 @@ class DrawingToolsWidget(QWidget):
         layout.setSpacing(2)
         
         # Create tool buttons
-        self.button_group = QButtonGroup(self)
         self.tool_buttons = {}
         
         for tool in self.tools:
-            btn = QToolButton(self)
+            btn = QPushButton(self)
             btn.setObjectName(f"tool_{tool['id']}")
             btn.setCheckable(True)
             btn.setFixedSize(32, 32)
@@ -90,11 +73,9 @@ class DrawingToolsWidget(QWidget):
             # Set icon using iconfont character
             icon_char = self.iconfont_map.get(tool["icon"], tool["icon"][0].upper())
             btn.setText(icon_char)
-            btn.setProperty("icon_class", tool["icon"])
             
             # Set font for icon display
-            font = btn.font()
-            font.setPointSize(12)
+            font = QFont("iconfont", 12)
             btn.setFont(font)
             
             # If this is the current tool, check it
@@ -102,7 +83,6 @@ class DrawingToolsWidget(QWidget):
                 btn.setChecked(True)
                 
             self.tool_buttons[tool["id"]] = btn
-            self.button_group.addButton(btn)
             layout.addWidget(btn)
         
         # Create floating panel for tool options
@@ -110,6 +90,11 @@ class DrawingToolsWidget(QWidget):
         self.floating_panel.setFrameStyle(QFrame.StyledPanel)
         self.floating_panel.setWindowFlags(Qt.Popup)
         self.floating_panel.setVisible(False)
+        
+        # Apply dark theme style to the floating panel from styles module
+        from ..styles import DRAWING_TOOLS_WIDGET_STYLE
+        self.setStyleSheet(DRAWING_TOOLS_WIDGET_STYLE)
+        self.floating_panel.setStyleSheet(DRAWING_TOOLS_WIDGET_STYLE)
         
         # Create stacked widget for different tool configurations
         self.config_stack = QStackedWidget()
@@ -201,7 +186,7 @@ class DrawingToolsWidget(QWidget):
         color_label = QLabel("颜色:")
         layout.addWidget(color_label, 1, 0)
         
-        self.pen_color_btn = QToolButton()
+        self.pen_color_btn = QPushButton()
         self.pen_color_btn.setText("选择颜色")
         layout.addWidget(self.pen_color_btn, 1, 1)
         
@@ -332,7 +317,7 @@ class DrawingToolsWidget(QWidget):
         layout.addWidget(self.zoom_level_combo, 0, 1)
         
         # Fit to screen button
-        self.fit_screen_btn = QToolButton()
+        self.fit_screen_btn = QPushButton()
         self.fit_screen_btn.setText("适应屏幕")
         layout.addWidget(self.fit_screen_btn, 1, 0, 1, 2)
         
@@ -380,10 +365,15 @@ class DrawingToolsWidget(QWidget):
     
     def setup_connections(self):
         """Setup signal connections."""
-        self.button_group.buttonClicked.connect(self.on_tool_selected)
+        # Connect button signals
+        for btn in self.tool_buttons.values():
+            btn.clicked.connect(self.on_tool_button_clicked)
         
-    def on_tool_selected(self, button):
-        """Handle tool selection."""
+    def on_tool_button_clicked(self):
+        """Handle tool button click."""
+        # Get the clicked button
+        button = self.sender()
+        
         # Get the tool ID from the button
         tool_id = None
         for tid, btn in self.tool_buttons.items():

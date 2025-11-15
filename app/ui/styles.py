@@ -5,7 +5,7 @@
 # Drawing tools widget styles
 DRAWING_TOOLS_WIDGET_STYLE = """
 /* Tool buttons */
-QToolButton[objectName^="tool_"] {
+QPushButton[objectName^="tool_"] {
     background-color: #3c3f41;
     border: 1px solid #555555;
     border-radius: 6px;
@@ -16,18 +16,18 @@ QToolButton[objectName^="tool_"] {
     font-size: 14px;
 }
 
-QToolButton[objectName^="tool_"]:hover {
+QPushButton[objectName^="tool_"]:hover {
     background-color: #4c5052;
     border: 1px solid #666666;
 }
 
-QToolButton[objectName^="tool_"]:checked {
+QPushButton[objectName^="tool_"]:checked {
     background-color: #365880;
     border: 1px solid #4a80b0;
     font-weight: bold;
 }
 
-QToolButton[objectName^="tool_"]:pressed {
+QPushButton[objectName^="tool_"]:pressed {
     background-color: #2c2f31;
 }
 
@@ -77,7 +77,7 @@ QSpinBox:hover {
 }
 
 /* Buttons in the configuration panel */
-QToolButton {
+QPushButton {
     background-color: #3c3f41;
     border: 1px solid #555555;
     border-radius: 4px;
@@ -86,12 +86,12 @@ QToolButton {
     color: #ffffff;
 }
 
-QToolButton:hover {
+QPushButton:hover {
     background-color: #4c5052;
     border: 1px solid #666666;
 }
 
-QToolButton:pressed {
+QPushButton:pressed {
     background-color: #2c2f31;
 }
 """
