@@ -1,3 +1,3 @@
-from app.ui.editor.tool_editor import ToolEditorWidget
+from app.ui.editor.main_editor import MainEditorWidget
 
-__all__ = ['ToolEditorWidget']
+__all__ = ['MainEditorWidget']

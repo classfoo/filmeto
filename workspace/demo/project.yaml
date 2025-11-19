@@ -1,5 +1,5 @@
 drawing:
-  current_tool: brush
+  current_tool: eraser
   tool_settings:
     adjust: {}
     brush:

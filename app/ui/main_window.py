@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, Signal
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.drawing_tools import DrawingToolsWidget
-from app.ui.editor import ToolEditorWidget
+from app.ui.editor import MainEditorWidget
 from app.ui.layers import LayersWidget
 from app.ui.mac_button import MacTitleBar
 from app.ui.project_menu.project_menu import ProjectMenu
@@ -278,7 +278,7 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.splitter.addWidget(self.left)
 
         # Center panel - preview (this should expand)
-        self.center: ToolEditorWidget = ToolEditorWidget(workspace)
+        self.center: MainEditorWidget = MainEditorWidget(workspace)
         self.splitter.addWidget(self.center)
 
         self.right = LayersWidget(self, workspace)

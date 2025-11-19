@@ -26,7 +26,7 @@ from app.plugins.plugins import ToolInfo
 from utils.i18n_utils import tr
 
 
-class ToolEditorWidget(BaseTaskWidget):
+class MainEditorWidget(BaseTaskWidget):
     """
     AI Image/Video Editor Component with Dynamic Tool Loading
     
@@ -159,7 +159,7 @@ class ToolEditorWidget(BaseTaskWidget):
         control_h_layout.addWidget(self.prompt_input, 1)  # Stretch to fill
         
         control_main_layout.addLayout(control_h_layout)
-        
+
         # Set fixed height for control container (40px + padding)
         self.control_container.setFixedHeight(72)  # 40px content + 12px top + 12px bottom
         self.frame_selector = FrameSelectorWidget()
