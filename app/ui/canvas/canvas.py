@@ -105,7 +105,8 @@ class CanvasWidget(BaseTaskWidget):
             is_visible = getattr(layer, 'visible', True)
             if is_visible:
                 layer_widget = self._create_layer_widget(layer)
-                
+                if layer_widget is None:
+                    continue
                 # Add to our mapping
                 self.layer_widgets[layer.id] = layer_widget
                 
@@ -140,6 +141,7 @@ class CanvasWidget(BaseTaskWidget):
                 # If we have layer widgets but none are visible, make the last one active
                 last_layer_widget_id = list(self.layer_widgets.keys())[-1]
                 self.active_layer_id = last_layer_widget_id
+
     def _create_layer_widget(self, layer: Layer) -> CanvasLayerWidget:
         """Create a layer widget for a specific layer"""
         # Use layer dimensions if available, otherwise use default layer dimensions
@@ -150,9 +152,12 @@ class CanvasWidget(BaseTaskWidget):
         # Pass layer's x and y coordinates to the LayerWidget, along with canvas reference
         if layer.type == LayerType.VIDEO:
             layer_widget = CanvasVideoLayerWidget(self, layer.id, layer, layer_widget_width, layer_widget_height, layer_widget_x, layer_widget_y)
-        else:
+            return layer_widget
+        elif layer.type == LayerType.IMAGE:
             layer_widget = CanvasImageLayerWidget(self, layer.id, layer, layer_widget_width, layer_widget_height, layer_widget_x, layer_widget_y)
-        return layer_widget
+            return layer_widget
+        else:
+            return None
 
     def paintEvent(self, event):
         """Paint the canvas - handle background, panning and temporary shape drawing"""
@@ -227,6 +232,8 @@ class CanvasWidget(BaseTaskWidget):
             if layer.id not in self.layer_widgets:
                 # Create a new layer widget for this layer
                 layer_widget = self._create_layer_widget(layer)
+                if layer_widget is None:
+                    return
                 self.layer_widgets[layer.id] = layer_widget
                 
                 # Set visibility based on layer visibility
