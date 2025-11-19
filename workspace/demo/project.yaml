@@ -1,5 +1,5 @@
 drawing:
-  current_tool: shape
+  current_tool: brush
   tool_settings:
     adjust: {}
     brush:
@@ -37,5 +37,5 @@ drawing:
       text_color: '#000000'
     zoom: {}
 task_index: 1
-timeline_index: 6
+timeline_index: 2
 timeline_size: 7

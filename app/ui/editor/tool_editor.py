@@ -16,6 +16,7 @@ from qasync import asyncSlot
 
 from app.ui.base_widget import BaseTaskWidget
 from app.ui.canvas.canvas_editor import CanvasEditor  # 替换导入
+from app.ui.frame_selector.frame_selector import FrameSelectorWidget
 from app.ui.prompt_input.prompt_input_widget import PromptInputWidget
 from app.data.workspace import Workspace
 from app.data.task import TaskResult, Task
@@ -106,14 +107,14 @@ class ToolEditorWidget(BaseTaskWidget):
     def _setup_ui(self):
         """Initialize UI components"""
         # Main layout - vertical split
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
         
         # Create splitter for resizable areas
-        self.splitter = QSplitter(Qt.Orientation.Vertical)
-        self.splitter.setHandleWidth(2)
-        
+        # self.splitter = QSplitter(Qt.Orientation.Vertical)
+        # self.splitter.setHandleWidth(0)
+
         # ========== Top: Preview Area ==========
         self.preview_container = QFrame()
         self.preview_container.setObjectName("editor_preview_container")
@@ -161,21 +162,19 @@ class ToolEditorWidget(BaseTaskWidget):
         
         # Set fixed height for control container (40px + padding)
         self.control_container.setFixedHeight(72)  # 40px content + 12px top + 12px bottom
-        
+        self.frame_selector = FrameSelectorWidget()
+        self.frame_selector.load_frames(200)
         # Add containers to splitter
-        self.splitter.addWidget(self.preview_container)
-        self.splitter.addWidget(self.control_container)
-        
-        # Set initial splitter sizes (70% preview, 30% control)
-        self.splitter.setStretchFactor(0, 7)
-        self.splitter.setStretchFactor(1, 3)
+        self.main_layout.addWidget(self.preview_container, 1)
+        self.main_layout.addWidget(self.frame_selector)
+        self.main_layout.addWidget(self.control_container)
         
         # Set minimum sizes
         self.preview_container.setMinimumHeight(300)
         
         # Add splitter to main layout
-        main_layout.addWidget(self.splitter)
-        self.setLayout(main_layout)
+        #main_layout.addWidget(self.splitter)
+        #self.setLayout(main_layout)
     
     def _create_tool_section(self) -> QWidget:
         """Create tool switching section with icon buttons"""
@@ -264,15 +263,15 @@ class ToolEditorWidget(BaseTaskWidget):
         
         
         
-        # Splitter
-        self.splitter.setStyleSheet("""
-            QSplitter::handle {
-                background-color: #505254;
-            }
-            QSplitter::handle:vertical {
-                height: 2px;
-            }
-        """)
+        # # Splitter
+        # self.splitter.setStyleSheet("""
+        #     QSplitter::handle {
+        #         background-color: #505254;
+        #     }
+        #     QSplitter::handle:vertical {
+        #         height: 2px;
+        #     }
+        # """)
     
     # ========== Signal Handlers ==========
     
