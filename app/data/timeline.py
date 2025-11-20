@@ -27,11 +27,39 @@ class TimelineItem:
         self.layer_manager = self.timeline.layer_manager
         # 创建layers目录（如果不存在）
         os.makedirs(self.layers_path, exist_ok=True)
+        
+        # Initialize duration if not set
+        if 'duration' not in self.config:
+            self._initialize_duration()
 
 
     def get_image(self):
         original_pixmap= QPixmap(self.image_path)
         return original_pixmap
+    
+    def _initialize_duration(self):
+        """Initialize duration based on item type (image or video)"""
+        if os.path.exists(self.video_path):
+            # Video item - get duration from video file
+            from utils.opencv_utils import get_video_duration
+            duration = get_video_duration(self.video_path)
+            if duration is not None:
+                self.set_duration(duration)
+            else:
+                # Fallback to default if we can't read video duration
+                self.set_duration(1.0)
+        else:
+            # Image item - default to 1 second
+            self.set_duration(1.0)
+    
+    def get_duration(self) -> float:
+        """Get the duration of this timeline item in seconds"""
+        return self.config.get('duration', 1.0)
+    
+    def set_duration(self, duration: float):
+        """Set the duration of this timeline item in seconds"""
+        self.config['duration'] = duration
+        save_yaml(self.config_path, self.config)
 
     def update_image(self, image_path:str):
         if image_path is None:
@@ -56,6 +84,12 @@ class TimelineItem:
         layer = layer_manager.add_layer_from_file(video_path, LayerType.IMAGE)
         # 使用LayerManager的generate_visible_file方法生成最终视频
         layer_manager.generate_visible_file(self.video_path, (layer.width, layer.height))
+        
+        # Update duration based on the new video
+        from utils.opencv_utils import get_video_duration
+        duration = get_video_duration(self.video_path)
+        if duration is not None:
+            self.set_duration(duration)
 
     def update_config(self,config_path:str):
         shutil.copy2(config_path, self.config_path)

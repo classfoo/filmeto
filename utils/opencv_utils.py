@@ -115,6 +115,50 @@ def extract_first_frame_opencv(video_path: Union[str, Path], output_path: Union[
     return None
 
 
+def get_video_duration(video_path: Union[str, Path]) -> Optional[float]:
+    """
+    Get the duration of a video file in seconds using OpenCV.
+    
+    Args:
+        video_path: Path to the input video file
+        
+    Returns:
+        float: Duration in seconds if successful, None if failed
+    """
+    try:
+        import cv2
+    except ImportError:
+        logger.error("OpenCV (cv2) is not installed. Please install it using 'pip install opencv-python'")
+        return None
+    
+    try:
+        # Open the video
+        cap = cv2.VideoCapture(str(video_path))
+        if cap.isOpened():
+            # Get video properties
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            if fps > 0 and frame_count > 0:
+                # Calculate duration
+                duration = frame_count / fps
+                cap.release()
+                logger.info(f"Video duration: {duration}s (frames: {frame_count}, fps: {fps})")
+                return duration
+            else:
+                logger.error("Could not get FPS or frame count from video")
+        else:
+            logger.error("Failed to open video file with OpenCV")
+        
+        cap.release()
+    except Exception as e:
+        logger.error(f"Exception occurred while getting video duration: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return None
+
+
 def extract_frame_at_time_opencv(video_path: Union[str, Path], output_path: Union[str, Path], 
                                 time_seconds: float) -> Optional[str]:
     """
