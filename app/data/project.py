@@ -53,6 +53,14 @@ class Project():
 
     def get_timeline_index(self):
         return self.config['timeline_index']
+    
+    def get_timeline_position(self) -> float:
+        """获取时间线当前播放位置（秒）"""
+        return self.config.get('timeline_position', 0.0)
+    
+    def set_timeline_position(self, position: float):
+        """设置时间线当前播放位置（秒）"""
+        self.update_config('timeline_position', position)
 
     def get_config(self):
         return self.config
@@ -131,7 +139,8 @@ class ProjectManager:
             "project_name": project_name,
             "created_at": datetime.now().isoformat(),
             "timeline_index": 0,
-            "task_index": 0
+            "task_index": 0,
+            "timeline_position": 0.0
         }
         save_yaml(os.path.join(project_path, "project.yaml"), project_config)
         
