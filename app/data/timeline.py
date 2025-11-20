@@ -60,6 +60,8 @@ class TimelineItem:
         """Set the duration of this timeline item in seconds"""
         self.config['duration'] = duration
         save_yaml(self.config_path, self.config)
+        # Notify timeline to update total duration
+        self.timeline._on_item_duration_changed()
 
     def update_image(self, image_path:str):
         if image_path is None:
@@ -210,6 +212,27 @@ class Timeline:
         except Exception as e:
             print(f"发生错误: {e}")
             return
+    
+    def _on_item_duration_changed(self):
+        """Called when any timeline item's duration changes - updates total timeline duration"""
+        self._update_timeline_duration()
+    
+    def _update_timeline_duration(self):
+        """Calculate and update the total timeline duration in project config"""
+        total_duration = self.calculate_total_duration()
+        self.project.set_timeline_duration(total_duration)
+    
+    def calculate_total_duration(self) -> float:
+        """Calculate the total duration of all timeline items"""
+        total = 0.0
+        items = self.get_items()
+        for item in items:
+            total += item.get_duration()
+        return total
+    
+    def get_total_duration(self) -> float:
+        """Get the total timeline duration (calculates on demand)"""
+        return self.calculate_total_duration()
 
     def connect_timeline_switch(self,func):
         self.timeline_switch.connect(func)
@@ -242,6 +265,8 @@ class Timeline:
     def on_task_finished(self,result:TaskResult):
         item = self.get_item(result.get_timeline_index())
         item.update_by_task_result(result)
+        # Update total timeline duration after task completion
+        self._update_timeline_duration()
     
     def refresh_count(self):
         """Refresh the item count by recounting directories"""
@@ -266,6 +291,8 @@ class Timeline:
         num = self.project.config.get('timeline_size', 0)
         self.project.update_config('timeline_size',num+1)
         # 注意：我们不自动更新 timeline_index，它应该保持为用户当前选择的索引
+        # Update total timeline duration after adding new item
+        self._update_timeline_duration()
         return new_index
 
     def add_image(self, new_index):

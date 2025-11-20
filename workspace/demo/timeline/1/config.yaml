@@ -1,4 +1,5 @@
 current_tool: imgedit
+duration: 1.0
 img2video:
   input_image_path: /Users/classfoo/ai/filmeto/workspace/demo/timeline/1/image.png
   logs: ✅ 执行完成
