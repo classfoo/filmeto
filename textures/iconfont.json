@@ -6,6 +6,34 @@
   "description": "filmeto",
   "glyphs": [
     {
+      "icon_id": "1206324",
+      "name": "play",
+      "font_class": "play1",
+      "unicode": "e65f",
+      "unicode_decimal": 58975
+    },
+    {
+      "icon_id": "12002931",
+      "name": "pause",
+      "font_class": "pause",
+      "unicode": "ea5c",
+      "unicode_decimal": 59996
+    },
+    {
+      "icon_id": "21988218",
+      "name": "iov-next",
+      "font_class": "iov-next",
+      "unicode": "e664",
+      "unicode_decimal": 58980
+    },
+    {
+      "icon_id": "21988223",
+      "name": "iov-pre",
+      "font_class": "iov-pre",
+      "unicode": "e665",
+      "unicode_decimal": 58981
+    },
+    {
       "icon_id": "2813279",
       "name": "缩放",
       "font_class": "suofang",

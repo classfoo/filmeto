@@ -15,6 +15,7 @@ from app.ui.timeline.timeline import HorizontalTimeline
 from app.ui.timeline.timeline_container import TimelineContainer
 from app.ui.timeline.subtitle_timeline import SubtitleTimeline
 from app.ui.timeline.voiceover_timeline import VoiceoverTimeline
+from app.ui.play_control import PlayControlWidget
 from utils.i18n_utils import translation_manager, tr
 
 
@@ -190,10 +191,35 @@ class MainWindowBottomBar(BaseWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
 
-        # close
-        # self.setting_button = QPushButton("S", self)
-        # self.setting_button.setObjectName("main_window_bottom_bar_button")
-        # self.layout.addWidget(self.setting_button)
+        # Add stretch to center the play control
+        self.layout.addStretch()
+        
+        # Add play control widget (centered)
+        self.play_control = PlayControlWidget(workspace, self)
+        self.layout.addWidget(self.play_control)
+        
+        # Add stretch to center the play control
+        self.layout.addStretch()
+        
+        # Connect signals (example - can be connected to actual playback logic later)
+        self.play_control.previous_clicked.connect(self._on_previous_clicked)
+        self.play_control.play_pause_clicked.connect(self._on_play_pause_clicked)
+        self.play_control.next_clicked.connect(self._on_next_clicked)
+    
+    def _on_previous_clicked(self):
+        """Handle previous segment button click."""
+        # TODO: Implement navigation to previous segment
+        print("Previous segment clicked")
+    
+    def _on_play_pause_clicked(self, is_playing: bool):
+        """Handle play/pause button click."""
+        # TODO: Implement play/pause logic
+        print(f"Play/Pause clicked - Playing: {is_playing}")
+    
+    def _on_next_clicked(self):
+        """Handle next segment button click."""
+        # TODO: Implement navigation to next segment
+        print("Next segment clicked")
 
 
 class MainWindowLeftBar(BaseWidget):

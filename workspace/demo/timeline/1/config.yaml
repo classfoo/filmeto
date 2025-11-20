@@ -7,6 +7,16 @@ img2video:
   prompt: 小猫抬起强瞄准镜头，发射火枪
   timeline_index: 1
   tool: img2video
+layers:
+- height: 1280
+  id: 1
+  locked: false
+  name: Layer-1
+  type: image
+  visible: true
+  width: 720
+  x: 0
+  y: 0
 text2img:
   logs: ✅ 执行完成
   model: comfy_ui
