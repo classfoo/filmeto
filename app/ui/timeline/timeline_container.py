@@ -116,7 +116,7 @@ class TimelineContainer(QWidget):
     content while preserving all timeline functionality. Mouse events are tracked
     globally across the container and all child widgets.
     """
-    
+
     def __init__(self, timeline_widget, parent=None):
         """
         Initialize the timeline container.
@@ -153,6 +153,10 @@ class TimelineContainer(QWidget):
         # Enable hover events to track mouse globally
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
         self.setMouseTracking(True)
+        # Timeline card dimensions (from HoverZoomFrame)
+        self.card_width = 90  # Fixed width of each card
+        self.card_spacing = 5  # Spacing between cards (from timeline_layout.setSpacing(5))
+        self.content_margin_left = 5  # Left margin from timeline_layout.setContentsMargins(5, 5, 5, 5)
     
     def set_subtitle_timeline(self, subtitle_timeline):
         """
@@ -184,6 +188,82 @@ class TimelineContainer(QWidget):
         self.main_layout.addWidget(self.voiceover_timeline)
         self._update_divider_positions()
     
+    def calculate_playback_position(self, mouse_x: int) -> float:
+        """
+        Calculate the playback position in seconds based on mouse X coordinate.
+        
+        Args:
+            mouse_x: Mouse X coordinate in the container
+            
+        Returns:
+            float: Playback position in seconds (with millisecond precision)
+        """
+        # Get the timeline widget's cards
+        timeline = self.timeline_widget
+        if not hasattr(timeline, 'cards') or not timeline.cards:
+            return 0.0
+        
+        # Get the workspace and project to access timeline items
+        workspace = timeline.workspace
+        if not workspace:
+            return 0.0
+            
+        project = workspace.get_project()
+        if not project:
+            return 0.0
+            
+        timeline_data = project.get_timeline()
+        if not timeline_data:
+            return 0.0
+        
+        # Account for scroll position
+        scroll_area = timeline.scroll_area
+        scroll_offset = scroll_area.horizontalScrollBar().value()
+        
+        # Adjust mouse position for scroll offset and left margin
+        adjusted_x = mouse_x + scroll_offset - self.content_margin_left
+        
+        # If mouse is before the first card, position is 0
+        if adjusted_x < 0:
+            return 0.0
+        
+        # Calculate which card the mouse is over and position within that card
+        accumulated_time = 0.0
+        current_x = 0
+        
+        for i, card in enumerate(timeline.cards):
+            card_index = i + 1  # Cards are 1-indexed
+            
+            # Get the timeline item for this card
+            try:
+                timeline_item = timeline_data.get_item(card_index)
+                item_duration = timeline_item.get_duration()
+            except Exception as e:
+                print(f"Error getting duration for card {card_index}: {e}")
+                item_duration = 1.0  # Default to 1 second if error
+            
+            # Calculate card boundaries
+            card_start_x = current_x
+            card_end_x = current_x + self.card_width
+            
+            # Check if mouse is within this card
+            if adjusted_x >= card_start_x and adjusted_x < card_end_x:
+                # Calculate position within the card
+                position_in_card = adjusted_x - card_start_x
+                # Calculate time fraction within this card
+                time_fraction = position_in_card / self.card_width
+                # Calculate absolute time position
+                position_in_seconds = accumulated_time + (time_fraction * item_duration)
+                # Round to millisecond precision (3 decimal places)
+                return round(position_in_seconds, 3)
+            
+            # Move to next card
+            accumulated_time += item_duration
+            current_x = card_end_x + self.card_spacing
+        
+        # If mouse is after all cards, return the total duration
+        return round(accumulated_time, 3)
+
     def _update_divider_positions(self):
         """Update divider line positions based on component heights"""
         subtitle_height = 0
@@ -222,7 +302,6 @@ class TimelineContainer(QWidget):
                 if not self.overlay.isVisible():
                     self.overlay.show()
                     self.overlay.raise_()  # Ensure overlay is on top
-                
         elif event_type == QEvent.Type.HoverEnter:
             # Mouse entered the container
             self.overlay.show()
