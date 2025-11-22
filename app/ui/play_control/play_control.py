@@ -9,7 +9,7 @@ This component provides playback controls for the timeline:
 Designed to fit in a 28px height bottom bar with dark theme styling.
 """
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer, QElapsedTimer
 from PySide6.QtGui import QFont
 from ..base_widget import BaseWidget
 from ...data.workspace import Workspace
@@ -41,6 +41,16 @@ class PlayControlWidget(BaseWidget):
         
         # Playback state
         self._is_playing = False
+        
+        # High-precision timer for playback
+        self._playback_timer = QTimer(self)
+        self._playback_timer.setInterval(1)  # 1ms interval
+        self._playback_timer.setTimerType(Qt.PreciseTimer)  # Use precise timer
+        self._playback_timer.timeout.connect(self._on_playback_tick)
+        
+        # Elapsed timer for accurate time tracking
+        self._elapsed_timer = QElapsedTimer()
+        self._last_position = 0.0  # Last position in seconds
         
         # Initialize UI
         self.init_ui()
@@ -128,10 +138,14 @@ class PlayControlWidget(BaseWidget):
             # Change to pause icon - using close circle as pause alternative
             self.play_pause_button.setText("\uea5c")
             self.play_pause_button.setToolTip("Pause")
+            # Start playback
+            self._start_playback()
         else:
             # Change to play icon
             self.play_pause_button.setText("\ue65f")
             self.play_pause_button.setToolTip("Play")
+            # Stop playback
+            self._stop_playback()
         
         # Emit signal with current state
         self.play_pause_clicked.emit(self._is_playing)
@@ -160,6 +174,80 @@ class PlayControlWidget(BaseWidget):
             self.play_pause_button.setChecked(playing)
             self._on_play_pause_clicked(playing)
     
+    def _start_playback(self):
+        """
+        Start the playback timer.
+        Initialize elapsed timer for accurate time tracking.
+        """
+        # Get current position from project
+        project = self.workspace.get_project()
+        self._last_position = project.get_timeline_position()
+        
+        # Start high-precision elapsed timer
+        self._elapsed_timer.start()
+        
+        # Start the playback timer (1ms interval)
+        self._playback_timer.start()
+    
+    def _stop_playback(self):
+        """
+        Stop the playback timer and save final position.
+        """
+        # Stop the timer
+        self._playback_timer.stop()
+        
+        # Save the last position
+        if self._elapsed_timer.isValid():
+            elapsed_ms = self._elapsed_timer.elapsed()
+            elapsed_sec = elapsed_ms / 1000.0
+            new_position = self._last_position + elapsed_sec
+            
+            project = self.workspace.get_project()
+            timeline_duration = project.get_timeline_duration()
+            
+            # Handle looping
+            if timeline_duration > 0:
+                new_position = new_position % timeline_duration
+            
+            # Update project position with immediate flush
+            project.set_timeline_position(new_position, flush=True)
+    
+    def _on_playback_tick(self):
+        """
+        Called every 1ms during playback.
+        Updates timeline position with high precision using debounced writes.
+        """
+        if not self._elapsed_timer.isValid():
+            return
+        
+        # Get elapsed time in milliseconds
+        elapsed_ms = self._elapsed_timer.elapsed()
+        elapsed_sec = elapsed_ms / 1000.0
+        
+        # Calculate new position
+        new_position = self._last_position + elapsed_sec
+        
+        # Get project and timeline duration
+        project = self.workspace.get_project()
+        timeline_duration = project.get_timeline_duration()
+        
+        # Handle looping when exceeding timeline duration
+        if timeline_duration > 0 and new_position >= timeline_duration:
+            # Loop back to start
+            new_position = new_position % timeline_duration
+            # Reset timers for next loop
+            self._last_position = 0.0
+            self._elapsed_timer.restart()
+        
+        # Update project position with debounced write (flush=False)
+        # This will batch writes and only save every 500ms
+        project.set_timeline_position(new_position, flush=False)
+    
     def reset(self):
         """Reset the control to initial paused state."""
+        self._stop_playback()
         self.set_playing(False)
+        
+        # Reset position to 0 with immediate flush
+        project = self.workspace.get_project()
+        project.set_timeline_position(0.0, flush=True)

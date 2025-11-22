@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 
 from blinker import signal
+from PySide6.QtCore import QTimer
 
 from app.data.task import TaskManager, TaskResult
 from app.data.timeline import Timeline
@@ -22,6 +23,14 @@ class Project():
         self.task_manager = TaskManager(self.workspace, self, self.tasks_path)
         self.timeline =  Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
         self.drawing = Drawing(self.workspace, self)
+        
+        # Debounced save mechanism for high-frequency updates (like timeline_position)
+        self._pending_save = False
+        self._save_timer = QTimer()
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(500)  # Save every 500ms at most
+        self._save_timer.timeout.connect(self._flush_config)
+        
         # 只有在load_data为True时才自动加载项目中的所有任务
         if load_data:
             self.load_all_tasks()
@@ -58,9 +67,21 @@ class Project():
         """获取时间线当前播放位置（秒）"""
         return self.config.get('timeline_position', 0.0)
     
-    def set_timeline_position(self, position: float):
-        """设置时间线当前播放位置（秒）"""
-        self.update_config('timeline_position', position)
+    def set_timeline_position(self, position: float, flush: bool = False):
+        """设置时间线当前播放位置（秒）
+        
+        Args:
+            position: 时间线位置（秒）
+            flush: 是否立即写入文件（默认False，使用防抖机制）
+        """
+        self.config['timeline_position'] = position
+        if flush:
+            # Immediate save
+            self._flush_config()
+        else:
+            # Debounced save - mark as pending and restart timer
+            self._pending_save = True
+            self._save_timer.start()
     
     def get_timeline_duration(self) -> float:
         """获取时间线总时长（秒）"""
@@ -73,9 +94,26 @@ class Project():
     def get_config(self):
         return self.config
 
-    def update_config(self, key,value):
-        self.config[key]=value
-        save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
+    def _flush_config(self):
+        """Flush pending config changes to disk"""
+        if self._pending_save:
+            save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
+            self._pending_save = False
+    
+    def update_config(self, key, value, debounced: bool = False):
+        """更新配置项
+        
+        Args:
+            key: 配置键
+            value: 配置值
+            debounced: 是否使用防抖保存（默认False，立即保存）
+        """
+        self.config[key] = value
+        if debounced:
+            self._pending_save = True
+            self._save_timer.start()
+        else:
+            save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
     
     def get_drawing(self) -> 'Drawing':
         return self.drawing
