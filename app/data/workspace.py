@@ -58,6 +58,11 @@ class Workspace():
     def connect_layer_changed(self, func):
         self.project.connect_layer_changed(func)
 
+    def connect_project_switched(self, func: Callable):
+        self.project_manager.project_switched.connect(func)
+
+    def connect_timeline_position(self, func: Callable):
+        self.project.connect_timeline_position(func)
 
     def submit_task(self,params):
         print(params)
@@ -88,11 +93,6 @@ class Workspace():
         
         print(f"切换到项目: {project_name}")
         return self.project
-    
-    # 包装ProjectManager的project_switched信号连接方法
-    def connect_project_switched(self, func: Callable):
-        """连接项目切换信号"""
-        self.project_manager.project_switched.connect(func)
 
     def get_current_timeline_item(self):
         return self.project.get_timeline().get_current_item()

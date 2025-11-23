@@ -10,8 +10,43 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QPoint, QEvent
 from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent
 
+from app.data.workspace import Workspace
+from app.ui.base_widget import BaseWidget
 
-class CursorLineOverlay(QWidget):
+class TimelinePositionLineOverlay(QWidget):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        # Set transparent background
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        # Don't accept focus to avoid interfering with timeline
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+        # This widget should not block mouse events for clicking
+        # but we'll track position via parent's event filter
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.timeline_position=None
+
+    def paintEvent(self, event):
+        if self.timeline_position is not None:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+            pen = QPen(QColor(255, 255, 255, 200))
+            pen.setWidth(2)
+            pen.setStyle(Qt.PenStyle.SolidLine)
+            painter.setPen(pen)
+
+            painter.drawLine(self.timeline_position, 0, self.timeline_position, self.height())
+            painter.end()
+
+    def on_timeline_position(self, timeline_position):
+        self.timeline_position = timeline_position
+        self.update()
+
+class TimelineCursorLineOverlay(QWidget):
     """
     Transparent overlay widget that draws the cursor line on top of all content.
     This widget sits above the timeline and draws the line while being transparent
@@ -33,7 +68,7 @@ class CursorLineOverlay(QWidget):
         # This widget should not block mouse events for clicking
         # but we'll track position via parent's event filter
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        
+
     def paintEvent(self, event):
         """Draw the vertical cursor line"""
         if self._mouse_x is not None:
@@ -61,7 +96,7 @@ class CursorLineOverlay(QWidget):
             self.update()
 
 
-class DividerLinesOverlay(QWidget):
+class TimelineDividerLinesOverlay(QWidget):
     """
     Transparent overlay widget that draws divider lines between the three timeline sections.
     This helps visually distinguish between subtitle, main timeline, and voiceover sections.
@@ -108,7 +143,7 @@ class DividerLinesOverlay(QWidget):
         painter.end()
 
 
-class TimelineContainer(QWidget):
+class TimelineContainer(BaseWidget):
     """
     Container widget for the timeline that displays a vertical cursor line.
     
@@ -117,7 +152,7 @@ class TimelineContainer(QWidget):
     globally across the container and all child widgets.
     """
 
-    def __init__(self, timeline_widget, parent=None):
+    def __init__(self, timeline_widget, parent, workspace:Workspace):
         """
         Initialize the timeline container.
         
@@ -125,7 +160,8 @@ class TimelineContainer(QWidget):
             timeline_widget: The HorizontalTimeline widget to wrap
             parent: Parent widget
         """
-        super().__init__(parent)
+        super(TimelineContainer, self).__init__(workspace)
+        self.workspace = workspace
         
         # Store reference to the timeline widget
         self.timeline_widget = timeline_widget
@@ -142,14 +178,17 @@ class TimelineContainer(QWidget):
         # Main timeline is added here
         self.main_layout.addWidget(self.timeline_widget)
         # Voiceover timeline will be added here if needed
-        
+
         # Create the overlay widget for drawing the cursor line
-        self.overlay = CursorLineOverlay(self)
-        self.overlay.hide()  # Hidden initially
-        
+        self.cursor_overlay = TimelineCursorLineOverlay(self)
+        self.cursor_overlay.hide()  # Hidden initially
+
         # Create the overlay widget for drawing divider lines
-        self.divider_overlay = DividerLinesOverlay(self)
-        
+        self.divider_overlay = TimelineDividerLinesOverlay(self)
+
+        # Create the overlay widget for drawing divider lines
+        self.timeline_position_overlay = TimelinePositionLineOverlay(self)
+
         # Enable hover events to track mouse globally
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
         self.setMouseTracking(True)
@@ -157,7 +196,7 @@ class TimelineContainer(QWidget):
         self.card_width = 90  # Fixed width of each card
         self.card_spacing = 5  # Spacing between cards (from timeline_layout.setSpacing(5))
         self.content_margin_left = 5  # Left margin from timeline_layout.setContentsMargins(5, 5, 5, 5)
-    
+
     def set_subtitle_timeline(self, subtitle_timeline):
         """
         设置字幕时间线组件
@@ -187,8 +226,11 @@ class TimelineContainer(QWidget):
         self.voiceover_timeline = voiceover_timeline
         self.main_layout.addWidget(self.voiceover_timeline)
         self._update_divider_positions()
-    
-    def calculate_playback_position(self, mouse_x: int) -> float:
+
+    def on_timeline_position(self, timeline_position):
+        self.timeline_position_overlay.on_timeline_position(timeline_position)
+
+    def calculate_timeline_position(self, mouse_x: int) -> float:
         """
         Calculate the playback position in seconds based on mouse X coordinate.
         
@@ -282,7 +324,8 @@ class TimelineContainer(QWidget):
         """Update overlay size and position when container is resized"""
         super().resizeEvent(event)
         # Position overlay to cover the entire container
-        self.overlay.setGeometry(self.rect())
+        self.timeline_position_overlay.setGeometry(self.rect())
+        self.cursor_overlay.setGeometry(self.rect())
         self.divider_overlay.setGeometry(self.rect())
         self._update_divider_positions()
     
@@ -298,23 +341,23 @@ class TimelineContainer(QWidget):
             hover_event = event
             if isinstance(hover_event, QHoverEvent):
                 pos = hover_event.position().toPoint()
-                self.overlay.set_cursor_position(pos.x())
-                if not self.overlay.isVisible():
-                    self.overlay.show()
-                    self.overlay.raise_()  # Ensure overlay is on top
+                self.cursor_overlay.set_cursor_position(pos.x())
+                if not self.cursor_overlay.isVisible():
+                    self.cursor_overlay.show()
+                    self.cursor_overlay.raise_()  # Ensure overlay is on top
         elif event_type == QEvent.Type.HoverEnter:
             # Mouse entered the container
-            self.overlay.show()
-            self.overlay.raise_()
+            self.cursor_overlay.show()
+            self.cursor_overlay.raise_()
             
         elif event_type == QEvent.Type.HoverLeave:
             # Mouse left the container
-            self.overlay.hide()
-            self.overlay.clear_cursor()
+            self.cursor_overlay.hide()
+            self.cursor_overlay.clear_cursor()
             
         elif event_type == QEvent.Type.Leave:
             # Additional leave event handling
-            self.overlay.hide()
-            self.overlay.clear_cursor()
+            self.cursor_overlay.hide()
+            self.cursor_overlay.clear_cursor()
             
         return super().event(event)

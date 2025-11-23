@@ -14,6 +14,8 @@ from utils.yaml_utils import load_yaml, save_yaml
 
 class Project():
 
+    timeline_position=signal('timeline_position')
+
     def __init__(self, workspace, project_path:str, project_name:str, load_data:bool = True):
         self.workspace = workspace
         self.project_path = project_path
@@ -57,6 +59,9 @@ class Project():
     def connect_layer_changed(self,func):
         self.timeline.connect_layer_changed(func)
 
+    def connect_timeline_position(self,func):
+        self.timeline_position.connect(func)
+
     def get_timeline(self):
         return self.timeline
 
@@ -82,6 +87,7 @@ class Project():
             # Debounced save - mark as pending and restart timer
             self._pending_save = True
             self._save_timer.start()
+        self.timeline_position.send(position)
     
     def get_timeline_duration(self) -> float:
         """获取时间线总时长（秒）"""

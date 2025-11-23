@@ -19,6 +19,7 @@ class BaseWidget(QWidget):
         self.workspace = workspace
         # 连接到Workspace的项目切换信号
         self.workspace.connect_project_switched(self.on_project_switched)
+        self.workspace.connect_timeline_position(self.on_timeline_position)
 
     def paintEvent(self, event):
         option = QStyleOption()
@@ -28,9 +29,10 @@ class BaseWidget(QWidget):
         super().paintEvent(event)
     
     def on_project_switched(self, project_name):
-        """项目切换时的处理方法，子类可以重写此方法"""
         pass
 
+    def on_timeline_position(self, timeline_position):
+        pass
 
 class BaseTaskWidget(BaseWidget):
 

@@ -340,7 +340,7 @@ class MainWindowWorkspaceBottom(BaseWidget):
         self.voiceover_timeline = VoiceoverTimeline(workspace)
 
         # Wrap the timeline in a container that draws the cursor line
-        self.timeline_container = TimelineContainer(self.timeline, self)
+        self.timeline_container = TimelineContainer(self.timeline, self, workspace)
         self.timeline_container.set_subtitle_timeline(self.subtitle_timeline)
         self.timeline_container.set_voiceover_timeline(self.voiceover_timeline)
 
