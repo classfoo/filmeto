@@ -202,12 +202,17 @@ class PlayControlWidget(BaseWidget):
             elapsed_sec = elapsed_ms / 1000.0
             new_position = self._last_position + elapsed_sec
             
+            # Round to millisecond precision (3 decimal places = 0.001s)
+            new_position = round(new_position, 3)
+            
             project = self.workspace.get_project()
             timeline_duration = project.get_timeline_duration()
             
             # Handle looping
             if timeline_duration > 0:
                 new_position = new_position % timeline_duration
+                # Round again after modulo operation to maintain millisecond precision
+                new_position = round(new_position, 3)
             
             # Update project position with immediate flush
             project.set_timeline_position(new_position, flush=True)
@@ -227,6 +232,9 @@ class PlayControlWidget(BaseWidget):
         # Calculate new position
         new_position = self._last_position + elapsed_sec
         
+        # Round to millisecond precision (3 decimal places = 0.001s)
+        new_position = round(new_position, 3)
+        
         # Get project and timeline duration
         project = self.workspace.get_project()
         timeline_duration = project.get_timeline_duration()
@@ -235,6 +243,8 @@ class PlayControlWidget(BaseWidget):
         if timeline_duration > 0 and new_position >= timeline_duration:
             # Loop back to start
             new_position = new_position % timeline_duration
+            # Round again after modulo operation to maintain millisecond precision
+            new_position = round(new_position, 3)
             # Reset timers for next loop
             self._last_position = 0.0
             self._elapsed_timer.restart()
