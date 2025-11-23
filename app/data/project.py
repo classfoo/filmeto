@@ -96,6 +96,51 @@ class Project():
     def set_timeline_duration(self, duration: float):
         """设置时间线总时长（秒）"""
         self.update_config('timeline_duration', duration)
+    
+    def get_item_duration(self, item_index: int) -> float:
+        """Get duration for a specific timeline item
+        
+        Args:
+            item_index: Timeline item index (1-based)
+            
+        Returns:
+            float: Duration in seconds (default 1.0 if not set)
+        """
+        item_durations = self.config.get('timeline_item_durations', {})
+        return item_durations.get(str(item_index), 1.0)
+    
+    def set_item_duration(self, item_index: int, duration: float):
+        """Set duration for a specific timeline item
+        
+        Args:
+            item_index: Timeline item index (1-based)
+            duration: Duration in seconds
+        """
+        if 'timeline_item_durations' not in self.config:
+            self.config['timeline_item_durations'] = {}
+        self.config['timeline_item_durations'][str(item_index)] = duration
+        save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
+    
+    def has_item_duration(self, item_index: int) -> bool:
+        """Check if duration is set for a specific timeline item
+        
+        Args:
+            item_index: Timeline item index (1-based)
+            
+        Returns:
+            bool: True if duration is set, False otherwise
+        """
+        item_durations = self.config.get('timeline_item_durations', {})
+        return str(item_index) in item_durations
+    
+    def calculate_timeline_duration(self) -> float:
+        """Calculate total timeline duration by summing all item durations
+        
+        Returns:
+            float: Total duration in seconds
+        """
+        item_durations = self.config.get('timeline_item_durations', {})
+        return sum(item_durations.values())
 
     def get_config(self):
         return self.config
@@ -193,7 +238,8 @@ class ProjectManager:
             "timeline_index": 0,
             "task_index": 0,
             "timeline_position": 0.0,
-            "timeline_duration": 0.0
+            "timeline_duration": 0.0,
+            "timeline_item_durations": {}
         }
         save_yaml(os.path.join(project_path, "project.yaml"), project_config)
         

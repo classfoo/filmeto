@@ -304,10 +304,9 @@ class TimelineContainer(BaseWidget):
         for i, card in enumerate(timeline.cards):
             card_index = i + 1  # Cards are 1-indexed
             
-            # Get the timeline item for this card
+            # Get duration for this card directly from project
             try:
-                timeline_item = timeline_data.get_item(card_index)
-                item_duration = timeline_item.get_duration()
+                item_duration = project.get_item_duration(card_index)
             except Exception as e:
                 print(f"Error getting duration for card {card_index}: {e}")
                 item_duration = 1.0  # Default to 1 second if error
@@ -373,10 +372,9 @@ class TimelineContainer(BaseWidget):
         for i, card in enumerate(timeline.cards):
             card_index = i + 1  # Cards are 1-indexed
             
-            # Get the timeline item for this card
+            # Get duration for this card directly from project
             try:
-                timeline_item = timeline_data.get_item(card_index)
-                item_duration = timeline_item.get_duration()
+                item_duration = project.get_item_duration(card_index)
             except Exception as e:
                 print(f"Error getting duration for card {card_index}: {e}")
                 item_duration = 1.0  # Default to 1 second if error

@@ -37,6 +37,15 @@ drawing:
       text_color: '#000000'
     zoom: {}
 task_index: 1
-timeline_index: 7
-timeline_position: 15.841000000000001
+timeline_duration: 7
+timeline_index: 4
+timeline_item_durations:
+  '1': 1.0
+  '2': 1.0
+  '3': 1.0
+  '4': 1.0
+  '5': 1.0
+  '6': 1.0
+  '7': 1.0
+timeline_position: 3.34
 timeline_size: 7

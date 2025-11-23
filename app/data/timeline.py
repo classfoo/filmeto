@@ -28,14 +28,27 @@ class TimelineItem:
         # 创建layers目录（如果不存在）
         os.makedirs(self.layers_path, exist_ok=True)
         
-        # Initialize duration if not set
-        if 'duration' not in self.config:
+        # Migrate legacy duration from item config to project config
+        self._migrate_duration_if_needed()
+        
+        # Initialize duration if not set in project config
+        if not self.timeline.project.has_item_duration(self.index):
             self._initialize_duration()
 
 
     def get_image(self):
         original_pixmap= QPixmap(self.image_path)
         return original_pixmap
+    
+    def _migrate_duration_if_needed(self):
+        """Migrate legacy duration from item config to project config"""
+        if 'duration' in self.config:
+            # Found legacy duration in item config - migrate to project config
+            legacy_duration = self.config['duration']
+            self.timeline.project.set_item_duration(self.index, legacy_duration)
+            # Remove from item config (optional - could keep for backward compatibility)
+            # del self.config['duration']
+            # save_yaml(self.config_path, self.config)
     
     def _initialize_duration(self):
         """Initialize duration based on item type (image or video)"""
@@ -44,22 +57,13 @@ class TimelineItem:
             from utils.opencv_utils import get_video_duration
             duration = get_video_duration(self.video_path)
             if duration is not None:
-                self.set_duration(duration)
+                self.timeline.project.set_item_duration(self.index, duration)
             else:
                 # Fallback to default if we can't read video duration
-                self.set_duration(1.0)
+                self.timeline.project.set_item_duration(self.index, 1.0)
         else:
             # Image item - default to 1 second
-            self.set_duration(1.0)
-    
-    def get_duration(self) -> float:
-        """Get the duration of this timeline item in seconds"""
-        return self.config.get('duration', 1.0)
-    
-    def set_duration(self, duration: float):
-        """Set the duration of this timeline item in seconds"""
-        self.config['duration'] = duration
-        save_yaml(self.config_path, self.config)
+            self.timeline.project.set_item_duration(self.index, 1.0)
         # Notify timeline to update total duration
         self.timeline._on_item_duration_changed()
 
@@ -91,7 +95,9 @@ class TimelineItem:
         from utils.opencv_utils import get_video_duration
         duration = get_video_duration(self.video_path)
         if duration is not None:
-            self.set_duration(duration)
+            self.timeline.project.set_item_duration(self.index, duration)
+            # Notify timeline to update total duration
+            self.timeline._on_item_duration_changed()
 
     def update_config(self,config_path:str):
         shutil.copy2(config_path, self.config_path)
@@ -223,12 +229,8 @@ class Timeline:
         self.project.set_timeline_duration(total_duration)
     
     def calculate_total_duration(self) -> float:
-        """Calculate the total duration of all timeline items"""
-        total = 0.0
-        items = self.get_items()
-        for item in items:
-            total += item.get_duration()
-        return total
+        """Calculate the total duration of all timeline items (optimized)"""
+        return self.project.calculate_timeline_duration()
     
     def get_total_duration(self) -> float:
         """Get the total timeline duration (calculates on demand)"""
