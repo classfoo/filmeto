@@ -28,9 +28,10 @@ class TimelinePositionLineOverlay(QWidget):
         # but we'll track position via parent's event filter
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.timeline_position=None
+        self.timeline_x = None
 
     def paintEvent(self, event):
-        if self.timeline_position is not None:
+        if self.timeline_x is not None:
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -39,11 +40,12 @@ class TimelinePositionLineOverlay(QWidget):
             pen.setStyle(Qt.PenStyle.SolidLine)
             painter.setPen(pen)
 
-            painter.drawLine(self.timeline_position, 0, self.timeline_position, self.height())
+            painter.drawLine(self.timeline_x, 0, self.timeline_x, self.height())
             painter.end()
 
-    def on_timeline_position(self, timeline_position):
+    def on_timeline_position(self, timeline_position, timeline_x):
         self.timeline_position = timeline_position
+        self.timeline_x = timeline_x
         self.update()
 
 class TimelineCursorLineOverlay(QWidget):
@@ -228,7 +230,7 @@ class TimelineContainer(BaseWidget):
         self._update_divider_positions()
 
     def on_timeline_position(self, timeline_position):
-        self.timeline_position_overlay.on_timeline_position(timeline_position)
+        self.timeline_position_overlay.on_timeline_position(timeline_position, self.calculate_timeline_x(timeline_position))
 
     def calculate_timeline_position(self, mouse_x: int) -> float:
         """
@@ -305,6 +307,79 @@ class TimelineContainer(BaseWidget):
         
         # If mouse is after all cards, return the total duration
         return round(accumulated_time, 3)
+    
+    def calculate_timeline_x(self, timeline_position: float) -> int:
+        """
+        Calculate the X coordinate based on timeline position in seconds (reverse of calculate_timeline_position).
+        
+        Args:
+            timeline_position: Playback position in seconds
+            
+        Returns:
+            int: X coordinate in the container (accounting for scroll and margin)
+        """
+        # Get the timeline widget's cards
+        timeline = self.timeline_widget
+        if not hasattr(timeline, 'cards') or not timeline.cards:
+            return self.content_margin_left
+        
+        # Get the workspace and project to access timeline items
+        workspace = timeline.workspace
+        if not workspace:
+            return self.content_margin_left
+            
+        project = workspace.get_project()
+        if not project:
+            return self.content_margin_left
+            
+        timeline_data = project.get_timeline()
+        if not timeline_data:
+            return self.content_margin_left
+        
+        # If position is negative or zero, return the start position
+        if timeline_position <= 0:
+            return self.content_margin_left
+        
+        # Calculate which card the position falls into
+        accumulated_time = 0.0
+        current_x = 0
+        
+        for i, card in enumerate(timeline.cards):
+            card_index = i + 1  # Cards are 1-indexed
+            
+            # Get the timeline item for this card
+            try:
+                timeline_item = timeline_data.get_item(card_index)
+                item_duration = timeline_item.get_duration()
+            except Exception as e:
+                print(f"Error getting duration for card {card_index}: {e}")
+                item_duration = 1.0  # Default to 1 second if error
+            
+            # Calculate card boundaries in time
+            card_start_time = accumulated_time
+            card_end_time = accumulated_time + item_duration
+            
+            # Check if position falls within this card's time range
+            if timeline_position >= card_start_time and timeline_position < card_end_time:
+                # Calculate time offset within this card
+                time_in_card = timeline_position - card_start_time
+                # Calculate position fraction within this card
+                time_fraction = time_in_card / item_duration if item_duration > 0 else 0
+                # Calculate X position within the card
+                position_in_card = time_fraction * self.card_width
+                # Calculate absolute X position (before adjusting for scroll)
+                adjusted_x = current_x + position_in_card
+                # Convert to container coordinate (add margin, no scroll adjustment for display)
+                container_x = adjusted_x + self.content_margin_left
+                return int(container_x)
+            
+            # Move to next card
+            accumulated_time += item_duration
+            current_x += self.card_width + self.card_spacing
+        
+        # If position is after all cards, return the position at the end
+        final_x = current_x + self.content_margin_left
+        return int(final_x)
 
     def _update_divider_positions(self):
         """Update divider line positions based on component heights"""
