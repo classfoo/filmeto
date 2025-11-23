@@ -20,7 +20,7 @@ class AddCardFrame(QFrame):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.parent = parent;
+        self.parent = parent
         # Basic configuration
         self.setFrameStyle(QFrame.Box | QFrame.Raised)
         self.setLineWidth(1)

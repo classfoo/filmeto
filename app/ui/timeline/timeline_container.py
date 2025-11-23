@@ -7,8 +7,8 @@ including cards, and mouse tracking works across all child widgets.
 """
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout
-from PySide6.QtCore import Qt, QPoint, QEvent
-from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent
+from PySide6.QtCore import Qt, QPoint, QEvent, QPointF
+from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
@@ -35,12 +35,38 @@ class TimelinePositionLineOverlay(QWidget):
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+            # Draw the vertical line
             pen = QPen(QColor(255, 255, 255, 200))
             pen.setWidth(2)
             pen.setStyle(Qt.PenStyle.SolidLine)
             painter.setPen(pen)
-
             painter.drawLine(self.timeline_x, 0, self.timeline_x, self.height())
+            
+            # Draw solid triangles at both ends
+            # Triangle size
+            triangle_size = 6
+            
+            # Set brush for filled triangles
+            painter.setBrush(QColor(255, 255, 255, 200))
+            painter.setPen(Qt.PenStyle.NoPen)  # No outline
+            
+            # Top triangle (pointing up)
+            top_triangle = QPolygonF([
+                QPointF(self.timeline_x, triangle_size),  # Bottom center point
+                QPointF(self.timeline_x - triangle_size, 0),  # Top left
+                QPointF(self.timeline_x + triangle_size, 0)   # Top right
+            ])
+            painter.drawPolygon(top_triangle)
+            
+            # Bottom triangle (pointing down)
+            bottom_y = self.height()
+            bottom_triangle = QPolygonF([
+                QPointF(self.timeline_x, bottom_y - triangle_size),  # Top center point
+                QPointF(self.timeline_x - triangle_size, bottom_y),  # Bottom left
+                QPointF(self.timeline_x + triangle_size, bottom_y)   # Bottom right
+            ])
+            painter.drawPolygon(bottom_triangle)
+            
             painter.end()
 
     def on_timeline_position(self, timeline_position, timeline_x):
