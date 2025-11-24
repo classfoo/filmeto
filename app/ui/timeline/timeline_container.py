@@ -8,7 +8,7 @@ including cards, and mouse tracking works across all child widgets.
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QPoint, QEvent, QPointF
-from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF
+from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF, QMouseEvent
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
@@ -226,6 +226,9 @@ class TimelineContainer(BaseWidget):
         # Enable hover events to track mouse globally
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
         self.setMouseTracking(True)
+        
+        # Enable mouse press events
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     def set_subtitle_timeline(self, subtitle_timeline):
         """
@@ -429,6 +432,31 @@ class TimelineContainer(BaseWidget):
         self.cursor_overlay.setGeometry(self.rect())
         self.divider_overlay.setGeometry(self.rect())
         self._update_divider_positions()
+    
+    def mousePressEvent(self, event):
+        """
+        Handle mouse click to update timeline position.
+        """
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Calculate timeline position from mouse X coordinate
+            timeline_position = self.calculate_timeline_position(event.pos().x())
+            
+            # Get project and validate against timeline duration
+            project = self.workspace.get_project()
+            if project:
+                timeline_duration = project.calculate_timeline_duration()
+                
+                # If calculated position exceeds duration, clamp to duration
+                if timeline_position > timeline_duration:
+                    timeline_position = timeline_duration
+                
+                # Round to millisecond precision
+                timeline_position = round(timeline_position, 3)
+                
+                # Update the timeline position in project
+                project.set_timeline_position(timeline_position)
+        
+        super().mousePressEvent(event)
     
     def event(self, event):
         """
