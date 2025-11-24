@@ -229,7 +229,44 @@ class TimelineContainer(BaseWidget):
         
         # Enable mouse press events
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # Install event filter to intercept mouse clicks from child widgets
+        self.installEventFilter(self)
+        self._install_event_filters_recursively(self.timeline_widget)
+        if self.subtitle_timeline:
+            self._install_event_filters_recursively(self.subtitle_timeline)
+        if self.voiceover_timeline:
+            self._install_event_filters_recursively(self.voiceover_timeline)
 
+    def _install_event_filters_recursively(self, widget):
+        """Install event filter on widget and all its children recursively"""
+        widget.installEventFilter(self)
+        for child in widget.findChildren(QWidget):
+            child.installEventFilter(self)
+    
+    def eventFilter(self, watched, event):
+        """Filter events from all child widgets to handle timeline position clicks"""
+        if event.type() == QEvent.Type.MouseButtonPress:
+            mouse_event = event
+            if isinstance(mouse_event, QMouseEvent) and mouse_event.button() == Qt.MouseButton.LeftButton:
+                # Map the click position to container coordinates
+                container_pos = watched.mapTo(self, mouse_event.pos())
+                
+                # Calculate timeline position from the mapped X coordinate
+                timeline_position = self.calculate_timeline_position(container_pos.x())
+                
+                # Update the timeline position in project
+                # Boundary validation (< 0 or > duration) is handled in set_timeline_position
+                project = self.workspace.get_project()
+                if project:
+                    project.set_timeline_position(timeline_position)
+                
+                # Don't consume the event - let child widgets handle it for their own logic
+                # This allows cards to be selected, subtitle/voiceover cards to be dragged, etc.
+        
+        # Pass the event to the base class for normal processing
+        return super().eventFilter(watched, event)
+    
     def set_subtitle_timeline(self, subtitle_timeline):
         """
         设置字幕时间线组件
@@ -244,6 +281,9 @@ class TimelineContainer(BaseWidget):
         self.subtitle_timeline = subtitle_timeline
         self.main_layout.insertWidget(0, self.subtitle_timeline)
         self._update_divider_positions()
+        
+        # Install event filter on the new subtitle timeline
+        self._install_event_filters_recursively(self.subtitle_timeline)
     
     def set_voiceover_timeline(self, voiceover_timeline):
         """
@@ -259,6 +299,9 @@ class TimelineContainer(BaseWidget):
         self.voiceover_timeline = voiceover_timeline
         self.main_layout.addWidget(self.voiceover_timeline)
         self._update_divider_positions()
+        
+        # Install event filter on the new voiceover timeline
+        self._install_event_filters_recursively(self.voiceover_timeline)
 
     def on_timeline_position(self, timeline_position):
         self.timeline_position_overlay.on_timeline_position(timeline_position, self.calculate_timeline_x(timeline_position))
@@ -432,23 +475,6 @@ class TimelineContainer(BaseWidget):
         self.cursor_overlay.setGeometry(self.rect())
         self.divider_overlay.setGeometry(self.rect())
         self._update_divider_positions()
-    
-    def mousePressEvent(self, event):
-        """
-        Handle mouse click to update timeline position.
-        Boundary validation is handled by project.set_timeline_position().
-        """
-        if event.button() == Qt.MouseButton.LeftButton:
-            # Calculate timeline position from mouse X coordinate
-            timeline_position = self.calculate_timeline_position(event.pos().x())
-            
-            # Update the timeline position in project
-            # Boundary validation (< 0 or > duration) is handled in set_timeline_position
-            project = self.workspace.get_project()
-            if project:
-                project.set_timeline_position(timeline_position)
-        
-        super().mousePressEvent(event)
     
     def event(self, event):
         """
