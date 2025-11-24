@@ -15,7 +15,7 @@ from app.ui.base_widget import BaseWidget
 
 class TimelinePositionLineOverlay(QWidget):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent, timeline_position, timeline_x):
         super().__init__(parent)
 
         # Set transparent background
@@ -27,8 +27,8 @@ class TimelinePositionLineOverlay(QWidget):
         # This widget should not block mouse events for clicking
         # but we'll track position via parent's event filter
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.timeline_position=None
-        self.timeline_x = None
+        self.timeline_position=timeline_position
+        self.timeline_x = timeline_x
 
     def paintEvent(self, event):
         if self.timeline_x is not None:
@@ -190,7 +190,11 @@ class TimelineContainer(BaseWidget):
         """
         super(TimelineContainer, self).__init__(workspace)
         self.workspace = workspace
-        
+        # Timeline card dimensions (from HoverZoomFrame)
+        self.card_width = 90  # Fixed width of each card
+        self.card_spacing = 5  # Spacing between cards (from timeline_layout.setSpacing(5))
+        self.content_margin_left = 5  # Left margin from timeline_layout.setContentsMargins(5, 5, 5, 5)
+
         # Store reference to the timeline widget
         self.timeline_widget = timeline_widget
         
@@ -215,15 +219,13 @@ class TimelineContainer(BaseWidget):
         self.divider_overlay = TimelineDividerLinesOverlay(self)
 
         # Create the overlay widget for drawing divider lines
-        self.timeline_position_overlay = TimelinePositionLineOverlay(self)
+        timeline_position = self.workspace.get_project().get_timeline_position()
+        timeline_x = self.calculate_timeline_x(timeline_position)
+        self.timeline_position_overlay = TimelinePositionLineOverlay(self, timeline_position,timeline_x)
 
         # Enable hover events to track mouse globally
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
         self.setMouseTracking(True)
-        # Timeline card dimensions (from HoverZoomFrame)
-        self.card_width = 90  # Fixed width of each card
-        self.card_spacing = 5  # Spacing between cards (from timeline_layout.setSpacing(5))
-        self.content_margin_left = 5  # Left margin from timeline_layout.setContentsMargins(5, 5, 5, 5)
 
     def set_subtitle_timeline(self, subtitle_timeline):
         """
