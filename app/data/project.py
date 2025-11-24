@@ -78,7 +78,21 @@ class Project():
         Args:
             position: 时间线位置（秒）
             flush: 是否立即写入文件（默认False，使用防抖机制）
+            
+        Returns:
+            bool: True if position was set successfully, False if rejected due to boundary validation
         """
+        # Validate boundary conditions
+        if position < 0:
+            return False
+        
+        timeline_duration = self.calculate_timeline_duration()
+        if position > timeline_duration:
+            return False
+        
+        # Round to millisecond precision
+        position = round(position, 3)
+        
         self.config['timeline_position'] = position
         if flush:
             # Immediate save
@@ -88,6 +102,7 @@ class Project():
             self._pending_save = True
             self._save_timer.start()
         self.timeline_position.send(position)
+        return True
     
     def get_timeline_duration(self) -> float:
         """获取时间线总时长（秒）"""

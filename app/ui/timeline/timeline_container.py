@@ -436,24 +436,16 @@ class TimelineContainer(BaseWidget):
     def mousePressEvent(self, event):
         """
         Handle mouse click to update timeline position.
+        Boundary validation is handled by project.set_timeline_position().
         """
         if event.button() == Qt.MouseButton.LeftButton:
             # Calculate timeline position from mouse X coordinate
             timeline_position = self.calculate_timeline_position(event.pos().x())
             
-            # Get project and validate against timeline duration
+            # Update the timeline position in project
+            # Boundary validation (< 0 or > duration) is handled in set_timeline_position
             project = self.workspace.get_project()
             if project:
-                timeline_duration = project.calculate_timeline_duration()
-                
-                # If calculated position exceeds duration, clamp to duration
-                if timeline_position > timeline_duration:
-                    timeline_position = timeline_duration
-                
-                # Round to millisecond precision
-                timeline_position = round(timeline_position, 3)
-                
-                # Update the timeline position in project
                 project.set_timeline_position(timeline_position)
         
         super().mousePressEvent(event)
