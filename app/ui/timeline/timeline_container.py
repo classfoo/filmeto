@@ -12,6 +12,8 @@ from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF, QMouse
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
+from app.ui.signal_manager import UISignalManager
+
 
 class TimelinePositionLineOverlay(QWidget):
 
@@ -259,7 +261,11 @@ class TimelineContainer(BaseWidget):
                 # Boundary validation (< 0 or > duration) is handled in set_timeline_position
                 project = self.workspace.get_project()
                 if project:
+                    # Set position in data layer
                     project.set_timeline_position(timeline_position)
+                    
+                    # Emit UI signal for UI components (like play control) to react
+                    UISignalManager().send_timeline_position_clicked(timeline_position)
                 
                 # Don't consume the event - let child widgets handle it for their own logic
                 # This allows cards to be selected, subtitle/voiceover cards to be dragged, etc.

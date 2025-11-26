@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt, Signal, QTimer, QElapsedTimer
 from PySide6.QtGui import QFont
 from ..base_widget import BaseWidget
 from ...data.workspace import Workspace
+from ..signal_manager import UISignalManager
 
 
 class PlayControlWidget(BaseWidget):
@@ -51,6 +52,9 @@ class PlayControlWidget(BaseWidget):
         # Elapsed timer for accurate time tracking
         self._elapsed_timer = QElapsedTimer()
         self._last_position = 0.0  # Last position in seconds
+        
+        # Connect to UI signal manager for timeline position clicked
+        UISignalManager().connect_timeline_position_clicked(self._on_timeline_position_clicked)
         
         # Initialize UI
         self.init_ui()
@@ -153,6 +157,19 @@ class PlayControlWidget(BaseWidget):
     def _on_next_clicked(self):
         """Handle next segment button click."""
         self.next_clicked.emit()
+    
+    def _on_timeline_position_clicked(self, sender, **kwargs):
+        """
+        Handle timeline position clicked signal.
+        Pause playback when user clicks on the timeline.
+        
+        Args:
+            sender: The signal sender (UISignalManager instance)
+            **kwargs: Contains 'position' - Timeline position in seconds
+        """
+        if self._is_playing:
+            # Pause playback
+            self.set_playing(False)
     
     def is_playing(self) -> bool:
         """

@@ -101,7 +101,10 @@ class Project():
             # Debounced save - mark as pending and restart timer
             self._pending_save = True
             self._save_timer.start()
+        
+        # Send timeline_position signal
         self.timeline_position.send(position)
+        
         return True
     
     def get_timeline_duration(self) -> float:
