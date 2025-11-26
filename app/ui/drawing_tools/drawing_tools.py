@@ -377,7 +377,7 @@ class DrawingToolsWidget(BaseWidget):
     def _on_project_switched(self, project_name):
         """Handle project switching by loading the drawing config for the new project."""
         # Get the new project
-        project = self.workspace.get_project(project_name)
+        project = self.workspace.get_project()
         if project:
             drawing_config = project.get_drawing()
             self.current_tool = drawing_config.current_tool
