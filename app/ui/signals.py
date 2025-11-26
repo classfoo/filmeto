@@ -4,11 +4,12 @@ Global Signal Manager for UI Component Communication
 This singleton class manages signals for communication between UI components,
 keeping UI logic separate from the data layer.
 """
+from typing import Any
 
 from blinker import signal
 
 
-class UISignalManager:
+class Signals:
     """
     Singleton class for managing global UI signals.
     
@@ -17,20 +18,25 @@ class UISignalManager:
     """
     
     _instance = None
+
+    TIMELINE_POSITION_CLICKED:str = "timeline_position_clicked"
     
     # UI Component Signals
-    timeline_position_clicked = signal('timeline_position_clicked')  # Emitted when user clicks on timeline (position in seconds)
-    
+    signals = {
+        TIMELINE_POSITION_CLICKED:signal(TIMELINE_POSITION_CLICKED)
+    }
+
+
     def __new__(cls):
         """Singleton pattern - ensure only one instance exists."""
         if cls._instance is None:
-            cls._instance = super(UISignalManager, cls).__new__(cls)
+            cls._instance = super(Signals, cls).__new__(cls)
         return cls._instance
     
-    def connect_timeline_position_clicked(self, func):
+    def connect(self, signal_name:str, func):
         """Connect to timeline position clicked UI signal"""
-        self.timeline_position_clicked.connect(func)
+        self.signals[signal_name].connect(func)
 
-    def send_timeline_position_clicked(self, position: float):
+    def send(self, signal_name:str, params: Any):
         """Send timeline position clicked UI signal"""
-        self.timeline_position_clicked.send(self, position=position)
+        self.signals[signal_name].send(self, params=params)

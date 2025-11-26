@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, Signal, QTimer, QElapsedTimer
 from PySide6.QtGui import QFont
 from ..base_widget import BaseWidget
 from ...data.workspace import Workspace
-from ..signal_manager import UISignalManager
+from ..signals import Signals
 
 
 class PlayControlWidget(BaseWidget):
@@ -54,7 +54,7 @@ class PlayControlWidget(BaseWidget):
         self._last_position = 0.0  # Last position in seconds
         
         # Connect to UI signal manager for timeline position clicked
-        UISignalManager().connect_timeline_position_clicked(self._on_timeline_position_clicked)
+        Signals().connect(Signals.TIMELINE_POSITION_CLICKED, self._on_timeline_position_clicked)
         
         # Initialize UI
         self.init_ui()
