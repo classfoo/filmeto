@@ -7,7 +7,7 @@ import random
 import math
 
 
-class VoiceoverCard(QWidget):
+class VoiceCard(QWidget):
     """配音卡片组件，可拖拽调整位置和长度，支持显示WAV波形"""
     
     # 当配音卡片被修改时发出信号
@@ -242,7 +242,7 @@ class VoiceoverCard(QWidget):
         self.update()
 
 
-class VoiceoverTimeline(QWidget):
+class VoiceTimeline(QWidget):
     """配音时间线组件"""
     
     def __init__(self, workspace: Workspace, parent=None):
@@ -277,7 +277,7 @@ class VoiceoverTimeline(QWidget):
     
     def add_voiceover_card(self, content="Voiceover", wav_file=None):
         """添加配音卡片"""
-        card = VoiceoverCard(content, wav_file, self)
+        card = VoiceCard(content, wav_file, self)
         card.move(10 + len(self.items) * 120, 2)  # 简单排列
         card.show()
         card.card_changed.connect(self.on_card_changed)
@@ -291,7 +291,7 @@ class VoiceoverTimeline(QWidget):
     def mouseDoubleClickEvent(self, event):
         """双击时间线添加新的配音卡片"""
         if event.button() == Qt.LeftButton:
-            card = VoiceoverCard("New Voiceover", None, self)
+            card = VoiceCard("New Voiceover", None, self)
             card.move(event.pos().x(), 2)
             card.show()
             card.card_changed.connect(self.on_card_changed)

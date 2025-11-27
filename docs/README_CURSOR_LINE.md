@@ -74,11 +74,11 @@ Features:
 ### Basic Integration
 
 ```python
-from app.ui.timeline.timeline import HorizontalTimeline
+from app.ui.timeline.timeline import VideoTimeline
 from app.ui.timeline.timeline_container import TimelineContainer
 
 # Create timeline
-timeline = HorizontalTimeline(parent, workspace)
+timeline = VideoTimeline(parent, workspace)
 
 # Wrap in container
 timeline_container = TimelineContainer(timeline, parent)

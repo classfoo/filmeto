@@ -65,7 +65,7 @@ class AddCardFrame(QFrame):
                 self.parent.add_new_card()
 
 
-class HorizontalTimeline(BaseTaskWidget):
+class VideoTimeline(BaseTaskWidget):
     """左右滑动的卡片式时间线主窗口"""
     def __init__(self,parent:QWidget,workspace:Workspace):
         super().__init__(workspace)
@@ -287,6 +287,6 @@ class HorizontalTimeline(BaseTaskWidget):
 # ------------------- 运行应用 -------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = HorizontalTimeline()
+    window = VideoTimeline()
     window.show()
     sys.exit(app.exec())

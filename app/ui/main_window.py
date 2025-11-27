@@ -11,10 +11,10 @@ from app.ui.layers import LayersWidget
 from app.ui.mac_button import MacTitleBar
 from app.ui.project_menu.project_menu import ProjectMenu
 from app.ui.task_list import TaskListWidget
-from app.ui.timeline.timeline import HorizontalTimeline
+from app.ui.timeline.video_timeline import VideoTimeline
 from app.ui.timeline.timeline_container import TimelineContainer
 from app.ui.timeline.subtitle_timeline import SubtitleTimeline
-from app.ui.timeline.voiceover_timeline import VoiceoverTimeline
+from app.ui.timeline.voice_timeline import VoiceTimeline
 from app.ui.play_control import PlayControlWidget
 from utils.i18n_utils import translation_manager, tr
 
@@ -331,13 +331,13 @@ class MainWindowWorkspaceBottom(BaseWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         # Create the timeline widget
-        self.timeline = HorizontalTimeline(self, workspace)
+        self.timeline = VideoTimeline(self, workspace)
 
         # Create subtitle timeline
         self.subtitle_timeline = SubtitleTimeline(workspace)
 
         # Create voiceover timeline
-        self.voiceover_timeline = VoiceoverTimeline(workspace)
+        self.voiceover_timeline = VoiceTimeline(workspace)
 
         # Wrap the timeline in a container that draws the cursor line
         self.timeline_container = TimelineContainer(self.timeline, self, workspace)
