@@ -13,6 +13,9 @@ from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF, QMouse
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.signals import Signals
+from app.ui.timeline import VideoTimeline
+from app.ui.timeline.subtitle_timeline import SubtitleTimeline
+from app.ui.timeline.voice_timeline import VoiceTimeline
 
 
 class TimelinePositionLineOverlay(QWidget):
@@ -38,18 +41,18 @@ class TimelinePositionLineOverlay(QWidget):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
             # Draw the vertical line
-            pen = QPen(QColor(255, 255, 255, 200))
-            pen.setWidth(2)
+            pen = QPen(QColor(255, 255, 255, 255))
+            pen.setWidth(4)
             pen.setStyle(Qt.PenStyle.SolidLine)
             painter.setPen(pen)
             painter.drawLine(self.timeline_x, 0, self.timeline_x, self.height())
             
             # Draw solid triangles at both ends
             # Triangle size
-            triangle_size = 6
+            triangle_size = 8
             
             # Set brush for filled triangles
-            painter.setBrush(QColor(255, 255, 255, 200))
+            painter.setBrush(QColor(255, 255, 255, 255))
             painter.setPen(Qt.PenStyle.NoPen)  # No outline
             
             # Top triangle (pointing up)
@@ -106,7 +109,7 @@ class TimelineCursorLineOverlay(QWidget):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             
             pen = QPen(QColor(255, 255, 255, 200))
-            pen.setWidth(2)
+            pen.setWidth(1)
             pen.setStyle(Qt.PenStyle.SolidLine)
             painter.setPen(pen)
             
@@ -182,7 +185,7 @@ class TimelineContainer(BaseWidget):
     globally across the container and all child widgets.
     """
 
-    def __init__(self, timeline_widget, parent, workspace:Workspace):
+    def __init__(self, parent, workspace:Workspace):
         """
         Initialize the timeline container.
         
@@ -196,13 +199,10 @@ class TimelineContainer(BaseWidget):
         self.card_width = 90  # Fixed width of each card
         self.card_spacing = 5  # Spacing between cards (from timeline_layout.setSpacing(5))
         self.content_margin_left = 5  # Left margin from timeline_layout.setContentsMargins(5, 5, 5, 5)
-
-        # Store reference to the timeline widget
-        self.timeline_widget = timeline_widget
-        
-        # Create layouts for subtitle and voiceover timelines
-        self.subtitle_timeline = None
-        self.voiceover_timeline = None
+        # Create the timeline widget
+        self.timeline_widget = VideoTimeline(self, workspace)
+        self.subtitle_timeline = SubtitleTimeline(self, workspace)
+        self.voiceover_timeline = VoiceTimeline(self, workspace)
         
         # Setup the layout to hold the timelines
         self.main_layout = QVBoxLayout(self)
@@ -210,8 +210,14 @@ class TimelineContainer(BaseWidget):
         self.main_layout.setSpacing(0)
         # Subtitle timeline will be added here if needed
         # Main timeline is added here
+        self.main_layout.addWidget(self.subtitle_timeline)
         self.main_layout.addWidget(self.timeline_widget)
-        # Voiceover timeline will be added here if needed
+        self.main_layout.addWidget(self.voiceover_timeline)
+
+        # Create the overlay widget for drawing divider lines
+        timeline_position = self.workspace.get_project().get_timeline_position()
+        timeline_x = self.calculate_timeline_x(timeline_position)
+        self.timeline_position_overlay = TimelinePositionLineOverlay(self, timeline_position,timeline_x)
 
         # Create the overlay widget for drawing the cursor line
         self.cursor_overlay = TimelineCursorLineOverlay(self)
@@ -220,10 +226,6 @@ class TimelineContainer(BaseWidget):
         # Create the overlay widget for drawing divider lines
         self.divider_overlay = TimelineDividerLinesOverlay(self)
 
-        # Create the overlay widget for drawing divider lines
-        timeline_position = self.workspace.get_project().get_timeline_position()
-        timeline_x = self.calculate_timeline_x(timeline_position)
-        self.timeline_position_overlay = TimelinePositionLineOverlay(self, timeline_position,timeline_x)
 
         # Enable hover events to track mouse globally
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -272,42 +274,6 @@ class TimelineContainer(BaseWidget):
         
         # Pass the event to the base class for normal processing
         return super().eventFilter(watched, event)
-    
-    def set_subtitle_timeline(self, subtitle_timeline):
-        """
-        设置字幕时间线组件
-        
-        Args:
-            subtitle_timeline: SubtitleTimeline 实例
-        """
-        if self.subtitle_timeline:
-            self.main_layout.removeWidget(self.subtitle_timeline)
-            self.subtitle_timeline.deleteLater()
-            
-        self.subtitle_timeline = subtitle_timeline
-        self.main_layout.insertWidget(0, self.subtitle_timeline)
-        self._update_divider_positions()
-        
-        # Install event filter on the new subtitle timeline
-        self._install_event_filters_recursively(self.subtitle_timeline)
-    
-    def set_voiceover_timeline(self, voiceover_timeline):
-        """
-        设置配音时间线组件
-        
-        Args:
-            voiceover_timeline: VoiceoverTimeline 实例
-        """
-        if self.voiceover_timeline:
-            self.main_layout.removeWidget(self.voiceover_timeline)
-            self.voiceover_timeline.deleteLater()
-            
-        self.voiceover_timeline = voiceover_timeline
-        self.main_layout.addWidget(self.voiceover_timeline)
-        self._update_divider_positions()
-        
-        # Install event filter on the new voiceover timeline
-        self._install_event_filters_recursively(self.voiceover_timeline)
 
     def on_timeline_position(self, timeline_position):
         self.timeline_position_overlay.on_timeline_position(timeline_position, self.calculate_timeline_x(timeline_position))

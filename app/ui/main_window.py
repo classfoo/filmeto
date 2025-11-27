@@ -329,20 +329,8 @@ class MainWindowWorkspaceBottom(BaseWidget):
         self.parent = parent
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-
-        # Create the timeline widget
-        self.timeline = VideoTimeline(self, workspace)
-
-        # Create subtitle timeline
-        self.subtitle_timeline = SubtitleTimeline(workspace)
-
-        # Create voiceover timeline
-        self.voiceover_timeline = VoiceTimeline(workspace)
-
         # Wrap the timeline in a container that draws the cursor line
-        self.timeline_container = TimelineContainer(self.timeline, self, workspace)
-        self.timeline_container.set_subtitle_timeline(self.subtitle_timeline)
-        self.timeline_container.set_voiceover_timeline(self.voiceover_timeline)
+        self.timeline_container = TimelineContainer(self, workspace)
 
         # Set fixed height for timeline to prevent it from expanding
         self.setMinimumHeight(220)  # Increased to accommodate additional timelines

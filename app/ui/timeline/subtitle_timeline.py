@@ -202,7 +202,7 @@ class SubtitleCard(QWidget):
 class SubtitleTimeline(QWidget):
     """字幕时间线组件"""
     
-    def __init__(self, workspace: Workspace, parent=None):
+    def __init__(self, parent:QWidget,workspace: Workspace):
         super().__init__(parent)
         self.workspace = workspace
         self.items = []
