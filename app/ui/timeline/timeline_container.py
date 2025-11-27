@@ -7,7 +7,7 @@ including cards, and mouse tracking works across all child widgets.
 """
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout
-from PySide6.QtCore import Qt, QPoint, QEvent, QPointF
+from PySide6.QtCore import Qt, QPoint, QEvent, QPointF, QTimer
 from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF, QMouseEvent
 
 from app.data.workspace import Workspace
@@ -35,19 +35,26 @@ class TimelinePositionLineOverlay(QWidget):
         self.timeline_position=timeline_position
         self.timeline_x = timeline_x
         self._mouse_x = None
+        
+        # Throttle timer for cursor updates (limits update frequency while staying responsive)
+        self._cursor_update_timer = QTimer(self)
+        self._cursor_update_timer.setSingleShot(True)
+        self._cursor_update_timer.setInterval(8)  # ~120 FPS max (8ms)
+        self._cursor_update_timer.timeout.connect(self._reset_cursor_throttle)
+        self._cursor_throttle_active = False
+        
+        # Separate flags to track what needs updating
+        self._cursor_dirty = False
+        self._timeline_dirty = False
 
     def paintEvent(self, event):
         if self._mouse_x is None and self.timeline_x is None:
             return
+        
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if self._mouse_x is not None:
-            pen = QPen(QColor(255, 255, 255, 200))
-            pen.setWidth(1)
-            pen.setStyle(Qt.PenStyle.SolidLine)
-            painter.setPen(pen)
-
-            painter.drawLine(self._mouse_x, 0, self._mouse_x, self.height())
+        
+        # Draw timeline position line (higher priority, drawn first so cursor can overlay)
         if self.timeline_x is not None:
             # Draw the vertical line
             pen = QPen(QColor(255, 255, 255, 255))
@@ -80,23 +87,55 @@ class TimelinePositionLineOverlay(QWidget):
                 QPointF(self.timeline_x + triangle_size, bottom_y)   # Bottom right
             ])
             painter.drawPolygon(bottom_triangle)
+        
+        # Draw mouse cursor line (drawn second to overlay on top if needed)
+        if self._mouse_x is not None:
+            pen = QPen(QColor(255, 255, 255, 200))
+            pen.setWidth(1)
+            pen.setStyle(Qt.PenStyle.SolidLine)
+            painter.setPen(pen)
+            painter.drawLine(self._mouse_x, 0, self._mouse_x, self.height())
+        
         painter.end()
+        
+        # Reset dirty flags after painting
+        self._cursor_dirty = False
+        self._timeline_dirty = False
 
     def on_timeline_position(self, timeline_position, timeline_x):
+        """Update timeline position - immediate update for accuracy"""
         self.timeline_position = timeline_position
         self.timeline_x = timeline_x
+        self._timeline_dirty = True
+        
+        # Timeline updates are critical, apply immediately
         self.update()
 
     def set_cursor_position(self, x):
-        """Update cursor line position"""
+        """Update cursor line position - throttled to limit update frequency"""
         if self._mouse_x != x:
             self._mouse_x = x
-            self.update()
+            self._cursor_dirty = True
+            
+            # Throttle: Update immediately if not throttled, otherwise skip
+            if not self._cursor_throttle_active:
+                self.update()
+                self._cursor_throttle_active = True
+                self._cursor_update_timer.start()
+    
+    def _reset_cursor_throttle(self):
+        """Reset throttle flag to allow next cursor update"""
+        self._cursor_throttle_active = False
 
     def clear_cursor(self):
-        """Hide the cursor line"""
+        """Hide the cursor line - immediate update"""
         if self._mouse_x is not None:
+            # Reset throttle state
+            self._cursor_update_timer.stop()
+            self._cursor_throttle_active = False
+            
             self._mouse_x = None
+            self._cursor_dirty = True
             self.update()
 
 class TimelineDividerLinesOverlay(QWidget):
