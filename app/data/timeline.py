@@ -84,12 +84,9 @@ class TimelineItem:
     def update_video(self, video_path:str):
         if video_path is None:
             return
-        # 获取图层管理器
-        layer_manager = self.get_layer_manager()
-        # 使用新增的方法直接从文件添加图层
-        layer = layer_manager.add_layer_from_file(video_path, LayerType.IMAGE)
-        # 使用LayerManager的generate_visible_file方法生成最终视频
-        layer_manager.generate_visible_file(self.video_path, (layer.width, layer.height))
+        
+        # Copy the video file directly to the timeline item's video path
+        shutil.copy2(video_path, self.video_path)
         
         # Update duration based on the new video
         from utils.opencv_utils import get_video_duration
