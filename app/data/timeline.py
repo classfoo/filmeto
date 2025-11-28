@@ -88,6 +88,11 @@ class TimelineItem:
         # Copy the video file directly to the timeline item's video path
         shutil.copy2(video_path, self.video_path)
         
+        # Get the layer manager and register the video as a new layer
+        layer_manager = self.get_layer_manager()
+        # Add the video file as a layer (using VIDEO type for video files)
+        layer_manager.add_layer_from_file(self.video_path, LayerType.VIDEO)
+        
         # Update duration based on the new video
         from utils.opencv_utils import get_video_duration
         duration = get_video_duration(self.video_path)

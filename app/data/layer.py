@@ -180,8 +180,23 @@ class LayerManager:
             except Exception as e:
                 print(f"Error reading image dimensions: {e}")
                 layer.width, layer.height = 720, 1280  # 默认尺寸
+        elif layer_type == LayerType.VIDEO:
+            # 获取视频尺寸
+            try:
+                cap = cv2.VideoCapture(source_path)
+                if cap.isOpened():
+                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    layer.width = width
+                    layer.height = height
+                    cap.release()
+                else:
+                    layer.width, layer.height = 720, 1280  # 默认尺寸
+            except Exception as e:
+                print(f"Error reading video dimensions: {e}")
+                layer.width, layer.height = 720, 1280  # 默认尺寸
         else:
-            # 对于非图片类型，使用默认尺寸
+            # 对于非图片/视频类型，使用默认尺寸
             layer.width, layer.height = 720, 1280  # 默认尺寸
 
         return self._add_layer(layer)
