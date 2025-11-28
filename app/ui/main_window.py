@@ -1,6 +1,7 @@
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QKeyEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout,
-                               QPushButton, QVBoxLayout, QSplitter, QMenu, QComboBox)
+                               QPushButton, QVBoxLayout, QSplitter, QMenu, QComboBox,
+                               QLineEdit, QTextEdit, QPlainTextEdit)
 from PySide6.QtCore import Qt, Signal
 
 from app.data.workspace import Workspace
@@ -423,6 +424,27 @@ class MainWindow(QMainWindow):
 
     def project(self):
         return self.project
+    
+    def keyPressEvent(self, event: QKeyEvent):
+        """
+        Handle global keyboard shortcuts.
+        Spacebar toggles play/pause unless a text input is focused.
+        """
+        if event.key() == Qt.Key_Space:
+            # Check if focus is on a text input widget
+            focused_widget = self.focusWidget()
+            
+            # If focused widget is a text input, let it handle the spacebar
+            if isinstance(focused_widget, (QLineEdit, QTextEdit, QPlainTextEdit)):
+                super().keyPressEvent(event)
+                return
+            
+            # Otherwise, toggle play/pause
+            play_control = self.bottom_bar.play_control
+            play_control.set_playing(not play_control.is_playing())
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
 
 
