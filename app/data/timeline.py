@@ -15,7 +15,7 @@ from utils.yaml_utils import load_yaml,save_yaml
 
 class TimelineItem:
 
-    def __init__(self, timeline, timelinePath:str,index:int):
+    def __init__(self, timeline, timelinePath:str,index:int, layer_changed_signal=None):
         self.timeline = timeline
         self.time_line_path = timelinePath
         self.index = index
@@ -24,7 +24,8 @@ class TimelineItem:
         self.config_path = os.path.join(self.time_line_path,str(self.index),"config.yaml")
         self.layers_path = os.path.join(self.time_line_path, str(self.index), "layers")
         self.config = load_yaml(self.config_path) or {}
-        self.layer_manager = self.timeline.layer_manager
+        self._layer_changed_signal = layer_changed_signal
+        self.layer_manager = None
         # 创建layers目录（如果不存在）
         os.makedirs(self.layers_path, exist_ok=True)
         
@@ -70,15 +71,11 @@ class TimelineItem:
     def update_image(self, image_path:str):
         if image_path is None:
             return
-        # 获取图层管理器
-        if self.index == self.layer_manager.timeline_item.index:
-            layer_manager = self.layer_manager
-        else:
-            layer_manager = LayerManager()
-            layer_manager.load_layers(self)
-        # 使用新增的方法直接从文件添加图层
+        # Always use the TimelineItem's own LayerManager (lazy-loaded)
+        layer_manager = self.get_layer_manager()
+        # Add the source file as a new IMAGE layer
         layer = layer_manager.add_layer_from_file(image_path, LayerType.IMAGE)
-        # 使用LayerManager的generate_visible_file方法生成最终图像
+        # Generate the visible composite to this item's image.png
         layer_manager.generate_visible_file(self.image_path, (layer.width, layer.height))
 
     def update_video(self, video_path:str):
@@ -165,6 +162,9 @@ class TimelineItem:
         return self.config.get(config_key, None)
 
     def get_layer_manager(self):
+        if self.layer_manager is None:
+            self.layer_manager = LayerManager(self._layer_changed_signal)
+            self.layer_manager.load_layers(self)
         return self.layer_manager
 
     def update_by_task_result(self, result):
@@ -198,11 +198,11 @@ class TimelineItem:
 class Timeline:
 
     timeline_switch = signal("timeline_switch")
+    layer_changed = signal("layer_changed")
 
     def __init__(self, workspace, project, timelinePath:str):
         self.workspace = workspace
         self.project = project
-        self.layer_manager = LayerManager()
         self.time_line_path = timelinePath
         try:
             p = Path(self.time_line_path)
@@ -242,13 +242,13 @@ class Timeline:
         self.timeline_switch.connect(func)
 
     def connect_layer_changed(self, func):
-        self.layer_manager.connect_layer_changed(func)
+        self.layer_changed.connect(func)
 
     def get_item_count(self):
         return self.item_count
 
     def get_item(self, index:int):
-        return TimelineItem(self, self.time_line_path,index)
+        return TimelineItem(self, self.time_line_path,index, self.layer_changed)
 
     def get_current_item(self):
         """Get the current timeline item"""
@@ -318,5 +318,6 @@ class Timeline:
     def set_item_index(self, index):
         self.project.update_config('timeline_index',index)
         item = self.get_item(index)
-        self.layer_manager.load_layers(item)
+        # Ensure the item's own LayerManager is loaded (lazy-load will handle first-time creation)
+        item.get_layer_manager()
         self.timeline_switch.send(item)

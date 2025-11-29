@@ -87,11 +87,10 @@ class Layer:
 
 class LayerManager:
 
-    layer_changed = signal('layer_changed')
-
-    def __init__(self):
+    def __init__(self, layer_changed_signal=None):
         self.layers = None
         self.timeline_item = None
+        self.layer_changed = layer_changed_signal or signal('layer_changed')
 
     def load_layers(self, timeline_item):
         self.timeline_item = timeline_item
@@ -102,7 +101,8 @@ class LayerManager:
         print(f"Loaded {len(self.layers)} layers")
 
     def connect_layer_changed(self, func):
-        self.layer_changed.connect(func)
+        if self.layer_changed is not None:
+            self.layer_changed.connect(func)
 
     def _save_layers(self):
         # 按图层ID排序，确保保存顺序一致

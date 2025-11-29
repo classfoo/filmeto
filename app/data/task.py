@@ -56,6 +56,9 @@ class TaskResult():
     def get_timeline_index(self):
         return self.task.options['timeline_index']
 
+    def get_timeline_item_id(self):
+        return self.task.options.get('timeline_item_id', self.task.options.get('timeline_index'))
+
     def get_image_path(self):
         return self.result.get_image_path()
 
