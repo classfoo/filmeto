@@ -28,7 +28,7 @@ class Text2Image(BaseTool,BaseTaskWidget):
             "reference_image_path": self.reference_image_path
         }
 
-    def init_ui(self, canvas_editor):
+    def init_ui(self, main_editor):
         from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog
         panel = QWidget()
         layout = QVBoxLayout(panel)
@@ -52,7 +52,7 @@ class Text2Image(BaseTool,BaseTaskWidget):
         row_layout.addWidget(path_edit, 1)
         row_layout.addWidget(browse_btn)
         layout.addWidget(row)
-        canvas_editor.set_tool_panel(panel)
+        main_editor.set_tool_panel(panel)
 
     @classmethod
     def get_tool_name(cls):

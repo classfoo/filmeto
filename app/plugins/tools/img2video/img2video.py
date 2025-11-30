@@ -40,7 +40,7 @@ class Image2Video(BaseTool,BaseTaskWidget):
             "end_frame_path": self.end_frame_path
         }
 
-    def init_ui(self, canvas_editor):
+    def init_ui(self, main_editor):
         from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog
         panel = QWidget()
         layout = QVBoxLayout(panel)
@@ -80,7 +80,7 @@ class Image2Video(BaseTool,BaseTaskWidget):
         end_layout.addWidget(end_edit, 1)
         end_layout.addWidget(end_btn)
         layout.addWidget(end_row)
-        canvas_editor.set_tool_panel(panel)
+        main_editor.set_tool_panel(panel)
 
     # def on_timeline_switch(self,item:TimelineItem):
     #     # For img2video, show the video if exists, otherwise show image

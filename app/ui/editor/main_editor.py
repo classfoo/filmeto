@@ -7,8 +7,8 @@ from typing import Dict, Optional
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-    QFrame, QSplitter
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
+    QFrame, QSplitter, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QCursor
@@ -33,8 +33,11 @@ class MainEditorWidget(BaseTaskWidget):
     Layout Structure:
     ┌─────────────────────────────────┐
     │     Canvas Area (Top)           │
-    │   CanvasEditorWidget            │
-    │                                 │
+    │  ┌────────┬──────────────────┐  │
+    │  │Tool    │Canvas            │  │
+    │  │Panel   │(CanvasEditor)    │  │
+    │  │(160px) │                  │  │
+    │  └────────┴──────────────────┘  │
     ├─────────────────────────────────┤
     │  Control Area (Bottom - 64px)   │
     │  ┌───────────┬─────────────┐    │
@@ -44,6 +47,7 @@ class MainEditorWidget(BaseTaskWidget):
     └─────────────────────────────────┘
     
     Tools are dynamically loaded from app/plugins/tools/
+    Tool panels are displayed in the left panel (160px width)
     """
     
     # Signals
@@ -115,18 +119,38 @@ class MainEditorWidget(BaseTaskWidget):
         # self.splitter = QSplitter(Qt.Orientation.Vertical)
         # self.splitter.setHandleWidth(0)
 
-        # ========== Top: Preview Area ==========
+        # ========== Top: Preview Area with Left-Right Layout ==========
         self.preview_container = QFrame()
         self.preview_container.setObjectName("editor_preview_container")
-        preview_layout = QVBoxLayout(self.preview_container)
+        preview_layout = QHBoxLayout(self.preview_container)
         preview_layout.setContentsMargins(8, 8, 8, 8)
         preview_layout.setSpacing(0)
         
-        # Calculate appropriate background dimensions based on the available preview area
-        # Use reasonable default values and adjust later if needed
+        # Create left panel with tool panel container (fixed 160px width)
+        left_panel = QWidget()
+        left_panel.setFixedWidth(160)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(0)
+        
+        # Tool panel container at top
+        self.tool_panel_container = QWidget(left_panel)
+        self.tool_panel_layout = QVBoxLayout(self.tool_panel_container)
+        self.tool_panel_layout.setContentsMargins(8, 8, 8, 8)
+        self.tool_panel_layout.setSpacing(6)
+        # Placeholder label when no tool is selected
+        placeholder = QLabel("No Tool Config")
+        self.tool_panel_layout.addWidget(placeholder)
+        left_layout.addWidget(self.tool_panel_container)
+        left_layout.addStretch()
+        
         # Preview widget - 使用CanvasEditor替换MediaPreviewWidget 
         self.canvas_editor = CanvasEditor(self.workspace)
-        preview_layout.addWidget(self.canvas_editor)
+        self.canvas_editor.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Add left panel and canvas editor to preview layout
+        preview_layout.addWidget(left_panel)
+        preview_layout.addWidget(self.canvas_editor, 1)
         
         # ========== Bottom: Control Area ==========
         self.control_container = QFrame()
@@ -303,11 +327,11 @@ class MainEditorWidget(BaseTaskWidget):
         # Update the prompt input with the current tool's prompt from the current timeline item
         self._update_prompt(tool_id)
         
-        # Initialize tool-specific UI panel in CanvasEditor left panel
+        # Initialize tool-specific UI panel in MainEditor left panel
         instance = self._get_tool_instance(tool_id)
         if instance and hasattr(instance, 'init_ui'):
             try:
-                instance.init_ui(self.canvas_editor)
+                instance.init_ui(self)
             except Exception as e:
                 print(f"init_ui failed for {tool_id}: {e}")
 
@@ -419,6 +443,20 @@ class MainEditorWidget(BaseTaskWidget):
 
     def get_canvas_widget(self):
         return self.canvas_editor.canvas_widget  # 返回CanvasWidget而不是MediaPreviewWidget
+    
+    def set_tool_panel(self, widget: QWidget):
+        """Replace tool config panel content in the left panel."""
+        # Clear previous widgets
+        while self.tool_panel_layout.count():
+            item = self.tool_panel_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
+        if widget:
+            self.tool_panel_layout.addWidget(widget)
+        else:
+            self.tool_panel_layout.addWidget(QLabel("No Tool Config"))
     
     def on_project_switched(self, project_name):
         """处理项目切换"""
