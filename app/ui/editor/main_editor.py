@@ -303,6 +303,15 @@ class MainEditorWidget(BaseTaskWidget):
         # Update the prompt input with the current tool's prompt from the current timeline item
         self._update_prompt(tool_id)
         
+        # Initialize tool-specific UI panel in CanvasEditor left panel
+        instance = self._get_tool_instance(tool_id)
+        if instance and hasattr(instance, 'init_ui'):
+            try:
+                instance.init_ui(self.canvas_editor)
+            except Exception as e:
+                print(f"init_ui failed for {tool_id}: {e}")
+
+        
         # Emit signal if changed
         if old_tool != tool_id:
             self.tool_changed.emit(tool_id)

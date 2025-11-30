@@ -3,7 +3,7 @@ Canvas Editor Component
 This module implements a canvas editor with a left toolbar and right canvas area using PySide6.
 """
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
-                              QSizePolicy)
+                              QSizePolicy, QLabel)
 
 from app.ui.base_widget import BaseWidget
 from app.ui.canvas.canvas import CanvasWidget
@@ -42,6 +42,16 @@ class CanvasEditor(BaseWidget):
             left_layout = QVBoxLayout(left_panel)
             left_layout.setContentsMargins(0, 0, 0, 0)
             left_layout.setSpacing(0)
+            # Tool panel container at top
+            self.tool_panel_container = QWidget(left_panel)
+            self.tool_panel_layout = QVBoxLayout(self.tool_panel_container)
+            self.tool_panel_layout.setContentsMargins(8, 8, 8, 8)
+            self.tool_panel_layout.setSpacing(6)
+            # Placeholder label when no tool is selected
+            placeholder = QLabel("No Tool Config")
+            self.tool_panel_layout.addWidget(placeholder)
+            left_layout.addWidget(self.tool_panel_container)
+            left_layout.addStretch()
 
             # Create right panel for canvas only (adaptive width)
             right_panel = QWidget()
@@ -65,11 +75,20 @@ class CanvasEditor(BaseWidget):
             traceback.print_exc()
             raise
     
-    def set_background_size(self, width: int, height: int):
-        """Set the background size for the canvas widget"""
-        self.canvas_widget.background_width = width
-        self.canvas_widget.background_height = height
-        self.canvas_widget.update()
+    def set_tool_panel(self, widget: QWidget):
+        """Replace tool config panel content in the left panel."""
+        # Clear previous widgets
+        while self.tool_panel_layout.count():
+            item = self.tool_panel_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
+        if widget:
+            self.tool_panel_layout.addWidget(widget)
+        else:
+            from PySide6.QtWidgets import QLabel
+            self.tool_panel_layout.addWidget(QLabel("No Tool Config"))
     
     def on_task_finished(self, result: TaskResult):
         """Handle task finished event - add generated image as a new layer"""

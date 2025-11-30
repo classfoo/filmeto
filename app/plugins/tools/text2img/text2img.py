@@ -15,6 +15,7 @@ class Text2Image(BaseTool,BaseTaskWidget):
         self.workspace = workspace
         self.workspace.connect_task_execute(self.execute)
         self.editor = editor
+        self.reference_image_path = None
 
     def generate_image(self):
         self.workspace.submit_task(self.params())
@@ -23,8 +24,35 @@ class Text2Image(BaseTool,BaseTaskWidget):
         return {
             "tool":"text2img",
             "model":"comfy_ui",
-            "prompt":self.editor.get_prompt()
+            "prompt":self.editor.get_prompt(),
+            "reference_image_path": self.reference_image_path
         }
+
+    def init_ui(self, canvas_editor):
+        from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0,0,0,0)
+        layout.setSpacing(6)
+        title = QLabel(tr("Reference Image"))
+        layout.addWidget(title)
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0,0,0,0)
+        row_layout.setSpacing(4)
+        path_edit = QLineEdit()
+        path_edit.setReadOnly(True)
+        browse_btn = QPushButton(tr("Browse"))
+        def on_browse():
+            file_path, _ = QFileDialog.getOpenFileName(panel, tr("Select Reference Image"), "", "Images (*.png *.jpg *.jpeg)")
+            if file_path:
+                self.reference_image_path = file_path
+                path_edit.setText(file_path)
+        browse_btn.clicked.connect(on_browse)
+        row_layout.addWidget(path_edit, 1)
+        row_layout.addWidget(browse_btn)
+        layout.addWidget(row)
+        canvas_editor.set_tool_panel(panel)
 
     @classmethod
     def get_tool_name(cls):

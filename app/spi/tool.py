@@ -22,6 +22,15 @@ class BaseTool(BaseWidget,Progress):
     async def execute(self, task):
         return
 
+    def init_ui(self, canvas_editor):
+        """Initialize UI in CanvasEditor left panel. Subclasses may override.
+        If a QWidget is returned or set, use canvas_editor.set_tool_panel(widget)."""
+        try:
+            from PySide6.QtWidgets import QLabel
+            canvas_editor.set_tool_panel(QLabel("No Tool Config"))
+        except Exception:
+            pass
+
     @classmethod
     def get_tool_name(cls):
         """Get the tool name for tool-specific prompt storage.
