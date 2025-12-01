@@ -227,6 +227,15 @@ class VideoTimeline(BaseTaskWidget):
             # Load the new image and update the card
             pixmap = item.get_image()
             self.cards[index-1].setImage(pixmap)
+
+        # 取消之前选中卡片的选中状态
+        if self.selected_card_index is not None and 1 <= self.selected_card_index <= len(self.cards):
+            self.cards[self.selected_card_index - 1].set_selected(False)
+
+        # 设置新选中的卡片
+        self.selected_card_index = index
+        if 1 <= index <= len(self.cards):
+            self.cards[index - 1].set_selected(True)
     
     def on_project_switched(self, project_name):
         """处理项目切换"""
@@ -273,15 +282,6 @@ class VideoTimeline(BaseTaskWidget):
                 self.cards[0].set_selected(True)
 
     def on_mouse_press_card(self,index):
-        # 取消之前选中卡片的选中状态
-        if self.selected_card_index is not None and 1 <= self.selected_card_index <= len(self.cards):
-            self.cards[self.selected_card_index - 1].set_selected(False)
-        
-        # 设置新选中的卡片
-        self.selected_card_index = index
-        if 1 <= index <= len(self.cards):
-            self.cards[index - 1].set_selected(True)
-        
         self.workspace.get_project().get_timeline().set_item_index(index)
 
 # ------------------- 运行应用 -------------------

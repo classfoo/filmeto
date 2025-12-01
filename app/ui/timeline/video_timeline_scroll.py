@@ -25,29 +25,3 @@ class VideoTimelineScroll(QScrollArea):
         if event.button() == Qt.LeftButton:
             self.drag_start_position = None
         super().mouseReleaseEvent(event)
-
-# 使用示例
-if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
-    import sys
-
-    app = QApplication(sys.argv)
-
-    # 创建一个主窗口
-    main_window = QWidget()
-    main_layout = QVBoxLayout(main_window)
-
-    # 创建一个可拖拽滚动的 QScrollArea
-    scroll_area = VideoTimelineScroll()
-    scroll_area.setWidget(QWidget())  # 设置一个空的 QWidget 作为滚动区域的内容
-
-    # 在滚动区域的内容中添加一些标签
-    content_layout = QVBoxLayout(scroll_area.widget())
-    for i in range(50):
-        label = QLabel(f"Label {i}")
-        content_layout.addWidget(label)
-
-    main_layout.addWidget(scroll_area)
-    main_window.show()
-
-    sys.exit(app.exec())
