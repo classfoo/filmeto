@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QScrollArea, QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt, QPoint
 
-class DraggableScrollArea(QScrollArea):
+class VideoTimelineScroll(QScrollArea):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("draggable_scroll_area")
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     main_layout = QVBoxLayout(main_window)
 
     # 创建一个可拖拽滚动的 QScrollArea
-    scroll_area = DraggableScrollArea()
+    scroll_area = VideoTimelineScroll()
     scroll_area.setWidget(QWidget())  # 设置一个空的 QWidget 作为滚动区域的内容
 
     # 在滚动区域的内容中添加一些标签

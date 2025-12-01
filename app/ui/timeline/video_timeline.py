@@ -9,8 +9,8 @@ from PySide6.QtGui import QKeyEvent, QPixmap
 from app.data.timeline import TimelineItem
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget, BaseTaskWidget
-from app.ui.timeline.draggable_scroll_area import DraggableScrollArea
-from app.ui.timeline.hover_zoom_frame import HoverZoomFrame
+from app.ui.timeline.video_timeline_scroll import VideoTimelineScroll
+from app.ui.timeline.video_timeline_card import VideoTimelineCard
 from utils import qt_utils
 from utils.i18n_utils import tr, translation_manager
 
@@ -78,7 +78,7 @@ class VideoTimeline(BaseTaskWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         # ------------------- 创建可滚动区域 -------------------
-        self.scroll_area = DraggableScrollArea()
+        self.scroll_area = VideoTimelineScroll()
         self.scroll_area.setWidgetResizable(True) # 内容 widget 可随区域大小调整
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff) # 水平滚动条按需显示
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff) # 关闭垂直滚动条
@@ -109,7 +109,7 @@ class VideoTimeline(BaseTaskWidget):
             timeline_item = timeline.get_item(index)
             snapshot_image = timeline_item.get_image()
             title = f"# {i+1}"
-            card = HoverZoomFrame(self, title, snapshot_image, index)
+            card = VideoTimelineCard(self, title, snapshot_image, index)
             self.timeline_layout.addWidget(card)
             self.cards.append(card)
         
@@ -197,7 +197,7 @@ class VideoTimeline(BaseTaskWidget):
             new_timeline_item = timeline.get_item(new_index)
             snapshot_image = new_timeline_item.get_image()
             title = f"# {new_index}"
-            new_card = HoverZoomFrame(self, title, snapshot_image, new_index)
+            new_card = VideoTimelineCard(self, title, snapshot_image, new_index)
             
             # Add the new card
             self.timeline_layout.addWidget(new_card)
@@ -249,7 +249,7 @@ class VideoTimeline(BaseTaskWidget):
             timeline_item = timeline.get_item(index)
             snapshot_image = timeline_item.get_image()
             title = f"# {index}"
-            card = HoverZoomFrame(self, title, snapshot_image, index)
+            card = VideoTimelineCard(self, title, snapshot_image, index)
             self.timeline_layout.addWidget(card)
             self.cards.append(card)
         

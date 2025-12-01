@@ -14,7 +14,7 @@ from typing import Tuple
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.signals import Signals
-from app.ui.timeline import VideoTimeline
+from app.ui.timeline.video_timeline import VideoTimeline
 from app.ui.timeline.subtitle_timeline import SubtitleTimeline
 from app.ui.timeline.voice_timeline import VoiceTimeline
 

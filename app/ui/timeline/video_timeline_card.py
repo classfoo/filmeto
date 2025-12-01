@@ -8,7 +8,7 @@ from PySide6.QtGui import QPixmap, QColor, QPalette, QPainter, QFont, QAction
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect, QPoint, QTimer, Property, QSize
 
 
-class HoverZoomFrame(QFrame):
+class VideoTimelineCard(QFrame):
     """
     一个自定义 QFrame，通过边框高亮来显示悬停和选中状态。
     """
