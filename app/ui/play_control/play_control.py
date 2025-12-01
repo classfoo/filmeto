@@ -158,7 +158,7 @@ class PlayControlWidget(BaseWidget):
         """Handle next segment button click."""
         self.next_clicked.emit()
     
-    def _on_timeline_position_clicked(self, sender, timeline_position):
+    def _on_timeline_position_clicked(self, sender, params=None, **kwargs):
         if self._is_playing:
             # Pause playback
             self.set_playing(False)

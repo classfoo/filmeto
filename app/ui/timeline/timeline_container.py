@@ -288,10 +288,40 @@ class TimelineContainer(BaseWidget):
         timeline_x, card_index = self.calculate_timeline_x(timeline_position)
         self.timeline_position_overlay.on_timeline_position(timeline_position, timeline_x)
     
-    def _on_timeline_position_signal(self, timeline_position):
-        _, card_number = self.calculate_timeline_x(timeline_position)
+    def _on_timeline_position_signal(self, sender, params=None, **kwargs):
+        """
+        Handle TIMELINE_POSITION_CLICKED and TIMELINE_POSITION_STOPPED signals.
+        Calculate card number from timeline position and trigger card selection in data layer.
+        
+        Args:
+            sender: The signal sender
+            params: Signal parameters - either:
+                   - timeline_position (float) for TIMELINE_POSITION_CLICKED
+                   - dict with timeline_position, timeline_x, card_number for TIMELINE_POSITION_STOPPED
+            **kwargs: Additional keyword arguments
+        """
+        if params is None:
+            return
+        
+        # Get timeline_position and card_number from params
+        if isinstance(params, dict):
+            timeline_position = params.get('timeline_position')
+            card_number = params.get('card_number', None)
+        else:
+            # For TIMELINE_POSITION_CLICKED, params is the position directly
+            timeline_position = params
+            card_number = None
+        
+        if timeline_position is None:
+            return
+        
+        # If card_number is not provided, calculate it from timeline_position
+        if card_number is None:
+            _, card_number = self.calculate_timeline_x(timeline_position)
+        
         # Only set item index if card_number is valid (> 0)
-        self.workspace.get_project().get_timeline().set_item_index(card_number)
+        if card_number > 0:
+            self.workspace.get_project().get_timeline().set_item_index(card_number)
 
     def calculate_timeline_position(self, mouse_x: int) -> Tuple[float, int]:
         """

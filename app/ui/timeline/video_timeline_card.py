@@ -144,12 +144,6 @@ class VideoTimelineCard(QFrame):
         scaled_image = snapshot.scaled(QSize(80,150),Qt.KeepAspectRatioByExpanding,Qt.SmoothTransformation)
         self.content_label.setPixmap(scaled_image)
 
-    def mousePressEvent(self, event):
-        """Handle mouse click event to add a new card"""
-        if event.button() == Qt.LeftButton:
-            if hasattr(self.parent, 'on_mouse_press_card'):
-                self.parent.on_mouse_press_card(self.index)
-
     def show_context_menu(self, event):
         """显示上下文菜单"""
         menu = QMenu(self)

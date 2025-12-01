@@ -280,13 +280,3 @@ class VideoTimeline(BaseTaskWidget):
             self.selected_card_index = 1
             if self.cards:
                 self.cards[0].set_selected(True)
-
-    def on_mouse_press_card(self,index):
-        self.workspace.get_project().get_timeline().set_item_index(index)
-
-# ------------------- 运行应用 -------------------
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = VideoTimeline()
-    window.show()
-    sys.exit(app.exec())
