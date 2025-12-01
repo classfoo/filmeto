@@ -243,6 +243,9 @@ class TimelineContainer(BaseWidget):
         Signals().connect(Signals.TIMELINE_POSITION_CLICKED, self._on_timeline_position_signal)
         Signals().connect(Signals.TIMELINE_POSITION_STOPPED, self._on_timeline_position_signal)
         
+        # Track last processed click event to prevent duplicate triggers
+        self._last_click_event = None
+        
         # Install event filter to intercept mouse clicks from child widgets
         self.installEventFilter(self)
         self._install_event_filters_recursively(self.video_timeline)
@@ -262,6 +265,18 @@ class TimelineContainer(BaseWidget):
         if event.type() == QEvent.Type.MouseButtonPress:
             mouse_event = event
             if isinstance(mouse_event, QMouseEvent) and mouse_event.button() == Qt.MouseButton.LeftButton:
+                # Prevent duplicate processing of the same event
+                # Only process spontaneous events (from actual user input, not propagated)
+                if not event.spontaneous():
+                    return super().eventFilter(watched, event)
+                
+                # Check if this is the same event we just processed
+                if self._last_click_event == event:
+                    return super().eventFilter(watched, event)
+                
+                # Mark this event as processed
+                self._last_click_event = event
+                
                 # Map the click position to container coordinates
                 container_pos = watched.mapTo(self, mouse_event.pos())
                 
