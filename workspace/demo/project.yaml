@@ -1,5 +1,5 @@
 drawing:
-  current_tool: pen
+  current_tool: brush
   tool_settings:
     adjust: {}
     brush:
@@ -37,10 +37,11 @@ drawing:
       text_color: '#000000'
     zoom: {}
 task_index: 1
-timeline_duration: 8.0
-timeline_index: 4
+timeline_duration: 20.125
+timeline_index: 9
 timeline_item_durations:
   '1': 1.0
+  '10': 6.0625
   '2': 1.0
   '3': 1.0
   '4': 1.0
@@ -48,5 +49,6 @@ timeline_item_durations:
   '6': 1.0
   '7': 1.0
   '8': 1.0
-timeline_position: 3.556
+  '9': 6.0625
+timeline_position: 19.019
 timeline_size: 8

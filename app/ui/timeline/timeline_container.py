@@ -9,6 +9,7 @@ including cards, and mouse tracking works across all child widgets.
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QPoint, QEvent, QPointF, QTimer
 from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF, QMouseEvent
+from typing import Tuple
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
@@ -225,7 +226,7 @@ class TimelineContainer(BaseWidget):
 
         # Create the overlay widget for drawing divider lines
         timeline_position = self.workspace.get_project().get_timeline_position()
-        timeline_x = self.calculate_timeline_x(timeline_position)
+        timeline_x, card_index = self.calculate_timeline_x(timeline_position)
         self.timeline_position_overlay = TimelinePositionLineOverlay(self, timeline_position,timeline_x)
 
         # Create the overlay widget for drawing divider lines
@@ -260,8 +261,8 @@ class TimelineContainer(BaseWidget):
                 # Map the click position to container coordinates
                 container_pos = watched.mapTo(self, mouse_event.pos())
                 
-                # Calculate timeline position from the mapped X coordinate
-                timeline_position = self.calculate_timeline_position(container_pos.x())
+                # Calculate timeline position and card number from the mapped X coordinate
+                timeline_position, card_number = self.calculate_timeline_position(container_pos.x())
                 
                 # Update the timeline position in project
                 # Boundary validation (< 0 or > duration) is handled in set_timeline_position
@@ -280,35 +281,37 @@ class TimelineContainer(BaseWidget):
         return super().eventFilter(watched, event)
 
     def on_timeline_position(self, timeline_position):
-        self.timeline_position_overlay.on_timeline_position(timeline_position, self.calculate_timeline_x(timeline_position))
+        timeline_x, card_index = self.calculate_timeline_x(timeline_position)
+        self.timeline_position_overlay.on_timeline_position(timeline_position, timeline_x)
 
-    def calculate_timeline_position(self, mouse_x: int) -> float:
+    def calculate_timeline_position(self, mouse_x: int) -> Tuple[float, int]:
         """
-        Calculate the playback position in seconds based on mouse X coordinate.
+        Calculate the playback position in seconds and card number based on mouse X coordinate.
         
         Args:
             mouse_x: Mouse X coordinate in the container
             
         Returns:
-            float: Playback position in seconds (with millisecond precision)
+            tuple[float, int]: (Playback position in seconds with millisecond precision, Card number/index)
+                              Card number is 1-indexed. Returns 0 if before first card or no cards exist.
         """
         # Get the timeline widget's cards
         timeline = self.video_timeline
         if not hasattr(timeline, 'cards') or not timeline.cards:
-            return 0.0
+            return 0.0, 0
         
         # Get the workspace and project to access timeline items
         workspace = timeline.workspace
         if not workspace:
-            return 0.0
+            return 0.0, 0
             
         project = workspace.get_project()
         if not project:
-            return 0.0
+            return 0.0, 0
             
         timeline_data = project.get_timeline()
         if not timeline_data:
-            return 0.0
+            return 0.0, 0
         
         # Account for scroll position
         scroll_area = timeline.scroll_area
@@ -319,7 +322,7 @@ class TimelineContainer(BaseWidget):
         
         # If mouse is before the first card, position is 0
         if adjusted_x < 0:
-            return 0.0
+            return 0.0, 0
         
         # Calculate which card the mouse is over and position within that card
         accumulated_time = 0.0
@@ -348,46 +351,48 @@ class TimelineContainer(BaseWidget):
                 # Calculate absolute time position
                 position_in_seconds = accumulated_time + (time_fraction * item_duration)
                 # Round to millisecond precision (3 decimal places)
-                return round(position_in_seconds, 3)
+                return round(position_in_seconds, 3), card_index
             
             # Move to next card
             accumulated_time += item_duration
             current_x = card_end_x + self.card_spacing
         
-        # If mouse is after all cards, return the total duration
-        return round(accumulated_time, 3)
+        # If mouse is after all cards, return the total duration and last card index
+        last_card_index = len(timeline.cards)
+        return round(accumulated_time, 3), last_card_index
     
-    def calculate_timeline_x(self, timeline_position: float) -> int:
+    def calculate_timeline_x(self, timeline_position: float) -> Tuple[int, int]:
         """
-        Calculate the X coordinate based on timeline position in seconds (reverse of calculate_timeline_position).
+        Calculate the X coordinate and card number based on timeline position in seconds (reverse of calculate_timeline_position).
         
         Args:
             timeline_position: Playback position in seconds
             
         Returns:
-            int: X coordinate in the container (accounting for scroll and margin)
+            tuple[int, int]: (X coordinate in the container, Card number/index)
+                            Card number is 1-indexed. Returns 0 if before first card or no cards exist.
         """
         # Get the timeline widget's cards
         timeline = self.video_timeline
         if not hasattr(timeline, 'cards') or not timeline.cards:
-            return self.content_margin_left
+            return self.content_margin_left, 0
         
         # Get the workspace and project to access timeline items
         workspace = timeline.workspace
         if not workspace:
-            return self.content_margin_left
+            return self.content_margin_left, 0
             
         project = workspace.get_project()
         if not project:
-            return self.content_margin_left
+            return self.content_margin_left, 0
             
         timeline_data = project.get_timeline()
         if not timeline_data:
-            return self.content_margin_left
+            return self.content_margin_left, 0
         
         # If position is negative or zero, return the start position
         if timeline_position <= 0:
-            return self.content_margin_left
+            return self.content_margin_left, 0
         
         # Calculate which card the position falls into
         accumulated_time = 0.0
@@ -419,15 +424,16 @@ class TimelineContainer(BaseWidget):
                 adjusted_x = current_x + position_in_card
                 # Convert to container coordinate (add margin, no scroll adjustment for display)
                 container_x = adjusted_x + self.content_margin_left
-                return int(container_x)
+                return int(container_x), card_index
             
             # Move to next card
             accumulated_time += item_duration
             current_x += self.card_width + self.card_spacing
         
-        # If position is after all cards, return the position at the end
+        # If position is after all cards, return the position at the end and last card index
         final_x = current_x + self.content_margin_left
-        return int(final_x)
+        last_card_index = len(timeline.cards)
+        return int(final_x), last_card_index
 
     def _update_divider_positions(self):
         """Update divider line positions based on component heights"""
