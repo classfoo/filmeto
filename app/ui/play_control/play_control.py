@@ -209,6 +209,7 @@ class PlayControlWidget(BaseWidget):
     def _stop_playback(self):
         """
         Stop the playback timer and save final position.
+        Emits TIMELINE_POSITION_STOPPED signal with position and x coordinate.
         """
         # Stop the timer
         self._playback_timer.stop()
@@ -233,6 +234,8 @@ class PlayControlWidget(BaseWidget):
             
             # Update project position with immediate flush
             project.set_timeline_position(new_position, flush=True)
+            # Send signal with timeline_position, timeline_x, and card_number
+            Signals().send(Signals.TIMELINE_POSITION_STOPPED, new_position)
     
     def _on_playback_tick(self):
         """
