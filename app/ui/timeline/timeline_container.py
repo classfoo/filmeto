@@ -239,6 +239,10 @@ class TimelineContainer(BaseWidget):
         # Enable mouse press events
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         
+        # Connect to signals for card selection
+        Signals().connect(Signals.TIMELINE_POSITION_CLICKED, self._on_timeline_position_signal)
+        Signals().connect(Signals.TIMELINE_POSITION_STOPPED, self._on_timeline_position_signal)
+        
         # Install event filter to intercept mouse clicks from child widgets
         self.installEventFilter(self)
         self._install_event_filters_recursively(self.video_timeline)
@@ -272,7 +276,7 @@ class TimelineContainer(BaseWidget):
                     project.set_timeline_position(timeline_position)
                     
                     # Emit UI signal for UI components (like play control) to react
-                    Signals().send(Signals.TIMELINE_POSITION_CLICKED, timeline_position)
+                    Signals().send(Signals.TIMELINE_POSITION_CLICKED, params=timeline_position)
                 
                 # Don't consume the event - let child widgets handle it for their own logic
                 # This allows cards to be selected, subtitle/voiceover cards to be dragged, etc.
@@ -283,6 +287,11 @@ class TimelineContainer(BaseWidget):
     def on_timeline_position(self, timeline_position):
         timeline_x, card_index = self.calculate_timeline_x(timeline_position)
         self.timeline_position_overlay.on_timeline_position(timeline_position, timeline_x)
+    
+    def _on_timeline_position_signal(self, timeline_position):
+        _, card_number = self.calculate_timeline_x(timeline_position)
+        # Only set item index if card_number is valid (> 0)
+        self.workspace.get_project().get_timeline().set_item_index(card_number)
 
     def calculate_timeline_position(self, mouse_x: int) -> Tuple[float, int]:
         """

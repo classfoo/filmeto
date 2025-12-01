@@ -158,15 +158,7 @@ class PlayControlWidget(BaseWidget):
         """Handle next segment button click."""
         self.next_clicked.emit()
     
-    def _on_timeline_position_clicked(self, sender, **kwargs):
-        """
-        Handle timeline position clicked signal.
-        Pause playback when user clicks on the timeline.
-        
-        Args:
-            sender: The signal sender (UISignalManager instance)
-            **kwargs: Contains 'position' - Timeline position in seconds
-        """
+    def _on_timeline_position_clicked(self, sender, timeline_position):
         if self._is_playing:
             # Pause playback
             self.set_playing(False)
@@ -235,7 +227,7 @@ class PlayControlWidget(BaseWidget):
             # Update project position with immediate flush
             project.set_timeline_position(new_position, flush=True)
             # Send signal with timeline_position, timeline_x, and card_number
-            Signals().send(Signals.TIMELINE_POSITION_STOPPED, new_position)
+            Signals().send(Signals.TIMELINE_POSITION_STOPPED, params=new_position)
     
     def _on_playback_tick(self):
         """
