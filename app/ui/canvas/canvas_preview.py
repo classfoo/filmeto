@@ -19,14 +19,13 @@ class PreviewPreloader:
     """
     Background media loader for smooth timeline item transitions.
     
-    Preloads the next timeline item's media content to enable seamless playback.
+    Preloads the next 3 timeline items' media content to enable seamless playback.
     """
     
     def __init__(self):
-        self.preloaded_item_index: Optional[int] = None
-        self.preloaded_media_type: Optional[str] = None
-        self.preloaded_pixmap: Optional[QPixmap] = None
-        self.preload_status: str = "idle"  # idle, loading, ready, cancelled
+        # Store preloaded items in a dict: {item_index: {"type": str, "pixmap": QPixmap, "status": str}}
+        self.preloaded_items: dict = {}
+        self.max_preload_count: int = 3  # Preload next 3 items
         
     def preload_item(self, timeline_item: TimelineItem):
         """
@@ -37,9 +36,12 @@ class PreviewPreloader:
         """
         if not timeline_item:
             return
-            
-        self.preloaded_item_index = timeline_item.get_index()
-        self.preload_status = "loading"
+        
+        item_index = timeline_item.get_index()
+        
+        # Skip if already preloaded
+        if item_index in self.preloaded_items:
+            return
         
         # Determine media type and load content
         import os
@@ -47,35 +49,72 @@ class PreviewPreloader:
         image_path = timeline_item.get_image_path()
         
         if os.path.exists(video_path):
-            self.preloaded_media_type = "video"
-            # For videos, we'll prepare the player when transitioning
-            # Just mark as ready with the path
-            self.preload_status = "ready"
+            # For videos, just store metadata (actual loading happens during playback)
+            self.preloaded_items[item_index] = {
+                "type": "video",
+                "pixmap": None,
+                "path": video_path,
+                "status": "ready"
+            }
         elif os.path.exists(image_path):
-            self.preloaded_media_type = "image"
-            # Load the image pixmap
-            self.preloaded_pixmap = QPixmap(image_path)
-            self.preload_status = "ready"
+            # Load the image pixmap immediately
+            pixmap = QPixmap(image_path)
+            self.preloaded_items[item_index] = {
+                "type": "image",
+                "pixmap": pixmap,
+                "path": image_path,
+                "status": "ready"
+            }
         else:
-            self.preload_status = "cancelled"
+            self.preloaded_items[item_index] = {
+                "type": None,
+                "pixmap": None,
+                "path": None,
+                "status": "cancelled"
+            }
     
-    def get_preloaded_content(self):
+    def get_preloaded_content(self, item_index: int):
         """
-        Retrieve preloaded content if ready.
+        Retrieve preloaded content for a specific item if ready.
         
+        Args:
+            item_index: The index of the item to retrieve
+            
         Returns:
             tuple: (media_type, content) where content is QPixmap for images or None for videos
         """
-        if self.preload_status == "ready":
-            return (self.preloaded_media_type, self.preloaded_pixmap)
+        if item_index in self.preloaded_items:
+            item_data = self.preloaded_items[item_index]
+            if item_data["status"] == "ready":
+                return (item_data["type"], item_data["pixmap"])
         return (None, None)
     
     def clear(self):
-        """Clear preloaded content and reset state."""
-        self.preloaded_item_index = None
-        self.preloaded_media_type = None
-        self.preloaded_pixmap = None
-        self.preload_status = "idle"
+        """Clear all preloaded content and reset state."""
+        self.preloaded_items.clear()
+    
+    def remove_item(self, item_index: int):
+        """Remove a specific preloaded item to free memory."""
+        if item_index in self.preloaded_items:
+            del self.preloaded_items[item_index]
+    
+    def cleanup_old_items(self, current_index: int, keep_count: int = 3):
+        """
+        Clean up preloaded items that are no longer needed.
+        Keeps only items within range [current_index, current_index + keep_count].
+        
+        Args:
+            current_index: Current playing item index
+            keep_count: Number of future items to keep preloaded
+        """
+        items_to_remove = []
+        for item_index in self.preloaded_items.keys():
+            # Remove items that are behind current position or too far ahead
+            if item_index < current_index or item_index > current_index + keep_count:
+                items_to_remove.append(item_index)
+        
+        for item_index in items_to_remove:
+            del self.preloaded_items[item_index]
 
 
 class CanvasPreview(QWidget):
@@ -346,9 +385,9 @@ class CanvasPreview(QWidget):
             return
         
         # Check if we have preloaded content for this item
-        preload_type, preload_content = self.preloader.get_preloaded_content()
+        preload_type, preload_content = self.preloader.get_preloaded_content(item_index)
         
-        if preload_type and self.preloader.preloaded_item_index == item_index:
+        if preload_type:
             # Use preloaded content
             self._display_preloaded_item(preload_type, preload_content, timeline_item, item_offset)
         else:
@@ -367,8 +406,9 @@ class CanvasPreview(QWidget):
         # Emit item changed signal
         self.item_changed.emit(item_index)
         
-        # Preload next item
-        self._preload_next_item(item_index)
+        # Cleanup old preloaded items and preload next items
+        self.preloader.cleanup_old_items(item_index, self.preloader.max_preload_count)
+        self._preload_next_items(item_index)
     
     def _load_and_display_item(self, timeline_item: TimelineItem, item_offset: float):
         """
@@ -408,8 +448,7 @@ class CanvasPreview(QWidget):
             video_path = timeline_item.get_video_path()
             self._display_video(video_path, item_offset)
         
-        # Clear preloader after using content
-        self.preloader.clear()
+        # Note: Don't clear preloader here, we keep preloaded items for smooth transitions
     
     def _display_image(self, image_path: str):
         """
@@ -482,9 +521,9 @@ class CanvasPreview(QWidget):
             if self._is_playing:
                 self.media_player.play()
     
-    def _preload_next_item(self, current_item_index: int):
+    def _preload_next_items(self, current_item_index: int):
         """
-        Preload the next timeline item for smooth transitions.
+        Preload the next 3 timeline items for smooth transitions.
         
         Args:
             current_item_index: Index of the current item
@@ -498,19 +537,25 @@ class CanvasPreview(QWidget):
             return
         
         item_count = timeline.get_item_count()
-        next_item_index = current_item_index + 1
+        if item_count == 0:
+            return
         
-        # Check if there's a next item (handle looping)
-        if next_item_index > item_count:
-            # Loop to first item if timeline loops
-            next_item_index = 1
-        
-        # Get next item
-        try:
-            next_item = timeline.get_item(next_item_index)
-            self.preloader.preload_item(next_item)
-        except Exception as e:
-            print(f"Error preloading item {next_item_index}: {e}")
+        # Preload next N items (where N = max_preload_count)
+        for i in range(1, self.preloader.max_preload_count + 1):
+            next_item_index = current_item_index + i
+            
+            # Handle looping
+            if next_item_index > item_count:
+                # Loop to beginning if needed
+                next_item_index = ((next_item_index - 1) % item_count) + 1
+            
+            # Get and preload the item
+            try:
+                next_item = timeline.get_item(next_item_index)
+                self.preloader.preload_item(next_item)
+            except Exception as e:
+                print(f"Error preloading item {next_item_index}: {e}")
+                break  # Stop preloading if we encounter an error
     
     def resizeEvent(self, event):
         """Handle resize events to update preview geometry."""
