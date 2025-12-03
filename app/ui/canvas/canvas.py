@@ -12,6 +12,7 @@ from app.data.timeline import TimelineItem
 from app.data.workspace import Workspace
 from app.ui.canvas.canvas_layer import CanvasImageLayerWidget, CanvasVideoLayerWidget, CanvasLayerWidget
 from app.ui.canvas.canvas_preview import CanvasPreview
+from app.ui.signals import Signals
 import os
 
 
@@ -60,6 +61,9 @@ class CanvasWidget(BaseTaskWidget):
         
         # Create preview overlay (initially hidden)
         self._create_preview_overlay()
+        
+        # Connect to playback state signal
+        Signals().connect(Signals.PLAYBACK_STATE_CHANGED, self._on_playback_state_changed)
 
     def resizeEvent(self, event):
         """Handle resize events to adjust the canvas content scale"""
@@ -350,3 +354,17 @@ class CanvasWidget(BaseTaskWidget):
                 first_layer_widget.layer_width,
                 first_layer_widget.layer_height
             )
+    
+    def _on_playback_state_changed(self, sender, params=None, **kwargs):
+        """Handle playback state change signal from PlayControl.
+        
+        Args:
+            sender: Signal sender
+            params: Boolean indicating playback state (True=playing, False=paused)
+        """
+        if params is None:
+            return
+        
+        is_playing = params
+        if self.canvas_preview:
+            self.canvas_preview.on_playback_state_changed(is_playing)

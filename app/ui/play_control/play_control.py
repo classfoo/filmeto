@@ -153,6 +153,9 @@ class PlayControlWidget(BaseWidget):
         
         # Emit signal with current state
         self.play_pause_clicked.emit(self._is_playing)
+        
+        # Send UI signal for playback state change
+        Signals().send(Signals.PLAYBACK_STATE_CHANGED, params=self._is_playing)
     
     def _on_next_clicked(self):
         """Handle next segment button click."""

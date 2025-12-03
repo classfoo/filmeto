@@ -21,11 +21,13 @@ class Signals:
 
     TIMELINE_POSITION_CLICKED:str = "timeline_position_clicked"
     TIMELINE_POSITION_STOPPED:str = "timeline_position_stopped"
+    PLAYBACK_STATE_CHANGED:str = "playback_state_changed"
     
     # UI Component Signals
     signals = {
         TIMELINE_POSITION_CLICKED:signal(TIMELINE_POSITION_CLICKED),
-        TIMELINE_POSITION_STOPPED:signal(TIMELINE_POSITION_STOPPED)
+        TIMELINE_POSITION_STOPPED:signal(TIMELINE_POSITION_STOPPED),
+        PLAYBACK_STATE_CHANGED:signal(PLAYBACK_STATE_CHANGED)
     }
 
 
