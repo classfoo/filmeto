@@ -214,7 +214,22 @@ class MainWindowBottomBar(BaseWidget):
     
     def _on_play_pause_clicked(self, is_playing: bool):
         """Handle play/pause button click."""
-        # TODO: Implement play/pause logic
+        # Notify canvas preview about playback state change
+        from app.ui.editor import MainEditorWidget
+        # Access canvas preview through workspace
+        workspace = self.workspace
+        if workspace:
+            # Get the main editor widget from workspace (if stored there)
+            # Or we can traverse the widget hierarchy
+            main_window = self.window()
+            if main_window and hasattr(main_window, 'h_layout'):
+                workspace_top = main_window.h_layout.workspace.workspace_top
+                if hasattr(workspace_top, 'center') and hasattr(workspace_top.center, 'canvas'):
+                    canvas = workspace_top.center.canvas
+                    preview = canvas.get_preview_overlay()
+                    if preview:
+                        preview.on_playback_state_changed(is_playing)
+        
         print(f"Play/Pause clicked - Playing: {is_playing}")
     
     def _on_next_clicked(self):

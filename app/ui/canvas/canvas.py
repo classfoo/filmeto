@@ -11,6 +11,7 @@ from app.data.layer import Layer, LayerType, LayerManager
 from app.data.timeline import TimelineItem
 from app.data.workspace import Workspace
 from app.ui.canvas.canvas_layer import CanvasImageLayerWidget, CanvasVideoLayerWidget, CanvasLayerWidget
+from app.ui.canvas.canvas_preview import CanvasPreview
 import os
 
 
@@ -40,6 +41,10 @@ class CanvasWidget(BaseTaskWidget):
         self.current_tool_id = 'pen'  # Using tool ID instead of DrawingMode enum
         self.canvas_width = None
         self.canvas_height =  None
+        
+        # Create preview overlay widget
+        self.canvas_preview: Optional[CanvasPreview] = None
+        
         # Set up UI with overlapped layout for layers
         self.init_ui()
         print("CanvasWidget initialized")
@@ -52,6 +57,9 @@ class CanvasWidget(BaseTaskWidget):
         self.setMouseTracking(True)
         # Make sure canvas can have children widgets (layers)
         self.setAttribute(Qt.WidgetAttribute.WA_StaticContents, False)
+        
+        # Create preview overlay (initially hidden)
+        self._create_preview_overlay()
 
     def resizeEvent(self, event):
         """Handle resize events to adjust the canvas content scale"""
@@ -59,6 +67,10 @@ class CanvasWidget(BaseTaskWidget):
         # Update all layer widgets to match the new canvas size based on scale
         for layer_widget in self.layer_widgets.values():
             layer_widget.on_canvas_resize(self.width(),self.height())
+        
+        # Update preview overlay if it exists
+        if self.canvas_preview:
+            self.canvas_preview._update_geometry()
 
     def on_timeline_switch(self, timeline_item: TimelineItem):
         """Set the timeline item and initialize layer management"""
@@ -310,3 +322,31 @@ class CanvasWidget(BaseTaskWidget):
         
         # Clear layer list
         self.layers = []
+    
+    def _create_preview_overlay(self):
+        """Create the preview overlay widget for timeline playback."""
+        if self.canvas_preview is None:
+            self.canvas_preview = CanvasPreview(self.workspace, self)
+            # Initially hidden
+            self.canvas_preview.hide()
+    
+    def get_preview_overlay(self) -> Optional[CanvasPreview]:
+        """Get the preview overlay widget.
+        
+        Returns:
+            The CanvasPreview widget or None if not created
+        """
+        return self.canvas_preview
+    
+    def update_preview_dimensions(self):
+        """Update preview overlay dimensions based on first visible layer."""
+        if not self.canvas_preview:
+            return
+        
+        # Get dimensions from first visible layer widget
+        if self.layer_widgets:
+            first_layer_widget = next(iter(self.layer_widgets.values()))
+            self.canvas_preview.set_layer_dimensions(
+                first_layer_widget.layer_width,
+                first_layer_widget.layer_height
+            )
