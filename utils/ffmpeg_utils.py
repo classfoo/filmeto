@@ -460,3 +460,107 @@ async def ensure_ffmpeg() -> bool:
         else:
             logger.error("FFmpeg installation failed.")
             return False
+
+
+async def composite_video_with_layers(
+    video_path: Union[str, Path],
+    overlay_images: List[Union[str, Path]],
+    output_path: Union[str, Path],
+    overlay_positions: Optional[List[tuple]] = None,
+    codec: str = 'libx264'
+) -> bool:
+    """
+    Composite a video with graphic overlay layers.
+    
+    Args:
+        video_path: Path to the base video file
+        overlay_images: List of paths to overlay image files (in order bottom to top)
+        output_path: Path where the composite video will be saved
+        overlay_positions: Optional list of (x, y) positions for each overlay.
+                          If None, overlays are centered.
+        codec: Video codec to use (default: libx264)
+        
+    Returns:
+        bool: True if compositing succeeds, False otherwise
+    """
+    if not check_ffmpeg():
+        logger.error("FFmpeg is not available. Please install it first.")
+        return False
+    
+    if not os.path.exists(video_path):
+        logger.error(f"Video file does not exist: {video_path}")
+        return False
+    
+    if not overlay_images:
+        logger.warning("No overlay images provided, copying video as-is")
+        try:
+            shutil.copy2(video_path, output_path)
+            return True
+        except Exception as e:
+            logger.error(f"Error copying video: {e}")
+            return False
+    
+    # Validate overlay images exist
+    for img_path in overlay_images:
+        if not os.path.exists(img_path):
+            logger.error(f"Overlay image does not exist: {img_path}")
+            return False
+    
+    try:
+        # Build FFmpeg command with overlay filters
+        cmd = ['ffmpeg', '-i', str(video_path)]
+        
+        # Add overlay images as inputs
+        for img_path in overlay_images:
+            cmd.extend(['-i', str(img_path)])
+        
+        # Build filter_complex string for overlaying
+        # Start with base video as [0:v]
+        filter_parts = []
+        current_stream = '0:v'
+        
+        for i, img_path in enumerate(overlay_images):
+            overlay_index = i + 1  # Input indices (video is 0, overlays start at 1)
+            output_stream = f'tmp{i}'
+            
+            if overlay_positions and i < len(overlay_positions):
+                x, y = overlay_positions[i]
+                position = f'{x}:{y}'
+            else:
+                # Center overlay
+                position = '(W-w)/2:(H-h)/2'
+            
+            # Create overlay filter
+            if i == len(overlay_images) - 1:
+                # Last overlay outputs to final stream
+                filter_parts.append(f'[{current_stream}][{overlay_index}:v]overlay={position}[v]')
+            else:
+                filter_parts.append(f'[{current_stream}][{overlay_index}:v]overlay={position}[{output_stream}]')
+                current_stream = output_stream
+        
+        filter_complex = ';'.join(filter_parts)
+        
+        # Complete command
+        cmd.extend([
+            '-filter_complex', filter_complex,
+            '-map', '[v]',
+            '-map', '0:a?',  # Copy audio from base video if present
+            '-c:v', codec,
+            '-c:a', 'copy',  # Copy audio without re-encoding
+            '-y',
+            str(output_path)
+        ])
+        
+        logger.info(f"Compositing video with {len(overlay_images)} overlay(s)...")
+        result = await run_command(cmd)
+        
+        if result.returncode == 0:
+            logger.info(f"Video composite created successfully: {output_path}")
+            return True
+        else:
+            logger.error(f"Error compositing video: {result.stderr.decode()}")
+            return False
+    
+    except Exception as e:
+        logger.error(f"Exception occurred while compositing video: {e}")
+        return False

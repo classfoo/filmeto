@@ -143,6 +143,10 @@ class CanvasPreview(QWidget):
         self._current_item_index: Optional[int] = None
         self._current_item_start_time: float = 0.0  # Timeline position where current item starts
         
+        # Double buffering state
+        self._active_player: str = "primary"  # "primary" or "secondary"
+        self._next_item_prepared: Optional[int] = None  # Index of item prepared in secondary player
+        
         # Preloader
         self.preloader = PreviewPreloader()
         
@@ -162,26 +166,43 @@ class CanvasPreview(QWidget):
         self._connect_signals()
     
     def _setup_media_widgets(self):
-        """Initialize media display widgets for images and videos."""
+        """Initialize media display widgets for images and videos with double buffering."""
         # Image display widget
         self.image_label = QLabel(self)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setStyleSheet("QLabel { background-color: transparent; }")
         self.image_label.hide()
         
-        # Video display widget
-        self.video_widget = QVideoWidget(self)
-        self.video_widget.setStyleSheet("QVideoWidget { background-color: transparent; }")
-        self.video_widget.hide()
+        # Primary video display widget and player
+        self.primary_video_widget = QVideoWidget(self)
+        self.primary_video_widget.setStyleSheet("QVideoWidget { background-color: transparent; }")
+        self.primary_video_widget.hide()
         
-        # Media player for videos
-        self.media_player = QMediaPlayer(self)
-        self.audio_output = QAudioOutput(self)
-        self.media_player.setAudioOutput(self.audio_output)
-        self.media_player.setVideoOutput(self.video_widget)
+        self.primary_player = QMediaPlayer(self)
+        self.primary_audio_output = QAudioOutput(self)
+        self.primary_player.setAudioOutput(self.primary_audio_output)
+        self.primary_player.setVideoOutput(self.primary_video_widget)
+        self.primary_player.mediaStatusChanged.connect(
+            lambda status: self._on_media_status_changed(status, "primary")
+        )
         
-        # Connect media player signals
-        self.media_player.mediaStatusChanged.connect(self._on_media_status_changed)
+        # Secondary video display widget and player (for seamless transitions)
+        self.secondary_video_widget = QVideoWidget(self)
+        self.secondary_video_widget.setStyleSheet("QVideoWidget { background-color: transparent; }")
+        self.secondary_video_widget.hide()
+        
+        self.secondary_player = QMediaPlayer(self)
+        self.secondary_audio_output = QAudioOutput(self)
+        self.secondary_player.setAudioOutput(self.secondary_audio_output)
+        self.secondary_player.setVideoOutput(self.secondary_video_widget)
+        self.secondary_player.mediaStatusChanged.connect(
+            lambda status: self._on_media_status_changed(status, "secondary")
+        )
+        
+        # Keep backward compatibility references
+        self.video_widget = self.primary_video_widget
+        self.media_player = self.primary_player
+        self.audio_output = self.primary_audio_output
     
     def _connect_signals(self):
         """Connect to workspace and project signals."""
@@ -231,7 +252,8 @@ class CanvasPreview(QWidget):
         
         # Update child widget sizes
         self.image_label.setGeometry(0, 0, widget_width, widget_height)
-        self.video_widget.setGeometry(0, 0, widget_width, widget_height)
+        self.primary_video_widget.setGeometry(0, 0, widget_width, widget_height)
+        self.secondary_video_widget.setGeometry(0, 0, widget_width, widget_height)
     
     def on_playback_state_changed(self, is_playing: bool):
         """
@@ -266,9 +288,15 @@ class CanvasPreview(QWidget):
         self._is_visible = False
         self.hide()
         
-        # Stop any active media playback
-        if self.media_player.playbackState() != QMediaPlayer.PlaybackState.StoppedState:
-            self.media_player.stop()
+        # Stop both media players
+        if self.primary_player.playbackState() != QMediaPlayer.PlaybackState.StoppedState:
+            self.primary_player.stop()
+        if self.secondary_player.playbackState() != QMediaPlayer.PlaybackState.StoppedState:
+            self.secondary_player.stop()
+        
+        # Reset double buffering state
+        self._active_player = "primary"
+        self._next_item_prepared = None
         
         # Clear preloader
         self.preloader.clear()
@@ -363,7 +391,7 @@ class CanvasPreview(QWidget):
     
     def _switch_to_item(self, item_index: int, item_offset: float):
         """
-        Switch display to the specified timeline item.
+        Switch display to the specified timeline item with seamless transition.
         
         Args:
             item_index: Index of the item to display (1-based)
@@ -384,15 +412,23 @@ class CanvasPreview(QWidget):
             print(f"Error getting timeline item {item_index}: {e}")
             return
         
-        # Check if we have preloaded content for this item
-        preload_type, preload_content = self.preloader.get_preloaded_content(item_index)
-        
-        if preload_type:
-            # Use preloaded content
-            self._display_preloaded_item(preload_type, preload_content, timeline_item, item_offset)
+        # Check if next item is already prepared in secondary player
+        if self._next_item_prepared == item_index:
+            # Seamless transition: swap to secondary player
+            self._swap_active_player()
+            # Start playback from prepared position if needed
+            self._resume_secondary_player(item_offset)
         else:
-            # Load item directly
-            self._load_and_display_item(timeline_item, item_offset)
+            # Normal transition: load in current active player
+            # Check if we have preloaded content for this item
+            preload_type, preload_content = self.preloader.get_preloaded_content(item_index)
+            
+            if preload_type:
+                # Use preloaded content
+                self._display_preloaded_item(preload_type, preload_content, timeline_item, item_offset)
+            else:
+                # Load item directly
+                self._load_and_display_item(timeline_item, item_offset)
         
         # Update current item tracking
         self._current_item_index = item_index
@@ -409,6 +445,9 @@ class CanvasPreview(QWidget):
         # Cleanup old preloaded items and preload next items
         self.preloader.cleanup_old_items(item_index, self.preloader.max_preload_count)
         self._preload_next_items(item_index)
+        
+        # Prepare next item in secondary player for seamless transition
+        self._prepare_next_item_in_secondary_player(item_index)
     
     def _load_and_display_item(self, timeline_item: TimelineItem, item_offset: float):
         """
@@ -420,8 +459,9 @@ class CanvasPreview(QWidget):
         """
         import os
         
-        video_path = timeline_item.get_video_path()
-        image_path = timeline_item.get_image_path()
+        # Prefer composite outputs over legacy files
+        video_path = timeline_item.get_composite_video_path()
+        image_path = timeline_item.get_composite_image_path()
         
         # Determine media type and display
         if os.path.exists(video_path):
@@ -445,7 +485,8 @@ class CanvasPreview(QWidget):
             self._display_image_pixmap(content)
         elif media_type == "video":
             # Load video normally since we can't fully preload video players
-            video_path = timeline_item.get_video_path()
+            # Prefer composite video over legacy
+            video_path = timeline_item.get_composite_video_path()
             self._display_video(video_path, item_offset)
         
         # Note: Don't clear preloader here, we keep preloaded items for smooth transitions
@@ -508,18 +549,26 @@ class CanvasPreview(QWidget):
         
         self.video_widget.show()
     
-    def _on_media_status_changed(self, status):
-        """Handle media player status changes."""
+    def _on_media_status_changed(self, status, player_id="primary"):
+        """Handle media player status changes.
+        
+        Args:
+            status: Media status from QMediaPlayer
+            player_id: Identifier for which player emitted the signal ("primary" or "secondary")
+        """
         if status == QMediaPlayer.MediaStatus.LoadedMedia:
+            # Determine which player to operate on
+            player = self.primary_player if player_id == "primary" else self.secondary_player
+            
             # Media is loaded, set position and start playback
             if hasattr(self, '_pending_video_offset'):
                 offset_ms = int(self._pending_video_offset * 1000)
-                self.media_player.setPosition(offset_ms)
+                player.setPosition(offset_ms)
                 delattr(self, '_pending_video_offset')
             
-            # Start playback
-            if self._is_playing:
-                self.media_player.play()
+            # Start playback only if this is the active player
+            if self._is_playing and player_id == self._active_player:
+                player.play()
     
     def _preload_next_items(self, current_item_index: int):
         """
@@ -556,6 +605,95 @@ class CanvasPreview(QWidget):
             except Exception as e:
                 print(f"Error preloading item {next_item_index}: {e}")
                 break  # Stop preloading if we encounter an error
+    
+    def _swap_active_player(self):
+        """Swap the active and secondary players for seamless transitions."""
+        if self._active_player == "primary":
+            # Hide primary, show secondary
+            self.primary_video_widget.hide()
+            self.secondary_video_widget.show()
+            self._active_player = "secondary"
+            # Update backward compatibility references
+            self.video_widget = self.secondary_video_widget
+            self.media_player = self.secondary_player
+            self.audio_output = self.secondary_audio_output
+        else:
+            # Hide secondary, show primary
+            self.secondary_video_widget.hide()
+            self.primary_video_widget.show()
+            self._active_player = "primary"
+            # Update backward compatibility references
+            self.video_widget = self.primary_video_widget
+            self.media_player = self.primary_player
+            self.audio_output = self.primary_audio_output
+        
+        # Clear prepared item since we've consumed it
+        self._next_item_prepared = None
+    
+    def _resume_secondary_player(self, item_offset: float):
+        """Resume playback on the secondary player after swapping.
+        
+        Args:
+            item_offset: Playback offset within the item in seconds
+        """
+        # The secondary player should already be loaded and ready
+        # Just set position and start playing if needed
+        active_player = self.secondary_player if self._active_player == "secondary" else self.primary_player
+        
+        if active_player.mediaStatus() == QMediaPlayer.MediaStatus.LoadedMedia:
+            # Set position
+            offset_ms = int(item_offset * 1000)
+            active_player.setPosition(offset_ms)
+            
+            # Start playback if in playing state
+            if self._is_playing:
+                active_player.play()
+    
+    def _prepare_next_item_in_secondary_player(self, current_item_index: int):
+        """Prepare the next timeline item in the secondary player for seamless transition.
+        
+        Args:
+            current_item_index: Index of the currently playing item
+        """
+        project = self.workspace.get_project()
+        if not project:
+            return
+        
+        timeline = project.get_timeline()
+        if not timeline:
+            return
+        
+        item_count = timeline.get_item_count()
+        if item_count == 0:
+            return
+        
+        # Calculate next item index (with looping)
+        next_item_index = current_item_index + 1
+        if next_item_index > item_count:
+            next_item_index = 1  # Loop to beginning
+        
+        # Get the next timeline item
+        try:
+            next_item = timeline.get_item(next_item_index)
+        except Exception as e:
+            print(f"Error getting next timeline item {next_item_index}: {e}")
+            return
+        
+        # Determine which player is secondary (not currently active)
+        secondary_player = self.secondary_player if self._active_player == "primary" else self.primary_player
+        
+        # Prefer composite outputs over legacy files
+        import os
+        video_path = next_item.get_composite_video_path()
+        
+        if os.path.exists(video_path):
+            # Prepare video in secondary player
+            from PySide6.QtCore import QUrl
+            url = QUrl.fromLocalFile(video_path)
+            secondary_player.setSource(url)
+            # Don't start playback yet, just prepare
+            self._next_item_prepared = next_item_index
+            print(f"Prepared next item {next_item_index} in secondary player")
     
     def resizeEvent(self, event):
         """Handle resize events to update preview geometry."""
