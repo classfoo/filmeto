@@ -430,8 +430,10 @@ class LayerManager:
             output_path: 输出图像文件路径
             canvas_size: 画布尺寸 (width, height)
         """
-        # 创建一个黑色背景的画布
-        canvas = np.zeros((canvas_size[1], canvas_size[0], 3), dtype=np.uint8)
+        # 创建一个透明背景的画布 (RGBA)
+        canvas = np.zeros((canvas_size[1], canvas_size[0], 4), dtype=np.uint8)
+        # Set alpha channel to 0 (fully transparent)
+        canvas[:, :, 3] = 0
 
         # 按照图层顺序从下到上绘制图层
         for layer, image_path in layer_image_paths:
@@ -447,51 +449,72 @@ class LayerManager:
             if layer_image is None:
                 continue
 
-            # 如果图像有alpha通道，使用透明度混合
-            if len(layer_image.shape) == 3 and layer_image.shape[2] == 4:
-                # 分离RGBA通道
+            # Ensure image has 4 channels (RGBA)
+            if len(layer_image.shape) == 2:
+                # Grayscale - convert to RGBA
+                layer_image = cv2.cvtColor(layer_image, cv2.COLOR_GRAY2BGR)
+                alpha = np.ones((layer_image.shape[0], layer_image.shape[1], 1), dtype=np.uint8) * 255
+                layer_image = np.concatenate([layer_image, alpha], axis=2)
+            elif layer_image.shape[2] == 3:
+                # RGB - add alpha channel (fully opaque)
+                alpha = np.ones((layer_image.shape[0], layer_image.shape[1], 1), dtype=np.uint8) * 255
+                layer_image = np.concatenate([layer_image, alpha], axis=2)
+            elif layer_image.shape[2] == 4:
+                # Already RGBA
+                pass
+
+            # 调整图层图像大小以匹配图层指定的尺寸
+            if layer.width > 0 and layer.height > 0:
+                layer_image = cv2.resize(layer_image, (layer.width, layer.height))
+            else:
+                layer.height, layer.width = layer_image.shape[:2]
+
+            # 确保图层在画布范围内
+            if (0 <= layer.x < canvas_size[0] and 0 <= layer.y < canvas_size[1] and
+                    layer.x + layer.width <= canvas_size[0] and layer.y + layer.height <= canvas_size[1] and
+                    layer.width > 0 and layer.height > 0):
+
+                # 提取RGBA通道
                 b, g, r, a = cv2.split(layer_image)
-                layer_image_rgb = cv2.merge([b, g, r])
+                layer_rgb = cv2.merge([b, g, r])
                 alpha = a.astype(float) / 255.0
 
-                # 调整图层图像大小以匹配图层指定的尺寸
-                if layer.width > 0 and layer.height > 0:
-                    layer_image_rgb = cv2.resize(layer_image_rgb, (layer.width, layer.height))
-                    alpha = cv2.resize(alpha, (layer.width, layer.height))
-                else:
-                    layer.height, layer.width = layer_image_rgb.shape[:2]
+                # 提取画布上对应区域
+                canvas_region = canvas[layer.y:layer.y + layer.height, layer.x:layer.x + layer.width]
+                canvas_b, canvas_g, canvas_r, canvas_a = cv2.split(canvas_region)
+                canvas_rgb = cv2.merge([canvas_b, canvas_g, canvas_r])
+                canvas_alpha = canvas_a.astype(float) / 255.0
 
-                # 确保图层在画布范围内
-                if (0 <= layer.x < canvas_size[0] and 0 <= layer.y < canvas_size[1] and
-                        layer.x + layer.width <= canvas_size[0] and layer.y + layer.height <= canvas_size[1] and
-                        layer.width > 0 and layer.height > 0):
-
-                    # 提取画布上对应区域
-                    canvas_region = canvas[layer.y:layer.y + layer.height, layer.x:layer.x + layer.width]
-
-                    # 应用alpha混合
-                    for c in range(3):
-                        canvas_region[:, :, c] = (1 - alpha) * canvas_region[:, :, c] + alpha * layer_image_rgb[:, :, c]
-            else:
-                # 处理没有alpha通道的图像
-                # 调整图层图像大小以匹配图层指定的尺寸
-                if layer.width > 0 and layer.height > 0:
-                    layer_image = cv2.resize(layer_image, (layer.width, layer.height))
-                else:
-                    if len(layer_image.shape) == 3:
-                        layer.height, layer.width = layer_image.shape[:2]
+                # Alpha compositing: result = foreground * alpha_fg + background * alpha_bg * (1 - alpha_fg)
+                # New alpha: alpha_out = alpha_fg + alpha_bg * (1 - alpha_fg)
+                alpha_out = alpha + canvas_alpha * (1 - alpha)
+                
+                # Avoid division by zero
+                alpha_out_safe = np.where(alpha_out > 0, alpha_out, 1)
+                
+                # Composite RGB channels
+                for c in range(3):
+                    if c == 0:
+                        fg = layer_rgb[:, :, c].astype(float)
+                        bg = canvas_rgb[:, :, c].astype(float)
+                    elif c == 1:
+                        fg = layer_rgb[:, :, c].astype(float)
+                        bg = canvas_rgb[:, :, c].astype(float)
                     else:
-                        layer.height, layer.width = layer_image.shape[0], layer_image.shape[1]
+                        fg = layer_rgb[:, :, c].astype(float)
+                        bg = canvas_rgb[:, :, c].astype(float)
+                    
+                    # Composite: (fg * alpha_fg + bg * alpha_bg * (1 - alpha_fg)) / alpha_out
+                    composite = (fg * alpha + bg * canvas_alpha * (1 - alpha)) / alpha_out_safe
+                    canvas_region[:, :, c] = composite.astype(np.uint8)
+                
+                # Set output alpha
+                canvas_region[:, :, 3] = (alpha_out * 255).astype(np.uint8)
+                
+                canvas[layer.y:layer.y + layer.height, layer.x:layer.x + layer.width] = canvas_region
 
-                # 确保图层在画布范围内
-                if (0 <= layer.x < canvas_size[0] and 0 <= layer.y < canvas_size[1] and
-                        layer.x + layer.width <= canvas_size[0] and layer.y + layer.height <= canvas_size[1] and
-                        layer.width > 0 and layer.height > 0):
-                    # 直接复制图像到画布指定位置
-                    canvas[layer.y:layer.y + layer.height, layer.x:layer.x + layer.width] = layer_image
-
-        # 保存最终合成的图像
-        cv2.imwrite(output_path, canvas)
+        # 保存最终合成的图像 (with alpha channel)
+        cv2.imwrite(output_path, canvas, [cv2.IMWRITE_PNG_COMPRESSION, 9])
 
     async def compose_layers(self) -> str:
         """
@@ -622,6 +645,10 @@ class LayerComposeTask:
             canvas_size
         )
         
+        # Save the composite image as output.png (with alpha channel)
+        import shutil
+        shutil.copy2(temp_composite, self.output_png)
+        
         # Convert image to 8fps 1-second video
         from utils.ffmpeg_utils import run_command
         
@@ -641,9 +668,6 @@ class LayerComposeTask:
         if result.returncode != 0:
             logger.error(f"Failed to create video from images: {result.stderr.decode()}")
             raise RuntimeError("Failed to create video from images")
-        
-        # Extract first frame as output.png
-        await self._extract_first_frame()
         
         # Clean up temp file
         if os.path.exists(temp_composite):
