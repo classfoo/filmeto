@@ -548,6 +548,12 @@ class LayerComposeTask:
                 if not layer.visible:
                     continue
                 
+                # Check if layer file exists before adding to composition list
+                layer_path = layer.get_layer_path()
+                if not layer_path or not os.path.exists(layer_path):
+                    logger.warning(f"Layer {layer.id} file not found: {layer_path}, skipping")
+                    continue
+                
                 layers_to_compose.append(layer)
                 
                 # Stop at video layer (videos are not transparent)
@@ -588,6 +594,12 @@ class LayerComposeTask:
             layer_path = layer.get_layer_path()
             if layer_path and os.path.exists(layer_path):
                 layer_path_tuples.append((layer, layer_path))
+            else:
+                logger.warning(f"Image layer {layer.id} file not found: {layer_path}, skipping")
+        
+        if not layer_path_tuples:
+            logger.warning("No valid image layers to compose")
+            return
         
         self.layer_manager.composite_visible_layers(
             layer_path_tuples, 
@@ -635,24 +647,24 @@ class LayerComposeTask:
                 image_layers.append(layer)
         
         if not video_layer:
-            raise ValueError("No video layer found")
+            logger.warning("No video layer found, falling back to image composition")
+            await self._compose_images_only(layers)
+            return
         
         video_path = video_layer.get_layer_path()
         if not video_path or not os.path.exists(video_path):
-            raise ValueError(f"Video layer file not found: {video_path}")
-        
-        # If no image layers, just copy the video
-        if not image_layers:
-            import shutil
-            shutil.copy2(video_path, self.output_mp4)
-            await self._extract_first_frame()
+            logger.warning(f"Video layer file not found: {video_path}, falling back to image composition")
+            await self._compose_images_only([l for l in layers if l.type == LayerType.IMAGE])
             return
         
-        # Get video properties
+        # Get video properties - validate video file
         import cv2
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            raise ValueError(f"Failed to open video: {video_path}")
+            logger.warning(f"Failed to open video: {video_path}, falling back to image composition")
+            cap.release()
+            await self._compose_images_only([l for l in layers if l.type == LayerType.IMAGE])
+            return
         
         fps = cap.get(cv2.CAP_PROP_FPS)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -660,7 +672,20 @@ class LayerComposeTask:
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap.release()
         
+        # Validate video properties
+        if fps <= 0 or width <= 0 or height <= 0 or frame_count <= 0:
+            logger.warning(f"Invalid video properties (fps={fps}, size={width}x{height}, frames={frame_count}), falling back to image composition")
+            await self._compose_images_only([l for l in layers if l.type == LayerType.IMAGE])
+            return
+        
         logger.info(f"Video properties: {width}x{height}, {fps}fps, {frame_count} frames")
+        
+        # If no image layers, just copy the video
+        if not image_layers:
+            import shutil
+            shutil.copy2(video_path, self.output_mp4)
+            await self._extract_first_frame()
+            return
         
         # Prepare overlay images with alpha channel
         overlay_data = []
