@@ -129,6 +129,9 @@ class CanvasImageLayerWidget(CanvasLayerWidget):
         # Get the original pixmap from CanvasPixMap
         original_pixmap = self.canvas_pixmap.get_original_pixmap()
         original_pixmap.save(image_path)
+        # Trigger layer change event through layer manager
+        if self.layer.layer_manager:
+            self.layer.layer_manager.save_layer(self.layer)
 
     def set_mode(self, mode):
         """Set the current drawing mode and update cursor"""

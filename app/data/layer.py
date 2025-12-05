@@ -26,7 +26,7 @@ class Layer:
 
     def __init__(self, layer_id: int, name: str = "", layer_type: LayerType = LayerType.IMAGE,
                  visible: bool = True, locked: bool = False, x: int = 0, y: int = 0, width: int = 0, height: int = 0, 
-                 timeline_item = None):
+                 timeline_item = None, layer_manager = None):
         self.id = layer_id
         self.name = name if name else f"图层-{layer_id}"
         self.type = layer_type
@@ -37,6 +37,7 @@ class Layer:
         self.width = width
         self.height = height
         self.timeline_item = timeline_item
+        self.layer_manager = layer_manager
         # 修复：检查timeline_item是否为None，避免AttributeError
         self.layers_path = self.timeline_item.get_layers_path() if self.timeline_item else None
 
@@ -67,7 +68,7 @@ class Layer:
         }
 
     @classmethod
-    def from_dict(cls, data: dict, timeline_item):
+    def from_dict(cls, data: dict, timeline_item, layer_manager=None):
         """
         从字典数据创建图层对象
         """
@@ -82,7 +83,7 @@ class Layer:
         y = data.get("y", 0)
         width = data.get("width", 0)
         height = data.get("height", 0)
-        return cls(layer_id, name, layer_type, visible, locked, x, y, width, height, timeline_item)
+        return cls(layer_id, name, layer_type, visible, locked, x, y, width, height, timeline_item, layer_manager)
 
 
 class LayerManager:
@@ -97,7 +98,7 @@ class LayerManager:
         print(f"Loading layers for timeline item: {timeline_item.index if timeline_item else 'None'}")
         layers_data = timeline_item.get_config_value("layers") or []
         # 使用字典存储图层，以图层ID为键
-        self.layers = {layer_data["id"]: Layer.from_dict(layer_data, timeline_item) for layer_data in layers_data}
+        self.layers = {layer_data["id"]: Layer.from_dict(layer_data, timeline_item, self) for layer_data in layers_data}
         print(f"Loaded {len(self.layers)} layers")
 
     def connect_layer_changed(self, func):
@@ -108,6 +109,20 @@ class LayerManager:
         # 按图层ID排序，确保保存顺序一致
         layers_data = [self.layers[layer_id].to_dict() for layer_id in sorted(self.layers.keys())]
         self.timeline_item.set_config_value("layers", layers_data)
+
+    def save_layer(self, layer: Layer):
+        """
+        Save a layer and trigger the layer_changed signal.
+        This method should be called after modifying the layer content.
+        
+        Args:
+            layer: The Layer object to save
+        """
+        if layer and layer.id in self.layers:
+            # Emit the layer_changed signal to notify observers
+            if self.timeline_item:
+                if self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
+                    self.layer_changed.send(self, layer=layer, change_type='modified')
 
     def add_layer(self, layer_type: LayerType = LayerType.IMAGE) -> Layer:
         # 检查timeline_item是否已加载
@@ -125,7 +140,7 @@ class LayerManager:
         # 创建图层对应的文件
         if layer_type == LayerType.VIDEO:
             # 视频图层创建mp4文件
-            layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False, 0, 0, 720, 1280, self.timeline_item)
+            layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False, 0, 0, 720, 1280, self.timeline_item, self)
             # Create a minimal placeholder mp4 file
             # For now, we'll create a placeholder file with zeros
             with open(layer.get_layer_path(), 'wb') as f:
@@ -133,7 +148,7 @@ class LayerManager:
         else:
             # 其他图层类型创建png文件
             layer_file_path = os.path.join(layers_path, f"{new_id}.png")
-            layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False,0,0,720,1280,self.timeline_item)
+            layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False,0,0,720,1280,self.timeline_item, self)
             # Create a placeholder png file with 720x1280 dimensions
             img = np.zeros((1280, 720, 4), dtype=np.uint8)  # 720x1280 with alpha
             img[:, :] = [0, 0, 0, 0]  # Transparent black
@@ -165,7 +180,7 @@ class LayerManager:
         shutil.copy2(source_path, layer_file_path)
 
         # 创建图层对象
-        layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False, 0, 0, 0, 0, self.timeline_item)
+        layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False, 0, 0, 0, 0, self.timeline_item, self)
 
         # 获取图片尺寸
         if layer_type == LayerType.IMAGE:
