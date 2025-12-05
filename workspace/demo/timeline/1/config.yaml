@@ -18,6 +18,33 @@ layers:
   width: 720
   x: 0
   y: 0
+- height: 1280
+  id: 2
+  locked: false
+  name: Layer-2
+  type: image
+  visible: true
+  width: 720
+  x: 0
+  y: 0
+- height: 1280
+  id: 3
+  locked: false
+  name: Layer-3
+  type: video
+  visible: true
+  width: 720
+  x: 0
+  y: 0
+- height: 1280
+  id: 4
+  locked: false
+  name: Layer-4
+  type: image
+  visible: true
+  width: 720
+  x: 0
+  y: 0
 text2img:
   logs: ✅ 执行完成
   model: comfy_ui

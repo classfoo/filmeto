@@ -518,7 +518,7 @@ class LayerManager:
 
     async def compose_layers(self) -> str:
         """
-        Compose visible layers into output.png and output.mp4.
+        Compose visible layers into image.png and video.mp4.
         This is a heavy operation that is queued to avoid blocking the main thread.
         Only one composition task per LayerManager can run at a time.
         
@@ -546,8 +546,8 @@ class LayerComposeTask:
         self.layer_manager = layer_manager
         self.task_id = task_id
         self.output_dir = layer_manager.timeline_item.get_item_path()
-        self.output_png = os.path.join(self.output_dir, "output.png")
-        self.output_mp4 = os.path.join(self.output_dir, "output.mp4")
+        self.output_png = os.path.join(self.output_dir, "image.png")
+        self.output_mp4 = os.path.join(self.output_dir, "video.mp4")
     
     async def execute(self):
         """Execute the composition task"""
