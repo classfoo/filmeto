@@ -75,8 +75,6 @@ class TimelineItem:
         layer_manager = self.get_layer_manager()
         # Add the source file as a new IMAGE layer
         layer = layer_manager.add_layer_from_file(image_path, LayerType.IMAGE)
-        # Generate the visible composite to this item's image.png
-        layer_manager.generate_visible_file(self.image_path, (layer.width, layer.height))
 
     def update_video(self, video_path:str):
         if video_path is None:
@@ -109,6 +107,10 @@ class TimelineItem:
 
     def get_layers_path(self):
         return self.layers_path
+
+    def get_item_path(self):
+        """Get the timeline item's directory path"""
+        return os.path.join(self.time_line_path, str(self.index))
 
     def get_preview_path(self):
         if os.path.exists(self.video_path):

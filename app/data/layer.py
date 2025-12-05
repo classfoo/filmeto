@@ -1,10 +1,15 @@
 import os
+import asyncio
+import logging
+import subprocess
 from enum import Enum
 from typing import Optional, Callable, List, Tuple
 from blinker import signal
 import cv2
 import numpy as np
 import shutil
+
+logger = logging.getLogger(__name__)
 
 class LayerType(Enum):
     IMAGE = ("image", "\uE6BC")  # 图片生成图标
@@ -92,6 +97,10 @@ class LayerManager:
         self.layers = None
         self.timeline_item = None
         self.layer_changed = layer_changed_signal or signal('layer_changed')
+        self._auto_compose_enabled = True
+        
+        # Connect to layer_changed signal to trigger auto-composition
+        self.layer_changed.connect(self._on_layer_changed)
 
     def load_layers(self, timeline_item):
         self.timeline_item = timeline_item
@@ -104,6 +113,31 @@ class LayerManager:
     def connect_layer_changed(self, func):
         if self.layer_changed is not None:
             self.layer_changed.connect(func)
+    
+    def set_auto_compose(self, enabled: bool):
+        """Enable or disable automatic composition on layer changes"""
+        self._auto_compose_enabled = enabled
+        logger.info(f"Auto-compose {'enabled' if enabled else 'disabled'} for timeline item {self.timeline_item.index if self.timeline_item else 'None'}")
+    
+    def _on_layer_changed(self, sender, layer, change_type):
+        """Internal handler for layer changes that triggers composition"""
+        if not self._auto_compose_enabled:
+            return
+        
+        # Only trigger composition for changes that affect visual output
+        if change_type in ['added', 'removed', 'modified']:
+            logger.info(f"Layer {change_type}: {layer.id}, triggering composition")
+            # Schedule composition asynchronously
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(self.compose_layers())
+                else:
+                    # If no event loop is running, log a warning
+                    logger.warning("No event loop running, cannot trigger auto-composition")
+            except RuntimeError as e:
+                logger.warning(f"Could not trigger auto-composition: {e}")
 
     def _save_layers(self):
         # 按图层ID排序，确保保存顺序一致
@@ -139,12 +173,48 @@ class LayerManager:
 
         # 创建图层对应的文件
         if layer_type == LayerType.VIDEO:
-            # 视频图层创建mp4文件
+            # 视频图层创建mp4文件 - create a valid minimal black video
             layer = Layer(new_id, f"Layer-{new_id}", layer_type, True, False, 0, 0, 720, 1280, self.timeline_item, self)
-            # Create a minimal placeholder mp4 file
-            # For now, we'll create a placeholder file with zeros
-            with open(layer.get_layer_path(), 'wb') as f:
-                f.write(b'\x00' * 1024)  # Write 1KB of zeros as a minimal placeholder
+            video_path = layer.get_layer_path()
+            
+            # Create a 1-second black video using OpenCV
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(video_path, fourcc, 8.0, (720, 1280))
+            
+            # Write 8 black frames (1 second at 8fps)
+            black_frame = np.zeros((1280, 720, 3), dtype=np.uint8)
+            for _ in range(8):
+                out.write(black_frame)
+            out.release()
+            
+            # Convert to H.264 format using ffmpeg synchronously
+            temp_path = video_path + ".temp.mp4"
+            os.rename(video_path, temp_path)
+            
+            cmd = [
+                'ffmpeg',
+                '-i', temp_path,
+                '-c:v', 'libx264',
+                '-pix_fmt', 'yuv420p',
+                '-y',
+                video_path
+            ]
+            
+            try:
+                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                if result.returncode != 0:
+                    logger.warning(f"Failed to convert video to H.264, using mp4v: {result.stderr.decode()}")
+                    # If conversion fails, use the original mp4v version
+                    os.rename(temp_path, video_path)
+                else:
+                    # Clean up temp file
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+            except Exception as e:
+                logger.warning(f"FFmpeg conversion failed: {e}, using mp4v format")
+                # Restore original file if conversion fails
+                if os.path.exists(temp_path):
+                    os.rename(temp_path, video_path)
         else:
             # 其他图层类型创建png文件
             layer_file_path = os.path.join(layers_path, f"{new_id}.png")
@@ -350,80 +420,6 @@ class LayerManager:
         result = [self.layers[layer_id] for layer_id in sorted(self.layers.keys())] if self.layers is not None else []
         return result
 
-    def get_visible_layers(self):
-        # 检查timeline_item是否已加载
-        if self.timeline_item is None:
-            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
-            
-        if not self.layers:
-            return []
-        
-        # 按图层ID排序
-        sorted_layers = [self.layers[layer_id] for layer_id in sorted(self.layers.keys())]
-        
-        # 用于跟踪未被完全覆盖的图层
-        visible_layers = []
-        
-        # 从下到上处理每个图层
-        for i, layer in enumerate(sorted_layers):
-            # 跳过不可见图层
-            if not layer.visible:
-                continue
-                
-            # 检查图层是否有效（有尺寸）
-            if layer.width <= 0 or layer.height <= 0:
-                visible_layers.append(layer)
-                continue
-                
-            # 检查当前图层是否被上面的图层完全覆盖
-            is_fully_covered = False
-            
-            # 检查上方所有可见图层
-            for j in range(i + 1, len(sorted_layers)):
-                upper_layer = sorted_layers[j]
-                # 只考虑可见且有尺寸的图层
-                if not upper_layer.visible or upper_layer.width <= 0 or upper_layer.height <= 0:
-                    continue
-                    
-                # 检查当前图层是否完全在上层图层内
-                if (layer.x >= upper_layer.x and 
-                    layer.y >= upper_layer.y and
-                    layer.x + layer.width <= upper_layer.x + upper_layer.width and
-                    layer.y + layer.height <= upper_layer.y + upper_layer.height):
-                    is_fully_covered = True
-                    break
-            
-            # 如果没有被完全覆盖，则添加到可见图层列表
-            if not is_fully_covered:
-                visible_layers.append(layer)
-        
-        return visible_layers
-
-    def generate_visible_file(self, output_path, canvas_size=(1920, 1080)):
-        # 检查timeline_item是否已加载
-        if self.timeline_item is None:
-            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
-            
-        # 获取可见图层列表
-        visible_layers = self.get_visible_layers()
-        
-        # 构造图层和图像路径的元组列表
-        layer_path_tuples = []
-        layers_path = self.timeline_item.layers_path
-        
-        for layer in visible_layers:
-            # 查找对应图层的文件
-            layer_files = [f for f in os.listdir(layers_path) if f.startswith(f"{layer.id}.")]
-            if layer_files:
-                image_path = os.path.join(layers_path, layer_files[0])
-                layer_path_tuples.append((layer, image_path))
-        
-        # 使用图像工具合成可见图层
-        self.composite_visible_layers(layer_path_tuples, output_path, canvas_size)
-        
-        return output_path
-
-
     def composite_visible_layers(self, layer_image_paths: List[Tuple[Layer, str]], output_path: str,
                                  canvas_size: Tuple[int, int] = (1920, 1080)):
         """
@@ -496,3 +492,380 @@ class LayerManager:
 
         # 保存最终合成的图像
         cv2.imwrite(output_path, canvas)
+
+    async def compose_layers(self) -> str:
+        """
+        Compose visible layers into output.png and output.mp4.
+        This is a heavy operation that is queued to avoid blocking the main thread.
+        Only one composition task per LayerManager can run at a time.
+        
+        This method is automatically called when layers change if auto_compose is enabled.
+        It can also be called manually when needed.
+        
+        Returns:
+            str: Task ID for tracking the composition task
+        """
+        if self.timeline_item is None:
+            raise ValueError("LayerManager has not loaded timeline_item yet. Call load_layers() first.")
+        
+        # Submit task to the global composition task manager
+        task_manager = get_compose_task_manager()
+        task_id = await task_manager.submit_compose_task(self)
+        
+        logger.info(f"Layer composition task {task_id} submitted for timeline item {self.timeline_item.index}")
+        return task_id
+
+
+class LayerComposeTask:
+    """Layer composition task"""
+    
+    def __init__(self, layer_manager: 'LayerManager', task_id: str):
+        self.layer_manager = layer_manager
+        self.task_id = task_id
+        self.output_dir = layer_manager.timeline_item.get_item_path()
+        self.output_png = os.path.join(self.output_dir, "output.png")
+        self.output_mp4 = os.path.join(self.output_dir, "output.mp4")
+    
+    async def execute(self):
+        """Execute the composition task"""
+        try:
+            logger.info(f"Starting layer composition task {self.task_id} for timeline item {self.layer_manager.timeline_item.index}")
+            
+            # Get visible layers from top to bottom
+            all_layers = self.layer_manager.get_layers()
+            if not all_layers:
+                logger.warning("No layers to compose")
+                return
+            
+            # Reverse to get top-to-bottom order
+            top_to_bottom_layers = list(reversed(all_layers))
+            
+            # Find visible layers to compose (stop at first video layer)
+            layers_to_compose = []
+            has_video = False
+            
+            for layer in top_to_bottom_layers:
+                if not layer.visible:
+                    continue
+                
+                layers_to_compose.append(layer)
+                
+                # Stop at video layer (videos are not transparent)
+                if layer.type == LayerType.VIDEO:
+                    has_video = True
+                    break
+            
+            if not layers_to_compose:
+                logger.warning("No visible layers to compose")
+                return
+            
+            # Reverse to get bottom-to-top order for composition
+            layers_to_compose.reverse()
+            
+            logger.info(f"Composing {len(layers_to_compose)} layers (has_video: {has_video})")
+            
+            # Perform composition based on layer types
+            if has_video:
+                await self._compose_with_video(layers_to_compose)
+            else:
+                await self._compose_images_only(layers_to_compose)
+            
+            logger.info(f"Layer composition task {self.task_id} completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Error in layer composition task {self.task_id}: {e}", exc_info=True)
+            raise
+    
+    async def _compose_images_only(self, layers: List['Layer']):
+        """Compose image layers only - convert to 1 second 8fps video"""
+        # Composite all image layers into a single image
+        canvas_size = (1920, 1080)  # Default canvas size
+        temp_composite = os.path.join(self.output_dir, "_temp_composite.png")
+        
+        # Use existing composite_visible_layers method
+        layer_path_tuples = []
+        for layer in layers:
+            layer_path = layer.get_layer_path()
+            if layer_path and os.path.exists(layer_path):
+                layer_path_tuples.append((layer, layer_path))
+        
+        self.layer_manager.composite_visible_layers(
+            layer_path_tuples, 
+            temp_composite, 
+            canvas_size
+        )
+        
+        # Convert image to 8fps 1-second video
+        from utils.ffmpeg_utils import run_command
+        
+        cmd = [
+            'ffmpeg',
+            '-loop', '1',
+            '-i', temp_composite,
+            '-c:v', 'libx264',
+            '-t', '1',  # 1 second duration
+            '-r', '8',  # 8 fps
+            '-pix_fmt', 'yuv420p',
+            '-y',
+            self.output_mp4
+        ]
+        
+        result = await run_command(cmd)
+        if result.returncode != 0:
+            logger.error(f"Failed to create video from images: {result.stderr.decode()}")
+            raise RuntimeError("Failed to create video from images")
+        
+        # Extract first frame as output.png
+        await self._extract_first_frame()
+        
+        # Clean up temp file
+        if os.path.exists(temp_composite):
+            os.remove(temp_composite)
+    
+    async def _compose_with_video(self, layers: List['Layer']):
+        """Compose layers with video - overlay images on video frames"""
+        # Find the video layer (should be the bottom one after reversing)
+        video_layer = None
+        image_layers = []
+        
+        for layer in layers:
+            if layer.type == LayerType.VIDEO:
+                video_layer = layer
+            elif layer.type == LayerType.IMAGE:
+                image_layers.append(layer)
+        
+        if not video_layer:
+            raise ValueError("No video layer found")
+        
+        video_path = video_layer.get_layer_path()
+        if not video_path or not os.path.exists(video_path):
+            raise ValueError(f"Video layer file not found: {video_path}")
+        
+        # If no image layers, just copy the video
+        if not image_layers:
+            import shutil
+            shutil.copy2(video_path, self.output_mp4)
+            await self._extract_first_frame()
+            return
+        
+        # Get video properties
+        import cv2
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError(f"Failed to open video: {video_path}")
+        
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+        
+        logger.info(f"Video properties: {width}x{height}, {fps}fps, {frame_count} frames")
+        
+        # Prepare overlay images with alpha channel
+        overlay_data = []
+        for img_layer in image_layers:
+            img_path = img_layer.get_layer_path()
+            if not img_path or not os.path.exists(img_path):
+                continue
+            
+            # Read image with alpha channel
+            img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+            if img is None:
+                continue
+            
+            # Ensure image has alpha channel
+            if img.shape[2] == 3:
+                # Add alpha channel (fully opaque)
+                alpha = np.ones((img.shape[0], img.shape[1], 1), dtype=img.dtype) * 255
+                img = np.concatenate([img, alpha], axis=2)
+            
+            # Resize if needed
+            if img_layer.width > 0 and img_layer.height > 0:
+                img = cv2.resize(img, (img_layer.width, img_layer.height))
+            
+            overlay_data.append({
+                'image': img,
+                'x': img_layer.x,
+                'y': img_layer.y,
+                'width': img_layer.width if img_layer.width > 0 else img.shape[1],
+                'height': img_layer.height if img_layer.height > 0 else img.shape[0]
+            })
+        
+        # Process video frame by frame
+        temp_output = os.path.join(self.output_dir, "_temp_output.mp4")
+        
+        # Open video for reading
+        cap = cv2.VideoCapture(video_path)
+        
+        # Create video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(temp_output, fourcc, fps, (width, height))
+        
+        frame_idx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # Overlay each image layer on the frame
+            for overlay in overlay_data:
+                img = overlay['image']
+                x, y = overlay['x'], overlay['y']
+                w, h = overlay['width'], overlay['height']
+                
+                # Ensure overlay is within frame bounds
+                if x < 0 or y < 0 or x + w > width or y + h > height:
+                    continue
+                
+                # Extract alpha channel
+                if img.shape[2] == 4:
+                    b, g, r, a = cv2.split(img)
+                    overlay_rgb = cv2.merge([b, g, r])
+                    alpha = a.astype(float) / 255.0
+                    
+                    # Get region of interest
+                    roi = frame[y:y+h, x:x+w]
+                    
+                    # Blend with alpha
+                    for c in range(3):
+                        roi[:, :, c] = (1 - alpha) * roi[:, :, c] + alpha * overlay_rgb[:, :, c]
+                    
+                    frame[y:y+h, x:x+w] = roi
+                else:
+                    # No alpha, direct copy
+                    frame[y:y+h, x:x+w] = img
+            
+            out.write(frame)
+            frame_idx += 1
+        
+        cap.release()
+        out.release()
+        
+        # Convert to proper H.264 format
+        from utils.ffmpeg_utils import run_command
+        
+        cmd = [
+            'ffmpeg',
+            '-i', temp_output,
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-y',
+            self.output_mp4
+        ]
+        
+        result = await run_command(cmd)
+        if result.returncode != 0:
+            logger.error(f"Failed to convert video: {result.stderr.decode()}")
+            raise RuntimeError("Failed to convert video")
+        
+        # Extract first frame as output.png
+        await self._extract_first_frame()
+        
+        # Clean up temp file
+        if os.path.exists(temp_output):
+            os.remove(temp_output)
+    
+    async def _extract_first_frame(self):
+        """Extract first frame from output.mp4 as output.png"""
+        from utils.ffmpeg_utils import run_command
+        
+        cmd = [
+            'ffmpeg',
+            '-i', self.output_mp4,
+            '-vframes', '1',
+            '-y',
+            self.output_png
+        ]
+        
+        result = await run_command(cmd)
+        if result.returncode != 0:
+            logger.error(f"Failed to extract first frame: {result.stderr.decode()}")
+            raise RuntimeError("Failed to extract first frame")
+
+
+class LayerComposeTaskManager:
+    """Manages layer composition tasks with queueing"""
+    
+    _instance = None
+    _lock = asyncio.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, '_initialized'):
+            self._task_queues = {}  # layer_manager_id -> AsyncQueue
+            self._active_tasks = {}  # layer_manager_id -> Task
+            self._task_counter = 0
+            self._initialized = True
+    
+    def _get_layer_manager_id(self, layer_manager: 'LayerManager') -> str:
+        """Get unique ID for layer manager"""
+        if layer_manager.timeline_item:
+            return f"timeline_{layer_manager.timeline_item.index}"
+        return str(id(layer_manager))
+    
+    async def submit_compose_task(self, layer_manager: 'LayerManager') -> str:
+        """Submit a composition task for a layer manager"""
+        manager_id = self._get_layer_manager_id(layer_manager)
+        
+        # Create queue for this manager if it doesn't exist
+        if manager_id not in self._task_queues:
+            from utils.async_queue_utils import AsyncQueue
+            queue = AsyncQueue()
+            queue.connect('compose', self._process_task)
+            self._task_queues[manager_id] = queue
+        
+        # Generate task ID
+        self._task_counter += 1
+        task_id = f"compose_{self._task_counter}"
+        
+        # Create task
+        task = LayerComposeTask(layer_manager, task_id)
+        
+        # Add to queue
+        self._task_queues[manager_id].add('compose', {
+            'task': task,
+            'manager_id': manager_id
+        })
+        
+        logger.info(f"Submitted composition task {task_id} for {manager_id}")
+        return task_id
+    
+    async def _process_task(self, data: dict):
+        """Process a composition task"""
+        task = data['task']
+        manager_id = data['manager_id']
+        
+        # Check if there's already an active task for this manager
+        if manager_id in self._active_tasks:
+            active = self._active_tasks[manager_id]
+            if not active.done():
+                logger.info(f"Waiting for active task to complete for {manager_id}")
+                await active
+        
+        # Execute the task
+        try:
+            task_coro = task.execute()
+            self._active_tasks[manager_id] = asyncio.create_task(task_coro)
+            await self._active_tasks[manager_id]
+        except Exception as e:
+            logger.error(f"Task execution failed: {e}", exc_info=True)
+        finally:
+            # Clean up
+            if manager_id in self._active_tasks:
+                del self._active_tasks[manager_id]
+
+
+# Global instance
+_compose_task_manager = None
+
+def get_compose_task_manager() -> LayerComposeTaskManager:
+    """Get global composition task manager instance"""
+    global _compose_task_manager
+    if _compose_task_manager is None:
+        _compose_task_manager = LayerComposeTaskManager()
+    return _compose_task_manager
