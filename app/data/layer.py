@@ -584,8 +584,23 @@ class LayerComposeTask:
     
     async def _compose_images_only(self, layers: List['Layer']):
         """Compose image layers only - convert to 1 second 8fps video"""
-        # Composite all image layers into a single image
-        canvas_size = (1920, 1080)  # Default canvas size
+        # Determine canvas size from layers
+        max_width = 0
+        max_height = 0
+        for layer in layers:
+            if layer.width > 0 and layer.height > 0:
+                layer_right = layer.x + layer.width
+                layer_bottom = layer.y + layer.height
+                max_width = max(max_width, layer_right)
+                max_height = max(max_height, layer_bottom)
+        
+        # Use a minimum canvas size if no valid layer dimensions found
+        canvas_width = max(max_width, 720) if max_width > 0 else 1920
+        canvas_height = max(max_height, 1280) if max_height > 0 else 1080
+        canvas_size = (canvas_width, canvas_height)
+        
+        logger.info(f"Canvas size for image composition: {canvas_size}")
+        
         temp_composite = os.path.join(self.output_dir, "_temp_composite.png")
         
         # Use existing composite_visible_layers method
@@ -727,6 +742,14 @@ class LayerComposeTask:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(temp_output, fourcc, fps, (width, height))
         
+        if not out.isOpened():
+            logger.warning("VideoWriter failed to open, using ffmpeg overlay instead")
+            cap.release()
+            out.release()
+            # Fall back to ffmpeg-based composition
+            await self._compose_with_video_ffmpeg(video_path, image_layers, width, height)
+            return
+        
         frame_idx = 0
         while True:
             ret, frame = cap.read()
@@ -791,6 +814,77 @@ class LayerComposeTask:
         if os.path.exists(temp_output):
             os.remove(temp_output)
     
+    async def _compose_with_video_ffmpeg(self, video_path: str, image_layers: List['Layer'], width: int, height: int):
+        """Compose video with image overlays using FFmpeg directly"""
+        from utils.ffmpeg_utils import run_command
+        
+        if not image_layers:
+            # Just copy the video
+            import shutil
+            shutil.copy2(video_path, self.output_mp4)
+            await self._extract_first_frame()
+            return
+        
+        # Build FFmpeg filter_complex for overlays
+        # Start with the video as input [0:v]
+        filter_parts = []
+        current_stream = '0:v'
+        
+        for i, img_layer in enumerate(image_layers):
+            img_path = img_layer.get_layer_path()
+            if not img_path or not os.path.exists(img_path):
+                continue
+            
+            overlay_index = i + 1
+            output_stream = f'tmp{i}'
+            
+            # Position for overlay
+            x, y = img_layer.x, img_layer.y
+            
+            # Create overlay filter
+            if i == len(image_layers) - 1:
+                # Last overlay outputs to final stream
+                filter_parts.append(f'[{current_stream}][{overlay_index}:v]overlay={x}:{y}[v]')
+            else:
+                filter_parts.append(f'[{current_stream}][{overlay_index}:v]overlay={x}:{y}[{output_stream}]')
+                current_stream = output_stream
+        
+        if not filter_parts:
+            # No valid overlays, just copy
+            import shutil
+            shutil.copy2(video_path, self.output_mp4)
+            await self._extract_first_frame()
+            return
+        
+        # Build command
+        cmd = ['ffmpeg', '-i', video_path]
+        
+        # Add image inputs
+        for img_layer in image_layers:
+            img_path = img_layer.get_layer_path()
+            if img_path and os.path.exists(img_path):
+                cmd.extend(['-i', img_path])
+        
+        filter_complex = ';'.join(filter_parts)
+        cmd.extend([
+            '-filter_complex', filter_complex,
+            '-map', '[v]',
+            '-map', '0:a?',  # Copy audio if present
+            '-c:v', 'libx264',
+            '-c:a', 'copy',
+            '-pix_fmt', 'yuv420p',
+            '-y',
+            self.output_mp4
+        ])
+        
+        result = await run_command(cmd)
+        if result.returncode != 0:
+            logger.error(f"FFmpeg overlay failed: {result.stderr.decode()}")
+            raise RuntimeError("Failed to overlay images on video")
+        
+        # Extract first frame
+        await self._extract_first_frame()
+    
     async def _extract_first_frame(self):
         """Extract first frame from output.mp4 as output.png"""
         from utils.ffmpeg_utils import run_command
@@ -837,12 +931,23 @@ class LayerComposeTaskManager:
         """Submit a composition task for a layer manager"""
         manager_id = self._get_layer_manager_id(layer_manager)
         
-        # Create queue for this manager if it doesn't exist
+        # Create queue for this manager if it doesn't exist or if event loop changed
         if manager_id not in self._task_queues:
             from utils.async_queue_utils import AsyncQueue
             queue = AsyncQueue()
             queue.connect('compose', self._process_task)
             self._task_queues[manager_id] = queue
+        else:
+            # Check if the existing queue's event loop is still valid
+            try:
+                loop = asyncio.get_running_loop()
+                # Try to recreate queue if event loop changed
+                from utils.async_queue_utils import AsyncQueue
+                queue = AsyncQueue()
+                queue.connect('compose', self._process_task)
+                self._task_queues[manager_id] = queue
+            except RuntimeError:
+                pass
         
         # Generate task ID
         self._task_counter += 1
