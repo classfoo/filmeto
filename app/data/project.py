@@ -58,6 +58,10 @@ class Project():
 
     def connect_layer_changed(self,func):
         self.timeline.connect_layer_changed(func)
+    
+    def connect_timeline_changed(self, func):
+        """Connect to timeline_changed signal (fired when timeline item composition completes)"""
+        self.timeline.connect_timeline_changed(func)
 
     def connect_timeline_position(self,func):
         self.timeline_position.connect(func)

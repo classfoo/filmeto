@@ -601,6 +601,9 @@ class LayerComposeTask:
             
             logger.info(f"Layer composition task {self.task_id} completed successfully")
             
+            # Fire timeline_changed signal after composition completes and image.png is created
+            self._fire_timeline_changed_signal()
+            
         except Exception as e:
             logger.error(f"Error in layer composition task {self.task_id}: {e}", exc_info=True)
             raise
@@ -925,6 +928,19 @@ class LayerComposeTask:
         if result.returncode != 0:
             logger.error(f"Failed to extract first frame: {result.stderr.decode()}")
             raise RuntimeError("Failed to extract first frame")
+    
+    def _fire_timeline_changed_signal(self):
+        """Fire timeline_changed signal when composition completes"""
+        try:
+            timeline_item = self.layer_manager.timeline_item
+            if timeline_item and hasattr(timeline_item, 'timeline'):
+                timeline = timeline_item.timeline
+                if hasattr(timeline, 'timeline_changed'):
+                    # Send signal with timeline_item as parameter
+                    timeline.timeline_changed.send(timeline, timeline_item=timeline_item)
+                    logger.info(f"Fired timeline_changed signal for timeline item {timeline_item.index}")
+        except Exception as e:
+            logger.warning(f"Failed to fire timeline_changed signal: {e}")
 
 
 class LayerComposeTaskManager:

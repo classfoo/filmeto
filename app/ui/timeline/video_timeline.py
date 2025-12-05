@@ -151,6 +151,9 @@ class VideoTimeline(BaseTaskWidget):
         
         # Connect timeline switch signal to update card images
         self.workspace.connect_timeline_switch(self.on_timeline_switch)
+        
+        # Connect timeline changed signal to update card images when composition completes
+        timeline.connect_timeline_changed(self.on_timeline_changed)
 
     def retranslateUi(self):
         """更新所有UI文本当语言变化时"""
@@ -236,6 +239,16 @@ class VideoTimeline(BaseTaskWidget):
         self.selected_card_index = index
         if 1 <= index <= len(self.cards):
             self.cards[index - 1].set_selected(True)
+    
+    def on_timeline_changed(self, timeline, timeline_item: TimelineItem):
+        """Handle timeline changed signal (fired when composition completes)"""
+        # Update the card image for the timeline item that just completed composition
+        index = timeline_item.get_index()
+        if 1 <= index <= len(self.cards):
+            # Reload the image (image.png has been updated)
+            pixmap = timeline_item.get_image()
+            self.cards[index - 1].setImage(pixmap)
+            print(f"Updated timeline card {index} after composition")
     
     def on_project_switched(self, project_name):
         """处理项目切换"""

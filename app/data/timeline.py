@@ -201,6 +201,7 @@ class Timeline:
 
     timeline_switch = signal("timeline_switch")
     layer_changed = signal("layer_changed")
+    timeline_changed = signal("timeline_changed")
 
     def __init__(self, workspace, project, timelinePath:str):
         self.workspace = workspace
@@ -245,6 +246,10 @@ class Timeline:
 
     def connect_layer_changed(self, func):
         self.layer_changed.connect(func)
+    
+    def connect_timeline_changed(self, func):
+        """Connect to timeline_changed signal (fired when timeline item composition completes)"""
+        self.timeline_changed.connect(func)
 
     def get_item_count(self):
         return self.item_count
