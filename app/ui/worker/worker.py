@@ -180,10 +180,27 @@ class BackgroundWorker(QObject):
         self.error.emit(msg, exception)
     
     def _cleanup(self, *args):
-        """Clean up thread resources."""
+        """Clean up thread resources safely."""
         if self._thread is not None:
+            # Disconnect all signals first to prevent any callbacks during cleanup
+            try:
+                if self._executor is not None:
+                    self._executor.finished.disconnect()
+                    self._executor.error.disconnect()
+                    self._executor.progress.disconnect()
+                    self._executor.started.disconnect()
+            except Exception:
+                pass  # Ignore errors if signals are already disconnected
+            
+            # Quit the thread and wait for it to finish
             self._thread.quit()
-            self._thread.wait()
+            # Wait with timeout to avoid blocking indefinitely
+            if not self._thread.wait(3000):  # 3 second timeout
+                logger.warning(f"Thread did not finish in time, terminating forcefully")
+                self._thread.terminate()
+                self._thread.wait(1000)  # Wait 1 more second after terminate
+            
+            # Schedule thread deletion
             self._thread.deleteLater()
             self._thread = None
         

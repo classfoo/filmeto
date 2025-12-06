@@ -963,6 +963,7 @@ class LayerComposeTaskManager:
             self._current_worker = None  # Single active BackgroundWorker
             self._task_counter = 0
             self._initialized = True
+            self._shutdown = False  # Flag to indicate shutdown in progress
     
     def _get_layer_manager_id(self, layer_manager: 'LayerManager') -> str:
         """Get unique ID for layer manager"""
@@ -976,6 +977,11 @@ class LayerComposeTaskManager:
         The task will be executed in a background thread to avoid blocking the UI.
         Tasks are processed sequentially by a single worker.
         """
+        # Don't accept new tasks if shutting down
+        if hasattr(self, '_shutdown') and self._shutdown:
+            logger.warning("Cannot submit task: LayerComposeTaskManager is shutting down")
+            return None
+        
         manager_id = self._get_layer_manager_id(layer_manager)
         
         # Generate task ID
@@ -1044,12 +1050,21 @@ class LayerComposeTaskManager:
             on_finished=on_finished,
             on_error=on_error
         )
+        
+        # Disable auto-cleanup - we'll manage cleanup ourselves
+        worker.set_auto_cleanup(False)
+        
         self._current_worker = worker
     
     def _on_task_finished(self):
         """Called when a task finishes. Starts next queued task if any."""
         # Clean up current worker with deferred deletion
         self._cleanup_current_worker()
+        
+        # Don't process next task if shutting down
+        if hasattr(self, '_shutdown') and self._shutdown:
+            logger.info("Skipping next task due to shutdown")
+            return
         
         # Process next task in queue
         if self._task_queue:
@@ -1063,15 +1078,26 @@ class LayerComposeTaskManager:
             logger.info("All composition tasks completed")
     
     def _cleanup_current_worker(self):
-        """Clean up the current worker with deferred deletion."""
+        """Clean up the current worker with proper thread termination."""
         if self._current_worker is None:
             return
         
         worker = self._current_worker
         self._current_worker = None
         
-        # Use QTimer to defer the final cleanup, allowing QThread cleanup to complete
+        # Properly stop the worker thread
         try:
+            # First, ensure the thread is stopped
+            if worker._thread is not None:
+                # Quit the thread's event loop
+                worker._thread.quit()
+                # Wait for thread to actually finish (with timeout)
+                if not worker._thread.wait(5000):  # 5 second timeout
+                    logger.warning("Worker thread did not finish in time, forcing termination")
+                    worker._thread.terminate()
+                    worker._thread.wait(1000)  # Wait 1 more second after terminate
+            
+            # Use QTimer to defer the final deletion, allowing all Qt events to process
             from PySide6.QtCore import QTimer
             # Move worker to a temporary list to prevent garbage collection
             if not hasattr(self, '_cleanup_pending'):
@@ -1081,10 +1107,45 @@ class LayerComposeTaskManager:
             def do_cleanup():
                 if worker in self._cleanup_pending:
                     self._cleanup_pending.remove(worker)
+                    # Explicitly delete the worker's thread and executor
+                    if worker._thread is not None:
+                        worker._thread.deleteLater()
+                        worker._thread = None
+                    if worker._executor is not None:
+                        worker._executor.deleteLater()
+                        worker._executor = None
             
-            QTimer.singleShot(100, do_cleanup)
-        except ImportError:
-            pass
+            QTimer.singleShot(200, do_cleanup)
+        except Exception as e:
+            logger.error(f"Error during worker cleanup: {e}", exc_info=True)
+    
+    def shutdown(self):
+        """Shutdown the task manager and clean up all resources.
+        
+        Should be called when the application is closing.
+        """
+        logger.info("Shutting down LayerComposeTaskManager")
+        self._shutdown = True
+        
+        # Clear pending tasks
+        self._task_queue.clear()
+        
+        # Clean up current worker
+        self._cleanup_current_worker()
+        
+        # Clean up any pending cleanup workers
+        if hasattr(self, '_cleanup_pending'):
+            for worker in self._cleanup_pending:
+                try:
+                    if worker._thread is not None:
+                        worker._thread.quit()
+                        worker._thread.wait(2000)
+                        worker._thread.deleteLater()
+                except Exception as e:
+                    logger.error(f"Error cleaning up pending worker: {e}")
+            self._cleanup_pending.clear()
+        
+        logger.info("LayerComposeTaskManager shutdown complete")
 
 
 # Global instance

@@ -90,9 +90,24 @@ class App():
         self.window = MainWindow(self.workspace)
         self.window.show()
         asyncio.ensure_future(self.workspace.start())
+        
+        # Register cleanup on application exit
+        app.aboutToQuit.connect(self._cleanup_on_exit)
+        
         # 运行主循环
         with loop:
             sys.exit(loop.run_forever())
+    
+    def _cleanup_on_exit(self):
+        """Clean up resources when application is about to quit."""
+        print("Application shutting down, cleaning up resources...")
+        try:
+            # Shutdown the layer composition task manager
+            from app.data.layer import get_compose_task_manager
+            task_manager = get_compose_task_manager()
+            task_manager.shutdown()
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
 
     def workspace(self):
         return self.workspace
