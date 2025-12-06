@@ -101,7 +101,7 @@ class LayerManager:
         self._auto_compose_enabled = True
         
         # Connect to layer_changed signal to trigger auto-composition
-        self.layer_changed.connect(self._on_layer_changed)
+        self.layer_changed.connect(self._on_layer_changed, sender=self)
 
     def load_layers(self, timeline_item):
         self.timeline_item = timeline_item
@@ -113,7 +113,7 @@ class LayerManager:
 
     def connect_layer_changed(self, func):
         if self.layer_changed is not None:
-            self.layer_changed.connect(func)
+            self.layer_changed.connect(func, sender=self)
     
     def set_auto_compose(self, enabled: bool):
         """Enable or disable automatic composition on layer changes"""
