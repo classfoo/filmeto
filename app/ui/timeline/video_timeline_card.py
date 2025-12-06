@@ -29,12 +29,14 @@ class VideoTimelineCard(QFrame):
 
         # --- 内容 ---
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)  # Keep original margins
+        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins so image fills the frame
 
         self.content_label = QLabel(content_text)
-        # Enable transparency support for the label
-        self.content_label.setStyleSheet("QLabel { background-color: transparent; }")
-        scaled_image = snapshot.scaled(QSize(80,150),Qt.KeepAspectRatioByExpanding,Qt.SmoothTransformation)
+        # Enable transparency support and remove any borders from the label
+        # Add border-radius to match the outer frame's rounded corners
+        self.content_label.setStyleSheet("QLabel { background-color: transparent; border: none; border-radius: 8px; }")
+        self.content_label.setScaledContents(True)  # Enable scaled contents for proper clipping
+        scaled_image = snapshot.scaled(QSize(90, 160), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         self.content_label.setPixmap(scaled_image)
         self.content_label.setAlignment(Qt.AlignCenter)
         self.content_label.setWordWrap(True)
@@ -143,7 +145,7 @@ class VideoTimelineCard(QFrame):
         self.content_label.setText(text)
 
     def setImage(self,snapshot:QPixmap):
-        scaled_image = snapshot.scaled(QSize(80,150),Qt.KeepAspectRatioByExpanding,Qt.SmoothTransformation)
+        scaled_image = snapshot.scaled(QSize(90, 160), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         self.content_label.setPixmap(scaled_image)
 
     def show_context_menu(self, event):
