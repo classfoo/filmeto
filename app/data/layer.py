@@ -1047,7 +1047,7 @@ class LayerComposeTaskManager:
             logger.info(f"Starting next queued task {next_task.task_id} for {manager_id}")
             # Clean up old worker before starting new one
             self._cleanup_worker(manager_id)
-            self._start_background_task(manager_id, next_task)
+            self._start_qt_background_task(manager_id, next_task)
         else:
             # No pending tasks, defer cleanup to allow QThread to finish properly
             self._cleanup_worker(manager_id)
