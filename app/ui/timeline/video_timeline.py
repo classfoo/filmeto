@@ -71,9 +71,11 @@ class VideoTimeline(BaseTaskWidget):
         super().__init__(workspace)
         self.setWindowTitle(tr("TimeLine"))
         self.resize(parent.width(), parent.height())
-        self.setContentsMargins(5,5,5,5)
+        self.setContentsMargins(0, 0, 0, 0)  # Remove widget margins, use layout margins instead
         self.selected_card_index = None  # 跟踪当前选中的卡片索引
         
+        # Set fixed height to accommodate cards (160px) + layout margins (5px top + 5px bottom)
+        self.setFixedHeight(170)
         # Set size policy to prevent vertical expansion
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
