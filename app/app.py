@@ -1,15 +1,20 @@
 import asyncio
 import os
 import sys
+import logging
+import traceback
 
 from qasync import QEventLoop
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import qInstallMessageHandler, QtMsgType
 
 from app.data.workspace import Workspace
 from app.ui.main_window import MainWindow
 from server.server import Server
 from utils.i18n_utils import translation_manager
+
+logger = logging.getLogger(__name__)
 
 def load_stylesheet(main_path):
     """loading QSS style files"""
@@ -69,45 +74,113 @@ class App():
     def __init__(self,main_path):
         self.main_path = main_path
         #sys.exit(app.exec())
+        self._setup_qt_message_handler()
+    
+    def _setup_qt_message_handler(self):
+        """Setup Qt message handler to log Qt warnings and errors"""
+        def qt_message_handler(msg_type, context, message):
+            """Custom Qt message handler"""
+            # Map Qt message types to logging levels
+            if msg_type == QtMsgType.QtDebugMsg:
+                logger.debug(f"Qt: {message}")
+            elif msg_type == QtMsgType.QtInfoMsg:
+                logger.info(f"Qt: {message}")
+            elif msg_type == QtMsgType.QtWarningMsg:
+                logger.warning(f"Qt Warning: {message}")
+                if context.file:
+                    logger.warning(f"  File: {context.file}:{context.line}")
+                if context.function:
+                    logger.warning(f"  Function: {context.function}")
+            elif msg_type == QtMsgType.QtCriticalMsg:
+                logger.error(f"Qt Critical: {message}")
+                if context.file:
+                    logger.error(f"  File: {context.file}:{context.line}")
+                if context.function:
+                    logger.error(f"  Function: {context.function}")
+                # Log stack trace for critical messages
+                logger.error("Stack trace:", exc_info=True)
+            elif msg_type == QtMsgType.QtFatalMsg:
+                logger.critical(f"Qt Fatal: {message}")
+                if context.file:
+                    logger.critical(f"  File: {context.file}:{context.line}")
+                if context.function:
+                    logger.critical(f"  Function: {context.function}")
+                # Log full stack trace for fatal errors
+                logger.critical("Stack trace:", exc_info=True)
+        
+        qInstallMessageHandler(qt_message_handler)
 
     def start(self):
-        app = QApplication(sys.argv)
+        try:
+            logger.info("Creating QApplication...")
+            app = QApplication(sys.argv)
+            
+            # Initialize translation system
+            logger.info("Initializing translation system...")
+            translation_manager.set_app(app)
+            # Set default language (can be loaded from config later)
+            translation_manager.switch_language("zh_CN")
+            
+            # 启动消费者
+            logger.info("Setting up event loop...")
+            loop = QEventLoop(app)
+            asyncio.set_event_loop(loop)
+            
+            logger.info("Loading custom font...")
+            load_custom_font(self.main_path)
+            
+            logger.info("Loading stylesheet...")
+            app.setStyleSheet(load_stylesheet(self.main_path))
+            
+            # load main window
+            logger.info("Initializing workspace...")
+            workspacePath = os.path.join(self.main_path, "workspace")
+            self.workspace = Workspace(workspacePath,"demo")
+            
+            logger.info("Initializing server...")
+            self.server = Server()
+            
+            logger.info("Creating main window...")
+            self.window = MainWindow(self.workspace)
+            self.window.show()
+            
+            logger.info("Starting workspace...")
+            asyncio.ensure_future(self.workspace.start())
+            
+            # Register cleanup on application exit
+            logger.info("Registering cleanup handlers...")
+            app.aboutToQuit.connect(self._cleanup_on_exit)
+            
+            # 运行主循环
+            logger.info("Starting main event loop...")
+            with loop:
+                sys.exit(loop.run_forever())
         
-        # Initialize translation system
-        translation_manager.set_app(app)
-        # Set default language (can be loaded from config later)
-        translation_manager.switch_language("zh_CN")
-        
-        # 启动消费者
-        loop = QEventLoop(app)
-        asyncio.set_event_loop(loop)
-        load_custom_font(self.main_path)
-        app.setStyleSheet(load_stylesheet(self.main_path))
-        # load main window
-        workspacePath = os.path.join(self.main_path, "workspace")
-        self.workspace = Workspace(workspacePath,"demo")
-        self.server = Server()
-        self.window = MainWindow(self.workspace)
-        self.window.show()
-        asyncio.ensure_future(self.workspace.start())
-        
-        # Register cleanup on application exit
-        app.aboutToQuit.connect(self._cleanup_on_exit)
-        
-        # 运行主循环
-        with loop:
-            sys.exit(loop.run_forever())
+        except Exception as e:
+            logger.critical("="*80)
+            logger.critical("CRITICAL ERROR IN APP.START()")
+            logger.critical("="*80)
+            logger.critical(f"Exception: {e}")
+            logger.critical("Full stack trace:", exc_info=True)
+            logger.critical("="*80)
+            raise
     
     def _cleanup_on_exit(self):
         """Clean up resources when application is about to quit."""
-        print("Application shutting down, cleaning up resources...")
+        logger.info("="*80)
+        logger.info("Application shutting down, cleaning up resources...")
+        logger.info("="*80)
         try:
             # Shutdown the layer composition task manager
+            logger.info("Shutting down LayerComposeTaskManager...")
             from app.data.layer import get_compose_task_manager
             task_manager = get_compose_task_manager()
             task_manager.shutdown()
+            logger.info("LayerComposeTaskManager shutdown complete")
         except Exception as e:
-            print(f"Error during cleanup: {e}")
+            logger.error(f"Error during cleanup: {e}", exc_info=True)
+        
+        logger.info("Cleanup complete")
 
     def workspace(self):
         return self.workspace

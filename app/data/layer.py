@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 import subprocess
+import threading
 from enum import Enum
 from typing import Optional, Callable, List, Tuple
 from blinker import signal
@@ -553,6 +554,7 @@ class LayerComposeTask:
         """Execute the composition task"""
         try:
             logger.info(f"Starting layer composition task {self.task_id} for timeline item {self.layer_manager.timeline_item.index}")
+            logger.debug(f"Thread info: {threading.current_thread().name} (ID: {threading.get_ident()})")
             
             # Get visible layers from top to bottom
             all_layers = self.layer_manager.get_layers()
@@ -607,6 +609,7 @@ class LayerComposeTask:
         except Exception as e:
             # Log the error but don't re-raise to prevent thread crashes
             logger.error(f"Error in layer composition task {self.task_id}: {e}", exc_info=True)
+            logger.error(f"Thread info: {threading.current_thread().name} (ID: {threading.get_ident()})")
             # Attempt to create placeholder outputs if they don't exist
             try:
                 self._create_placeholder_outputs()
@@ -1059,12 +1062,22 @@ class LayerComposeTaskManager:
         self._task_counter += 1
         task_id = f"compose_{self._task_counter}"
         
+        # Log submission details
+        logger.info(f"Task submission: {task_id} for {manager_id}")
+        logger.debug(f"  Current thread: {threading.current_thread().name}")
+        logger.debug(f"  Queue size before: {len(self._task_queue)}")
+        logger.debug(f"  Current worker running: {self._current_worker.is_running() if self._current_worker else False}")
+        
         # Create task
         task = LayerComposeTask(layer_manager, task_id)
         task.manager_id = manager_id  # Store manager_id on task
         
         # Remove any existing pending tasks for the same manager_id (only latest matters)
+        old_queue_size = len(self._task_queue)
         self._task_queue = [t for t in self._task_queue if t.manager_id != manager_id]
+        replaced_count = old_queue_size - len(self._task_queue)
+        if replaced_count > 0:
+            logger.info(f"Replaced {replaced_count} pending task(s) for {manager_id}")
         
         # Add new task to queue
         self._task_queue.append(task)
@@ -1072,7 +1085,10 @@ class LayerComposeTaskManager:
         
         # Start processing if no worker is active
         if self._current_worker is None or not self._current_worker.is_running():
+            logger.debug(f"Starting task processing (worker inactive)")
             self._process_next_task()
+        else:
+            logger.debug(f"Worker already running, task will be processed when current task completes")
         
         return task_id
     

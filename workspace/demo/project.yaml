@@ -1,5 +1,5 @@
 drawing:
-  current_tool: pen
+  current_tool: brush
   tool_settings:
     adjust: {}
     brush:
@@ -7,7 +7,7 @@ drawing:
       Line Style: solid
       Opacity: '100'
       Size: '5'
-      color: '#00ff00'
+      color: '#ff0000'
       line_style: dot
       opacity: '100'
       size: '36'
@@ -18,7 +18,7 @@ drawing:
     pen:
       Color: '#000000'
       Size: '8'
-      color: '#00ffff'
+      color: '#ff0000'
       size: '13'
     select: {}
     shape:
@@ -50,5 +50,5 @@ timeline_item_durations:
   '7': 1.0
   '8': 1.0
   '9': 6.0625
-timeline_position: 12.513
+timeline_position: 11.099
 timeline_size: 8

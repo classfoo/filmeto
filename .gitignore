@@ -6,3 +6,5 @@ workspace/*
 __pycache__
 .qoder/
 QWEN.md
+logs/
+logs/*.log
