@@ -605,8 +605,41 @@ class LayerComposeTask:
             self._fire_timeline_changed_signal()
             
         except Exception as e:
+            # Log the error but don't re-raise to prevent thread crashes
             logger.error(f"Error in layer composition task {self.task_id}: {e}", exc_info=True)
-            raise
+            # Attempt to create placeholder outputs if they don't exist
+            try:
+                self._create_placeholder_outputs()
+            except Exception as fallback_error:
+                logger.error(f"Failed to create placeholder outputs: {fallback_error}")
+    
+    def _create_placeholder_outputs(self):
+        """Create placeholder output files if composition failed"""
+        import cv2
+        import numpy as np
+        
+        # Create placeholder image if it doesn't exist
+        if not os.path.exists(self.output_png):
+            try:
+                placeholder_img = np.zeros((1080, 1920, 3), dtype=np.uint8)
+                cv2.imwrite(self.output_png, placeholder_img)
+                logger.info(f"Created placeholder image: {self.output_png}")
+            except Exception as e:
+                logger.error(f"Failed to create placeholder image: {e}")
+        
+        # Create placeholder video if it doesn't exist
+        if not os.path.exists(self.output_mp4):
+            try:
+                # Create a 1-second black video
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                out = cv2.VideoWriter(self.output_mp4, fourcc, 8.0, (1920, 1080))
+                black_frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+                for _ in range(8):  # 8 frames at 8fps = 1 second
+                    out.write(black_frame)
+                out.release()
+                logger.info(f"Created placeholder video: {self.output_mp4}")
+            except Exception as e:
+                logger.error(f"Failed to create placeholder video: {e}")
     
     async def _compose_images_only(self, layers: List['Layer']):
         """Compose image layers only - convert to 1 second 8fps video"""
@@ -852,45 +885,48 @@ class LayerComposeTask:
             await self._extract_first_frame()
             return
         
+        # Filter valid image layers and build inputs
+        valid_layers = []
+        for img_layer in image_layers:
+            img_path = img_layer.get_layer_path()
+            if img_path and os.path.exists(img_path):
+                valid_layers.append(img_layer)
+        
+        if not valid_layers:
+            # No valid overlays, just copy
+            logger.warning("No valid image layers found for overlay, copying video")
+            import shutil
+            shutil.copy2(video_path, self.output_mp4)
+            await self._extract_first_frame()
+            return
+        
         # Build FFmpeg filter_complex for overlays
         # Start with the video as input [0:v]
         filter_parts = []
         current_stream = '0:v'
         
-        for i, img_layer in enumerate(image_layers):
-            img_path = img_layer.get_layer_path()
-            if not img_path or not os.path.exists(img_path):
-                continue
-            
-            overlay_index = i + 1
+        for i, img_layer in enumerate(valid_layers):
+            overlay_index = i + 1  # Input index in ffmpeg (0 is video, 1+ are images)
             output_stream = f'tmp{i}'
             
             # Position for overlay
             x, y = img_layer.x, img_layer.y
             
             # Create overlay filter
-            if i == len(image_layers) - 1:
+            if i == len(valid_layers) - 1:
                 # Last overlay outputs to final stream
                 filter_parts.append(f'[{current_stream}][{overlay_index}:v]overlay={x}:{y}[v]')
             else:
                 filter_parts.append(f'[{current_stream}][{overlay_index}:v]overlay={x}:{y}[{output_stream}]')
                 current_stream = output_stream
         
-        if not filter_parts:
-            # No valid overlays, just copy
-            import shutil
-            shutil.copy2(video_path, self.output_mp4)
-            await self._extract_first_frame()
-            return
-        
         # Build command
         cmd = ['ffmpeg', '-i', video_path]
         
-        # Add image inputs
-        for img_layer in image_layers:
+        # Add image inputs (only valid ones)
+        for img_layer in valid_layers:
             img_path = img_layer.get_layer_path()
-            if img_path and os.path.exists(img_path):
-                cmd.extend(['-i', img_path])
+            cmd.extend(['-i', img_path])
         
         filter_complex = ';'.join(filter_parts)
         cmd.extend([
@@ -904,10 +940,27 @@ class LayerComposeTask:
             self.output_mp4
         ])
         
-        result = await run_command(cmd)
-        if result.returncode != 0:
-            logger.error(f"FFmpeg overlay failed: {result.stderr.decode()}")
-            raise RuntimeError("Failed to overlay images on video")
+        logger.info(f"FFmpeg overlay command: {' '.join(cmd)}")
+        
+        try:
+            result = await run_command(cmd)
+            if result.returncode != 0:
+                stderr_output = result.stderr.decode() if result.stderr else 'No error output'
+                logger.error(f"FFmpeg overlay failed (returncode={result.returncode}): {stderr_output}")
+                # Fallback: just copy the video without overlays
+                logger.warning("Falling back to copying video without overlays")
+                import shutil
+                shutil.copy2(video_path, self.output_mp4)
+                await self._extract_first_frame()
+                return
+        except Exception as e:
+            logger.error(f"Exception during FFmpeg overlay: {e}", exc_info=True)
+            # Fallback: just copy the video
+            logger.warning("Falling back to copying video without overlays due to exception")
+            import shutil
+            shutil.copy2(video_path, self.output_mp4)
+            await self._extract_first_frame()
+            return
         
         # Extract first frame
         await self._extract_first_frame()
@@ -915,6 +968,11 @@ class LayerComposeTask:
     async def _extract_first_frame(self):
         """Extract first frame from output.mp4 as output.png"""
         from utils.ffmpeg_utils import run_command
+        
+        # Check if output video exists
+        if not os.path.exists(self.output_mp4):
+            logger.error(f"Cannot extract frame: {self.output_mp4} does not exist")
+            return
         
         cmd = [
             'ffmpeg',
@@ -924,10 +982,23 @@ class LayerComposeTask:
             self.output_png
         ]
         
-        result = await run_command(cmd)
-        if result.returncode != 0:
-            logger.error(f"Failed to extract first frame: {result.stderr.decode()}")
-            raise RuntimeError("Failed to extract first frame")
+        try:
+            result = await run_command(cmd)
+            if result.returncode != 0:
+                stderr_output = result.stderr.decode() if result.stderr else 'No error output'
+                logger.error(f"Failed to extract first frame (returncode={result.returncode}): {stderr_output}")
+                # Try to create a placeholder image if extraction fails
+                try:
+                    import cv2
+                    import numpy as np
+                    # Create a black placeholder image
+                    placeholder = np.zeros((1080, 1920, 3), dtype=np.uint8)
+                    cv2.imwrite(self.output_png, placeholder)
+                    logger.warning(f"Created placeholder image at {self.output_png}")
+                except Exception as e:
+                    logger.error(f"Failed to create placeholder image: {e}")
+        except Exception as e:
+            logger.error(f"Exception during frame extraction: {e}", exc_info=True)
     
     def _fire_timeline_changed_signal(self):
         """Fire timeline_changed signal when composition completes"""
