@@ -207,6 +207,7 @@ class Timeline:
         self.workspace = workspace
         self.project = project
         self.time_line_path = timelinePath
+        self._item_cache = {}  # Cache for TimelineItem instances to prevent duplicate signal connections
         try:
             p = Path(self.time_line_path)
             if not p.exists():
@@ -255,7 +256,10 @@ class Timeline:
         return self.item_count
 
     def get_item(self, index:int):
-        return TimelineItem(self, self.time_line_path,index, self.layer_changed)
+        # Use cached TimelineItem to prevent duplicate LayerManager/signal connections
+        if index not in self._item_cache:
+            self._item_cache[index] = TimelineItem(self, self.time_line_path, index, self.layer_changed)
+        return self._item_cache[index]
 
     def get_current_item(self):
         """Get the current timeline item"""
