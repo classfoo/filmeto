@@ -999,27 +999,11 @@ class LayerComposeTaskManager:
                 return task_id
         
         # Start the task in background
-        self._start_background_task(manager_id, task)
+        self._start_qt_background_task(manager_id, task)
         
         logger.info(f"Submitted composition task {task_id} for {manager_id}")
         return task_id
-    
-    def _start_background_task(self, manager_id: str, task: 'LayerComposeTask'):
-        """Start a composition task in a background thread."""
-        # Check if Qt application is available (for UI mode)
-        try:
-            from PySide6.QtWidgets import QApplication
-            app = QApplication.instance()
-            if app is not None:
-                # Use background worker in UI mode
-                self._start_qt_background_task(manager_id, task)
-                return
-        except ImportError:
-            pass
-        
-        # Fallback: run in current async context (for tests or non-UI mode)
-        asyncio.create_task(self._run_task_async(manager_id, task))
-    
+
     def _start_qt_background_task(self, manager_id: str, task: 'LayerComposeTask'):
         """Start a composition task using Qt background worker."""
         from app.ui.worker.worker import run_in_background
@@ -1053,16 +1037,7 @@ class LayerComposeTaskManager:
             on_error=on_error
         )
         self._active_workers[manager_id] = worker
-    
-    async def _run_task_async(self, manager_id: str, task: 'LayerComposeTask'):
-        """Run task in async context (fallback for non-UI mode)."""
-        try:
-            await task.execute()
-            logger.info(f"Composition task {task.task_id} completed for {manager_id}")
-        except Exception as e:
-            logger.error(f"Composition task {task.task_id} failed: {e}", exc_info=True)
-        finally:
-            self._on_task_finished(manager_id)
+
     
     def _on_task_finished(self, manager_id: str):
         """Called when a task finishes. Starts next queued task if any."""
