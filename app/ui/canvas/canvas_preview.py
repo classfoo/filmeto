@@ -460,8 +460,8 @@ class CanvasPreview(QWidget):
         import os
         
         # Prefer composite outputs over legacy files
-        video_path = timeline_item.get_composite_video_path()
-        image_path = timeline_item.get_composite_image_path()
+        video_path = timeline_item.get_video_path()
+        image_path = timeline_item.get_image_path()
         
         # Determine media type and display
         if os.path.exists(video_path):
@@ -684,7 +684,7 @@ class CanvasPreview(QWidget):
         
         # Prefer composite outputs over legacy files
         import os
-        video_path = next_item.get_composite_video_path()
+        video_path = next_item.get_video_path()
         
         if os.path.exists(video_path):
             # Prepare video in secondary player
