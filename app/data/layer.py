@@ -534,7 +534,7 @@ class LayerManager:
         # Submit task to the global composition task manager
         task_manager = get_compose_task_manager()
         task_id = await task_manager.submit_compose_task(self)
-        
+
         logger.info(f"Layer composition task {task_id} submitted for timeline item {self.timeline_item.index}")
         return task_id
 
@@ -944,10 +944,13 @@ class LayerComposeTask:
 
 
 class LayerComposeTaskManager:
-    """Manages layer composition tasks with queueing"""
+    """Manages layer composition tasks with queueing.
+    
+    Uses background worker threads to execute heavy composition tasks
+    without blocking the UI main thread.
+    """
     
     _instance = None
-    _lock = asyncio.Lock()
     
     def __new__(cls):
         if cls._instance is None:
@@ -956,8 +959,8 @@ class LayerComposeTaskManager:
     
     def __init__(self):
         if not hasattr(self, '_initialized'):
-            self._task_queues = {}  # layer_manager_id -> AsyncQueue
-            self._active_tasks = {}  # layer_manager_id -> Task
+            self._pending_tasks = {}  # manager_id -> list of pending tasks
+            self._active_workers = {}  # manager_id -> BackgroundWorker
             self._task_counter = 0
             self._initialized = True
     
@@ -968,26 +971,12 @@ class LayerComposeTaskManager:
         return str(id(layer_manager))
     
     async def submit_compose_task(self, layer_manager: 'LayerManager') -> str:
-        """Submit a composition task for a layer manager"""
-        manager_id = self._get_layer_manager_id(layer_manager)
+        """Submit a composition task for a layer manager.
         
-        # Create queue for this manager if it doesn't exist or if event loop changed
-        if manager_id not in self._task_queues:
-            from utils.async_queue_utils import AsyncQueue
-            queue = AsyncQueue()
-            queue.connect('compose', self._process_task)
-            self._task_queues[manager_id] = queue
-        else:
-            # Check if the existing queue's event loop is still valid
-            try:
-                loop = asyncio.get_running_loop()
-                # Try to recreate queue if event loop changed
-                from utils.async_queue_utils import AsyncQueue
-                queue = AsyncQueue()
-                queue.connect('compose', self._process_task)
-                self._task_queues[manager_id] = queue
-            except RuntimeError:
-                pass
+        The task will be executed in a background thread to avoid blocking the UI.
+        If a task is already running for this layer manager, the new task will be queued.
+        """
+        manager_id = self._get_layer_manager_id(layer_manager)
         
         # Generate task ID
         self._task_counter += 1
@@ -996,38 +985,121 @@ class LayerComposeTaskManager:
         # Create task
         task = LayerComposeTask(layer_manager, task_id)
         
-        # Add to queue
-        self._task_queues[manager_id].add('compose', {
-            'task': task,
-            'manager_id': manager_id
-        })
+        # Initialize pending list if needed
+        if manager_id not in self._pending_tasks:
+            self._pending_tasks[manager_id] = []
+        
+        # If a worker is already running for this manager, queue the task
+        if manager_id in self._active_workers:
+            worker = self._active_workers[manager_id]
+            if worker.is_running():
+                # Queue the task, replacing any previously queued task (only latest matters)
+                self._pending_tasks[manager_id] = [task]
+                logger.info(f"Queued composition task {task_id} for {manager_id} (worker busy)")
+                return task_id
+        
+        # Start the task in background
+        self._start_background_task(manager_id, task)
         
         logger.info(f"Submitted composition task {task_id} for {manager_id}")
         return task_id
     
-    async def _process_task(self, data: dict):
-        """Process a composition task"""
-        task = data['task']
-        manager_id = data['manager_id']
-        
-        # Check if there's already an active task for this manager
-        if manager_id in self._active_tasks:
-            active = self._active_tasks[manager_id]
-            if not active.done():
-                logger.info(f"Waiting for active task to complete for {manager_id}")
-                await active
-        
-        # Execute the task
+    def _start_background_task(self, manager_id: str, task: 'LayerComposeTask'):
+        """Start a composition task in a background thread."""
+        # Check if Qt application is available (for UI mode)
         try:
-            task_coro = task.execute()
-            self._active_tasks[manager_id] = asyncio.create_task(task_coro)
-            await self._active_tasks[manager_id]
+            from PySide6.QtWidgets import QApplication
+            app = QApplication.instance()
+            if app is not None:
+                # Use background worker in UI mode
+                self._start_qt_background_task(manager_id, task)
+                return
+        except ImportError:
+            pass
+        
+        # Fallback: run in current async context (for tests or non-UI mode)
+        asyncio.create_task(self._run_task_async(manager_id, task))
+    
+    def _start_qt_background_task(self, manager_id: str, task: 'LayerComposeTask'):
+        """Start a composition task using Qt background worker."""
+        from app.ui.worker.worker import run_in_background
+        
+        def execute_task_sync():
+            """Wrapper to run async task in a new event loop within the background thread."""
+            import asyncio
+            # Create a new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # Run the async execute method
+                loop.run_until_complete(task.execute())
+            finally:
+                loop.close()
+        
+        def on_finished(result):
+            """Handle task completion and start next queued task if any."""
+            logger.info(f"Composition task {task.task_id} completed for {manager_id}")
+            self._on_task_finished(manager_id)
+        
+        def on_error(error_msg, exception):
+            """Handle task error and start next queued task if any."""
+            logger.error(f"Composition task {task.task_id} failed: {error_msg}")
+            self._on_task_finished(manager_id)
+        
+        # Run in background thread
+        worker = run_in_background(
+            task=execute_task_sync,
+            on_finished=on_finished,
+            on_error=on_error
+        )
+        self._active_workers[manager_id] = worker
+    
+    async def _run_task_async(self, manager_id: str, task: 'LayerComposeTask'):
+        """Run task in async context (fallback for non-UI mode)."""
+        try:
+            await task.execute()
+            logger.info(f"Composition task {task.task_id} completed for {manager_id}")
         except Exception as e:
-            logger.error(f"Task execution failed: {e}", exc_info=True)
+            logger.error(f"Composition task {task.task_id} failed: {e}", exc_info=True)
         finally:
-            # Clean up
-            if manager_id in self._active_tasks:
-                del self._active_tasks[manager_id]
+            self._on_task_finished(manager_id)
+    
+    def _on_task_finished(self, manager_id: str):
+        """Called when a task finishes. Starts next queued task if any."""
+        # Check for pending tasks first (before cleaning up)
+        if manager_id in self._pending_tasks and self._pending_tasks[manager_id]:
+            next_task = self._pending_tasks[manager_id].pop(0)
+            logger.info(f"Starting next queued task {next_task.task_id} for {manager_id}")
+            # Clean up old worker before starting new one
+            self._cleanup_worker(manager_id)
+            self._start_background_task(manager_id, next_task)
+        else:
+            # No pending tasks, defer cleanup to allow QThread to finish properly
+            self._cleanup_worker(manager_id)
+    
+    def _cleanup_worker(self, manager_id: str):
+        """Clean up a finished worker with deferred deletion."""
+        if manager_id not in self._active_workers:
+            return
+        
+        worker = self._active_workers[manager_id]
+        del self._active_workers[manager_id]
+        
+        # Use QTimer to defer the final cleanup, allowing QThread cleanup to complete
+        try:
+            from PySide6.QtCore import QTimer
+            # Move worker to a temporary list to prevent garbage collection
+            if not hasattr(self, '_cleanup_pending'):
+                self._cleanup_pending = []
+            self._cleanup_pending.append(worker)
+            
+            def do_cleanup():
+                if worker in self._cleanup_pending:
+                    self._cleanup_pending.remove(worker)
+            
+            QTimer.singleShot(100, do_cleanup)
+        except ImportError:
+            pass
 
 
 # Global instance
