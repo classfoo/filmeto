@@ -32,6 +32,8 @@ class VideoTimelineCard(QFrame):
         layout.setContentsMargins(5, 5, 5, 5)  # Keep original margins
 
         self.content_label = QLabel(content_text)
+        # Enable transparency support for the label
+        self.content_label.setStyleSheet("QLabel { background-color: transparent; }")
         scaled_image = snapshot.scaled(QSize(80,150),Qt.KeepAspectRatioByExpanding,Qt.SmoothTransformation)
         self.content_label.setPixmap(scaled_image)
         self.content_label.setAlignment(Qt.AlignCenter)
@@ -102,7 +104,7 @@ class VideoTimelineCard(QFrame):
             # Selected: bright blue border for maximum visual impact (equivalent to thick border)
             self.setStyleSheet("""
                 QFrame {
-                    background-color: white;
+                    background-color: #2c2c2c;
                     border: 3px solid #4080ff;
                     border-radius: 8px;
                 }
@@ -111,7 +113,7 @@ class VideoTimelineCard(QFrame):
             # Hover: medium blue border for moderate visual impact (equivalent to medium border)
             self.setStyleSheet("""
                 QFrame {
-                    background-color: white;
+                    background-color: #2c2c2c;
                     border: 3px solid #6a9eff;
                     border-radius: 8px;
                 }
@@ -120,7 +122,7 @@ class VideoTimelineCard(QFrame):
             # Default: light gray border for minimal visual impact (equivalent to thin border)
             self.setStyleSheet("""
                 QFrame {
-                    background-color: white;
+                    background-color: #2c2c2c;
                     border: 3px solid #a0a0a0;
                     border-radius: 8px;
                 }
