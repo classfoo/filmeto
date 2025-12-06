@@ -946,8 +946,8 @@ class LayerComposeTask:
 class LayerComposeTaskManager:
     """Manages layer composition tasks with queueing.
     
-    Uses background worker threads to execute heavy composition tasks
-    without blocking the UI main thread.
+    Uses a single background worker thread to execute heavy composition tasks
+    sequentially without blocking the UI main thread.
     """
     
     _instance = None
@@ -959,8 +959,8 @@ class LayerComposeTaskManager:
     
     def __init__(self):
         if not hasattr(self, '_initialized'):
-            self._pending_tasks = {}  # manager_id -> list of pending tasks
-            self._active_workers = {}  # manager_id -> BackgroundWorker
+            self._task_queue = []  # Queue of pending tasks
+            self._current_worker = None  # Single active BackgroundWorker
             self._task_counter = 0
             self._initialized = True
     
@@ -974,7 +974,7 @@ class LayerComposeTaskManager:
         """Submit a composition task for a layer manager.
         
         The task will be executed in a background thread to avoid blocking the UI.
-        If a task is already running for this layer manager, the new task will be queued.
+        Tasks are processed sequentially by a single worker.
         """
         manager_id = self._get_layer_manager_id(layer_manager)
         
@@ -984,27 +984,35 @@ class LayerComposeTaskManager:
         
         # Create task
         task = LayerComposeTask(layer_manager, task_id)
+        task.manager_id = manager_id  # Store manager_id on task
         
-        # Initialize pending list if needed
-        if manager_id not in self._pending_tasks:
-            self._pending_tasks[manager_id] = []
+        # Remove any existing pending tasks for the same manager_id (only latest matters)
+        self._task_queue = [t for t in self._task_queue if t.manager_id != manager_id]
         
-        # If a worker is already running for this manager, queue the task
-        if manager_id in self._active_workers:
-            worker = self._active_workers[manager_id]
-            if worker.is_running():
-                # Queue the task, replacing any previously queued task (only latest matters)
-                self._pending_tasks[manager_id] = [task]
-                logger.info(f"Queued composition task {task_id} for {manager_id} (worker busy)")
-                return task_id
+        # Add new task to queue
+        self._task_queue.append(task)
+        logger.info(f"Queued composition task {task_id} for {manager_id} (queue size: {len(self._task_queue)})")
+        
+        # Start processing if no worker is active
+        if self._current_worker is None or not self._current_worker.is_running():
+            self._process_next_task()
+        
+        return task_id
+    
+    def _process_next_task(self):
+        """Process the next task in the queue."""
+        if not self._task_queue:
+            return
+        
+        # Get next task
+        task = self._task_queue.pop(0)
+        logger.info(f"Starting composition task {task.task_id} for {task.manager_id}")
         
         # Start the task in background
-        self._start_qt_background_task(manager_id, task)
-        
-        logger.info(f"Submitted composition task {task_id} for {manager_id}")
-        return task_id
+        self._start_qt_background_task(task)
 
-    def _start_qt_background_task(self, manager_id: str, task: 'LayerComposeTask'):
+    
+    def _start_qt_background_task(self, task: 'LayerComposeTask'):
         """Start a composition task using Qt background worker."""
         from app.ui.worker.worker import run_in_background
         
@@ -1022,13 +1030,13 @@ class LayerComposeTaskManager:
         
         def on_finished(result):
             """Handle task completion and start next queued task if any."""
-            logger.info(f"Composition task {task.task_id} completed for {manager_id}")
-            self._on_task_finished(manager_id)
+            logger.info(f"Composition task {task.task_id} completed for {task.manager_id}")
+            self._on_task_finished()
         
         def on_error(error_msg, exception):
             """Handle task error and start next queued task if any."""
             logger.error(f"Composition task {task.task_id} failed: {error_msg}")
-            self._on_task_finished(manager_id)
+            self._on_task_finished()
         
         # Run in background thread
         worker = run_in_background(
@@ -1036,29 +1044,31 @@ class LayerComposeTaskManager:
             on_finished=on_finished,
             on_error=on_error
         )
-        self._active_workers[manager_id] = worker
-
+        self._current_worker = worker
     
-    def _on_task_finished(self, manager_id: str):
+    def _on_task_finished(self):
         """Called when a task finishes. Starts next queued task if any."""
-        # Check for pending tasks first (before cleaning up)
-        if manager_id in self._pending_tasks and self._pending_tasks[manager_id]:
-            next_task = self._pending_tasks[manager_id].pop(0)
-            logger.info(f"Starting next queued task {next_task.task_id} for {manager_id}")
-            # Clean up old worker before starting new one
-            self._cleanup_worker(manager_id)
-            self._start_qt_background_task(manager_id, next_task)
+        # Clean up current worker with deferred deletion
+        self._cleanup_current_worker()
+        
+        # Process next task in queue
+        if self._task_queue:
+            # Use QTimer to ensure cleanup is complete before starting next task
+            try:
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(50, self._process_next_task)
+            except ImportError:
+                self._process_next_task()
         else:
-            # No pending tasks, defer cleanup to allow QThread to finish properly
-            self._cleanup_worker(manager_id)
+            logger.info("All composition tasks completed")
     
-    def _cleanup_worker(self, manager_id: str):
-        """Clean up a finished worker with deferred deletion."""
-        if manager_id not in self._active_workers:
+    def _cleanup_current_worker(self):
+        """Clean up the current worker with deferred deletion."""
+        if self._current_worker is None:
             return
         
-        worker = self._active_workers[manager_id]
-        del self._active_workers[manager_id]
+        worker = self._current_worker
+        self._current_worker = None
         
         # Use QTimer to defer the final cleanup, allowing QThread cleanup to complete
         try:
