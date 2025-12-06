@@ -1095,11 +1095,24 @@ class LayerComposeTaskManager:
     def _process_next_task(self):
         """Process the next task in the queue."""
         if not self._task_queue:
+            logger.debug("No tasks in queue to process")
+            return
+        
+        # Safety check: ensure no worker is currently running
+        if self._current_worker is not None and self._current_worker.is_running():
+            logger.warning("Cannot start next task: current worker still running")
+            logger.warning("Rescheduling task processing in 500ms...")
+            try:
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(500, self._process_next_task)
+            except ImportError:
+                pass
             return
         
         # Get next task
         task = self._task_queue.pop(0)
         logger.info(f"Starting composition task {task.task_id} for {task.manager_id}")
+        logger.debug(f"Remaining tasks in queue: {len(self._task_queue)}")
         
         # Start the task in background
         self._start_qt_background_task(task)
@@ -1145,6 +1158,8 @@ class LayerComposeTaskManager:
     
     def _on_task_finished(self):
         """Called when a task finishes. Starts next queued task if any."""
+        logger.debug("Task finished callback triggered")
+        
         # Clean up current worker with deferred deletion
         self._cleanup_current_worker()
         
@@ -1153,13 +1168,16 @@ class LayerComposeTaskManager:
             logger.info("Skipping next task due to shutdown")
             return
         
-        # Process next task in queue
+        # Process next task in queue AFTER cleanup completes
         if self._task_queue:
             # Use QTimer to ensure cleanup is complete before starting next task
+            # Increased delay from 50ms to 600ms to ensure worker cleanup finishes
             try:
                 from PySide6.QtCore import QTimer
-                QTimer.singleShot(50, self._process_next_task)
+                logger.debug(f"Scheduling next task in 600ms (queue size: {len(self._task_queue)})")
+                QTimer.singleShot(600, self._process_next_task)
             except ImportError:
+                logger.warning("QTimer not available, processing next task immediately")
                 self._process_next_task()
         else:
             logger.info("All composition tasks completed")
@@ -1172,17 +1190,28 @@ class LayerComposeTaskManager:
         worker = self._current_worker
         self._current_worker = None
         
+        logger.debug(f"Starting worker cleanup (running: {worker.is_running() if worker._thread else False})")
+        
         # Properly stop the worker thread
         try:
             # First, ensure the thread is stopped
             if worker._thread is not None:
+                thread_was_running = worker._thread.isRunning()
+                
+                if thread_was_running:
+                    logger.warning(f"Worker thread still running during cleanup, waiting for completion...")
+                    
                 # Quit the thread's event loop
                 worker._thread.quit()
+                
                 # Wait for thread to actually finish (with timeout)
-                if not worker._thread.wait(5000):  # 5 second timeout
-                    logger.warning("Worker thread did not finish in time, forcing termination")
+                # Increased timeout from 5s to 10s for complex compositions
+                if not worker._thread.wait(10000):  # 10 second timeout
+                    logger.error("Worker thread did not finish in time, forcing termination")
                     worker._thread.terminate()
-                    worker._thread.wait(1000)  # Wait 1 more second after terminate
+                    worker._thread.wait(2000)  # Wait 2 more seconds after terminate
+                else:
+                    logger.debug(f"Worker thread stopped gracefully (was running: {thread_was_running})")
             
             # Use QTimer to defer the final deletion, allowing all Qt events to process
             from PySide6.QtCore import QTimer
@@ -1201,8 +1230,10 @@ class LayerComposeTaskManager:
                     if worker._executor is not None:
                         worker._executor.deleteLater()
                         worker._executor = None
+                    logger.debug("Worker cleanup completed")
             
-            QTimer.singleShot(200, do_cleanup)
+            # Increased delay from 200ms to 500ms to ensure Qt event processing
+            QTimer.singleShot(500, do_cleanup)
         except Exception as e:
             logger.error(f"Error during worker cleanup: {e}", exc_info=True)
     
