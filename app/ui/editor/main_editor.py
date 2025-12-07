@@ -334,6 +334,9 @@ class MainEditorWidget(BaseTaskWidget):
                 instance.init_ui(self)
             except Exception as e:
                 print(f"init_ui failed for {tool_id}: {e}")
+        else:
+            # If no instance or no init_ui method, clear the tool panel
+            self.set_tool_panel(None)
 
         
         # Emit signal if changed
@@ -456,6 +459,8 @@ class MainEditorWidget(BaseTaskWidget):
         if widget:
             self.tool_panel_layout.addWidget(widget)
         else:
+            # Show default message when no tool config
+            from PySide6.QtWidgets import QLabel
             self.tool_panel_layout.addWidget(QLabel("No Tool Config"))
     
     def on_project_switched(self, project_name):

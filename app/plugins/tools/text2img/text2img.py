@@ -29,17 +29,12 @@ class Text2Image(BaseTool,BaseTaskWidget):
         }
 
     def init_ui(self, main_editor):
-        from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog
+        from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QPushButton, QFileDialog, QSpacerItem, QSizePolicy
         panel = QWidget()
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0,0,0,0)
+        layout = QHBoxLayout(panel)  # Changed to QHBoxLayout for left-right layout
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        title = QLabel(tr("Reference Image"))
-        layout.addWidget(title)
-        row = QWidget()
-        row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(0,0,0,0)
-        row_layout.setSpacing(4)
+        
         path_edit = QLineEdit()
         path_edit.setReadOnly(True)
         browse_btn = QPushButton(tr("Browse"))
@@ -49,10 +44,14 @@ class Text2Image(BaseTool,BaseTaskWidget):
                 self.reference_image_path = file_path
                 path_edit.setText(file_path)
         browse_btn.clicked.connect(on_browse)
-        row_layout.addWidget(path_edit, 1)
-        row_layout.addWidget(browse_btn)
-        layout.addWidget(row)
-        main_editor.set_tool_panel(panel)
+        
+        # Add widgets to layout without labels
+        layout.addWidget(path_edit, 1)
+        layout.addWidget(browse_btn)
+        layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        
+        # Set the widget in the prompt input's config panel
+        main_editor.prompt_input.set_config_panel_widget(panel)
 
     @classmethod
     def get_tool_name(cls):
@@ -65,6 +64,11 @@ class Text2Image(BaseTool,BaseTaskWidget):
     @classmethod
     def get_tool_display_name(cls):
         return tr("Text to Image")
+    
+    @classmethod
+    def uses_prompt_config_panel(cls):
+        """This tool uses the prompt input config panel"""
+        return True
     
     def get_media_path(self, timeline_item):
         """Get media path for text2img tool"""

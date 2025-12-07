@@ -41,19 +41,15 @@ class Image2Video(BaseTool,BaseTaskWidget):
         }
 
     def init_ui(self, main_editor):
-        from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog
+        from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QPushButton, QFileDialog, QSpacerItem, QSizePolicy
         panel = QWidget()
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0,0,0,0)
+        layout = QHBoxLayout(panel)  # Changed to QHBoxLayout for left-right layout
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        title = QLabel(tr("Start/End Frames"))
-        layout.addWidget(title)
-        # Start frame row
-        start_row = QWidget()
-        start_layout = QHBoxLayout(start_row)
-        start_layout.setContentsMargins(0,0,0,0)
-        start_layout.setSpacing(4)
-        start_edit = QLineEdit(); start_edit.setReadOnly(True)
+        
+        # Start frame controls
+        start_edit = QLineEdit()
+        start_edit.setReadOnly(True)
         start_btn = QPushButton(tr("Start"))
         def on_pick_start():
             file_path, _ = QFileDialog.getOpenFileName(panel, tr("Select Start Frame"), "", "Images (*.png *.jpg *.jpeg)")
@@ -61,15 +57,10 @@ class Image2Video(BaseTool,BaseTaskWidget):
                 self.start_frame_path = file_path
                 start_edit.setText(file_path)
         start_btn.clicked.connect(on_pick_start)
-        start_layout.addWidget(start_edit, 1)
-        start_layout.addWidget(start_btn)
-        layout.addWidget(start_row)
-        # End frame row
-        end_row = QWidget()
-        end_layout = QHBoxLayout(end_row)
-        end_layout.setContentsMargins(0,0,0,0)
-        end_layout.setSpacing(4)
-        end_edit = QLineEdit(); end_edit.setReadOnly(True)
+        
+        # End frame controls
+        end_edit = QLineEdit()
+        end_edit.setReadOnly(True)
         end_btn = QPushButton(tr("End"))
         def on_pick_end():
             file_path, _ = QFileDialog.getOpenFileName(panel, tr("Select End Frame"), "", "Images (*.png *.jpg *.jpeg)")
@@ -77,10 +68,16 @@ class Image2Video(BaseTool,BaseTaskWidget):
                 self.end_frame_path = file_path
                 end_edit.setText(file_path)
         end_btn.clicked.connect(on_pick_end)
-        end_layout.addWidget(end_edit, 1)
-        end_layout.addWidget(end_btn)
-        layout.addWidget(end_row)
-        main_editor.set_tool_panel(panel)
+        
+        # Add widgets to layout without labels
+        layout.addWidget(start_edit, 1)
+        layout.addWidget(start_btn)
+        layout.addWidget(end_edit, 1)
+        layout.addWidget(end_btn)
+        layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        
+        # Set the widget in the prompt input's config panel
+        main_editor.prompt_input.set_config_panel_widget(panel)
 
     # def on_timeline_switch(self,item:TimelineItem):
     #     # For img2video, show the video if exists, otherwise show image
@@ -96,7 +93,7 @@ class Image2Video(BaseTool,BaseTaskWidget):
     #     else:
     #         image_path = item.get_image_path()
     #         if os.path.exists(image_path):
-    #             self.editor.get_canvas_widget().switch_file(image_path)
+    #         self.editor.get_canvas_widget().switch_file(image_path)
     #     return
     
     @classmethod
@@ -110,6 +107,11 @@ class Image2Video(BaseTool,BaseTaskWidget):
     @classmethod
     def get_tool_display_name(cls):
         return tr("Image to Video")
+    
+    @classmethod
+    def uses_prompt_config_panel(cls):
+        """This tool uses the prompt input config panel"""
+        return True
     
     def get_media_path(self, timeline_item):
         """Get media path for img2video tool"""

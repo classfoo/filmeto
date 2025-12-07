@@ -23,10 +23,14 @@ class BaseTool(BaseWidget,Progress):
         return
 
     def init_ui(self, main_editor):
-        """Initialize UI in MainEditor left panel. Subclasses may override.
-        If a QWidget is returned or set, use main_editor.set_tool_panel(widget)."""
+        """Initialize UI in MainEditor left panel or prompt input config panel. 
+        Subclasses may override.
+        If a QWidget is returned or set, use either:
+        1. main_editor.set_tool_panel(widget) for persistent tool panels, or 
+        2. main_editor.prompt_input.set_config_panel_widget(widget) for prompt input config panels."""
         try:
             from PySide6.QtWidgets import QLabel
+            # By default, set an empty panel to the tool panel
             main_editor.set_tool_panel(QLabel("No Tool Config"))
         except Exception:
             pass
@@ -54,6 +58,13 @@ class BaseTool(BaseWidget,Progress):
         Should be overridden by subclasses."""
         # Default implementation - return the tool name
         return cls.get_tool_name().title()
+    
+    @classmethod
+    def uses_prompt_config_panel(cls):
+        """Determine if this tool uses the prompt input config panel instead of the tool panel.
+        Should be overridden by subclasses that want to use the prompt config panel.
+        Returns False by default, meaning use the tool panel."""
+        return False
     
     def get_media_path(self, timeline_item):
         """Get the appropriate media path for this tool.

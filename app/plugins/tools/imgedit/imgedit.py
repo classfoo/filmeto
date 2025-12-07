@@ -6,7 +6,7 @@ from app.spi.tool import BaseTool
 from app.ui.base_widget import BaseTaskWidget
 from app.ui.media_selector.media_selector import MediaSelector
 from utils.i18n_utils import tr
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 
 
 class ImageEdit(BaseTool, BaseTaskWidget):
@@ -24,7 +24,9 @@ class ImageEdit(BaseTool, BaseTaskWidget):
         """Initialize the UI for the image edit tool"""
         # Create widget for tool configuration
         widget = QWidget()
-        layout = QVBoxLayout(widget)
+        layout = QHBoxLayout(widget)  # Changed to QHBoxLayout for left-right layout
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
         
         # Create media selector for input image
         self.media_selector = MediaSelector()
@@ -43,12 +45,12 @@ class ImageEdit(BaseTool, BaseTaskWidget):
         self.media_selector.file_selected.connect(self._on_image_selected)
         self.media_selector.file_cleared.connect(self._on_image_cleared)
         
-        layout.addWidget(QLabel(tr("Select Input Image:")))
+        # Add to layout without label
         layout.addWidget(self.media_selector)
         layout.addStretch()
         
-        # Set the widget in the main editor's tool panel
-        main_editor.set_tool_panel(widget)
+        # Set the widget in the prompt input's config panel
+        main_editor.prompt_input.set_config_panel_widget(widget)
 
     def _on_image_selected(self, file_path):
         """Handle image selection"""
@@ -83,6 +85,11 @@ class ImageEdit(BaseTool, BaseTaskWidget):
     @classmethod
     def get_tool_display_name(cls):
         return tr("Image Edit")
+    
+    @classmethod
+    def uses_prompt_config_panel(cls):
+        """This tool uses the prompt input config panel"""
+        return True
     
     def get_media_path(self, timeline_item):
         """Get media path for image edit tool"""
