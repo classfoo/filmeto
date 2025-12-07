@@ -28,11 +28,17 @@ class VideoTimelineScroll(QScrollArea):
         super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event: QWheelEvent):
-        # Convert vertical wheel scrolling to horizontal scrolling
-        # Ignore vertical scrolling completely
+        # Only handle horizontal scrolling with mouse wheel
+        # Ignore vertical scrolling completely (don't convert to horizontal)
         delta = event.angleDelta()
-        if delta.y() != 0:
-            # Use vertical wheel delta for horizontal scrolling
+        if delta.x() != 0:
+            # If there's horizontal scroll delta, use it directly
+            self.horizontalScrollBar().setValue(
+                self.horizontalScrollBar().value() - delta.x()
+            )
+        elif delta.y() != 0:
+            # Use vertical wheel delta for horizontal scrolling only if there's no horizontal delta
+            # This preserves natural scrolling behavior for devices that send vertical events
             self.horizontalScrollBar().setValue(
                 self.horizontalScrollBar().value() - delta.y()
             )
