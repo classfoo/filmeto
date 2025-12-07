@@ -35,6 +35,7 @@ class TimelinePositionLineOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.timeline_position=timeline_position
         self.timeline_x = timeline_x
+        self.scroll_offset = 0  # Current horizontal scroll offset
         self._mouse_x = None
         
         # Throttle timer for cursor updates (limits update frequency while staying responsive)
@@ -57,37 +58,42 @@ class TimelinePositionLineOverlay(QWidget):
         
         # Draw timeline position line (higher priority, drawn first so cursor can overlay)
         if self.timeline_x is not None:
-            # Draw the vertical line
-            pen = QPen(QColor(255, 255, 255, 255))
-            pen.setWidth(4)
-            pen.setStyle(Qt.PenStyle.SolidLine)
-            painter.setPen(pen)
-            painter.drawLine(self.timeline_x, 0, self.timeline_x, self.height())
+            # Apply coordinate transformation: viewport_x = content_x - scroll_offset
+            viewport_x = self.timeline_x - self.scroll_offset
             
-            # Draw solid triangles at both ends
-            # Triangle size
-            triangle_size = 8
-            
-            # Set brush for filled triangles
-            painter.setBrush(QColor(255, 255, 255, 255))
-            painter.setPen(Qt.PenStyle.NoPen)  # No outline
-            
-            # Top triangle (pointing up)
-            top_triangle = QPolygonF([
-                QPointF(self.timeline_x, triangle_size),  # Bottom center point
-                QPointF(self.timeline_x - triangle_size, 0),  # Top left
-                QPointF(self.timeline_x + triangle_size, 0)   # Top right
-            ])
-            painter.drawPolygon(top_triangle)
-            
-            # Bottom triangle (pointing down)
-            bottom_y = self.height()
-            bottom_triangle = QPolygonF([
-                QPointF(self.timeline_x, bottom_y - triangle_size),  # Top center point
-                QPointF(self.timeline_x - triangle_size, bottom_y),  # Bottom left
-                QPointF(self.timeline_x + triangle_size, bottom_y)   # Bottom right
-            ])
-            painter.drawPolygon(bottom_triangle)
+            # Only draw if within visible bounds
+            if 0 <= viewport_x <= self.width():
+                # Draw the vertical line
+                pen = QPen(QColor(255, 255, 255, 255))
+                pen.setWidth(4)
+                pen.setStyle(Qt.PenStyle.SolidLine)
+                painter.setPen(pen)
+                painter.drawLine(viewport_x, 0, viewport_x, self.height())
+                
+                # Draw solid triangles at both ends
+                # Triangle size
+                triangle_size = 8
+                
+                # Set brush for filled triangles
+                painter.setBrush(QColor(255, 255, 255, 255))
+                painter.setPen(Qt.PenStyle.NoPen)  # No outline
+                
+                # Top triangle (pointing up)
+                top_triangle = QPolygonF([
+                    QPointF(viewport_x, triangle_size),  # Bottom center point
+                    QPointF(viewport_x - triangle_size, 0),  # Top left
+                    QPointF(viewport_x + triangle_size, 0)   # Top right
+                ])
+                painter.drawPolygon(top_triangle)
+                
+                # Bottom triangle (pointing down)
+                bottom_y = self.height()
+                bottom_triangle = QPolygonF([
+                    QPointF(viewport_x, bottom_y - triangle_size),  # Top center point
+                    QPointF(viewport_x - triangle_size, bottom_y),  # Bottom left
+                    QPointF(viewport_x + triangle_size, bottom_y)   # Bottom right
+                ])
+                painter.drawPolygon(bottom_triangle)
         
         # Draw mouse cursor line (drawn second to overlay on top if needed)
         if self._mouse_x is not None:
@@ -103,14 +109,21 @@ class TimelinePositionLineOverlay(QWidget):
         self._cursor_dirty = False
         self._timeline_dirty = False
 
-    def on_timeline_position(self, timeline_position, timeline_x):
+    def on_timeline_position(self, timeline_position, timeline_x, scroll_offset):
         """Update timeline position - immediate update for accuracy"""
         self.timeline_position = timeline_position
         self.timeline_x = timeline_x
+        self.scroll_offset = scroll_offset
         self._timeline_dirty = True
         
         # Timeline updates are critical, apply immediately
         self.update()
+    
+    def update_scroll_offset(self, scroll_offset):
+        """Update scroll offset and trigger repaint"""
+        if self.scroll_offset != scroll_offset:
+            self.scroll_offset = scroll_offset
+            self.update()
 
     def set_cursor_position(self, x):
         """Update cursor line position - throttled to limit update frequency"""
@@ -266,6 +279,10 @@ class TimelineContainer(BaseWidget):
         
         # Setup scroll synchronization after all timelines are created
         self.setup_scroll_synchronization()
+        
+        # Initialize scroll offset after overlay creation
+        initial_scroll_offset = self.video_timeline.scroll_area.horizontalScrollBar().value()
+        self.timeline_position_overlay.update_scroll_offset(initial_scroll_offset)
 
     def _install_event_filters_recursively(self, widget):
         """Install event filter on widget and all its children recursively"""
@@ -325,6 +342,9 @@ class TimelineContainer(BaseWidget):
                 self.subtitle_timeline.scroll_area.get_horizontal_scrollbar().setValue(new_value)
             if source_timeline != 'voice':
                 self.voice_timeline.scroll_area.get_horizontal_scrollbar().setValue(new_value)
+            
+            # Update overlay scroll offset
+            self.timeline_position_overlay.update_scroll_offset(new_value)
         finally:
             # Always reset sync flag
             self._scroll_sync_active = False
@@ -426,7 +446,9 @@ class TimelineContainer(BaseWidget):
 
     def on_timeline_position(self, timeline_position):
         timeline_x, card_index = self.calculate_timeline_x(timeline_position)
-        self.timeline_position_overlay.on_timeline_position(timeline_position, timeline_x)
+        # Get current scroll offset
+        scroll_offset = self.video_timeline.scroll_area.horizontalScrollBar().value()
+        self.timeline_position_overlay.on_timeline_position(timeline_position, timeline_x, scroll_offset)
     
     def _on_timeline_position_signal(self, sender, params=None, **kwargs):
         """
