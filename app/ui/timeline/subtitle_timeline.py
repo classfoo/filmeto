@@ -1,8 +1,9 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QApplication
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QApplication, QSizePolicy
 from PySide6.QtCore import Qt, QRect, QPoint, QTimer, Signal
 from PySide6.QtGui import QFont, QPainter, QPen, QBrush, QColor, QMouseEvent, QCursor
 from app.data.workspace import Workspace
 from utils.i18n_utils import tr
+from .subtitle_timeline_scroll import SubtitleTimelineScroll
 
 
 class SubtitleCard(QWidget):
@@ -34,7 +35,7 @@ class SubtitleCard(QWidget):
         self.hovered = False
         
         # 设置窗口标志，使其可以正确显示
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         
         # 设置样式
         self.setStyleSheet("""
@@ -89,7 +90,7 @@ class SubtitleCard(QWidget):
             text += "..."
         
         painter.drawText(QRect(5, 0, self.width() - 10, self.height()), 
-                         Qt.AlignVCenter | Qt.AlignLeft, text)
+                         Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, text)
     
     def enterEvent(self, event):
         """处理鼠标进入事件"""
@@ -102,7 +103,7 @@ class SubtitleCard(QWidget):
         self.hovered = False
         self.on_left_edge = False
         self.on_right_edge = False
-        self.setCursor(QCursor(Qt.ArrowCursor))
+        self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
         self.update()
         super().leaveEvent(event)
     
@@ -117,7 +118,7 @@ class SubtitleCard(QWidget):
         # 检查鼠标是否在边缘
         if self.is_on_edge(event.pos()):
             if self.on_left_edge or self.on_right_edge:
-                self.setCursor(QCursor(Qt.SizeHorCursor))  # 设置为水平调整大小光标
+                self.setCursor(QCursor(Qt.CursorShape.SizeHorCursor))  # 设置为水平调整大小光标
         else:
             self.setCursor(QCursor(Qt.ArrowCursor))  # 恢复默认光标
             self.on_left_edge = False
@@ -152,7 +153,7 @@ class SubtitleCard(QWidget):
     
     def mousePressEvent(self, event: QMouseEvent):
         """处理鼠标按下事件"""
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.click_count += 1
             if self.click_count == 1:
                 self.double_click_timer.start(QApplication.doubleClickInterval())
@@ -175,7 +176,7 @@ class SubtitleCard(QWidget):
         self.resizing_left = False
         self.resizing_right = False
         # 恢复光标
-        self.setCursor(QCursor(Qt.ArrowCursor))
+        self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
         self.on_left_edge = False
         self.on_right_edge = False
         self.update()  # 重绘以移除高亮效果
@@ -200,41 +201,65 @@ class SubtitleCard(QWidget):
 
 
 class SubtitleTimeline(QWidget):
-    """字幕时间线组件"""
+    """字幕时间线组件 - 带水平滚动支持"""
     
     def __init__(self, parent:QWidget,workspace: Workspace):
         super().__init__(parent)
         self.workspace = workspace
         self.items = []
-        self.init_ui()
         
-        # 启用鼠标跟踪和焦点
-        self.setMouseTracking(True)
-        self.setFocusPolicy(Qt.StrongFocus)
-        
-    def init_ui(self):
-        # 设置固定高度为12pt对应的高度
+        # 设置固定高度
         font = QFont()
         font.setPointSize(12)
         font_metrics = self.fontMetrics()
         height = font_metrics.height()
-        self.setFixedHeight(max(height + 4, 24))  # 确保最小高度，添加一些内边距
+        self.setFixedHeight(max(height + 4, 24))
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
-        # 设置样式
-        self.setStyleSheet("""
-            SubtitleTimeline {
+        # 创建滚动区域
+        self.scroll_area = SubtitleTimelineScroll(self)
+        self.scroll_area.setStyleSheet("""
+            SubtitleTimelineScroll {
                 background-color: #252525;
                 border-bottom: 1px solid #444444;
             }
         """)
         
-        # 添加几个示例子幕卡片
+        # 创建内容容器来放置卡片
+        self.content_widget = QWidget()
+        self.content_widget.setStyleSheet("""
+            QWidget {
+                background-color: #252525;
+            }
+        """)
+        # 设置最小宽度，将在 set_content_width 中动态设置
+        self.content_widget.setMinimumWidth(800)
+        
+        # 将内容容器放入滚动区域
+        self.scroll_area.setWidget(self.content_widget)
+        
+        # 布局
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        main_layout.addWidget(self.scroll_area)
+        
+        # 启用鼠标跟踪和焦点
+        self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # 初始化UI内容
+        self.init_ui()
+        
+    def init_ui(self):
+        """初始化UI内容 - 添加示例卡片"""
+        # 添加几个示例字幕卡片
         self.add_subtitle_card("示例字幕 1")
         self.add_subtitle_card("示例字幕 2")
     
     def add_subtitle_card(self, content="Subtitle"):
         """添加字幕卡片"""
-        card = SubtitleCard(content, self)
+        card = SubtitleCard(content, self.content_widget)  # 父对象改为 content_widget
         card.move(10 + len(self.items) * 120, 2)  # 简单排列
         card.show()
         card.card_changed.connect(self.on_card_changed)
@@ -247,9 +272,12 @@ class SubtitleTimeline(QWidget):
         
     def mouseDoubleClickEvent(self, event):
         """双击时间线添加新的字幕卡片"""
-        if event.button() == Qt.LeftButton:
-            card = SubtitleCard("New Subtitle", self)
-            card.move(event.pos().x(), 2)
+        if event.button() == Qt.MouseButton.LeftButton:
+            # 计算相对于 content_widget 的位置
+            scroll_offset = self.scroll_area.horizontalScrollBar().value()
+            content_x = event.pos().x() + scroll_offset
+            card = SubtitleCard("New Subtitle", self.content_widget)
+            card.move(content_x, 2)
             card.show()
             card.card_changed.connect(self.on_card_changed)
             self.items.append(card)
@@ -264,14 +292,18 @@ class SubtitleTimeline(QWidget):
         """绘制虚线框占位符"""
         super().paintEvent(event)
         
-        # 如果没有字幕项，绘制虚线框占位符
-        if not self.items:
-            painter = QPainter(self)
-            pen = QPen(Qt.DashLine)
-            pen.setColor(Qt.gray)
+        # 如果没有字幕项，在 content_widget 上绘制虚线框占位符
+        if not self.items and self.content_widget:
+            painter = QPainter(self.content_widget)
+            pen = QPen(Qt.PenStyle.DashLine)
+            pen.setColor(Qt.GlobalColor.gray)
             painter.setPen(pen)
             # 绘制虚线框
-            rect = self.rect()
+            rect = self.content_widget.rect()
             rect.adjust(2, 2, -2, -2)  # 留出边距
             painter.drawRect(rect)
             painter.end()
+    
+    def set_content_width(self, width: int):
+        """设置内容宽度以实现统一的滚动范围"""
+        self.content_widget.setMinimumWidth(width)

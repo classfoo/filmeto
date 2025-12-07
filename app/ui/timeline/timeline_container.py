@@ -214,6 +214,16 @@ class TimelineContainer(BaseWidget):
         self.subtitle_timeline = SubtitleTimeline(self, workspace)
         self.voice_timeline = VoiceTimeline(self, workspace)
         
+        # Scroll synchronization state
+        self._scroll_sync_active = False  # Flag to prevent feedback loops
+        self._last_scroll_position = 0  # Cache last synchronized scroll value
+        
+        # Timer to detect when scrolling has stopped (for cursor show/hide)
+        self._scroll_stop_timer = QTimer(self)
+        self._scroll_stop_timer.setSingleShot(True)
+        self._scroll_stop_timer.setInterval(100)  # 100ms delay after scroll stops
+        self._scroll_stop_timer.timeout.connect(self._on_scroll_stopped)
+        
         # Setup the layout to hold the timelines
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
@@ -253,12 +263,127 @@ class TimelineContainer(BaseWidget):
             self._install_event_filters_recursively(self.subtitle_timeline)
         if self.voice_timeline:
             self._install_event_filters_recursively(self.voice_timeline)
+        
+        # Setup scroll synchronization after all timelines are created
+        self.setup_scroll_synchronization()
 
     def _install_event_filters_recursively(self, widget):
         """Install event filter on widget and all its children recursively"""
         widget.installEventFilter(self)
         for child in widget.findChildren(QWidget):
             child.installEventFilter(self)
+    
+    def setup_scroll_synchronization(self):
+        """
+        Setup scroll synchronization between all three timelines.
+        Connects scrollbar valueChanged signals to the synchronization handler.
+        """
+        # Get scrollbars from all three timelines
+        video_scrollbar = self.video_timeline.scroll_area.get_horizontal_scrollbar()
+        subtitle_scrollbar = self.subtitle_timeline.scroll_area.get_horizontal_scrollbar()
+        voice_scrollbar = self.voice_timeline.scroll_area.get_horizontal_scrollbar()
+        
+        # Connect scroll events to synchronization handler
+        video_scrollbar.valueChanged.connect(lambda value: self._on_scroll_value_changed('video', value))
+        subtitle_scrollbar.valueChanged.connect(lambda value: self._on_scroll_value_changed('subtitle', value))
+        voice_scrollbar.valueChanged.connect(lambda value: self._on_scroll_value_changed('voice', value))
+        
+        # Connect scroll start/stop signals from scroll areas to hide/show cursor
+        self.video_timeline.scroll_area.scroll_started.connect(self._on_scroll_started)
+        self.subtitle_timeline.scroll_area.scroll_started.connect(self._on_scroll_started)
+        self.voice_timeline.scroll_area.scroll_started.connect(self._on_scroll_started)
+        
+        # Calculate and set unified content width
+        self.update_unified_scroll_range()
+    
+    def _on_scroll_value_changed(self, source_timeline: str, new_value: int):
+        """
+        Handle scroll value change from any timeline.
+        Synchronizes the scroll position across all timelines.
+        
+        Args:
+            source_timeline: Which timeline triggered the scroll ('video', 'subtitle', or 'voice')
+            new_value: New scroll position value
+        """
+        # Prevent feedback loops - if we're already syncing, ignore
+        if self._scroll_sync_active:
+            return
+        
+        # Only sync if value actually changed (optimization)
+        if new_value == self._last_scroll_position:
+            return
+        
+        # Set sync flag to prevent feedback loops
+        self._scroll_sync_active = True
+        self._last_scroll_position = new_value
+        
+        try:
+            # Sync to other timelines
+            if source_timeline != 'video':
+                self.video_timeline.scroll_area.get_horizontal_scrollbar().setValue(new_value)
+            if source_timeline != 'subtitle':
+                self.subtitle_timeline.scroll_area.get_horizontal_scrollbar().setValue(new_value)
+            if source_timeline != 'voice':
+                self.voice_timeline.scroll_area.get_horizontal_scrollbar().setValue(new_value)
+        finally:
+            # Always reset sync flag
+            self._scroll_sync_active = False
+        
+        # Reset the scroll stop timer (scrolling is still active)
+        self._scroll_stop_timer.start()
+    
+    def _on_scroll_started(self):
+        """
+        Handle scroll started event.
+        Hides cursor overlay during scrolling for performance.
+        """
+        # Hide cursor during scrolling (performance optimization)
+        self.timeline_position_overlay.clear_cursor()
+    
+    def _on_scroll_stopped(self):
+        """
+        Handle scroll stopped event.
+        Restores cursor overlay after scrolling stops.
+        """
+        # Cursor will be shown again when mouse moves (handled by event())
+        pass
+    
+    def update_unified_scroll_range(self):
+        """
+        Calculate and apply unified scroll range to all timelines.
+        This ensures all timelines have the same scrollable width.
+        """
+        width = self.get_timeline_content_width()
+        
+        # Set content width for all timelines
+        self.video_timeline.content_widget.setMinimumWidth(width)
+        self.subtitle_timeline.set_content_width(width)
+        self.voice_timeline.set_content_width(width)
+    
+    def get_timeline_content_width(self) -> int:
+        """
+        Calculate the unified content width based on video timeline cards.
+        
+        Returns:
+            int: The minimum width for all timeline content widgets
+        """
+        # Get card count from video timeline
+        if not hasattr(self.video_timeline, 'cards'):
+            return 800  # Default minimum width
+        
+        card_count = len(self.video_timeline.cards)
+        if card_count == 0:
+            return 800  # Default minimum width
+        
+        # Calculate total width based on card layout
+        # Formula: (card_width + spacing) × card_count + left_margin + right_margin + add_button_width + stretch
+        total_width = (self.card_width + self.card_spacing) * card_count
+        total_width += self.content_margin_left  # Left margin
+        total_width += self.content_margin_left  # Right margin (same as left)
+        total_width += 100  # Add card button width
+        total_width += 100  # Extra space for comfort
+        
+        return total_width
     
     def eventFilter(self, watched, event):
         """Filter events from all child widgets to handle timeline position clicks"""

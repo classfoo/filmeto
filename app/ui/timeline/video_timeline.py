@@ -82,10 +82,8 @@ class VideoTimeline(BaseTaskWidget):
         # ------------------- 创建可滚动区域 -------------------
         self.scroll_area = VideoTimelineScroll()
         self.scroll_area.setWidgetResizable(True) # 内容 widget 可随区域大小调整
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff) # 水平滚动条按需显示
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff) # 关闭垂直滚动条
         self.scroll_area.setStyleSheet(f"""
-            DraggableScrollArea {{
+            VideoTimelineScroll {{
                 background-color: #1e1f22;
             }}
         """)
@@ -215,6 +213,10 @@ class VideoTimeline(BaseTaskWidget):
             # Update the timeline index to the newly created card
             timeline.set_item_index(new_index)
             
+            # Update unified scroll range for all timelines
+            if hasattr(self.parent(), 'update_unified_scroll_range'):
+                self.parent().update_unified_scroll_range()
+            
             # Force a layout update
             self.content_widget.update()
             self.update()
@@ -280,6 +282,10 @@ class VideoTimeline(BaseTaskWidget):
         # 重新添加"添加卡片"按钮和占位符
         self.timeline_layout.addWidget(self.add_card_button)
         self.timeline_layout.addStretch()
+        
+        # Update unified scroll range for all timelines
+        if hasattr(self.parent(), 'update_unified_scroll_range'):
+            self.parent().update_unified_scroll_range()
         
         # 重置选中状态
         self.selected_card_index = None
