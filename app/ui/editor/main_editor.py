@@ -332,6 +332,9 @@ class MainEditorWidget(BaseTaskWidget):
         if instance and hasattr(instance, 'init_ui'):
             try:
                 instance.init_ui(self)
+                # Reposition config panel after tool initialization
+                if hasattr(self.prompt_input, '_position_config_panel'):
+                    self.prompt_input._position_config_panel()
             except Exception as e:
                 print(f"init_ui failed for {tool_id}: {e}")
         else:

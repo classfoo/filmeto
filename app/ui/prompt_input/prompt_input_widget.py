@@ -159,17 +159,21 @@ class PromptInputWidget(BaseTaskWidget):
         if not self.config_panel:
             return
             
-        # Get the geometry of the text edit relative to the main window
+        # Get the geometry of the text edit relative to the screen
         text_edit_pos = self.text_edit.mapToGlobal(QPoint(0, 0))
         text_edit_size = self.text_edit.size()
         
         # Position the config panel right above the text edit
         panel_width = max(200, text_edit_size.width())  # At least as wide as the text edit
-        panel_height = 80  # Fixed height for the panel
+        panel_height = 50  # Fixed height for the panel
         
-        # Calculate position
+        # Calculate position - place above the text edit with adequate spacing
         panel_x = text_edit_pos.x()
-        panel_y = text_edit_pos.y() - panel_height - 4  # 4px gap
+        panel_y = text_edit_pos.y() - panel_height - 10  # Increased gap to 10px to ensure no overlap
+        
+        # Ensure the panel doesn't go off-screen at the top
+        if panel_y < 0:
+            panel_y = text_edit_pos.y() + text_edit_size.height() + 10  # Place below if would be off-screen
         
         # Set geometry
         self.config_panel.setGeometry(panel_x, panel_y, panel_width, panel_height)
@@ -242,6 +246,10 @@ class PromptInputWidget(BaseTaskWidget):
                 self._on_mouse_leave()
             elif event.type() == QEvent.KeyPress:
                 return self._handle_key_press(event)
+            # Reposition panel on resize events to handle dynamic layout changes
+            elif event.type() == QEvent.Resize:
+                if hasattr(self, 'config_panel') and self.config_panel and self.config_panel.isVisible():
+                    QTimer.singleShot(0, self._position_config_panel)
         
         # Track config panel mouse enter/leave to prevent hiding when interacting
         if hasattr(self, 'config_panel') and obj == self.config_panel:
@@ -292,6 +300,8 @@ class PromptInputWidget(BaseTaskWidget):
         self.char_counter.show()
         # Show config panel on hover (always)
         self._show_config_panel()
+        # Reposition panel immediately when mouse enters to ensure correct positioning
+        self._position_config_panel()
     
     def _on_mouse_leave(self):
         """Handle mouse leave event - no expansion on hover"""
@@ -306,7 +316,7 @@ class PromptInputWidget(BaseTaskWidget):
         if hasattr(self, 'config_panel') and self.config_panel:
             self._position_config_panel()
             self.config_panel.show()
-            # Don't call raise_() to avoid stealing focus
+            self.config_panel.raise_()  # Ensure panel is on top
     
     def _hide_config_panel_if_needed(self):
         """Hide the configuration panel if input is not active"""
