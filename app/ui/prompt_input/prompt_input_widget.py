@@ -42,52 +42,41 @@ class PromptInputWidget(BaseTaskWidget):
         self._apply_initial_style()
         self._update_ui_text()
         
+        # Set size policy to expand and fill parent
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
         # Connect to language change signal (use lambda to handle optional parameter)
         translation_manager.language_changed.connect(lambda lang: self._update_ui_text())
     
     def _setup_ui(self):
-        """Initialize UI components"""
-        main_layout = QVBoxLayout(self)
+        """Initialize UI components with horizontal split layout"""
+        # Main horizontal layout
+        main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(4)
+        main_layout.setSpacing(8)
         
-        # Input container (TextEdit + Send Button)
-        self.input_container = QWidget()
-        self.input_container.setObjectName("prompt_input_container")
-        input_layout = QHBoxLayout(self.input_container)
-        input_layout.setContentsMargins(0, 0, 0, 0)
-        input_layout.setSpacing(8)
+        # Left panel - Tool configuration container
+        self.left_panel = QFrame()
+        self.left_panel.setObjectName("prompt_left_panel")
+        self.left_panel.setFixedWidth(250)
+        self.left_panel_layout = QVBoxLayout(self.left_panel)
+        self.left_panel_layout.setContentsMargins(8, 8, 8, 8)
+        self.left_panel_layout.setSpacing(6)
         
-        # Text edit field
-        self.text_edit = QTextEdit()
-        self.text_edit.setObjectName("prompt_text_edit")
-        self.text_edit.setPlaceholderText(tr("Enter your prompt here..."))
-        self.text_edit.setMinimumWidth(200)
-        self.text_edit.setMinimumHeight(40)  # Increased to accommodate border and padding
-        self.text_edit.setMaximumHeight(40)  # Increased to accommodate border and padding
-        self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.text_edit.installEventFilter(self)
+        # Placeholder label for left panel
+        self.config_placeholder = QLabel(tr("Configuration options will appear here"))
+        self.config_placeholder.setStyleSheet("color: #CCCCCC; font-size: 12px;")
+        self.config_placeholder.setAlignment(Qt.AlignCenter)
+        self.left_panel_layout.addWidget(self.config_placeholder)
         
-        # Send button
-        self.send_button = QPushButton("\ue83e")  # Play icon for send button
-        self.send_button.setObjectName("prompt_send_button")
-        self.send_button.setFixedSize(36, 44)  # Match the text edit height for alignment
-        self.send_button.setToolTip(tr("Submit prompt"))
-        self.send_button.setCursor(QCursor(Qt.PointingHandCursor))
+        # Right panel - Prompt input container
+        self.right_panel = QWidget()
+        self.right_panel.setObjectName("prompt_right_panel")
+        right_panel_layout = QVBoxLayout(self.right_panel)
+        right_panel_layout.setContentsMargins(0, 0, 0, 0)
+        right_panel_layout.setSpacing(4)
         
-        # Character counter - only the number
-        self.char_counter = QLabel("0")
-        self.char_counter.setObjectName("prompt_char_counter")
-        self.char_counter.setAlignment(Qt.AlignRight | Qt.AlignVCenter)  # Align vertically with input
-        self.char_counter.hide()  # Hidden by default
-        
-        # Add all elements to the horizontal input layout - char counter at the end (rightmost)
-        input_layout.addWidget(self.text_edit, 1)
-        input_layout.addWidget(self.send_button, 0)
-        input_layout.addWidget(self.char_counter, 0)
-        
-        # Template dropdown container
+        # Template dropdown container (positioned above input row)
         self.template_dropdown_container = QFrame()
         self.template_dropdown_container.setObjectName("prompt_template_dropdown")
         self.template_dropdown_container.setFrameShape(QFrame.StyledPanel)
@@ -112,71 +101,90 @@ class PromptInputWidget(BaseTaskWidget):
         self.template_scroll.setWidget(self.template_list_widget)
         dropdown_layout.addWidget(self.template_scroll)
         
-        # Add to main layout
-        main_layout.addWidget(self.input_container)
-        main_layout.addWidget(self.template_dropdown_container)
+        # Input row container (TextEdit + Send Button)
+        self.input_container = QWidget()
+        self.input_container.setObjectName("prompt_input_container")
+        self.input_container.setFixedHeight(44)
+        input_layout = QHBoxLayout(self.input_container)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(8)
+        
+        # Text edit field
+        self.text_edit = QTextEdit()
+        self.text_edit.setObjectName("prompt_text_edit")
+        self.text_edit.setPlaceholderText(tr("Enter your prompt here..."))
+        self.text_edit.setMinimumWidth(200)
+        self.text_edit.setFixedHeight(44)
+        self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.text_edit.installEventFilter(self)
+        
+        # Send button (square, 44x44)
+        self.send_button = QPushButton("\ue83e")  # Play icon for send button
+        self.send_button.setObjectName("prompt_send_button")
+        self.send_button.setFixedSize(44, 44)
+        self.send_button.setToolTip(tr("Submit prompt"))
+        self.send_button.setCursor(QCursor(Qt.PointingHandCursor))
+        
+        # Token count badge (child of send button)
+        self.token_badge = QLabel("", self.send_button)
+        self.token_badge.setObjectName("token_badge")
+        self.token_badge.hide()  # Hidden by default
+        self.token_badge.setAlignment(Qt.AlignCenter)
+        
+        # Add widgets to input layout
+        input_layout.addWidget(self.text_edit, 1)
+        input_layout.addWidget(self.send_button, 0)
+        
+        # Add to right panel layout
+        right_panel_layout.addWidget(self.template_dropdown_container)
+        right_panel_layout.addStretch()
+        right_panel_layout.addWidget(self.input_container)
+        
+        # Add panels to main layout
+        main_layout.addWidget(self.left_panel, 0)
+        main_layout.addWidget(self.right_panel, 1)
         
         self.setLayout(main_layout)
-        
-        # Create floating config panel
-        self._create_floating_config_panel()
     
-    def _create_floating_config_panel(self):
-        """Create a floating configuration panel"""
-        self.config_panel = QFrame(self)
-        self.config_panel.setObjectName("prompt_config_panel")
-        self.config_panel.hide()  # Hidden by default
-        self.config_panel_layout = QHBoxLayout(self.config_panel)
-        self.config_panel_layout.setContentsMargins(8, 8, 8, 8)
-        self.config_panel_layout.setSpacing(6)
+    def _update_token_badge(self):
+        """Update token badge position and content"""
+        if not self._current_text:
+            self.token_badge.hide()
+            return
         
-        # Add a label as placeholder for configuration options
-        config_label = QLabel(tr("Configuration options will appear here"))
-        config_label.setStyleSheet("color: #CCCCCC; font-size: 12px;")
-        self.config_panel_layout.addWidget(config_label)
-        self.config_panel_layout.addStretch()
+        # Calculate token count (characters / 4 heuristic)
+        char_count = len(self._current_text)
+        token_count = max(1, char_count // 4)
         
-        # Apply styling
-        self.config_panel.setStyleSheet("""
-            QFrame#prompt_config_panel {
-                background-color: #2d2d2d;
-                border: 1px solid #505254;
-                border-radius: 8px;
-            }
+        # Determine display text and style
+        if token_count >= 10000:
+            display_text = "9999+"
+            bg_color = "#ff6b6b"  # Warning style
+        else:
+            display_text = str(token_count)
+            bg_color = "rgba(45, 45, 45, 0.8)"  # Normal style
+        
+        self.token_badge.setText(display_text)
+        self.token_badge.setStyleSheet(f"""
+            QLabel#token_badge {{
+                background-color: {bg_color};
+                color: #FFFFFF;
+                font-size: 10px;
+                padding: 2px 4px;
+                border-radius: 4px;
+            }}
         """)
         
-        # Use Tool window flag - stays on top without stealing focus
-        self.config_panel.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        self.config_panel.setAttribute(Qt.WA_ShowWithoutActivating, True)
-        self.config_panel.setAttribute(Qt.WA_TranslucentBackground, False)
-        
-        # Install event filter on config panel to track mouse interactions
-        self.config_panel.installEventFilter(self)
-        self._config_panel_hovered = False
-    
-    def _position_config_panel(self):
-        """Position the config panel above the input field"""
-        if not self.config_panel:
-            return
-            
-        # Get the geometry of the text edit relative to the screen
-        text_edit_pos = self.text_edit.mapToGlobal(QPoint(0, 0))
-        text_edit_size = self.text_edit.size()
-        
-        # Position the config panel right above the text edit
-        panel_width = max(200, text_edit_size.width())  # At least as wide as the text edit
-        panel_height = 50  # Fixed height for the panel
-        
-        # Calculate position - place above the text edit with adequate spacing
-        panel_x = text_edit_pos.x()
-        panel_y = text_edit_pos.y() - panel_height - 10  # Increased gap to 10px to ensure no overlap
-        
-        # Ensure the panel doesn't go off-screen at the top
-        if panel_y < 0:
-            panel_y = text_edit_pos.y() + text_edit_size.height() + 10  # Place below if would be off-screen
-        
-        # Set geometry
-        self.config_panel.setGeometry(panel_x, panel_y, panel_width, panel_height)
+        # Position badge at top-right corner
+        self.token_badge.adjustSize()
+        badge_width = self.token_badge.width()
+        badge_height = self.token_badge.height()
+        self.token_badge.move(
+            self.send_button.width() - badge_width - 2,
+            2
+        )
+        self.token_badge.show()
     
     def _connect_signals(self):
         """Connect signals and slots"""
@@ -205,7 +213,7 @@ class PromptInputWidget(BaseTaskWidget):
             QPushButton#prompt_send_button {
                 background-color: #3d3f4e;
                 border: none;
-                border-radius: 18px;
+                border-radius: 22px;
                 color: #E1E1E1;
                 font-size: 16px;
             }
@@ -217,11 +225,11 @@ class PromptInputWidget(BaseTaskWidget):
             }
         """)
         
-        self.char_counter.setStyleSheet("""
-            QLabel#prompt_char_counter {
-                color: #888888;
-                font-size: 11px;
-                padding: 0px 4px;
+        self.left_panel.setStyleSheet("""
+            QFrame#prompt_left_panel {
+                background-color: #2d2d2d;
+                border: 1px solid #505254;
+                border-radius: 8px;
             }
         """)
         
@@ -234,7 +242,7 @@ class PromptInputWidget(BaseTaskWidget):
         """)
     
     def eventFilter(self, obj, event):
-        """Filter events for text edit widget and config panel"""
+        """Filter events for text edit widget"""
         if obj == self.text_edit:
             if event.type() == QEvent.FocusIn:
                 self._on_input_focus_in()
@@ -246,101 +254,26 @@ class PromptInputWidget(BaseTaskWidget):
                 self._on_mouse_leave()
             elif event.type() == QEvent.KeyPress:
                 return self._handle_key_press(event)
-            # Reposition panel on resize events to handle dynamic layout changes
-            elif event.type() == QEvent.Resize:
-                if hasattr(self, 'config_panel') and self.config_panel and self.config_panel.isVisible():
-                    QTimer.singleShot(0, self._position_config_panel)
-        
-        # Track config panel mouse enter/leave to prevent hiding when interacting
-        if hasattr(self, 'config_panel') and obj == self.config_panel:
-            if event.type() == QEvent.Enter:
-                self._config_panel_hovered = True
-            elif event.type() == QEvent.Leave:
-                self._config_panel_hovered = False
-                # Check if we should hide the panel after mouse leaves
-                if not self._has_focus:
-                    QTimer.singleShot(100, self._hide_config_panel_if_needed)
-            elif event.type() == QEvent.MouseButtonPress:
-                # Mark that we're interacting with the panel
-                self._config_panel_hovered = True
-            elif event.type() == QEvent.MouseButtonRelease:
-                # After clicking on config panel, return focus to text edit
-                # Use timer to avoid focus race conditions
-                QTimer.singleShot(50, self._return_focus_to_text_edit)
         
         return super().eventFilter(obj, event)
-    
-    def _return_focus_to_text_edit(self):
-        """Return focus to the text edit after config panel interaction"""
-        if self._in_input_mode and hasattr(self, 'text_edit'):
-            self.text_edit.setFocus()
     
     def _on_input_focus_in(self):
         """Handle input field focus in"""
         self._has_focus = True
-        # Always show character counter when focused
-        self.char_counter.show()
-        # Show config panel when focused (always, regardless of input mode)
-        self._show_config_panel()
         self._update_text_edit_style()
     
     def _on_input_focus_out(self):
         """Handle input field focus out"""
         self._has_focus = False
-        # Hide character counter when losing focus
-        self.char_counter.hide()
-        # Hide config panel when losing focus (with delay to allow panel interaction)
-        QTimer.singleShot(150, self._hide_config_panel_if_needed)
         self._update_text_edit_style()
     
     def _on_mouse_enter(self):
-        """Handle mouse enter event - no expansion on hover"""
+        """Handle mouse enter event"""
         self._mouse_over = True
-        # Show character counter on hover
-        self.char_counter.show()
-        # Show config panel on hover (always)
-        self._show_config_panel()
-        # Reposition panel immediately when mouse enters to ensure correct positioning
-        self._position_config_panel()
     
     def _on_mouse_leave(self):
-        """Handle mouse leave event - no expansion on hover"""
+        """Handle mouse leave event"""
         self._mouse_over = False
-        # Hide character counter if not focused
-        if not self._has_focus:
-            self.char_counter.hide()
-        # Don't hide config panel on mouse leave - only hide when focus is truly lost
-    
-    def _show_config_panel(self):
-        """Show the configuration panel"""
-        if hasattr(self, 'config_panel') and self.config_panel:
-            self._position_config_panel()
-            self.config_panel.show()
-            self.config_panel.raise_()  # Ensure panel is on top
-    
-    def _hide_config_panel_if_needed(self):
-        """Hide the configuration panel if input is not active"""
-        # Don't hide if:
-        # 1. Text edit has focus
-        # 2. Config panel is being hovered
-        # 3. Mouse is over the text edit
-        # 4. Mouse is currently within the config panel bounds
-        if self._has_focus:
-            return
-        if hasattr(self, '_config_panel_hovered') and self._config_panel_hovered:
-            return
-        if self._mouse_over:
-            return
-        
-        # Also check if cursor is within config panel bounds (for child widget interactions)
-        if hasattr(self, 'config_panel') and self.config_panel and self.config_panel.isVisible():
-            cursor_pos = QCursor.pos()
-            panel_rect = self.config_panel.geometry()
-            if panel_rect.contains(cursor_pos):
-                return
-        
-        if hasattr(self, 'config_panel') and self.config_panel:
-            self.config_panel.hide()
     
     def _update_text_edit_style(self):
         """Update text edit style based on focus state only"""
@@ -380,33 +313,14 @@ class PromptInputWidget(BaseTaskWidget):
         elif not text.strip() and self._in_input_mode:
             self._in_input_mode = False
         
-        # Update character counter
-        char_count = len(text)
-        self.char_counter.setText(str(char_count))
+        # Update token badge
+        self._update_token_badge()
         
         # Emit signal
         self.prompt_changed.emit(text)
         
         # Trigger template filtering with debounce
         self._filter_timer.start()
-        
-        # Show warning if text is too long
-        if char_count > 10000:
-            self.char_counter.setStyleSheet("""
-                QLabel#prompt_char_counter {
-                    color: #ff6b6b;
-                    font-size: 11px;
-                    padding: 2px 4px;
-                }
-            """)
-        else:
-            self.char_counter.setStyleSheet("""
-                QLabel#prompt_char_counter {
-                    color: #888888;
-                    font-size: 11px;
-                    padding: 2px 4px;
-                }
-            """)
     
     def _filter_templates(self):
         """Filter templates based on current text"""
@@ -508,7 +422,7 @@ class PromptInputWidget(BaseTaskWidget):
         self._current_text = ""
         self.template_dropdown_container.hide()
         self._in_input_mode = False  # Reset input mode when clearing
-        self._hide_config_panel_if_needed()  # Hide panel when clearing
+        self.token_badge.hide()  # Hide token badge
     
     def on_timeline_switch(self, item):
         """Load and display the prompt content from the timeline item"""
@@ -531,7 +445,6 @@ class PromptInputWidget(BaseTaskWidget):
                 # If no prompt in timeline item, clear the input
                 self.text_edit.clear()
             self._in_input_mode = False  # Reset input mode when switching timeline
-            self._hide_config_panel_if_needed()  # Hide panel when switching timeline
     
     def get_current_tool_name(self) -> str:
         """
@@ -552,35 +465,35 @@ class PromptInputWidget(BaseTaskWidget):
         # 隐藏模板下拉框
         self.template_dropdown_container.hide()
         self._in_input_mode = False  # Reset input mode when switching projects
-        self._hide_config_panel_if_needed()  # Hide panel when switching projects
     
     def set_config_panel_widget(self, widget):
         """
-        Set a custom widget for the configuration panel.
+        Set a custom widget for the left configuration panel.
         
         Args:
-            widget: QWidget to display in the configuration panel
+            widget: QWidget to display in the left panel
         """
-        if not hasattr(self, 'config_panel') or not self.config_panel:
+        if not hasattr(self, 'left_panel_layout'):
             return
             
-        # Clear existing widgets from config panel layout
-        while self.config_panel_layout.count():
-            item = self.config_panel_layout.takeAt(0)
+        # Clear existing widgets from left panel layout
+        while self.left_panel_layout.count():
+            item = self.left_panel_layout.takeAt(0)
             w = item.widget()
-            if w and w != self.config_panel_layout:
+            if w:
                 w.setParent(None)
                 w.deleteLater()
         
         # Add new widget if provided
         if widget:
-            self.config_panel_layout.addWidget(widget)
+            self.left_panel_layout.addWidget(widget)
+            self.left_panel_layout.addStretch()
         else:
-            # Add default label if no widget provided
-            config_label = QLabel(tr("Configuration options will appear here"))
-            config_label.setStyleSheet("color: #CCCCCC; font-size: 12px;")
-            self.config_panel_layout.addWidget(config_label)
-            self.config_panel_layout.addStretch()
+            # Show placeholder if no widget provided
+            self.config_placeholder = QLabel(tr("Configuration options will appear here"))
+            self.config_placeholder.setStyleSheet("color: #CCCCCC; font-size: 12px;")
+            self.config_placeholder.setAlignment(Qt.AlignCenter)
+            self.left_panel_layout.addWidget(self.config_placeholder)
     
     @Slot()
     def _update_ui_text(self):
@@ -597,6 +510,5 @@ class PromptInputWidget(BaseTaskWidget):
         if current_tooltip != new_tooltip:
             self.send_button.setToolTip(new_tooltip)
         
-        # Update character counter
-        char_count = len(self._current_text)
-        self.char_counter.setText(str(char_count))
+        # Update token badge
+        self._update_token_badge()

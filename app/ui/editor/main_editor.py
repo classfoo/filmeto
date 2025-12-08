@@ -175,17 +175,12 @@ class MainEditorWidget(BaseTaskWidget):
         def get_current_tool_name_override():
             return self.current_tool
         self.prompt_input.get_current_tool_name = get_current_tool_name_override
-        # Set fixed height to match tool buttons (40px)
-        self.prompt_input.text_edit.setFixedHeight(40)
-        self.prompt_input.text_edit.setMaximumHeight(40)
-        self.prompt_input.send_button.setFixedSize(40, 40)
-        self.prompt_input._is_expanded = False
         control_h_layout.addWidget(self.prompt_input, 1)  # Stretch to fill
         
         control_main_layout.addLayout(control_h_layout)
 
-        # Set fixed height for control container (40px + padding)
-        self.control_container.setFixedHeight(72)  # 40px content + 12px top + 12px bottom
+        # Set fixed height for control container to accommodate the new 44px input height
+        self.control_container.setFixedHeight(76)  # 44px content + 12px top + 12px bottom + 8px spacing
         self.frame_selector = FrameSelectorWidget()
         self.frame_selector.load_frames(200)
         # Add containers to splitter
@@ -332,9 +327,6 @@ class MainEditorWidget(BaseTaskWidget):
         if instance and hasattr(instance, 'init_ui'):
             try:
                 instance.init_ui(self)
-                # Reposition config panel after tool initialization
-                if hasattr(self.prompt_input, '_position_config_panel'):
-                    self.prompt_input._position_config_panel()
             except Exception as e:
                 print(f"init_ui failed for {tool_id}: {e}")
         else:

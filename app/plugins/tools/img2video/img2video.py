@@ -41,39 +41,41 @@ class Image2Video(BaseTool,BaseTaskWidget):
         }
 
     def init_ui(self, main_editor):
-        from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QPushButton, QFileDialog, QSpacerItem, QSizePolicy
+        from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSpacerItem, QSizePolicy
+        from app.ui.media_selector.media_selector import MediaSelector
+        
         panel = QWidget()
         layout = QHBoxLayout(panel)  # Changed to QHBoxLayout for left-right layout
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         
-        # Start frame controls
-        start_edit = QLineEdit()
-        start_edit.setReadOnly(True)
-        start_btn = QPushButton(tr("Start"))
-        def on_pick_start():
-            file_path, _ = QFileDialog.getOpenFileName(panel, tr("Select Start Frame"), "", "Images (*.png *.jpg *.jpeg)")
-            if file_path:
-                self.start_frame_path = file_path
-                start_edit.setText(file_path)
-        start_btn.clicked.connect(on_pick_start)
+        # Start frame selector
+        self.start_frame_selector = MediaSelector()
+        # Set supported types to image formats only
+        self.start_frame_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
+        # Reduce preview size to fit in config panel
+        self.start_frame_selector.preview_widget.setFixedSize(40, 40)
+        self.start_frame_selector.placeholder_widget.setFixedSize(40, 40)
         
-        # End frame controls
-        end_edit = QLineEdit()
-        end_edit.setReadOnly(True)
-        end_btn = QPushButton(tr("End"))
-        def on_pick_end():
-            file_path, _ = QFileDialog.getOpenFileName(panel, tr("Select End Frame"), "", "Images (*.png *.jpg *.jpeg)")
-            if file_path:
-                self.end_frame_path = file_path
-                end_edit.setText(file_path)
-        end_btn.clicked.connect(on_pick_end)
+        # Connect signal for start frame
+        self.start_frame_selector.file_selected.connect(self._on_start_frame_selected)
+        self.start_frame_selector.file_cleared.connect(self._on_start_frame_cleared)
+        
+        # End frame selector
+        self.end_frame_selector = MediaSelector()
+        # Set supported types to image formats only
+        self.end_frame_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
+        # Reduce preview size to fit in config panel
+        self.end_frame_selector.preview_widget.setFixedSize(40, 40)
+        self.end_frame_selector.placeholder_widget.setFixedSize(40, 40)
+        
+        # Connect signal for end frame
+        self.end_frame_selector.file_selected.connect(self._on_end_frame_selected)
+        self.end_frame_selector.file_cleared.connect(self._on_end_frame_cleared)
         
         # Add widgets to layout without labels
-        layout.addWidget(start_edit, 1)
-        layout.addWidget(start_btn)
-        layout.addWidget(end_edit, 1)
-        layout.addWidget(end_btn)
+        layout.addWidget(self.start_frame_selector)
+        layout.addWidget(self.end_frame_selector)
         layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
         
         # Set the widget in the prompt input's config panel
@@ -211,3 +213,19 @@ class Image2Video(BaseTool,BaseTaskWidget):
 
         print(f"Using input image: {input_image_path}")
         return input_image_path
+    
+    def _on_start_frame_selected(self, file_path):
+        """Handle start frame selection"""
+        self.start_frame_path = file_path
+
+    def _on_start_frame_cleared(self):
+        """Handle start frame clearing"""
+        self.start_frame_path = None
+        
+    def _on_end_frame_selected(self, file_path):
+        """Handle end frame selection"""
+        self.end_frame_path = file_path
+
+    def _on_end_frame_cleared(self):
+        """Handle end frame clearing"""
+        self.end_frame_path = None

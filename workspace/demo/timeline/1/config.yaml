@@ -18,28 +18,19 @@ layers:
   width: 720
   x: 0
   y: 0
-- height: 1280
+- height: 1360
   id: 2
   locked: false
   name: Layer-2
   type: image
   visible: true
-  width: 720
+  width: 768
   x: 0
   y: 0
 - height: 1280
   id: 3
   locked: false
   name: Layer-3
-  type: video
-  visible: true
-  width: 720
-  x: 0
-  y: 0
-- height: 1280
-  id: 4
-  locked: false
-  name: Layer-4
   type: image
   visible: true
   width: 720
@@ -50,5 +41,6 @@ text2img:
   model: comfy_ui
   percent: 100
   prompt: 真实风格，一只小猫穿着靴子，带着帽子，腰间别着一把火枪，站在城门口
+  reference_image_path: null
   timeline_index: 1
   tool: text2img
