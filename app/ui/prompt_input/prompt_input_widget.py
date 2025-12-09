@@ -53,12 +53,12 @@ class PromptInputWidget(BaseTaskWidget):
         # Main horizontal layout
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(8)
+        main_layout.setSpacing(0)  # Remove spacing between panels
         
         # Left panel - Tool configuration container
         self.left_panel = QFrame()
         self.left_panel.setObjectName("prompt_left_panel")
-        self.left_panel.setFixedWidth(250)
+        # Don't set fixed width - let it adapt to content
         self.left_panel_layout = QVBoxLayout(self.left_panel)
         self.left_panel_layout.setContentsMargins(8, 8, 8, 8)
         self.left_panel_layout.setSpacing(6)
@@ -194,10 +194,19 @@ class PromptInputWidget(BaseTaskWidget):
     
     def _apply_initial_style(self):
         """Apply initial styling"""
+        # Apply overall border to the widget itself
+        self.setStyleSheet("""
+            PromptInputWidget {
+                background-color: #2d2d2d;
+                border: 1px solid #505254;
+                border-radius: 8px;
+            }
+        """)
+        
         self.text_edit.setStyleSheet("""
             QTextEdit#prompt_text_edit {
                 background-color: #2b2d30;
-                border: 1px solid #505254;
+                border: none;  /* Remove border */
                 border-radius: 8px;
                 padding: 8px;
                 color: #E1E1E1;
@@ -205,7 +214,7 @@ class PromptInputWidget(BaseTaskWidget):
                 selection-background-color: #4080ff;
             }
             QTextEdit#prompt_text_edit:focus {
-                border: 1px solid #4080ff;
+                border: none;  /* Remove border */
             }
         """)
         
@@ -228,15 +237,15 @@ class PromptInputWidget(BaseTaskWidget):
         self.left_panel.setStyleSheet("""
             QFrame#prompt_left_panel {
                 background-color: #2d2d2d;
-                border: 1px solid #505254;
-                border-radius: 8px;
+                border: none;  /* Remove border */
+                border-radius: 0px;  /* Remove rounded corners */
             }
         """)
         
         self.template_dropdown_container.setStyleSheet("""
             QFrame#prompt_template_dropdown {
                 background-color: #2c2c2c;
-                border: 1px solid #505254;
+                border: none;  /* Remove border */
                 border-radius: 8px;
             }
         """)
@@ -281,7 +290,7 @@ class PromptInputWidget(BaseTaskWidget):
             self.text_edit.setStyleSheet("""
                 QTextEdit#prompt_text_edit {
                     background-color: #2b2d30;
-                    border: 1px solid #4080ff;
+                    border: none;  /* Remove border */
                     border-radius: 8px;
                     padding: 8px;
                     color: #E1E1E1;
@@ -293,7 +302,7 @@ class PromptInputWidget(BaseTaskWidget):
             self.text_edit.setStyleSheet("""
                 QTextEdit#prompt_text_edit {
                     background-color: #2b2d30;
-                    border: 1px solid #505254;
+                    border: none;  /* Remove border */
                     border-radius: 8px;
                     padding: 8px;
                     color: #E1E1E1;
@@ -488,8 +497,25 @@ class PromptInputWidget(BaseTaskWidget):
         if widget:
             self.left_panel_layout.addWidget(widget)
             self.left_panel_layout.addStretch()
+            
+            # Adjust left panel width based on widget's size hint or minimum width
+            # Allow the widget to determine the width naturally
+            widget_width = widget.sizeHint().width()
+            if widget_width > 0:
+                # Add margins to the width (8px left + 8px right = 16px)
+                self.left_panel.setFixedWidth(widget_width + 16)
+            else:
+                # Fallback to minimum size if size hint is not available
+                widget.adjustSize()
+                min_width = widget.minimumSizeHint().width()
+                if min_width > 0:
+                    self.left_panel.setFixedWidth(min_width + 16)
+                else:
+                    # Final fallback to default width
+                    self.left_panel.setFixedWidth(250)
         else:
-            # Show placeholder if no widget provided
+            # Show placeholder if no widget provided and reset to default width
+            self.left_panel.setFixedWidth(250)
             self.config_placeholder = QLabel(tr("Configuration options will appear here"))
             self.config_placeholder.setStyleSheet("color: #CCCCCC; font-size: 12px;")
             self.config_placeholder.setAlignment(Qt.AlignCenter)
