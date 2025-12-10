@@ -8,6 +8,7 @@ from pathlib import Path
 from app.data.project import Project, ProjectManager
 from app.data.task import TaskManager, TaskResult
 from app.data.prompt import PromptManager, PromptTemplate
+from app.data.settings import Settings
 from utils.yaml_utils import load_yaml, save_yaml
 
 
@@ -25,6 +26,9 @@ class Workspace():
         # Initialize PromptManager
         prompts_dir = os.path.join(self.project_path, 'prompts')
         self.prompt_manager = PromptManager(prompts_dir)
+        
+        # Initialize Settings
+        self.settings = Settings(workspace_path)
         return
 
     def get_project(self):
@@ -36,6 +40,10 @@ class Workspace():
     def get_prompt_manager(self) -> PromptManager:
         """Get the prompt manager instance"""
         return self.prompt_manager
+    
+    def get_settings(self) -> Settings:
+        """Get the settings instance"""
+        return self.settings
 
     async def start(self):
         await self.project.start()

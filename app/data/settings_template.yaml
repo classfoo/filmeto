@@ -1,0 +1,90 @@
+groups:
+  - name: general
+    label: General
+    icon: ""
+    fields:
+      - name: language
+        label: Language
+        type: select
+        default: en
+        description: Application display language
+        options:
+          - value: en
+            label: English
+          - value: zh
+            label: 中文
+      
+      - name: auto_save_interval
+        label: Auto-save Interval
+        type: number
+        default: 0
+        description: Automatic save interval in seconds (0 = disabled)
+        validation:
+          min: 0
+          max: 60
+      
+      - name: show_tooltips
+        label: Show Tooltips
+        type: boolean
+        default: true
+        description: Display helpful tooltips throughout the application
+  
+  - name: rendering
+    label: Rendering
+    icon: ""
+    fields:
+      - name: quality
+        label: Default Quality
+        type: slider
+        default: 80
+        description: Default rendering quality percentage
+        validation:
+          min: 0
+          max: 100
+          step: 5
+      
+      - name: enable_gpu
+        label: Enable GPU Acceleration
+        type: boolean
+        default: true
+        description: Use GPU for rendering operations
+      
+      - name: max_threads
+        label: Maximum Threads
+        type: number
+        default: 4
+        description: Number of concurrent processing threads
+        validation:
+          min: 1
+          max: 16
+  
+  - name: export
+    label: Export
+    icon: ""
+    fields:
+      - name: default_format
+        label: Default Format
+        type: select
+        default: mp4
+        description: Default video export format
+        options:
+          - value: mp4
+            label: MP4
+          - value: mov
+            label: MOV
+          - value: avi
+            label: AVI
+      
+      - name: output_directory
+        label: Output Directory
+        type: text
+        default: ""
+        description: Default directory for exported files
+        validation:
+          max_length: 500
+      
+      - name: overwrite_existing
+        label: Overwrite Existing Files
+        type: boolean
+        default: false
+        description: Automatically overwrite files with the same name
