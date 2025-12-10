@@ -54,8 +54,8 @@ class Image2Video(BaseTool,BaseTaskWidget):
         # Set supported types to image formats only
         self.start_frame_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
         # Reduce preview size to fit in config panel
-        self.start_frame_selector.preview_widget.setFixedSize(40, 40)
-        self.start_frame_selector.placeholder_widget.setFixedSize(40, 40)
+        self.start_frame_selector.preview_widget.setFixedSize(36, 76)
+        self.start_frame_selector.placeholder_widget.setFixedSize(36, 76)
         
         # Connect signal for start frame
         self.start_frame_selector.file_selected.connect(self._on_start_frame_selected)
@@ -66,8 +66,8 @@ class Image2Video(BaseTool,BaseTaskWidget):
         # Set supported types to image formats only
         self.end_frame_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
         # Reduce preview size to fit in config panel
-        self.end_frame_selector.preview_widget.setFixedSize(40, 40)
-        self.end_frame_selector.placeholder_widget.setFixedSize(40, 40)
+        self.end_frame_selector.preview_widget.setFixedSize(36, 76)
+        self.end_frame_selector.placeholder_widget.setFixedSize(36, 76)
         
         # Connect signal for end frame
         self.end_frame_selector.file_selected.connect(self._on_end_frame_selected)

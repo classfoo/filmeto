@@ -55,66 +55,28 @@ class PromptInputWidget(BaseTaskWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)  # Remove spacing between panels
         
-        # Left panel - Tool configuration container
-        self.left_panel = QFrame()
+        # Left panel - Tool configuration container with scroll support
+        self.left_panel = QWidget()
         self.left_panel.setObjectName("prompt_left_panel")
         # Don't set fixed width - let it adapt to content
+
         self.left_panel_layout = QVBoxLayout(self.left_panel)
-        self.left_panel_layout.setContentsMargins(8, 8, 8, 8)
-        self.left_panel_layout.setSpacing(6)
-        
-        # Placeholder label for left panel
-        self.config_placeholder = QLabel(tr("Configuration options will appear here"))
-        self.config_placeholder.setStyleSheet("color: #CCCCCC; font-size: 12px;")
-        self.config_placeholder.setAlignment(Qt.AlignCenter)
-        self.left_panel_layout.addWidget(self.config_placeholder)
-        
+        self.left_panel_layout.setContentsMargins(0, 0, 0, 0)
+        self.left_panel_layout.setSpacing(4)
+
         # Right panel - Prompt input container
         self.right_panel = QWidget()
         self.right_panel.setObjectName("prompt_right_panel")
-        right_panel_layout = QVBoxLayout(self.right_panel)
+        right_panel_layout = QHBoxLayout(self.right_panel)
         right_panel_layout.setContentsMargins(0, 0, 0, 0)
         right_panel_layout.setSpacing(4)
-        
-        # Template dropdown container (positioned above input row)
-        self.template_dropdown_container = QFrame()
-        self.template_dropdown_container.setObjectName("prompt_template_dropdown")
-        self.template_dropdown_container.setFrameShape(QFrame.StyledPanel)
-        self.template_dropdown_container.hide()  # Hidden by default
-        
-        dropdown_layout = QVBoxLayout(self.template_dropdown_container)
-        dropdown_layout.setContentsMargins(4, 4, 4, 4)
-        dropdown_layout.setSpacing(2)
-        
-        # Template list scroll area
-        self.template_scroll = QScrollArea()
-        self.template_scroll.setWidgetResizable(True)
-        self.template_scroll.setMaximumHeight(200)
-        self.template_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        
-        self.template_list_widget = QWidget()
-        self.template_list_layout = QVBoxLayout(self.template_list_widget)
-        self.template_list_layout.setContentsMargins(0, 0, 0, 0)
-        self.template_list_layout.setSpacing(2)
-        self.template_list_layout.addStretch()
-        
-        self.template_scroll.setWidget(self.template_list_widget)
-        dropdown_layout.addWidget(self.template_scroll)
-        
-        # Input row container (TextEdit + Send Button)
-        self.input_container = QWidget()
-        self.input_container.setObjectName("prompt_input_container")
-        self.input_container.setFixedHeight(44)
-        input_layout = QHBoxLayout(self.input_container)
-        input_layout.setContentsMargins(0, 0, 0, 0)
-        input_layout.setSpacing(8)
         
         # Text edit field
         self.text_edit = QTextEdit()
         self.text_edit.setObjectName("prompt_text_edit")
         self.text_edit.setPlaceholderText(tr("Enter your prompt here..."))
         self.text_edit.setMinimumWidth(200)
-        self.text_edit.setFixedHeight(44)
+        self.text_edit.setFixedHeight(64)
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.text_edit.installEventFilter(self)
@@ -126,80 +88,32 @@ class PromptInputWidget(BaseTaskWidget):
         self.send_button.setToolTip(tr("Submit prompt"))
         self.send_button.setCursor(QCursor(Qt.PointingHandCursor))
         
-        # Token count badge (child of send button)
-        self.token_badge = QLabel("", self.send_button)
-        self.token_badge.setObjectName("token_badge")
-        self.token_badge.hide()  # Hidden by default
-        self.token_badge.setAlignment(Qt.AlignCenter)
-        
         # Add widgets to input layout
-        input_layout.addWidget(self.text_edit, 1)
-        input_layout.addWidget(self.send_button, 0)
+        right_panel_layout.addWidget(self.text_edit, 1)
+        right_panel_layout.addWidget(self.send_button, 0)
         
         # Add to right panel layout
-        right_panel_layout.addWidget(self.template_dropdown_container)
-        right_panel_layout.addStretch()
-        right_panel_layout.addWidget(self.input_container)
+        #right_panel_layout.addWidget(self.input_layout)
         
         # Add panels to main layout
-        main_layout.addWidget(self.left_panel, 0)
+        main_layout.addWidget(self.left_panel, 1)
         main_layout.addWidget(self.right_panel, 1)
         
         self.setLayout(main_layout)
-    
-    def _update_token_badge(self):
-        """Update token badge position and content"""
-        if not self._current_text:
-            self.token_badge.hide()
-            return
-        
-        # Calculate token count (characters / 4 heuristic)
-        char_count = len(self._current_text)
-        token_count = max(1, char_count // 4)
-        
-        # Determine display text and style
-        if token_count >= 10000:
-            display_text = "9999+"
-            bg_color = "#ff6b6b"  # Warning style
-        else:
-            display_text = str(token_count)
-            bg_color = "rgba(45, 45, 45, 0.8)"  # Normal style
-        
-        self.token_badge.setText(display_text)
-        self.token_badge.setStyleSheet(f"""
-            QLabel#token_badge {{
-                background-color: {bg_color};
-                color: #FFFFFF;
-                font-size: 10px;
-                padding: 2px 4px;
-                border-radius: 4px;
-            }}
-        """)
-        
-        # Position badge at top-right corner
-        self.token_badge.adjustSize()
-        badge_width = self.token_badge.width()
-        badge_height = self.token_badge.height()
-        self.token_badge.move(
-            self.send_button.width() - badge_width - 2,
-            2
-        )
-        self.token_badge.show()
     
     def _connect_signals(self):
         """Connect signals and slots"""
         self.text_edit.textChanged.connect(self._on_text_changed)
         self.send_button.clicked.connect(self._on_send_clicked)
-        self._filter_timer.timeout.connect(self._filter_templates)
-    
+
     def _apply_initial_style(self):
         """Apply initial styling"""
         # Apply overall border to the widget itself
         self.setStyleSheet("""
             PromptInputWidget {
                 background-color: #2d2d2d;
-                border: 1px solid #505254;
-                border-radius: 8px;
+                border: 0px solid #505254;
+                border-radius: 4px;
             }
         """)
         
@@ -207,11 +121,13 @@ class PromptInputWidget(BaseTaskWidget):
             QTextEdit#prompt_text_edit {
                 background-color: #2b2d30;
                 border: none;  /* Remove border */
-                border-radius: 8px;
-                padding: 8px;
+                border-radius: 4px;
+                padding: 0px;
+                margin: 4px;
                 color: #E1E1E1;
                 font-size: 14px;
                 selection-background-color: #4080ff;
+                height:76px;
             }
             QTextEdit#prompt_text_edit:focus {
                 border: none;  /* Remove border */
@@ -233,20 +149,25 @@ class PromptInputWidget(BaseTaskWidget):
                 background-color: #3060cc;
             }
         """)
-        
-        self.left_panel.setStyleSheet("""
-            QFrame#prompt_left_panel {
+
+        self.right_panel.setStyleSheet("""
+            QWidget#prompt_right_panel {
                 background-color: #2d2d2d;
-                border: none;  /* Remove border */
-                border-radius: 0px;  /* Remove rounded corners */
+                border: 2px solid #505254;
+                border-radius: 4px;
             }
         """)
         
-        self.template_dropdown_container.setStyleSheet("""
-            QFrame#prompt_template_dropdown {
-                background-color: #2c2c2c;
-                border: none;  /* Remove border */
-                border-radius: 8px;
+        self.left_panel.setStyleSheet("""
+            QWidget#prompt_left_panel {
+                background-color: #2d2d2d;
+                border: none;
+                border-radius: 0px;
+            }
+            QFrame#prompt_left_panel_content {
+                background-color: #2d2d2d;
+                border: none;
+                border-radius: 0px;
             }
         """)
     
@@ -322,67 +243,11 @@ class PromptInputWidget(BaseTaskWidget):
         elif not text.strip() and self._in_input_mode:
             self._in_input_mode = False
         
-        # Update token badge
-        self._update_token_badge()
-        
         # Emit signal
         self.prompt_changed.emit(text)
         
         # Trigger template filtering with debounce
         self._filter_timer.start()
-    
-    def _filter_templates(self):
-        """Filter templates based on current text"""
-        query = self._current_text.strip()
-        
-        if not query:
-            self.template_dropdown_container.hide()
-            return
-        
-        # Search templates
-        templates = self.prompt_manager.search_templates(query)
-        
-        if not templates:
-            self.template_dropdown_container.hide()
-            return
-        
-        # Clear existing items
-        while self.template_list_layout.count() > 1:  # Keep the stretch
-            item = self.template_list_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        # Add filtered templates
-        for template in templates[:10]:  # Show max 10 results
-            item_widget = TemplateItemWidget(template)
-            item_widget.clicked.connect(self._on_template_selected)
-            self.template_list_layout.insertWidget(
-                self.template_list_layout.count() - 1, 
-                item_widget
-            )
-        
-        self.template_dropdown_container.show()
-    
-    def _on_template_selected(self, template: PromptTemplate):
-        """Handle template selection"""
-        self._selected_template = template
-        
-        # Populate input field
-        self.text_edit.setPlainText(template.text)
-        
-        # Move cursor to end
-        cursor = self.text_edit.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        self.text_edit.setTextCursor(cursor)
-        
-        # Close dropdown
-        self.template_dropdown_container.hide()
-        
-        # Focus input field
-        self.text_edit.setFocus()
-        
-        # Increment usage count
-        self.prompt_manager.increment_usage(template.id)
     
     def _on_send_clicked(self):
         """Handle send button click"""
@@ -495,6 +360,10 @@ class PromptInputWidget(BaseTaskWidget):
         
         # Add new widget if provided
         if widget:
+            # Set maximum height to prevent overflow
+            # Ensure widget doesn't exceed the available height
+            widget.setMaximumHeight(60)  # Limit height to prevent covering input area
+            
             self.left_panel_layout.addWidget(widget)
             self.left_panel_layout.addStretch()
             
@@ -502,14 +371,14 @@ class PromptInputWidget(BaseTaskWidget):
             # Allow the widget to determine the width naturally
             widget_width = widget.sizeHint().width()
             if widget_width > 0:
-                # Add margins to the width (8px left + 8px right = 16px)
-                self.left_panel.setFixedWidth(widget_width + 16)
+                # Add margins and scrollbar space to the width (8px left + 8px right + scrollbar)
+                self.left_panel.setFixedWidth(widget_width + 25)
             else:
                 # Fallback to minimum size if size hint is not available
                 widget.adjustSize()
                 min_width = widget.minimumSizeHint().width()
                 if min_width > 0:
-                    self.left_panel.setFixedWidth(min_width + 16)
+                    self.left_panel.setFixedWidth(min_width + 25)
                 else:
                     # Final fallback to default width
                     self.left_panel.setFixedWidth(250)
@@ -535,6 +404,3 @@ class PromptInputWidget(BaseTaskWidget):
         new_tooltip = tr("Submit prompt")
         if current_tooltip != new_tooltip:
             self.send_button.setToolTip(new_tooltip)
-        
-        # Update token badge
-        self._update_token_badge()

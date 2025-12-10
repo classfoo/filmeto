@@ -26,8 +26,8 @@ class MediaSelector(QWidget):
         super().__init__(parent)
         self._file_path: Optional[str] = None
         self._supported_types: List[str] = []  # Empty means all types supported
-        self._preview_width = 100
-        self._preview_height = 100
+        self._preview_width = 60
+        self._preview_height = 90
         
         self.setup_ui()
         self.setAcceptDrops(True)

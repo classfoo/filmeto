@@ -4,7 +4,9 @@ from app.data.task import TaskResult, TaskProgress
 from app.plugins.models.comfy_ui.comfy_ui_model import ComfyUiModel
 from app.spi.tool import BaseTool
 from app.ui.base_widget import BaseTaskWidget
+from app.ui.media_selector.media_selector import MediaSelector
 from utils.i18n_utils import tr
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QSpacerItem, QSizePolicy
 
 
 class Text2Image(BaseTool,BaseTaskWidget):
@@ -16,6 +18,7 @@ class Text2Image(BaseTool,BaseTaskWidget):
         self.workspace.connect_task_execute(self.execute)
         self.editor = editor
         self.reference_image_path = None
+        self.media_selector = None
 
     def generate_image(self):
         self.workspace.submit_task(self.params())
@@ -29,29 +32,40 @@ class Text2Image(BaseTool,BaseTaskWidget):
         }
 
     def init_ui(self, main_editor):
-        from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QPushButton, QFileDialog, QSpacerItem, QSizePolicy
-        panel = QWidget()
-        layout = QHBoxLayout(panel)  # Changed to QHBoxLayout for left-right layout
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        """Initialize the UI for the text2img tool"""
+        # Create widget for tool configuration
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         
-        path_edit = QLineEdit()
-        path_edit.setReadOnly(True)
-        browse_btn = QPushButton(tr("Browse"))
-        def on_browse():
-            file_path, _ = QFileDialog.getOpenFileName(panel, tr("Select Reference Image"), "", "Images (*.png *.jpg *.jpeg)")
-            if file_path:
-                self.reference_image_path = file_path
-                path_edit.setText(file_path)
-        browse_btn.clicked.connect(on_browse)
+        # Create media selector for reference image with smaller preview size
+        self.media_selector = MediaSelector()
+        # Reduce the preview size to fit in the config panel
+        self.media_selector.preview_widget.setFixedSize(36, 64)
+        self.media_selector.placeholder_widget.setFixedSize(36, 64)
         
-        # Add widgets to layout without labels
-        layout.addWidget(path_edit, 1)
-        layout.addWidget(browse_btn)
+        # Set supported types to image formats only
+        self.media_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
+        
+        # Connect signals
+        self.media_selector.file_selected.connect(self._on_image_selected)
+        self.media_selector.file_cleared.connect(self._on_image_cleared)
+        
+        # Add to layout
+        layout.addWidget(self.media_selector)
         layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
         
         # Set the widget in the prompt input's config panel
-        main_editor.prompt_input.set_config_panel_widget(panel)
+        main_editor.prompt_input.set_config_panel_widget(widget)
+
+    def _on_image_selected(self, file_path):
+        """Handle image selection"""
+        self.reference_image_path = file_path
+
+    def _on_image_cleared(self):
+        """Handle image clearing"""
+        self.reference_image_path = None
 
     @classmethod
     def get_tool_name(cls):

@@ -156,7 +156,7 @@ class MainEditorWidget(BaseTaskWidget):
         self.control_container = QFrame()
         self.control_container.setObjectName("editor_control_container")
         control_main_layout = QVBoxLayout(self.control_container)
-        control_main_layout.setContentsMargins(12, 12, 12, 12)
+        control_main_layout.setContentsMargins(0, 0, 0, 0)
         control_main_layout.setSpacing(0)
         
         # Create horizontal layout for tool buttons and prompt input
@@ -279,18 +279,7 @@ class MainEditorWidget(BaseTaskWidget):
         
         for btn in self._tool_buttons.values():
             btn.setStyleSheet(tool_button_style)
-        
-        
-        
-        # # Splitter
-        # self.splitter.setStyleSheet("""
-        #     QSplitter::handle {
-        #         background-color: #505254;
-        #     }
-        #     QSplitter::handle:vertical {
-        #         height: 2px;
-        #     }
-        # """)
+
     
     # ========== Signal Handlers ==========
     

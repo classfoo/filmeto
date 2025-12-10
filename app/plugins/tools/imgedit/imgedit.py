@@ -31,8 +31,8 @@ class ImageEdit(BaseTool, BaseTaskWidget):
         # Create media selector for input image with smaller preview size
         self.media_selector = MediaSelector()
         # Reduce the preview size to fit in the config panel
-        self.media_selector.preview_widget.setFixedSize(40, 40)
-        self.media_selector.placeholder_widget.setFixedSize(40, 40)
+        self.media_selector.preview_widget.setFixedSize(36, 64)
+        self.media_selector.placeholder_widget.setFixedSize(36, 64)
         
         # Set supported types to image formats only
         self.media_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
