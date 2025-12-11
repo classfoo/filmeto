@@ -9,6 +9,7 @@ from PySide6.QtCore import QTimer
 from app.data.task import TaskManager, TaskResult
 from app.data.timeline import Timeline
 from app.data.drawing import Drawing
+from app.data.resource import ResourceManager
 from utils.yaml_utils import load_yaml, save_yaml
 
 
@@ -25,6 +26,7 @@ class Project():
         self.task_manager = TaskManager(self.workspace, self, self.tasks_path)
         self.timeline =  Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
         self.drawing = Drawing(self.workspace, self)
+        self.resource_manager = ResourceManager(self.project_path)
         
         # Debounced save mechanism for high-frequency updates (like timeline_position)
         self._pending_save = False
@@ -190,6 +192,10 @@ class Project():
     
     def get_drawing(self) -> 'Drawing':
         return self.drawing
+    
+    def get_resource_manager(self) -> 'ResourceManager':
+        """Get the resource manager instance"""
+        return self.resource_manager
 
     def submit_task(self,params):
         print(params)
@@ -197,6 +203,53 @@ class Project():
         self.task_manager.submit_task(params)
 
     def on_task_finished(self,result:TaskResult):
+        # Register AI-generated outputs as resources
+        task = result.get_task()
+        task_id = result.get_task_id()
+        
+        # Get task parameters for metadata
+        task_options = task.options
+        tool = task_options.get('tool', '')
+        model = task_options.get('model', '')
+        prompt = task_options.get('prompt', '')
+        
+        # Register image output if exists
+        image_path = result.get_image_path()
+        if image_path and os.path.exists(image_path):
+            additional_metadata = {
+                'prompt': prompt,
+                'model': model,
+                'tool': tool,
+                'task_id': task_id
+            }
+            resource = self.resource_manager.add_resource(
+                source_file_path=image_path,
+                source_type='ai_generated',
+                source_id=task_id,
+                additional_metadata=additional_metadata
+            )
+            if resource:
+                print(f"✅ Registered image resource: {resource.name}")
+        
+        # Register video output if exists
+        video_path = result.get_video_path()
+        if video_path and os.path.exists(video_path):
+            additional_metadata = {
+                'prompt': prompt,
+                'model': model,
+                'tool': tool,
+                'task_id': task_id
+            }
+            resource = self.resource_manager.add_resource(
+                source_file_path=video_path,
+                source_type='ai_generated',
+                source_id=task_id,
+                additional_metadata=additional_metadata
+            )
+            if resource:
+                print(f"✅ Registered video resource: {resource.name}")
+        
+        # Continue with normal processing
         self.timeline.on_task_finished(result)
         self.task_manager.on_task_finished(result)
 
@@ -273,6 +326,14 @@ class ProjectManager:
         
         # 创建prompts目录
         os.makedirs(os.path.join(project_path, "prompts"), exist_ok=True)
+        
+        # 创建resources目录及其子目录
+        resources_path = os.path.join(project_path, "resources")
+        os.makedirs(resources_path, exist_ok=True)
+        os.makedirs(os.path.join(resources_path, "images"), exist_ok=True)
+        os.makedirs(os.path.join(resources_path, "videos"), exist_ok=True)
+        os.makedirs(os.path.join(resources_path, "audio"), exist_ok=True)
+        os.makedirs(os.path.join(resources_path, "others"), exist_ok=True)
         
         # 创建项目实例
         project = Project(self.workspace_root_path, project_path, project_name)
