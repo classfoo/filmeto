@@ -140,20 +140,13 @@ class MainEditorWidget(BaseTaskWidget):
         self.left_splitter.setChildrenCollapsible(False)
         
         # Tool panel container at top
-        self.tool_panel_container = QWidget()
-        self.tool_panel_layout = QVBoxLayout(self.tool_panel_container)
-        self.tool_panel_layout.setContentsMargins(8, 8, 8, 8)
-        self.tool_panel_layout.setSpacing(6)
         # Placeholder label when no tool is selected
-        placeholder = QLabel("No Tool Config")
-        self.tool_panel_layout.addWidget(placeholder)
-        
+
         # Layers widget at bottom (moved from right sidebar)
         self.layers_widget = LayersWidget(None, self.workspace)
         self.layers_widget.setObjectName("main_editor_layers_widget")
         
         # Add both to the vertical splitter
-        self.left_splitter.addWidget(self.tool_panel_container)
         self.left_splitter.addWidget(self.layers_widget)
         
         # Set initial sizes: tool panel gets more space
