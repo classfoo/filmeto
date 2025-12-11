@@ -8,7 +8,6 @@ from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.drawing_tools import DrawingToolsWidget
 from app.ui.editor import MainEditorWidget
-from app.ui.layers import LayersWidget
 from app.ui.mac_button import MacTitleBar
 from app.ui.project_menu.project_menu import ProjectMenu
 from app.ui.task_list import TaskListWidget
@@ -297,7 +296,7 @@ class MainWindowWorkspaceTop(BaseWidget):
         # Left panel - tool widgets
         self.v_splitter = QSplitter(Qt.Vertical)
         self.v_splitter.setChildrenCollapsible(False)
-        self.left = TaskListWidget(self, workspace)
+        self.left = QWidget()
         self.left.setObjectName("main_window_workspace_top_left")
         self.left.setMinimumWidth(200)
         self.left.setMaximumWidth(200)
@@ -307,7 +306,8 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.center: MainEditorWidget = MainEditorWidget(workspace)
         self.splitter.addWidget(self.center)
 
-        self.right = LayersWidget(self, workspace)
+        # Right panel - task list widget (moved from left)
+        self.right = TaskListWidget(self, workspace)
         self.right.setObjectName("main_window_workspace_top_right")
         self.splitter.addWidget(self.right)
 
