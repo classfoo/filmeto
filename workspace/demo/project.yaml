@@ -38,7 +38,7 @@ drawing:
     zoom: {}
 task_index: 11
 timeline_duration: 36.1875
-timeline_index: 5
+timeline_index: 13
 timeline_item_durations:
   '1': 1.0
   '10': 6.0625
@@ -61,5 +61,5 @@ timeline_item_durations:
   '7': 1.0
   '8': 1.0
   '9': 6.0625
-timeline_position: 4.7
+timeline_position: 22.836
 timeline_size: 8

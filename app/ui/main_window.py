@@ -222,6 +222,11 @@ class MainWindowBottomBar(BaseWidget):
 
 
 class MainWindowLeftBar(BaseWidget):
+    """Left sidebar with buttons for panel switching."""
+    
+    # Signal emitted when button is clicked (panel_name)
+    from PySide6.QtCore import Signal
+    button_clicked = Signal(str)
 
     def __init__(self, workspace, parent):
         super(MainWindowLeftBar, self).__init__(workspace)
@@ -234,31 +239,38 @@ class MainWindowLeftBar(BaseWidget):
         # buttons
         self.resource_button = QPushButton("\ue6b0", self)  # Play icon for resource
         self.resource_button.setFixedSize(30, 30)
+        self.resource_button.clicked.connect(lambda: self.button_clicked.emit('resource'))
         self.layout.addWidget(self.resource_button, alignment=Qt.AlignCenter)
 
         self.model_button = QPushButton("\ue66e", self)  # Text2Img icon
         self.model_button.setFixedSize(30, 30)
+        self.model_button.clicked.connect(lambda: self.button_clicked.emit('model'))
         self.layout.addWidget(self.model_button, alignment=Qt.AlignCenter)
 
         self.attach_button = QPushButton("\ue69d", self)  # Image edit icon
         self.attach_button.setFixedSize(30, 30)
+        self.attach_button.clicked.connect(lambda: self.button_clicked.emit('attach'))
         self.layout.addWidget(self.attach_button, alignment=Qt.AlignCenter)
 
         self.layout.addStretch(0)
         self.timeline_button = QPushButton("\ue6b2", self)  # Image to video icon
         self.timeline_button.setFixedSize(30, 30)
+        self.timeline_button.clicked.connect(lambda: self.button_clicked.emit('timeline'))
         self.layout.addWidget(self.timeline_button, alignment=Qt.AlignCenter)
 
         self.message_button = QPushButton("\ue707", self)  # Barrage icon for message
         self.message_button.setFixedSize(30, 30)
+        self.message_button.clicked.connect(lambda: self.button_clicked.emit('message'))
         self.layout.addWidget(self.message_button, alignment=Qt.AlignCenter)
 
         self.video_button = QPushButton("\ue6de", self)  # Image to video icon
         self.video_button.setFixedSize(30, 30)
+        self.video_button.clicked.connect(lambda: self.button_clicked.emit('video'))
         self.layout.addWidget(self.video_button, alignment=Qt.AlignCenter)
 
         self.camera_button = QPushButton("\ue6ce", self)  # Picture icon for camera
         self.camera_button.setFixedSize(30, 30)
+        self.camera_button.clicked.connect(lambda: self.button_clicked.emit('camera'))
         self.layout.addWidget(self.camera_button, alignment=Qt.AlignCenter)
 
 
@@ -293,10 +305,9 @@ class MainWindowWorkspaceTop(BaseWidget):
         # Disable stretching on splitter to maintain fixed sizes
         self.splitter.setChildrenCollapsible(False)
 
-        # Left panel - tool widgets
-        self.v_splitter = QSplitter(Qt.Vertical)
-        self.v_splitter.setChildrenCollapsible(False)
-        self.left = QWidget()
+        # Left panel - switchable tool panels
+        from app.ui.workspace_panels import MainWindowWorkspaceTopLeftBar
+        self.left = MainWindowWorkspaceTopLeftBar(workspace, self)
         self.left.setObjectName("main_window_workspace_top_left")
         self.left.setMinimumWidth(200)
         self.left.setMaximumWidth(200)
@@ -312,7 +323,7 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.splitter.addWidget(self.right)
 
         # Set initial sizes and stretch factors
-        # Left panel: 300px, Center: expand, Right panel: 300px
+        # Left panel: 200px, Center: expand, Right panel: 200px
         self.splitter.setSizes([200, 1000, 200])
         self.splitter.setStretchFactor(0, 0)  # Left panel: don't stretch
         self.splitter.setStretchFactor(1, 1)  # Center panel: stretch
@@ -386,6 +397,14 @@ class MainWindowHLayout(BaseWidget):
         layout.addWidget(self.workspace, 1)
         self.right_bar = MainWindowRightBar(workspace, self)
         layout.addWidget(self.right_bar)
+        
+        # Connect left bar button clicks to panel switcher
+        self.left_bar.button_clicked.connect(
+            self.workspace.workspace_top.left.switch_to_panel
+        )
+        
+        # Switch to resource panel by default
+        self.workspace.workspace_top.left.switch_to_panel('resource')
 
 
 # --- 主窗口 ---
