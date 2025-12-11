@@ -16,6 +16,8 @@ from app.data.settings import Settings, SettingGroup, SettingField
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.settings.field_widget_factory import FieldWidgetFactory
+from app.ui.settings.plugin_grid_widget import PluginGridWidget
+from app.ui.settings.plugin_detail_dialog import PluginDetailDialog
 
 
 class SettingsWidget(BaseWidget):
@@ -39,6 +41,11 @@ class SettingsWidget(BaseWidget):
         self.field_widgets: Dict[str, QWidget] = {}  # key -> widget mapping
         self.original_values: Dict[str, Any] = {}  # Track original values for dirty state
         self._is_dirty = False
+        
+        # Get service registry from workspace's plugins
+        self.service_registry = None
+        if hasattr(workspace, 'bot') and hasattr(workspace.bot, 'plugins'):
+            self.service_registry = workspace.bot.plugins.get_service_registry()
         
         # Set window properties
         self.setWindowTitle("Settings")
@@ -130,6 +137,11 @@ class SettingsWidget(BaseWidget):
         for group in groups:
             tab_widget = self._create_group_tab(group)
             self.tab_widget.addTab(tab_widget, group.label)
+        
+        # Add Services tab if service registry is available
+        if self.service_registry:
+            services_tab = self._create_services_tab()
+            self.tab_widget.addTab(services_tab, "Services")
         
         parent_layout.addWidget(self.tab_widget, 1)
     
@@ -512,3 +524,44 @@ class SettingsWidget(BaseWidget):
             
             # Mark as dirty since defaults may differ from saved values
             self._on_field_changed()
+
+    def _create_services_tab(self) -> QWidget:
+        """Create the services plugin tab"""
+        # Create plugin grid widget
+        self.plugin_grid = PluginGridWidget()
+        
+        # Connect signals
+        self.plugin_grid.plugin_selected.connect(self._on_plugin_selected)
+        
+        # Load services
+        services = self.service_registry.get_all_services()
+        self.plugin_grid.set_services(services)
+        
+        return self.plugin_grid
+    
+    def _on_plugin_selected(self, service_id: str):
+        """Handle plugin selection to open detail dialog"""
+        if not self.service_registry:
+            return
+        
+        try:
+            # Open plugin detail dialog
+            dialog = PluginDetailDialog(service_id, self.service_registry, self)
+            dialog.config_saved.connect(self._on_plugin_config_saved)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to open plugin configuration: {e}"
+            )
+    
+    def _on_plugin_config_saved(self, service_id: str):
+        """Handle plugin configuration save"""
+        # Reload the service
+        if self.service_registry:
+            self.service_registry.reload_service(service_id)
+            
+            # Refresh plugin grid
+            services = self.service_registry.get_all_services()
+            self.plugin_grid.refresh(services)

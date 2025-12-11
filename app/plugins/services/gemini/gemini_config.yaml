@@ -1,0 +1,68 @@
+version: 1.0.0
+groups:
+  - name: api
+    label: API Configuration
+    fields:
+      - name: api_key
+        label: API Key
+        type: password
+        default: ""
+        required: true
+        description: Google Cloud API key
+      
+      - name: project_id
+        label: Project ID
+        type: text
+        default: ""
+        required: true
+        description: Google Cloud project ID
+      
+      - name: region
+        label: Region
+        type: select
+        default: us-central1
+        description: Google Cloud region
+        options:
+          - value: us-central1
+            label: US Central
+          - value: us-east1
+            label: US East
+          - value: europe-west1
+            label: Europe West
+          - value: asia-east1
+            label: Asia East
+  
+  - name: model
+    label: Model Settings
+    fields:
+      - name: model_version
+        label: Model Version
+        type: select
+        default: gemini-pro-vision
+        description: Gemini model version to use
+        options:
+          - value: gemini-pro
+            label: Gemini Pro
+          - value: gemini-pro-vision
+            label: Gemini Pro Vision
+      
+      - name: safety_filters
+        label: Safety Filters
+        type: boolean
+        default: true
+        description: Enable content safety filters
+  
+  - name: content_policy
+    label: Content Policy
+    fields:
+      - name: enable_adult_content
+        label: Allow Adult Content
+        type: boolean
+        default: false
+        description: Allow generation of adult content
+      
+      - name: enable_violence
+        label: Allow Violence
+        type: boolean
+        default: false
+        description: Allow generation of violent content

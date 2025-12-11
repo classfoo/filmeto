@@ -6,6 +6,7 @@ from typing import Dict, Type, Optional
 from dataclasses import dataclass
 
 from app.spi.tool import BaseTool
+from app.plugins.service_registry import ServiceRegistry
 from utils.i18n_utils import tr
 
 
@@ -26,7 +27,9 @@ class Plugins:
         self.tools = []
         self.models = []
         self._tool_registry: Dict[str, ToolInfo] = {}
+        self._service_registry = ServiceRegistry(workspace=getattr(bot, 'workspace', None))
         self._discover_tools()
+        self._discover_services()
 
     def _discover_tools(self):
         """Discover and register tools from plugins/tools directory"""
@@ -84,3 +87,12 @@ class Plugins:
     def get_tool_registry(self) -> Dict[str, ToolInfo]:
         """Get all registered tools"""
         return self._tool_registry.copy()
+
+    def get_service_registry(self) -> ServiceRegistry:
+        """Get the service registry"""
+        return self._service_registry
+
+    def _discover_services(self):
+        """Discover and register service plugins"""
+        print("🔍 Discovering service plugins...")
+        self._service_registry.discover_services()
