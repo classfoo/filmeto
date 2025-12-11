@@ -39,11 +39,12 @@ class Text2Image(BaseTool,BaseTaskWidget):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
         
-        # Create media selector for reference image with smaller preview size
+        # Create media selector for reference image with 9:16 aspect ratio
         self.media_selector = MediaSelector()
-        # Reduce the preview size to fit in the config panel
-        self.media_selector.preview_widget.setFixedSize(36, 64)
-        self.media_selector.placeholder_widget.setFixedSize(36, 64)
+        # Set size with 9:16 aspect ratio (portrait) - height 54px, width 30px
+        # This fits within the 60px max height constraint of prompt input config panel
+        self.media_selector.preview_widget.setFixedSize(30, 54)
+        self.media_selector.placeholder_widget.setFixedSize(30, 54)
         
         # Set supported types to image formats only
         self.media_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])

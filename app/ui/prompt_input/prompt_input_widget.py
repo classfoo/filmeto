@@ -364,7 +364,9 @@ class PromptInputWidget(BaseTaskWidget):
             # Ensure widget doesn't exceed the available height
             widget.setMaximumHeight(60)  # Limit height to prevent covering input area
             
-            self.left_panel_layout.addWidget(widget)
+            # Add stretch before and after widget to center it vertically
+            self.left_panel_layout.addStretch()
+            self.left_panel_layout.addWidget(widget, 0, Qt.AlignCenter)
             self.left_panel_layout.addStretch()
             
             # Adjust left panel width based on widget's size hint or minimum width

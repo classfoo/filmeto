@@ -49,25 +49,27 @@ class Image2Video(BaseTool,BaseTaskWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         
-        # Start frame selector
+        # Start frame selector with 9:16 aspect ratio
         self.start_frame_selector = MediaSelector()
         # Set supported types to image formats only
         self.start_frame_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
-        # Reduce preview size to fit in config panel
-        self.start_frame_selector.preview_widget.setFixedSize(36, 76)
-        self.start_frame_selector.placeholder_widget.setFixedSize(36, 76)
+        # Set size with 9:16 aspect ratio (portrait) - height 54px, width 30px
+        # This fits within the 60px max height constraint of prompt input config panel
+        self.start_frame_selector.preview_widget.setFixedSize(30, 54)
+        self.start_frame_selector.placeholder_widget.setFixedSize(30, 54)
         
         # Connect signal for start frame
         self.start_frame_selector.file_selected.connect(self._on_start_frame_selected)
         self.start_frame_selector.file_cleared.connect(self._on_start_frame_cleared)
         
-        # End frame selector
+        # End frame selector with 9:16 aspect ratio
         self.end_frame_selector = MediaSelector()
         # Set supported types to image formats only
         self.end_frame_selector.set_supported_types(['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp'])
-        # Reduce preview size to fit in config panel
-        self.end_frame_selector.preview_widget.setFixedSize(36, 76)
-        self.end_frame_selector.placeholder_widget.setFixedSize(36, 76)
+        # Set size with 9:16 aspect ratio (portrait) - height 54px, width 30px
+        # This fits within the 60px max height constraint of prompt input config panel
+        self.end_frame_selector.preview_widget.setFixedSize(30, 54)
+        self.end_frame_selector.placeholder_widget.setFixedSize(30, 54)
         
         # Connect signal for end frame
         self.end_frame_selector.file_selected.connect(self._on_end_frame_selected)
