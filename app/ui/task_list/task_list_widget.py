@@ -1,8 +1,8 @@
 # task_list_widget.py
 import json
 import yaml
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QPushButton, QHBoxLayout
-from PySide6.QtCore import Qt, Signal, Slot, QThreadPool
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QPushButton, QHBoxLayout, QFrame
+from PySide6.QtCore import Qt, Signal, Slot, QThreadPool, QRect
 from .task_item_widget import TaskItemWidget
 import os
 
@@ -24,6 +24,7 @@ class TaskListWidget(BaseTaskWidget):
         self.current_index = 0
         self.page_size = 10
         self.loading = False
+        self.selected_task_widget = None  # Track the currently selected task widget
 
         self.thread_pool = QThreadPool.globalInstance()
 
@@ -120,6 +121,142 @@ class TaskListWidget(BaseTaskWidget):
             print(f"❌ 读取任务目录失败: {e}")
             self.all_task_dirs = []
 
+    def on_task_item_clicked(self, task_widget):
+        """Handle task item click events"""
+        # Deselect the previously selected widget if it exists and is different
+        if self.selected_task_widget and self.selected_task_widget != task_widget:
+            self.selected_task_widget.set_selected(False)
+        
+        # Toggle the selection state of the clicked widget
+        if self.selected_task_widget == task_widget:
+            # Clicking the already selected item deselects it
+            task_widget.set_selected(False)
+            self.selected_task_widget = None
+        else:
+            # Select the new widget
+            task_widget.set_selected(True)
+            self.selected_task_widget = task_widget
+        
+        # Show/hide preview panel as needed
+        if self.selected_task_widget:
+            self.show_preview_panel()
+        else:
+            self.hide_preview_panel()
+
+    def show_preview_panel(self):
+        """Show the preview panel for the selected task"""
+        # Create the preview panel if it doesn't exist
+        if not hasattr(self, 'preview_panel'):
+            self.create_preview_panel()
+        
+        # Populate the preview panel with content
+        self.populate_preview_panel()
+        
+        # Position the preview panel to the left of the task list
+        parent_pos = self.mapToGlobal(self.rect().topLeft())
+        self.preview_panel.setGeometry(parent_pos.x() - 310, parent_pos.y(), 300, 400)
+        
+        # Show the preview panel
+        self.preview_panel.show()
+
+    def hide_preview_panel(self):
+        """Hide the preview panel"""
+        if hasattr(self, 'preview_panel'):
+            self.preview_panel.hide()
+
+    def create_preview_panel(self):
+        """Create the preview panel widget"""
+        from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget, QScrollArea, QFrame
+        from PySide6.QtCore import Qt, QPoint
+        from PySide6.QtGui import QPixmap, QImage
+        import os
+
+        # Create the preview panel as a separate widget
+        self.preview_panel = QWidget()
+        self.preview_panel.setWindowTitle(tr("Task Preview"))
+        self.preview_panel.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)  # Make it a floating tool window without title bar
+        
+        # Initially hide the preview panel
+        self.preview_panel.setGeometry(0, 0, 300, 400)
+        
+        # Set a dark theme style
+        self.preview_panel.setStyleSheet("""
+            QWidget {
+                background-color: #323436;
+                border: 2px solid #505254;
+                border-radius: 8px;
+            }
+        """)
+        
+        # Create the layout for the preview panel
+        layout = QVBoxLayout(self.preview_panel)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
+        
+        # Title label
+        self.preview_title = QLabel()
+        self.preview_title.setStyleSheet("""
+            QLabel {
+                color: #E1E1E1;
+                font-size: 14px;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+        """)
+        layout.addWidget(self.preview_title)
+        
+        # Preview content area
+        self.preview_content = QScrollArea()
+        self.preview_content.setStyleSheet("""
+            QScrollArea {
+                background-color: #292b2e;
+                border: 1px solid #505254;
+                border-radius: 4px;
+            }
+        """)
+        self.preview_content.setWidgetResizable(True)
+        
+        # Content widget
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setAlignment(Qt.AlignTop)
+        self.content_layout.setSpacing(5)
+        
+        self.preview_content.setWidget(self.content_widget)
+        layout.addWidget(self.preview_content)
+        
+        # Hide initially
+        self.preview_panel.hide()
+
+    # Show/hide preview panel as needed
+        if self.selected_task_widget:
+            self.show_preview_panel()
+        else:
+            self.hide_preview_panel()
+
+    def show_preview_panel(self):
+        """Show the preview panel for the selected task"""
+        # Create the preview panel if it doesn't exist
+        if not hasattr(self, 'preview_panel'):
+            from .task_item_preview_widget import TaskItemPreviewWidget
+            self.preview_panel = TaskItemPreviewWidget()
+        
+        # Set the task to preview
+        if self.selected_task_widget and self.selected_task_widget.task:
+            self.preview_panel.set_task(self.selected_task_widget.task)
+        
+        # Position the preview panel to the left of the task list
+        parent_pos = self.mapToGlobal(self.rect().topLeft())
+        self.preview_panel.setGeometry(parent_pos.x() - 310, parent_pos.y(), 300, 400)
+        
+        # Show the preview panel
+        self.preview_panel.show()
+
+    def hide_preview_panel(self):
+        """Hide the preview panel"""
+        if hasattr(self, 'preview_panel'):
+            self.preview_panel.hide()
+
     def load_more_tasks(self):
         if self.loading:
             return
@@ -151,6 +288,7 @@ class TaskListWidget(BaseTaskWidget):
                 widget.update_display(task)
                 continue
             widget = TaskItemWidget(task, self.workspace)
+            widget.clicked.connect(self.on_task_item_clicked)
             self.scroll_layout.addWidget(widget)
             self.loaded_tasks[task.task_id] = widget
         self.current_index += self.page_size
@@ -180,6 +318,7 @@ class TaskListWidget(BaseTaskWidget):
         initial_tasks = tasks[:self.page_size]
         for task in initial_tasks:
             widget = TaskItemWidget(task, self.workspace)
+            widget.clicked.connect(self.on_task_item_clicked)
             self.scroll_layout.addWidget(widget)
             self.loaded_tasks[task.task_id] = widget
             
@@ -202,11 +341,17 @@ class TaskListWidget(BaseTaskWidget):
     def clear_tasks(self):
         """清空当前任务列表"""
         for widget in self.loaded_tasks.values():
+            widget.clicked.disconnect(self.on_task_item_clicked)
             widget.setParent(None)
             widget.deleteLater()
         self.loaded_tasks.clear()
         for i in reversed(range(self.scroll_layout.count())):
             self.scroll_layout.takeAt(i).widget().deleteLater()
+        
+        # Clear the selection
+        self.selected_task_widget = None
+        # Hide preview panel
+        self.hide_preview_panel()
 
     def on_task_progress_update(self, progress):
         """Handle task progress updates from workspace"""
@@ -246,3 +391,7 @@ class TaskListWidget(BaseTaskWidget):
         
         # 刷新任务以确保显示新项目中的任务
         self.refresh_tasks()
+        
+        # Hide the preview panel on project switch
+        if hasattr(self, 'preview_panel'):
+            self.preview_panel.hide()

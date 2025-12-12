@@ -54,6 +54,7 @@ class MainWindowTopBar(BaseWidget):
 
         self.layout.addStretch()
 
+
         # Language switcher button
         self.language_button = QPushButton("🌐", self)
         self.language_button.setObjectName("main_window_top_bar_button")
@@ -67,16 +68,50 @@ class MainWindowTopBar(BaseWidget):
         self.export_button.setToolTip(tr("导出时间线"))
         self.export_button.clicked.connect(self._show_export_dialog)
         self.layout.addWidget(self.export_button)
-        # settings
-        # self.setting_button = QPushButton("C", self)
-        # self.setting_button.setObjectName("main_window_top_bar_button")
-        # self.layout.addWidget(self.setting_button)
-        # mouse move
+        # Settings button
+        self.settings_button = QPushButton("\ue60f", self)  # Settings icon
+        self.settings_button.setObjectName("main_window_top_bar_button")
+        self.settings_button.setToolTip(tr("全局设置"))
+        self.settings_button.clicked.connect(self._show_settings_dialog)
+        self.layout.addWidget(self.settings_button)
         self.draggable = True
         self.drag_start_position = None
 
         # Connect to language change signal
         translation_manager.language_changed.connect(self._on_language_changed)
+        
+        # Apply button styling
+        self._apply_button_styles()
+
+    def _apply_button_styles(self):
+        """Apply consistent styling to all top bar buttons"""
+        button_style = """
+            QPushButton#main_window_top_bar_button {
+                background-color: #3c3f41;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                width: 32px;
+                height: 32px;
+                margin: 2px;
+                color: #ffffff;
+                font-size: 14px;
+                text-align: center;
+                font-family: iconfont;
+            }
+            
+            QPushButton#main_window_top_bar_button:hover {
+                background-color: #4c5052;
+                border: 1px solid #666666;
+            }
+            
+            QPushButton#main_window_top_bar_button:pressed {
+                background-color: #2c2f31;
+            }
+        """
+        
+        self.settings_button.setStyleSheet(button_style)
+        self.language_button.setStyleSheet(button_style)
+        self.export_button.setStyleSheet(button_style)
 
     def mousePressEvent(self, event: QMouseEvent):
         self.draggable = True
@@ -164,6 +199,34 @@ class MainWindowTopBar(BaseWidget):
 
             # Show the panel
             self._export_panel.show()
+
+    def _show_settings_dialog(self):
+        """Show the settings dialog"""
+        from app.ui.settings.settings_widget import SettingsWidget
+        from PySide6.QtWidgets import QDialog
+        
+        # Create a QDialog to host the SettingsWidget
+        dialog = QDialog(self.window)
+        dialog.setWindowTitle(tr("全局设置"))
+        dialog.setMinimumSize(800, 600)
+        
+        # Create the settings widget
+        settings_widget = SettingsWidget(self.workspace)
+        settings_widget.settings_changed.connect(self._on_settings_changed)
+        
+        # Use a layout to hold the settings widget
+        from PySide6.QtWidgets import QVBoxLayout
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(settings_widget)
+        
+        # Show the dialog
+        dialog.exec()
+
+    def _on_settings_changed(self):
+        """Handle settings changes"""
+        print("Settings have been changed")
+        # Here you could emit a signal or update other parts of the UI as needed
 
     def _on_resolution_changed(self, index):
         """处理分辨率更改事件"""

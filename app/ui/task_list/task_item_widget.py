@@ -1,12 +1,14 @@
 # task_item_widget.py
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QTextEdit, QFrame, QSizePolicy
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 
 from app.ui.base_widget import BaseWidget
 
 
 class TaskItemWidget(BaseWidget):
+    clicked = Signal(object)  # Signal emitted when task item is clicked
+
     def __init__(self, task, workspace=None, parent=None):
         # 如果没有提供workspace，则不进行连接
         if workspace is not None:
@@ -14,8 +16,11 @@ class TaskItemWidget(BaseWidget):
         else:
             super().__init__(None)  # 这将触发错误检查
         self.task_id = task.task_id
+        self.task = task
+        self.is_selected = False
         # Enable hover events for highlight effect
         self.setMouseTracking(True)
+        self.setAttribute(Qt.WA_Hover, True)  # Enable hover events
         self.init_ui()
         self.update_display(task)
 
@@ -120,6 +125,29 @@ class TaskItemWidget(BaseWidget):
         # Store original background color for highlight effect
         self.original_background = "#323436"
         self.highlight_background = "#3a3c3f"  # Slightly lighter color for highlight
+        self.selected_background = "#4a4c5f"   # Different color for selection
+
+    def mousePressEvent(self, event):
+        """Handle mouse click events"""
+        super().mousePressEvent(event)
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self)  # Emit the clicked signal with this widget as parameter
+
+    def set_selected(self, selected):
+        """Set the selected state and update appearance"""
+        self.is_selected = selected
+        if selected:
+            self.setStyleSheet(f"""TaskItemWidget {{
+                background-color: {self.selected_background};
+                border: 2px solid #ffffff;
+                border-radius: 4px;
+            }}""")
+        else:
+            self.setStyleSheet(f"""TaskItemWidget {{
+                background-color: {self.original_background};
+                border: 1px solid #505254;
+                border-radius: 4px;
+            }}""")
 
     def update_display(self, task):
         self.title_label.setText(f"{task.title} [{task.tool}-{task.model}]")

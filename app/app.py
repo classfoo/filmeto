@@ -5,7 +5,7 @@ import logging
 import traceback
 
 from qasync import QEventLoop
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QFontDatabase, QIcon
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import qInstallMessageHandler, QtMsgType
 
@@ -114,6 +114,14 @@ class App():
         try:
             logger.info("Creating QApplication...")
             app = QApplication(sys.argv)
+            
+            # Set application icon for all platforms
+            icon_path = os.path.join(self.main_path, "textures", "filmeto.png")
+            if os.path.exists(icon_path):
+                app.setWindowIcon(QIcon(icon_path))
+                logger.info(f"Application icon set from {icon_path}")
+            else:
+                logger.warning(f"Application icon not found at {icon_path}")
             
             # Initialize translation system
             logger.info("Initializing translation system...")
