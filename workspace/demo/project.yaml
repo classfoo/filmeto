@@ -1,5 +1,5 @@
 drawing:
-  current_tool: brush
+  current_tool: eraser
   tool_settings:
     adjust: {}
     brush:
@@ -7,10 +7,10 @@ drawing:
       Line Style: solid
       Opacity: '100'
       Size: '5'
-      color: '#ff0000'
+      color: '#ffffff'
       line_style: dot
       opacity: '100'
-      size: '36'
+      size: '19'
     eraser:
       Size: '20'
       size: '75'
@@ -36,9 +36,9 @@ drawing:
       font_size: '14'
       text_color: '#000000'
     zoom: {}
-task_index: 37
-timeline_duration: 37.1875
-timeline_index: 22
+task_index: 45
+timeline_duration: 42.25
+timeline_index: 6
 timeline_item_durations:
   '1': 1.0
   '10': 6.0625
@@ -49,7 +49,7 @@ timeline_item_durations:
   '15': 1.0
   '16': 1.0
   '17': 1.0
-  '18': 1.0
+  '18': 6.0625
   '19': 1.0
   '2': 1.0
   '20': 1.0
@@ -62,5 +62,5 @@ timeline_item_durations:
   '7': 1.0
   '8': 1.0
   '9': 6.0625
-timeline_position: 36.587
+timeline_position: 5.356
 timeline_size: 9

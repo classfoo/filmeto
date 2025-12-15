@@ -486,7 +486,7 @@ class CanvasPreview(QWidget):
         elif media_type == "video":
             # Load video normally since we can't fully preload video players
             # Prefer composite video over legacy
-            video_path = timeline_item.get_composite_video_path()
+            video_path = timeline_item.get_video_path()
             self._display_video(video_path, item_offset)
         
         # Note: Don't clear preloader here, we keep preloaded items for smooth transitions
