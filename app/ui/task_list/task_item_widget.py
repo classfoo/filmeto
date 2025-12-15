@@ -1,7 +1,10 @@
 # task_item_widget.py
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QTextEdit, QFrame, QSizePolicy
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+import os
+import math
+from datetime import datetime
+from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QSizePolicy
+from PySide6.QtCore import Qt, Signal, QTimer, QRectF, QPointF
+from PySide6.QtGui import QFont, QPainter, QPainterPath, QPen, QColor, QPixmap, QMovie
 
 from app.ui.base_widget import BaseWidget
 
@@ -18,185 +21,307 @@ class TaskItemWidget(BaseWidget):
         self.task_id = task.task_id
         self.task = task
         self.is_selected = False
+        self.is_hovered = False
+        
+        # Animation timer for waiting state
+        self.animation_angle = 0
+        self.animation_timer = QTimer(self)
+        self.animation_timer.timeout.connect(self._update_animation)
+        
         # Enable hover events for highlight effect
         self.setMouseTracking(True)
-        self.setAttribute(Qt.WA_Hover, True)  # Enable hover events
+        self.setAttribute(Qt.WA_Hover, True)
+        
         self.init_ui()
         self.update_display(task)
 
     def init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 3, 5, 3)
-
-        # 设置固定高度和尺寸策略
-        self.setFixedHeight(110)
-        self.setFixedWidth(190)
+        # 设置固定尺寸
+        self.setFixedSize(200, 200)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-
-        # 设置默认背景色
-        self.setStyleSheet("""
-            TaskItemWidget {
-                background-color: #323436;
-                border: 1px solid #505254;
-                border-radius: 4px;
-            }
-        """)
-
-        # 上半部分：图标、标题和进度
-        top_layout = QHBoxLayout()
         
-        # 图标
-        self.icon_label = QLabel()
-        self.icon_label.setFixedSize(20, 20)
-        self.icon_label.setAlignment(Qt.AlignCenter)
-        self.icon_label.setStyleSheet("""
+        # Main layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Preview area (main content)
+        self.preview_widget = QWidget()
+        self.preview_widget.setFixedSize(200, 200)
+        preview_layout = QVBoxLayout(self.preview_widget)
+        preview_layout.setContentsMargins(8, 8, 8, 8)
+        preview_layout.setAlignment(Qt.AlignCenter)
+        
+        # Placeholder for tool icon and name
+        self.tool_icon_label = QLabel()
+        self.tool_icon_label.setAlignment(Qt.AlignCenter)
+        self.tool_icon_label.setStyleSheet("""
             QLabel {
-                background-color: #292b2e;
-                border-radius: 3px;
-                color: #E1E1E1;
-                font-size: 12px;
+                color: #808080;
+                font-size: 48px;
             }
         """)
-
-        # 信息区
-        info_layout = QVBoxLayout()
-        info_layout.setSpacing(3)
-        self.title_label = QLabel()
-        self.title_label.setFont(QFont("Arial", 8, QFont.Bold))
-        self.title_label.setStyleSheet("color: #E1E1E1;")  # White text for dark theme
-        self.title_label.setWordWrap(True)
-        self.title_label.setMaximumHeight(30)
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setFixedHeight(12)
-        # Style the progress bar to match dark theme
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 1px solid #505254;
+        
+        self.tool_name_label = QLabel()
+        self.tool_name_label.setAlignment(Qt.AlignCenter)
+        self.tool_name_label.setFont(QFont("Arial", 10))
+        self.tool_name_label.setStyleSheet("color: #808080;")
+        
+        # Image/Video preview label
+        self.preview_label = QLabel()
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setScaledContents(False)
+        
+        # Center status label (waiting/countdown/duration)
+        self.status_label = QLabel()
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setFont(QFont("Arial", 12, QFont.Bold))
+        self.status_label.setStyleSheet("""
+            QLabel {
+                color: #FFFFFF;
+                background-color: rgba(0, 0, 0, 120);
                 border-radius: 4px;
-                background-color: #292b2e;
-                text-align: center;
-                color: #E1E1E1;
-                font-size: 8px;
-            }
-            QProgressBar::chunk {
-                background-color: #0078d4;
-                width: 20px;
+                padding: 5px 10px;
             }
         """)
-        info_layout.addWidget(self.title_label)
-        info_layout.addWidget(self.progress_bar)
-
-        top_layout.addWidget(self.icon_label)
-        top_layout.addLayout(info_layout)
         
-        # 日志输出区域
-        self.log_output = QTextEdit()
-        self.log_output.setMaximumHeight(45)
-        self.log_output.setReadOnly(True)
-        self.log_output.setFont(QFont("Monaco", 7))  # Use Monaco instead of Consolas
-        self.log_output.setStyleSheet("""
-            QTextEdit {
-                background-color: #292b2e;
-                border: 1px solid #505254;
-                border-radius: 3px;
-                color: #c0c0c0;
-                font-size: 8px;
-                padding: 2px;
+        preview_layout.addWidget(self.tool_icon_label)
+        preview_layout.addWidget(self.tool_name_label)
+        preview_layout.addWidget(self.preview_label)
+        preview_layout.addWidget(self.status_label)
+        
+        # Task number bubble (top-right corner)
+        self.task_number_label = QLabel(self.preview_widget)
+        self.task_number_label.setAlignment(Qt.AlignCenter)
+        self.task_number_label.setFont(QFont("Arial", 10, QFont.Bold))
+        self.task_number_label.setFixedSize(40, 40)
+        self.task_number_label.move(152, 8)  # Position in top-right
+        self.task_number_label.setStyleSheet("""
+            QLabel {
+                color: #FFFFFF;
+                background-color: #4A90E2;
+                border-radius: 20px;
             }
         """)
-
-        layout.addLayout(top_layout)
-        layout.addWidget(self.log_output)
         
-        # Add a separator line at the bottom to create spacing
-        self.separator = QFrame()
-        self.separator.setFrameShape(QFrame.HLine)
-        self.separator.setFrameShadow(QFrame.Sunken)
-        self.separator.setStyleSheet("""
-            QFrame {
-                color: #505254;
-                background-color: #505254;
-                max-height: 1px;
-            }
-        """)
-        layout.addWidget(self.separator)
+        layout.addWidget(self.preview_widget)
         
-        # Store original background color for highlight effect
-        self.original_background = "#323436"
-        self.highlight_background = "#3a3c3f"  # Slightly lighter color for highlight
-        self.selected_background = "#4a4c5f"   # Different color for selection
+        # Store progress border properties
+        self.progress_percent = 0
+        self.border_width = 4
+        
+    def _update_animation(self):
+        """Update animation angle for waiting state"""
+        self.animation_angle = (self.animation_angle + 10) % 360
+        self.update()
+    
+    def paintEvent(self, event):
+        """Custom paint event to draw progress border"""
+        super().paintEvent(event)
+        
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Draw progress border
+        rect = self.rect().adjusted(self.border_width//2, self.border_width//2, 
+                                    -self.border_width//2, -self.border_width//2)
+        
+        # Determine color based on status
+        if self.task.status == "completed" or self.task.status == "finished":
+            border_color = QColor(76, 175, 80)  # Green
+        elif self.task.status == "failed" or self.task.status == "error":
+            border_color = QColor(244, 67, 54)  # Red
+        elif self.task.status == "running" or self.task.status == "executing":
+            border_color = QColor(66, 165, 245)  # Blue
+        else:
+            border_color = QColor(158, 158, 158)  # Gray for waiting
+        
+        # Draw background border (gray)
+        pen = QPen(QColor(80, 82, 84), self.border_width)
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        painter.drawRoundedRect(rect, 8, 8)
+        
+        # Draw progress border clockwise from bottom-left
+        if self.progress_percent > 0:
+            pen = QPen(border_color, self.border_width)
+            pen.setCapStyle(Qt.RoundCap)
+            painter.setPen(pen)
+            
+            # Calculate path for progress border
+            path = QPainterPath()
+            
+            # Total perimeter
+            width = rect.width()
+            height = rect.height()
+            corner_radius = 8
+            
+            # Approximate perimeter (simplified, not accounting for rounded corners exactly)
+            perimeter = 2 * (width + height)
+            progress_length = (self.progress_percent / 100.0) * perimeter
+            
+            # Start from bottom-left corner
+            start_x = rect.left()
+            start_y = rect.bottom()
+            
+            # Draw clockwise: left edge (up), top edge (right), right edge (down), bottom edge (left)
+            path.moveTo(start_x, start_y)
+            
+            remaining = progress_length
+            
+            # Left edge (going up)
+            left_edge = height
+            if remaining > 0:
+                draw_length = min(remaining, left_edge)
+                path.lineTo(start_x, start_y - draw_length)
+                remaining -= draw_length
+            
+            # Top edge (going right)
+            if remaining > 0:
+                top_edge = width
+                draw_length = min(remaining, top_edge)
+                path.lineTo(rect.left() + draw_length, rect.top())
+                remaining -= draw_length
+            
+            # Right edge (going down)
+            if remaining > 0:
+                right_edge = height
+                draw_length = min(remaining, right_edge)
+                path.lineTo(rect.right(), rect.top() + draw_length)
+                remaining -= draw_length
+            
+            # Bottom edge (going left)
+            if remaining > 0:
+                bottom_edge = width
+                draw_length = min(remaining, bottom_edge)
+                path.lineTo(rect.right() - draw_length, rect.bottom())
+            
+            painter.drawPath(path)
+        
+        # Draw hover/selection effect
+        if self.is_selected:
+            pen = QPen(QColor(255, 255, 255, 180), 2)
+            painter.setPen(pen)
+            painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 8, 8)
+        elif self.is_hovered:
+            pen = QPen(QColor(255, 255, 255, 80), 1)
+            painter.setPen(pen)
+            painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 8, 8)
 
     def mousePressEvent(self, event):
         """Handle mouse click events"""
         super().mousePressEvent(event)
         if event.button() == Qt.LeftButton:
-            self.clicked.emit(self)  # Emit the clicked signal with this widget as parameter
+            self.clicked.emit(self)
 
     def set_selected(self, selected):
         """Set the selected state and update appearance"""
         self.is_selected = selected
-        if selected:
-            self.setStyleSheet(f"""TaskItemWidget {{
-                background-color: {self.selected_background};
-                border: 2px solid #ffffff;
-                border-radius: 4px;
-            }}""")
-        else:
-            self.setStyleSheet(f"""TaskItemWidget {{
-                background-color: {self.original_background};
-                border: 1px solid #505254;
-                border-radius: 4px;
-            }}""")
+        self.update()
 
     def update_display(self, task):
-        self.title_label.setText(f"{task.title} [{task.tool}-{task.model}]")
-        self.progress_bar.setValue(task.percent)
-
-        # 图标映射
+        """Update widget display based on task data"""
+        self.task = task
+        self.progress_percent = task.percent
+        
+        # Update task number bubble
+        self.task_number_label.setText(f"#{task.task_id}")
+        
+        # Tool icon mapping
         icon_map = {
             "download": "⬇️",
             "upload": "⬆️",
             "convert": "🔄",
             "backup": "📦",
             "sync": "🔁",
-            "default": "📋",
             "text2img": "🖼️",
-            "generate": "🔄"
+            "img2video": "🎬",
+            "imgedit": "✏️",
+            "generate": "🔄",
+            "default": "📋"
         }
-        emoji = icon_map.get(task.tool, "📋")
-        self.icon_label.setText(emoji)
-
-        # 显示日志信息（如果存在）
-        if hasattr(task, 'log') and task.log:
-            self.log_output.setPlainText(task.log[-1000:])  # 只显示最后1000个字符
-        elif hasattr(task, 'logs') and task.logs:
-            # 如果是日志列表，合并显示
-            logs_text = "\n".join(task.logs[-10:])  # 显示最后10条日志
-            self.log_output.setPlainText(logs_text)
+        
+        # Check if result files exist
+        result_file = None
+        if hasattr(task, 'path') and os.path.exists(task.path):
+            for filename in os.listdir(task.path):
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
+                    result_file = os.path.join(task.path, filename)
+                    break
+        
+        # Show preview or placeholder
+        if result_file and os.path.exists(result_file):
+            # Show preview
+            self.tool_icon_label.hide()
+            self.tool_name_label.hide()
+            self.preview_label.show()
+            
+            if result_file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                pixmap = QPixmap(result_file)
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaled(184, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self.preview_label.setPixmap(scaled_pixmap)
+            else:
+                # Video thumbnail placeholder
+                self.preview_label.setText("🎬 Video")
+                self.preview_label.setStyleSheet("color: #808080; font-size: 24px;")
         else:
-            # Try to get log from config or create a simple log
-            log_text = f"Task {task.task_id} - Status: {task.status}, Progress: {task.percent}%"
-            self.log_output.setPlainText(log_text)
+            # Show placeholder
+            self.preview_label.hide()
+            self.tool_icon_label.show()
+            self.tool_name_label.show()
+            
+            emoji = icon_map.get(task.tool, "📋")
+            self.tool_icon_label.setText(emoji)
+            self.tool_name_label.setText(task.tool.upper())
+        
+        # Update center status label
+        self._update_status_label(task)
+        
+        # Start/stop animation based on status
+        if task.status == "waiting" or task.status == "pending":
+            self.animation_timer.start(50)
+        else:
+            self.animation_timer.stop()
+        
+        self.update()
+    
+    def _update_status_label(self, task):
+        """Update the center status label based on task status"""
+        status = task.status
+        
+        if status == "waiting" or status == "pending":
+            # Show waiting animation
+            self.status_label.setText("⏳ Waiting...")
+            self.status_label.show()
+        elif status == "running" or status == "executing":
+            # Show countdown or progress
+            if hasattr(task, 'estimated_time') and task.estimated_time:
+                self.status_label.setText(f"⏱️ {task.estimated_time}s")
+            else:
+                self.status_label.setText(f"🔄 {task.percent}%")
+            self.status_label.show()
+        elif status == "completed" or status == "finished":
+            # Show execution duration
+            if hasattr(task, 'duration') and task.duration:
+                self.status_label.setText(f"✓ {task.duration}s")
+            else:
+                self.status_label.setText("✓ Done")
+            self.status_label.show()
+        elif status == "failed" or status == "error":
+            self.status_label.setText("✗ Failed")
+            self.status_label.show()
+        else:
+            self.status_label.hide()
 
     def enterEvent(self, event):
-        """当鼠标进入控件时应用高亮效果"""
-        self.setStyleSheet(f"""
-            TaskItemWidget {{
-                background-color: {self.highlight_background};
-                border: 1px solid #505254;
-                border-radius: 4px;
-            }}
-        """)
+        """Handle mouse enter event"""
+        self.is_hovered = True
+        self.update()
         super().enterEvent(event)
         
     def leaveEvent(self, event):
-        """当鼠标离开控件时移除高亮效果"""
-        self.setStyleSheet(f"""
-            TaskItemWidget {{
-                background-color: {self.original_background};
-                border: 1px solid #505254;
-                border-radius: 4px;
-            }}
-        """)
+        """Handle mouse leave event"""
+        self.is_hovered = False
+        self.update()
         super().leaveEvent(event)
