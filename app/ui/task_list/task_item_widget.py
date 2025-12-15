@@ -57,6 +57,8 @@ class TaskItemWidget(BaseWidget):
                 font-size: 12px;
             }
         """)
+        # Make icon_label not intercept mouse events - let them propagate to parent
+        self.icon_label.mousePressEvent = lambda e: self.mousePressEvent(e)
 
         # 信息区
         info_layout = QVBoxLayout()
@@ -66,6 +68,8 @@ class TaskItemWidget(BaseWidget):
         self.title_label.setStyleSheet("color: #E1E1E1;")  # White text for dark theme
         self.title_label.setWordWrap(True)
         self.title_label.setMaximumHeight(30)
+        # Make title_label not intercept mouse events - let them propagate to parent
+        self.title_label.mousePressEvent = lambda e: self.mousePressEvent(e)
         self.progress_bar = QProgressBar()
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setFixedHeight(12)
@@ -84,6 +88,8 @@ class TaskItemWidget(BaseWidget):
                 width: 20px;
             }
         """)
+        # Make progress_bar not intercept mouse events - let them propagate to parent
+        self.progress_bar.mousePressEvent = lambda e: self.mousePressEvent(e)
         info_layout.addWidget(self.title_label)
         info_layout.addWidget(self.progress_bar)
 
@@ -105,6 +111,9 @@ class TaskItemWidget(BaseWidget):
                 padding: 2px;
             }
         """)
+        # Make log_output not intercept mouse events - let them propagate to parent
+        self.log_output.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        self.log_output.mousePressEvent = lambda e: self.mousePressEvent(e)
 
         layout.addLayout(top_layout)
         layout.addWidget(self.log_output)
@@ -191,12 +200,21 @@ class TaskItemWidget(BaseWidget):
         super().enterEvent(event)
         
     def leaveEvent(self, event):
-        """当鼠标离开控件时移除高亮效果"""
-        self.setStyleSheet(f"""
-            TaskItemWidget {{
-                background-color: {self.original_background};
-                border: 1px solid #505254;
+        """当鼠标离开控件时移除高亮效果，但保持选中状态"""
+        if self.is_selected:
+            # Keep selected style when leaving
+            self.setStyleSheet(f"""TaskItemWidget {{
+                background-color: {self.selected_background};
+                border: 2px solid #ffffff;
                 border-radius: 4px;
-            }}
-        """)
+            }}""")
+        else:
+            # Restore original style if not selected
+            self.setStyleSheet(f"""
+                TaskItemWidget {{
+                    background-color: {self.original_background};
+                    border: 1px solid #505254;
+                    border-radius: 4px;
+                }}
+            """)
         super().leaveEvent(event)

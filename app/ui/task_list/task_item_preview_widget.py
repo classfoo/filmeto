@@ -23,51 +23,28 @@ class TaskItemPreviewWidget(QWidget):
         
         self.setGeometry(0, 0, 300, 400)
         
-        # Set a dark theme style
+        # Set a minimal dark theme style - only border, no background
         self.setStyleSheet("""
             QWidget {
-                background-color: #323436;
-                border: 2px solid #505254;
-                border-radius: 8px;
-            }
-        """)
-        
-        # Create the layout for the preview panel
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
-        
-        # Title label
-        self.preview_title = QLabel()
-        self.preview_title.setStyleSheet("""
-            QLabel {
-                color: #E1E1E1;
-                font-size: 14px;
-                font-weight: bold;
-                margin-bottom: 5px;
-            }
-        """)
-        layout.addWidget(self.preview_title)
-        
-        # Preview content area
-        self.preview_content = QScrollArea()
-        self.preview_content.setStyleSheet("""
-            QScrollArea {
-                background-color: #292b2e;
+                background-color: transparent;
                 border: 1px solid #505254;
                 border-radius: 4px;
             }
         """)
-        self.preview_content.setWidgetResizable(True)
         
-        # Content widget
+        # Create the layout for the preview panel - minimal margins
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(2)
+        
+        # Preview content area - simplified, no scroll area wrapper
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
-        self.content_layout.setAlignment(Qt.AlignTop)
-        self.content_layout.setSpacing(5)
+        self.content_layout.setAlignment(Qt.AlignCenter)
+        self.content_layout.setSpacing(2)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.preview_content.setWidget(self.content_widget)
-        layout.addWidget(self.preview_content)
+        layout.addWidget(self.content_widget)
         
         # Hide initially
         self.hide()
@@ -81,9 +58,6 @@ class TaskItemPreviewWidget(QWidget):
         """Populate the preview panel with the selected task's content"""
         if not self.task:
             return
-
-        # Set title
-        self.preview_title.setText(f"{self.task.title} [{self.task.tool}-{self.task.model}]")
         
         # Clear previous content
         for i in reversed(range(self.content_layout.count())):
@@ -99,36 +73,45 @@ class TaskItemPreviewWidget(QWidget):
                 if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
                     result_files.append(os.path.join(self.task.path, filename))
         
-        # Add labels and preview widgets for each result file
+        # Maximum preview size
+        max_preview_size = 280
+        
+        # Add preview widgets for each result file
         for filepath in result_files:
             filename = os.path.basename(filepath)
-            label = QLabel(filename)
-            label.setStyleSheet("color: #E1E1E1; font-size: 12px;")
-            self.content_layout.addWidget(label)
             
             # If it's an image, show a preview
             if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                 try:
                     pixmap = QPixmap(filepath)
                     if not pixmap.isNull():
-                        # Scale the image to fit while maintaining aspect ratio
-                        scaled_pixmap = pixmap.scaled(250, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        # Calculate scaled size maintaining aspect ratio
+                        original_size = pixmap.size()
+                        if original_size.width() > max_preview_size or original_size.height() > max_preview_size:
+                            scaled_pixmap = pixmap.scaled(
+                                max_preview_size, max_preview_size, 
+                                Qt.KeepAspectRatio, Qt.SmoothTransformation
+                            )
+                        else:
+                            scaled_pixmap = pixmap
+                        
                         img_label = QLabel()
                         img_label.setPixmap(scaled_pixmap)
                         img_label.setAlignment(Qt.AlignCenter)
-                        img_label.setStyleSheet("border: 1px solid #505254; border-radius: 4px;")
+                        img_label.setStyleSheet("background-color: transparent;")
                         self.content_layout.addWidget(img_label)
                 except Exception as e:
-                    error_label = QLabel(f"Error loading image: {str(e)}")
-                    error_label.setStyleSheet("color: #ff6b6b; font-size: 10px;")
-                    self.content_layout.addWidget(error_label)
+                    print(f"Error loading image {filepath}: {e}")
             
             # If it's a video, show a video player
             elif filename.lower().endswith(('.mp4', '.avi', '.mov', '.webm')):
                 # Create video player components
                 video_widget = QVideoWidget()
-                video_widget.setFixedSize(250, 250)
-                video_widget.setStyleSheet("border: 1px solid #505254; border-radius: 4px;")
+                # Calculate video widget size maintaining aspect ratio
+                # For now, use a fixed reasonable size, but could be improved to read video dimensions
+                video_widget.setMinimumSize(max_preview_size, max_preview_size)
+                video_widget.setMaximumSize(max_preview_size, max_preview_size)
+                video_widget.setStyleSheet("background-color: #000000;")
                 
                 media_player = QMediaPlayer()
                 audio_output = QAudioOutput()
@@ -139,25 +122,26 @@ class TaskItemPreviewWidget(QWidget):
                 url = QUrl.fromLocalFile(filepath)
                 media_player.setSource(url)
                 
-                # Create play/pause button
+                # Store references to prevent garbage collection
+                video_widget._media_player = media_player
+                
+                # Create play/pause button overlay
                 play_button = QPushButton("▶")
-                play_button.setFixedSize(30, 30)
+                play_button.setFixedSize(40, 40)
                 play_button.setStyleSheet("""
                     QPushButton {
-                        background-color: #5a6e7f;
+                        background-color: rgba(90, 110, 127, 200);
                         color: white;
                         border: none;
-                        border-radius: 15px;
+                        border-radius: 20px;
                         font-weight: bold;
+                        font-size: 16px;
                     }
                     QPushButton:hover {
-                        background-color: #788da2;
+                        background-color: rgba(120, 141, 162, 220);
                     }
                 """)
                 
-                # Store references to prevent garbage collection
-                # Add custom attributes to widget to store references
-                video_widget._media_player = media_player
                 video_widget._play_button = play_button
                 
                 # Connect play button to toggle playback
@@ -180,15 +164,17 @@ class TaskItemPreviewWidget(QWidget):
                 
                 media_player.playbackStateChanged.connect(on_playback_state_changed)
                 
-                # Create a container for the video widget and play button
+                # Create a container for the video widget with control button
                 container_widget = QWidget()
                 container_layout = QVBoxLayout(container_widget)
                 container_layout.setContentsMargins(0, 0, 0, 0)
+                container_layout.setSpacing(2)
+                container_layout.setAlignment(Qt.AlignCenter)
                 
                 # Add video widget to the layout
                 container_layout.addWidget(video_widget)
                 
-                # Create a centered play button layout
+                # Add play button below video (centered, compact)
                 button_layout = QHBoxLayout()
                 button_layout.addStretch()
                 button_layout.addWidget(play_button)
@@ -199,3 +185,6 @@ class TaskItemPreviewWidget(QWidget):
                 
                 # Start playback automatically for preview
                 media_player.play()
+        
+        # Adjust window size based on content
+        self.adjustSize()

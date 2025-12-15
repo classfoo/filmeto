@@ -147,107 +147,28 @@ class TaskListWidget(BaseTaskWidget):
         """Show the preview panel for the selected task"""
         # Create the preview panel if it doesn't exist
         if not hasattr(self, 'preview_panel'):
-            self.create_preview_panel()
-        
-        # Populate the preview panel with content
-        self.populate_preview_panel()
-        
-        # Position the preview panel to the left of the task list
-        parent_pos = self.mapToGlobal(self.rect().topLeft())
-        self.preview_panel.setGeometry(parent_pos.x() - 310, parent_pos.y(), 300, 400)
-        
-        # Show the preview panel
-        self.preview_panel.show()
-
-    def hide_preview_panel(self):
-        """Hide the preview panel"""
-        if hasattr(self, 'preview_panel'):
-            self.preview_panel.hide()
-
-    def create_preview_panel(self):
-        """Create the preview panel widget"""
-        from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget, QScrollArea, QFrame
-        from PySide6.QtCore import Qt, QPoint
-        from PySide6.QtGui import QPixmap, QImage
-        import os
-
-        # Create the preview panel as a separate widget
-        self.preview_panel = QWidget()
-        self.preview_panel.setWindowTitle(tr("Task Preview"))
-        self.preview_panel.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)  # Make it a floating tool window without title bar
-        
-        # Initially hide the preview panel
-        self.preview_panel.setGeometry(0, 0, 300, 400)
-        
-        # Set a dark theme style
-        self.preview_panel.setStyleSheet("""
-            QWidget {
-                background-color: #323436;
-                border: 2px solid #505254;
-                border-radius: 8px;
-            }
-        """)
-        
-        # Create the layout for the preview panel
-        layout = QVBoxLayout(self.preview_panel)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
-        
-        # Title label
-        self.preview_title = QLabel()
-        self.preview_title.setStyleSheet("""
-            QLabel {
-                color: #E1E1E1;
-                font-size: 14px;
-                font-weight: bold;
-                margin-bottom: 5px;
-            }
-        """)
-        layout.addWidget(self.preview_title)
-        
-        # Preview content area
-        self.preview_content = QScrollArea()
-        self.preview_content.setStyleSheet("""
-            QScrollArea {
-                background-color: #292b2e;
-                border: 1px solid #505254;
-                border-radius: 4px;
-            }
-        """)
-        self.preview_content.setWidgetResizable(True)
-        
-        # Content widget
-        self.content_widget = QWidget()
-        self.content_layout = QVBoxLayout(self.content_widget)
-        self.content_layout.setAlignment(Qt.AlignTop)
-        self.content_layout.setSpacing(5)
-        
-        self.preview_content.setWidget(self.content_widget)
-        layout.addWidget(self.preview_content)
-        
-        # Hide initially
-        self.preview_panel.hide()
-
-    # Show/hide preview panel as needed
-        if self.selected_task_widget:
-            self.show_preview_panel()
-        else:
-            self.hide_preview_panel()
-
-    def show_preview_panel(self):
-        """Show the preview panel for the selected task"""
-        # Create the preview panel if it doesn't exist
-        if not hasattr(self, 'preview_panel'):
             from .task_item_preview_widget import TaskItemPreviewWidget
             self.preview_panel = TaskItemPreviewWidget()
+            # Install event filter to handle clicks outside task items
+            from PySide6.QtWidgets import QApplication
+            QApplication.instance().installEventFilter(self)
         
         # Set the task to preview
         if self.selected_task_widget and self.selected_task_widget.task:
             self.preview_panel.set_task(self.selected_task_widget.task)
+            # Adjust size after content is loaded
+            self.preview_panel.adjustSize()
         
-        # Position the preview panel to the left of the task list
-        parent_pos = self.mapToGlobal(self.rect().topLeft())
-        self.preview_panel.setGeometry(parent_pos.x() - 310, parent_pos.y(), 300, 400)
+        # Position the preview panel to the left of the selected task item
+        # Align the top edge of the preview panel with the top edge of the task item
+        if self.selected_task_widget:
+            item_pos = self.selected_task_widget.mapToGlobal(self.selected_task_widget.rect().topLeft())
+            # Position to the left of the task list, aligned with item top
+            task_list_pos = self.mapToGlobal(self.rect().topLeft())
+            preview_size = self.preview_panel.size()
+            preview_x = task_list_pos.x() - preview_size.width() - 10  # 10px spacing
+            preview_y = item_pos.y()
+            self.preview_panel.setGeometry(preview_x, preview_y, preview_size.width(), preview_size.height())
         
         # Show the preview panel
         self.preview_panel.show()
@@ -256,6 +177,45 @@ class TaskListWidget(BaseTaskWidget):
         """Hide the preview panel"""
         if hasattr(self, 'preview_panel'):
             self.preview_panel.hide()
+    
+    def eventFilter(self, obj, event):
+        """Event filter to handle clicks outside task items"""
+        from PySide6.QtCore import QEvent
+        from PySide6.QtGui import QMouseEvent
+        
+        # Handle mouse press events
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if isinstance(event, QMouseEvent):
+                # Check if the click is outside the task list widget and preview panel
+                click_pos = event.globalPos()
+                
+                # Check if click is on preview panel (don't close if clicking on preview)
+                if hasattr(self, 'preview_panel') and self.preview_panel.isVisible():
+                    preview_rect = self.preview_panel.geometry()
+                    if preview_rect.contains(click_pos):
+                        return False  # Let the event propagate normally
+                
+                # Check if click is on any task item
+                clicked_on_item = False
+                for widget in self.loaded_tasks.values():
+                    if widget.isVisible():
+                        widget_global_rect = widget.mapToGlobal(widget.rect())
+                        if widget_global_rect.contains(click_pos):
+                            clicked_on_item = True
+                            break
+                
+                # Check if click is on the task list widget itself (but not on items)
+                task_list_rect = self.mapToGlobal(self.rect())
+                clicked_on_task_list = task_list_rect.contains(click_pos)
+                
+                # If click is outside both task items and preview panel and task list, hide preview
+                if not clicked_on_item and not clicked_on_task_list and hasattr(self, 'preview_panel') and self.preview_panel.isVisible():
+                    self.hide_preview_panel()
+                    if self.selected_task_widget:
+                        self.selected_task_widget.set_selected(False)
+                        self.selected_task_widget = None
+        
+        return False  # Let other events propagate normally
 
     def load_more_tasks(self):
         if self.loading:
