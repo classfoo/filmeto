@@ -51,17 +51,23 @@ class EnhancedTaskItemWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw the main content area (thumbnail area)
-        self.draw_thumbnail_area(painter)
+        try:
+            # Draw the main content area (thumbnail area)
+            self.draw_thumbnail_area(painter)
 
-        # Draw the special border with progress indicator
-        self.draw_progress_border(painter)
+            # Draw the special border with progress indicator
+            self.draw_progress_border(painter)
 
-        # Draw the task number bubble
-        self.draw_task_number_bubble(painter)
+            # Draw the task number bubble
+            self.draw_task_number_bubble(painter)
 
-        # Draw the central status indicator
-        self.draw_status_indicator(painter)
+            # Draw the central status indicator
+            self.draw_status_indicator(painter)
+        except Exception as e:
+            print(f"Error in paintEvent: {e}")
+            # Draw a simple error indicator
+            painter.setPen(QColor(255, 0, 0))
+            painter.drawText(self.rect(), Qt.AlignCenter, "Error")
 
     def draw_thumbnail_area(self, painter):
         """Draw the thumbnail area showing image/video preview or placeholder"""
@@ -114,8 +120,8 @@ class EnhancedTaskItemWidget(QWidget):
 
     def draw_video_placeholder(self, painter, rect):
         """Draw a video placeholder icon"""
+        painter.save()
         try:
-            painter.save()
             # Draw a video camera-like icon
             pen = QPen(QColor("#a0a0a0"), 2)
             painter.setPen(pen)
@@ -130,20 +136,23 @@ class EnhancedTaskItemWidget(QWidget):
                 lens_center = adjusted_rect.center()
                 painter.drawEllipse(lens_center, 15, 15)
 
-                # Triangle inside lens
-                triangle = [(lens_center.x(), lens_center.y()-5),
-                           (lens_center.x()-8, lens_center.y()+5),
-                           (lens_center.x()+8, lens_center.y()+5)]
-                painter.drawPolygon(triangle)
-
-            painter.restore()
+                # Triangle inside lens - Convert to QPoint list
+                from PySide6.QtCore import QPoint
+                points = [
+                    QPoint(lens_center.x(), lens_center.y()-5),
+                    QPoint(lens_center.x()-8, lens_center.y()+5),
+                    QPoint(lens_center.x()+8, lens_center.y()+5)
+                ]
+                painter.drawPolygon(points)
         except Exception as e:
             print(f"Error in draw_video_placeholder: {e}")
+        finally:
+            painter.restore()
     
     def draw_placeholder(self, painter, rect):
         """Draw a placeholder for when no results exist"""
+        painter.save()
         try:
-            painter.save()
             # Draw the tool name and icon as placeholder
             pen = QPen(QColor("#a0a0a0"), 1)
             painter.setPen(pen)
@@ -167,13 +176,14 @@ class EnhancedTaskItemWidget(QWidget):
             y = rect.y() + (rect.height() - text_height) // 2
 
             painter.drawText(x, y, text)
-
-            painter.restore()
         except Exception as e:
             print(f"Error in draw_placeholder: {e}")
+        finally:
+            painter.restore()
 
     def draw_progress_border(self, painter):
         """Draw a special border with progress indicator"""
+        # This method doesn't use painter.save/restore so no need to change the exception handling structure
         try:
             progress = getattr(self.task, 'percent', 0) / 100  # Convert to 0-1 range
 
@@ -238,9 +248,8 @@ class EnhancedTaskItemWidget(QWidget):
 
     def draw_task_number_bubble(self, painter):
         """Draw a colorful bubble for the task number in the top-right corner"""
+        painter.save()
         try:
-            painter.save()
-
             # Bubble properties
             bubble_size = 20
             margin = 5
@@ -281,16 +290,15 @@ class EnhancedTaskItemWidget(QWidget):
             text_y = y + (bubble_size + text_height) // 2  # Adjust for baseline
 
             painter.drawText(text_x, text_y, text)
-
-            painter.restore()
         except Exception as e:
             print(f"Error in draw_task_number_bubble: {e}")
+        finally:
+            painter.restore()
 
     def draw_status_indicator(self, painter):
         """Draw central status indicators (waiting animation, countdown, duration)"""
+        painter.save()
         try:
-            painter.save()
-
             status = getattr(self.task, 'status', 'running')
 
             if status == 'running':
@@ -404,10 +412,10 @@ class EnhancedTaskItemWidget(QWidget):
                     int(2 * radius), int(2 * radius),
                     (start_angle % 360) * 16, span_angle * 16  # Qt uses 1/16th degree units
                 )
-
-            painter.restore()
         except Exception as e:
             print(f"Error in draw_status_indicator: {e}")
+        finally:
+            painter.restore()
 
     def calculate_estimated_time_remaining(self):
         """Calculate estimated time remaining based on progress"""
