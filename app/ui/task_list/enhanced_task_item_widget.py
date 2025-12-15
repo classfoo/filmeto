@@ -1,0 +1,509 @@
+# enhanced_task_item_widget.py
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout, QTextEdit, QFrame
+from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve, QTime
+from PySide6.QtGui import QPainter, QColor, QPen, QFont, QPixmap, QMovie, QPainterPath, QBrush
+from utils.i18n_utils import tr
+
+
+class EnhancedTaskItemWidget(QWidget):
+    clicked = Signal(object)  # Signal emitted when task item is clicked
+
+    def __init__(self, task, workspace=None, parent=None):
+        super().__init__(parent)
+        self.task_id = task.task_id
+        self.task = task
+        self.is_selected = False
+        self.status_animation = None
+        self.workspace = workspace
+
+        # Enable hover events for highlight effect
+        self.setMouseTracking(True)
+        self.setAttribute(Qt.WA_Hover, True)
+
+        self.init_ui()
+        self.update_display(task)
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Set fixed size for the widget
+        self.setFixedSize(180, 180)
+        
+        # Set default style
+        self.setStyleSheet("""
+            EnhancedTaskItemWidget {
+                background-color: #323436;
+                border-radius: 8px;
+            }
+        """)
+
+        # Initialize animation for waiting state
+        self.waiting_movie = QMovie(":/icons/loading.gif")  # Using a generic loading icon
+        if self.waiting_movie.isValid():
+            self.waiting_movie.setScaledSize(self.size() / 4)
+        else:
+            # If no valid movie, create a simple placeholder
+            self.waiting_movie = None
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Draw the main content area (thumbnail area)
+        self.draw_thumbnail_area(painter)
+
+        # Draw the special border with progress indicator
+        self.draw_progress_border(painter)
+
+        # Draw the task number bubble
+        self.draw_task_number_bubble(painter)
+
+        # Draw the central status indicator
+        self.draw_status_indicator(painter)
+
+    def draw_thumbnail_area(self, painter):
+        """Draw the thumbnail area showing image/video preview or placeholder"""
+        # Define the thumbnail rectangle (main content area)
+        thumb_rect = self.rect().adjusted(2, 2, -2, -2)
+
+        # Draw thumbnail background
+        painter.fillRect(thumb_rect, QColor("#292b2e"))
+
+        try:
+            # Try to find and display the result image/video
+            import os
+            from PySide6.QtGui import QPixmap
+
+            # Look for result files in the task directory
+            result_path = None
+            if hasattr(self.task, 'path') and os.path.exists(self.task.path):
+                for filename in os.listdir(self.task.path):
+                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
+                        result_path = os.path.join(self.task.path, filename)
+                        break
+
+            if result_path and os.path.exists(result_path):
+                # Load and draw the image/video thumbnail
+                if result_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    pixmap = QPixmap(result_path)
+                    if not pixmap.isNull():
+                        # Scale pixmap to fit in the thumbnail area while maintaining aspect ratio
+                        scaled_pixmap = pixmap.scaled(
+                            thumb_rect.size(),
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+
+                        # Calculate position to center the image
+                        x = thumb_rect.x() + (thumb_rect.width() - scaled_pixmap.width()) // 2
+                        y = thumb_rect.y() + (thumb_rect.height() - scaled_pixmap.height()) // 2
+
+                        painter.drawPixmap(x, y, scaled_pixmap)
+                else:
+                    # For video files, just show a generic video icon
+                    self.draw_video_placeholder(painter, thumb_rect)
+            else:
+                # Draw placeholder when no results exist
+                self.draw_placeholder(painter, thumb_rect)
+        except Exception as e:
+            # If there's an error, just draw the placeholder
+            print(f"Error in draw_thumbnail_area: {e}")
+            self.draw_placeholder(painter, thumb_rect)
+
+    def draw_video_placeholder(self, painter, rect):
+        """Draw a video placeholder icon"""
+        try:
+            painter.save()
+            # Draw a video camera-like icon
+            pen = QPen(QColor("#a0a0a0"), 2)
+            painter.setPen(pen)
+            painter.setBrush(QColor(40, 42, 46))
+
+            # Camera body - make sure the rect is large enough
+            adjusted_rect = rect.adjusted(30, 50, -30, -50)
+            if adjusted_rect.width() > 0 and adjusted_rect.height() > 0:
+                painter.drawRoundedRect(adjusted_rect, 5, 5)
+
+                # Lens
+                lens_center = adjusted_rect.center()
+                painter.drawEllipse(lens_center, 15, 15)
+
+                # Triangle inside lens
+                triangle = [(lens_center.x(), lens_center.y()-5),
+                           (lens_center.x()-8, lens_center.y()+5),
+                           (lens_center.x()+8, lens_center.y()+5)]
+                painter.drawPolygon(triangle)
+
+            painter.restore()
+        except Exception as e:
+            print(f"Error in draw_video_placeholder: {e}")
+    
+    def draw_placeholder(self, painter, rect):
+        """Draw a placeholder for when no results exist"""
+        try:
+            painter.save()
+            # Draw the tool name and icon as placeholder
+            pen = QPen(QColor("#a0a0a0"), 1)
+            painter.setPen(pen)
+
+            # Get the tool name and icon
+            tool_name = getattr(self.task, 'tool', 'unknown')
+
+            # Calculate text positioning
+            font = QFont()
+            font.setPointSize(10)
+            painter.setFont(font)
+
+            # Get text metrics
+            fm = painter.fontMetrics()
+            text = tr(f"Tool: {tool_name}")
+            text_width = fm.horizontalAdvance(text)
+            text_height = fm.height()
+
+            # Center the text
+            x = rect.x() + (rect.width() - text_width) // 2
+            y = rect.y() + (rect.height() - text_height) // 2
+
+            painter.drawText(x, y, text)
+
+            painter.restore()
+        except Exception as e:
+            print(f"Error in draw_placeholder: {e}")
+
+    def draw_progress_border(self, painter):
+        """Draw a special border with progress indicator"""
+        try:
+            progress = getattr(self.task, 'percent', 0) / 100  # Convert to 0-1 range
+
+            # Define the border rectangle
+            border_width = 3
+            border_rect = self.rect().adjusted(border_width//2, border_width//2, -border_width//2, -border_width//2)
+
+            # Calculate path length and positions for progress indicator
+            total_length = 2 * (border_rect.width() + border_rect.height()) - 4  # Perimeter minus corners
+            progress_length = total_length * progress
+
+            # Draw the border based on the task status
+            status = getattr(self.task, 'status', 'running')
+
+            # Determine the color based on status
+            if status == 'completed':
+                border_color = QColor(0, 255, 0)  # Green for completed
+            elif status == 'running':
+                border_color = QColor(0, 128, 255)  # Blue for running
+            elif status == 'checking':
+                border_color = QColor(0, 255, 128)  # Light green for checking
+            elif status == 'failed':
+                border_color = QColor(255, 0, 0)  # Red for failed
+            else:
+                border_color = QColor(128, 128, 128)  # Gray for other statuses
+
+            pen = QPen(border_color, border_width)
+            pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+            painter.setPen(pen)
+
+            # Create path for the border
+            path = QPainterPath()
+
+            # Move to bottom-left (start position)
+            path.moveTo(border_rect.left(), border_rect.bottom())
+
+            # Bottom side - from left to right
+            bottom_end_x = border_rect.left() + min(progress_length, border_rect.width())
+            path.lineTo(bottom_end_x, border_rect.bottom())
+
+            remaining = progress_length - border_rect.width()
+            if remaining > 0:
+                # Right side - from bottom to top
+                right_end_y = border_rect.bottom() - min(remaining, border_rect.height())
+                path.lineTo(border_rect.right(), right_end_y)
+
+                remaining -= border_rect.height()
+                if remaining > 0:
+                    # Top side - from right to left
+                    top_end_x = border_rect.right() - min(remaining, border_rect.width())
+                    path.lineTo(top_end_x, border_rect.top())
+
+                    remaining -= border_rect.width()
+                    if remaining > 0:
+                        # Left side - from top to bottom
+                        left_end_y = border_rect.top() + min(remaining, border_rect.height())
+                        path.lineTo(border_rect.left(), left_end_y)
+
+            painter.drawPath(path)
+        except Exception as e:
+            print(f"Error in draw_progress_border: {e}")
+
+    def draw_task_number_bubble(self, painter):
+        """Draw a colorful bubble for the task number in the top-right corner"""
+        try:
+            painter.save()
+
+            # Bubble properties
+            bubble_size = 20
+            margin = 5
+
+            # Position in top-right corner
+            x = self.width() - bubble_size - margin
+            y = margin
+
+            # Draw bubble background
+            status = getattr(self.task, 'status', 'running')
+            if status == 'completed':
+                bubble_color = QColor(0, 200, 0)  # Green
+            elif status == 'running':
+                bubble_color = QColor(0, 150, 255)  # Blue
+            elif status == 'checking':
+                bubble_color = QColor(0, 200, 150)  # Cyan
+            elif status == 'failed':
+                bubble_color = QColor(200, 0, 0)  # Red
+            else:
+                bubble_color = QColor(150, 150, 150)  # Gray
+
+            painter.setBrush(bubble_color)
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(x, y, bubble_size, bubble_size)
+
+            # Draw task number
+            painter.setPen(QColor(255, 255, 255))
+            font = QFont()
+            font.setPointSize(9)
+            font.setBold(True)
+            painter.setFont(font)
+
+            text = str(getattr(self.task, 'task_id', ''))
+            text_width = painter.fontMetrics().horizontalAdvance(text)
+            text_height = painter.fontMetrics().height()
+
+            text_x = x + (bubble_size - text_width) // 2
+            text_y = y + (bubble_size + text_height) // 2  # Adjust for baseline
+
+            painter.drawText(text_x, text_y, text)
+
+            painter.restore()
+        except Exception as e:
+            print(f"Error in draw_task_number_bubble: {e}")
+
+    def draw_status_indicator(self, painter):
+        """Draw central status indicators (waiting animation, countdown, duration)"""
+        try:
+            painter.save()
+
+            status = getattr(self.task, 'status', 'running')
+
+            if status == 'running':
+                # Show countdown timer
+                painter.setPen(QColor(0, 255, 255))  # Cyan color for running state
+
+                # Calculate estimated time remaining based on progress
+                # For now we'll simulate it
+                # In real implementation, this would be calculated based on progress speed
+                estimated_time = self.calculate_estimated_time_remaining()
+
+                font = QFont()
+                font.setPointSize(12)
+                font.setBold(True)
+                painter.setFont(font)
+
+                text_width = painter.fontMetrics().horizontalAdvance(estimated_time)
+                text_height = painter.fontMetrics().height()
+
+                text_x = (self.width() - text_width) // 2
+                text_y = (self.height() + text_height) // 2  # Adjust for baseline
+
+                painter.drawText(text_x, text_y, estimated_time)
+            elif status in ['created', 'waiting', 'queued']:
+                # Show waiting animation
+                if self.waiting_movie:
+                    # Start the animation if not already running
+                    if self.waiting_movie.state() != QMovie.Running:
+                        self.waiting_movie.start()
+
+                    # Draw current frame of the movie
+                    frame = self.waiting_movie.currentPixmap()
+                    if not frame.isNull():
+                        pos_x = (self.width() - frame.width()) // 2
+                        pos_y = (self.height() - frame.height()) // 2
+                        painter.drawPixmap(pos_x, pos_y, frame)
+                else:
+                    # Draw a simple rotating indicator
+                    painter.setPen(QColor(150, 150, 150))
+                    painter.setBrush(QColor(150, 150, 150))
+
+                    # Draw a rotating indicator with multiple dots
+                    from PySide6.QtCore import QTime
+                    import math
+                    current_time = QTime.currentTime()
+                    rotation_factor = (current_time.msec() / 1000.0) * 2 * math.pi  # Full rotation every second
+
+                    center_x = self.width() // 2
+                    center_y = self.height() // 2
+                    radius = 15
+
+                    # Draw 3 rotating dots
+                    for i in range(3):
+                        angle = rotation_factor + (i * 2 * math.pi / 3)
+                        dot_x = center_x + radius * math.cos(angle)
+                        dot_y = center_y + radius * math.sin(angle)
+                        size = 6 - i  # Different sizes for depth effect
+
+                        painter.drawEllipse(int(dot_x - size/2), int(dot_y - size/2), int(size), int(size))
+            elif status == 'completed':
+                # Show execution duration
+                duration = getattr(self.task, 'duration', self.calculate_execution_duration())
+
+                painter.setPen(QColor(0, 255, 0))  # Green color for completed state
+                font = QFont()
+                font.setPointSize(12)
+                font.setBold(True)
+                painter.setFont(font)
+
+                text_width = painter.fontMetrics().horizontalAdvance(duration)
+                text_height = painter.fontMetrics().height()
+
+                text_x = (self.width() - text_width) // 2
+                text_y = (self.height() + text_height) // 2  # Adjust for baseline
+
+                painter.drawText(text_x, text_y, duration)
+            elif status == 'failed':
+                # Show failure indicator
+                painter.setPen(QColor(255, 50, 50))  # Red color for failed state
+                font = QFont()
+                font.setPointSize(16)
+                font.setBold(True)
+                painter.setFont(font)
+
+                text = "✗"
+                text_width = painter.fontMetrics().horizontalAdvance(text)
+                text_height = painter.fontMetrics().height()
+
+                text_x = (self.width() - text_width) // 2
+                text_y = (self.height() + text_height) // 2  # Adjust for baseline
+
+                painter.drawText(text_x, text_y, text)
+            elif status == 'checking':
+                # Show checking indicator (rotating circle)
+                painter.setPen(QColor(0, 255, 150))  # Light green for checking state
+                painter.setBrush(Qt.NoBrush)
+
+                center_x = self.width() // 2
+                center_y = self.height() // 2
+                radius = 15
+
+                # Draw a rotating arc
+                from PySide6.QtCore import QTime
+                import math
+                current_time = QTime.currentTime()
+                start_angle = int((current_time.msec() / 1000.0) * 180)  # Degrees
+                span_angle = 90  # 90 degree arc
+
+                painter.drawArc(
+                    int(center_x - radius), int(center_y - radius),
+                    int(2 * radius), int(2 * radius),
+                    (start_angle % 360) * 16, span_angle * 16  # Qt uses 1/16th degree units
+                )
+
+            painter.restore()
+        except Exception as e:
+            print(f"Error in draw_status_indicator: {e}")
+
+    def calculate_estimated_time_remaining(self):
+        """Calculate estimated time remaining based on progress"""
+        # Simple estimation: if 50% done in 10 seconds, estimate 10 more seconds
+        # In practice, this should use actual progress speed
+        try:
+            percent = getattr(self.task, 'percent', 0)
+            if percent > 0 and percent < 100:
+                # Assume started at 0% at time 0 for simplicity
+                # In reality, you'd track the start time
+                completed_fraction = percent / 100.0
+                # Just return a placeholder; actual implementation would track timing
+                remaining_seconds = int((100 - percent) / (percent / 10)) if percent > 0 else 30
+                minutes = remaining_seconds // 60
+                seconds = remaining_seconds % 60
+                return f"{minutes:02d}:{seconds:02d}"
+        except:
+            pass
+        return "00:30"  # Default fallback
+
+    def calculate_execution_duration(self):
+        """Calculate total execution duration"""
+        # In practice, this would use actual start and end times
+        # For now, just return a placeholder
+        try:
+            # If we have a start time in the task options, calculate the difference
+            if hasattr(self.task, 'start_time'):
+                import time
+                elapsed = int(time.time() - self.task.start_time)
+                minutes = elapsed // 60
+                seconds = elapsed % 60
+                return f"{minutes:02d}:{seconds:02d}"
+        except:
+            pass
+        return "00:15"  # Default fallback
+
+    def mousePressEvent(self, event):
+        """Handle mouse click events"""
+        super().mousePressEvent(event)
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self)  # Emit the clicked signal with this widget as parameter
+
+    def set_selected(self, selected):
+        """Set the selected state and update appearance"""
+        self.is_selected = selected
+        if selected:
+            # Apply selection style
+            self.setStyleSheet("""
+                EnhancedTaskItemWidget {
+                    background-color: #4a4c5f;
+                    border: 2px solid white;
+                    border-radius: 8px;
+                }
+            """)
+        else:
+            # Restore original style
+            self.setStyleSheet("""
+                EnhancedTaskItemWidget {
+                    background-color: #323436;
+                    border-radius: 8px;
+                }
+            """)
+        self.update()  # Trigger repaint
+
+    def update_display(self, task):
+        """Update the display with new task information"""
+        self.task = task
+        self.update()  # Trigger repaint
+
+    def enterEvent(self, event):
+        """When mouse enters the widget, apply highlight effect"""
+        self.setStyleSheet("""
+            EnhancedTaskItemWidget {
+                background-color: #3a3c3f;
+                border-radius: 8px;
+            }
+        """)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        """When mouse leaves the widget, remove highlight effect but maintain selected state"""
+        if self.is_selected:
+            # Keep selected style when leaving
+            self.setStyleSheet("""
+                EnhancedTaskItemWidget {
+                    background-color: #4a4c5f;
+                    border: 2px solid white;
+                    border-radius: 8px;
+                }
+            """)
+        else:
+            # Restore original style if not selected
+            self.setStyleSheet("""
+                EnhancedTaskItemWidget {
+                    background-color: #323436;
+                    border-radius: 8px;
+                }
+            """)
+        super().leaveEvent(event)

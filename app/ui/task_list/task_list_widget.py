@@ -3,7 +3,7 @@ import json
 import yaml
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QPushButton, QHBoxLayout, QFrame
 from PySide6.QtCore import Qt, Signal, Slot, QThreadPool, QRect
-from .task_item_widget import TaskItemWidget
+from .enhanced_task_item_widget import EnhancedTaskItemWidget
 import os
 
 from ..base_widget import BaseWidget, BaseTaskWidget
@@ -247,7 +247,7 @@ class TaskListWidget(BaseTaskWidget):
                 widget = self.loaded_tasks[task.task_id]
                 widget.update_display(task)
                 continue
-            widget = TaskItemWidget(task, self.workspace)
+            widget = EnhancedTaskItemWidget(task, self.workspace)
             widget.clicked.connect(self.on_task_item_clicked)
             self.scroll_layout.addWidget(widget)
             self.loaded_tasks[task.task_id] = widget
@@ -277,11 +277,11 @@ class TaskListWidget(BaseTaskWidget):
         # 只加载第一页的任务
         initial_tasks = tasks[:self.page_size]
         for task in initial_tasks:
-            widget = TaskItemWidget(task, self.workspace)
+            widget = EnhancedTaskItemWidget(task, self.workspace)
             widget.clicked.connect(self.on_task_item_clicked)
             self.scroll_layout.addWidget(widget)
             self.loaded_tasks[task.task_id] = widget
-            
+
         self.current_index = len(initial_tasks)
         self.load_all_task_dirs()
 
