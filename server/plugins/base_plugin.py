@@ -9,47 +9,67 @@ import sys
 import json
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Callable, Optional
+from typing import Any, Dict, Callable, Optional, List
 from datetime import datetime
+
+
+class ToolConfig:
+    """
+    Configuration for a specific tool supported by a plugin.
+    """
+    def __init__(self, name: str, description: str, parameters: List[Dict[str, Any]]):
+        self.name = name
+        self.description = description
+        self.parameters = parameters  # List of parameter definitions
 
 
 class BaseServerPlugin(ABC):
     """
     Base class for server plugins.
-    
+
     Plugins communicate with the service layer via JSON-RPC over stdin/stdout.
     """
-    
+
     def __init__(self):
         """Initialize the plugin"""
         self.current_task_id: Optional[str] = None
-    
+
     @abstractmethod
     async def execute_task(
-        self, 
+        self,
         task_data: Dict[str, Any],
         progress_callback: Callable[[float, str, Dict[str, Any]], None]
     ) -> Dict[str, Any]:
         """
         Execute a task and return the result.
-        
+
         Args:
             task_data: Task data including tool_name, parameters, resources
             progress_callback: Callback to report progress
                                progress_callback(percent, message, data)
-        
+
         Returns:
             Result dictionary with status, output_files, execution_time, etc.
         """
         pass
-    
+
     @abstractmethod
     def get_plugin_info(self) -> Dict[str, Any]:
         """
         Get plugin metadata.
-        
+
         Returns:
             Dictionary with name, version, description, supported_tools
+        """
+        pass
+
+    @abstractmethod
+    def get_supported_tools(self) -> List[ToolConfig]:
+        """
+        Get list of tools supported by this plugin with their configs.
+
+        Returns:
+            List of ToolConfig objects
         """
         pass
     
@@ -191,14 +211,24 @@ class BaseServerPlugin(ABC):
     async def _handle_get_info(self, request_id: int) -> Dict[str, Any]:
         """
         Handle get_info JSON-RPC request.
-        
+
         Args:
             request_id: JSON-RPC request ID
-        
+
         Returns:
             JSON-RPC response with plugin info
         """
         info = self.get_plugin_info()
+        # Add supported tools to the info
+        tools = []
+        for tool_config in self.get_supported_tools():
+            tools.append({
+                "name": tool_config.name,
+                "description": tool_config.description,
+                "parameters": tool_config.parameters
+            })
+
+        info["supported_tools"] = tools
         return {
             "jsonrpc": "2.0",
             "result": info,

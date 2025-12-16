@@ -1,7 +1,7 @@
 """
-Text2Image Demo Plugin
+Multi-Tool Demo Plugin
 
-A simple demo plugin that generates placeholder images with text.
+A demo plugin that supports multiple tools like text-to-image and image-to-image.
 """
 
 import os
@@ -9,12 +9,12 @@ import sys
 import time
 import asyncio
 from pathlib import Path
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, List
 
 # Add parent directory to path to import base_plugin
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from server.plugins.base_plugin import BaseServerPlugin
+from server.plugins.base_plugin import BaseServerPlugin, ToolConfig
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -23,28 +23,115 @@ except ImportError:
     sys.exit(1)
 
 
-class Text2ImageDemoPlugin(BaseServerPlugin):
+class MultiToolDemoPlugin(BaseServerPlugin):
     """
-    Demo plugin for text-to-image generation.
-    
-    This is a simple demonstration plugin that creates colored images
-    with the prompt text rendered on them.
+    Demo plugin supporting multiple tools.
+
+    This is a demonstration plugin that shows how to implement
+    multiple tools in a single plugin.
     """
-    
+
     def __init__(self):
         super().__init__()
         self.output_dir = Path(__file__).parent / "outputs"
         self.output_dir.mkdir(exist_ok=True)
-    
+
     def get_plugin_info(self) -> Dict[str, Any]:
         """Get plugin metadata"""
         return {
-            "name": "text2image_demo",
+            "name": "comfy_ui_demo",
             "version": "1.0.0",
-            "description": "Demo text-to-image plugin",
-            "author": "Filmeto Team",
-            "supported_tools": ["text2image"]
+            "description": "Demo plugin with multiple tools for ComfyUI",
+            "author": "Filmeto Team"
         }
+
+    def get_supported_tools(self) -> List[ToolConfig]:
+        """Get list of tools supported by this plugin with their configs"""
+        # Define tools supported by this plugin
+        text2image_params = [
+            {
+                "name": "prompt",
+                "type": "string",
+                "required": True,
+                "description": "Text prompt for generation"
+            },
+            {
+                "name": "negative_prompt",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Negative prompt"
+            },
+            {
+                "name": "width",
+                "type": "integer",
+                "required": False,
+                "default": 512,
+                "min": 256,
+                "max": 2048,
+                "description": "Image width"
+            },
+            {
+                "name": "height",
+                "type": "integer",
+                "required": False,
+                "default": 512,
+                "min": 256,
+                "max": 2048,
+                "description": "Image height"
+            },
+            {
+                "name": "steps",
+                "type": "integer",
+                "required": False,
+                "default": 20,
+                "min": 1,
+                "max": 100,
+                "description": "Number of generation steps"
+            }
+        ]
+
+        image2image_params = [
+            {
+                "name": "prompt",
+                "type": "string",
+                "required": True,
+                "description": "Text prompt for transformation"
+            },
+            {
+                "name": "strength",
+                "type": "float",
+                "required": False,
+                "default": 0.7,
+                "min": 0.0,
+                "max": 1.0,
+                "description": "Strength of transformation"
+            }
+        ]
+
+        inpainting_params = [
+            {
+                "name": "prompt",
+                "type": "string",
+                "required": True,
+                "description": "Text prompt for inpainting"
+            },
+            {
+                "name": "mask_blur",
+                "type": "integer",
+                "required": False,
+                "default": 4,
+                "min": 0,
+                "max": 64,
+                "description": "Blur radius for mask feathering"
+            }
+        ]
+
+        return [
+            ToolConfig(name="text2image", description="Generate image from text prompt", parameters=text2image_params),
+            ToolConfig(name="image2image", description="Transform image based on text prompt", parameters=image2image_params),
+            ToolConfig(name="inpainting", description="Fill in masked regions of an image", parameters=inpainting_params)
+        ]
     
     async def execute_task(
         self,
@@ -52,81 +139,254 @@ class Text2ImageDemoPlugin(BaseServerPlugin):
         progress_callback: Callable[[float, str, Dict[str, Any]], None]
     ) -> Dict[str, Any]:
         """
-        Execute text-to-image generation task.
-        
+        Execute a task based on its tool type.
+
         Args:
-            task_data: Task parameters including prompt, width, height, etc.
+            task_data: Task parameters including tool, parameters, resources
             progress_callback: Callback for reporting progress
-        
+
         Returns:
             Result dictionary with output files
         """
         task_id = task_data.get("task_id", "unknown")
+        tool_name = task_data.get("tool", "")
         parameters = task_data.get("parameters", {})
-        
-        # Extract parameters
-        prompt = parameters.get("prompt", "")
-        width = parameters.get("width", 512)
-        height = parameters.get("height", 512)
-        steps = parameters.get("steps", 20)
-        
-        print(f"Generating image: {prompt} ({width}x{height})")
-        
+
         try:
-            # Report initialization
-            progress_callback(0, "Initializing generation...", {})
-            await asyncio.sleep(0.5)
-            
-            # Simulate generation steps
-            for step in range(steps):
-                # Calculate progress
-                percent = (step + 1) / steps * 100
-                message = f"Generation step {step+1}/{steps}"
-                
-                # Report progress
-                progress_callback(percent, message, {"step": step + 1, "total_steps": steps})
-                
-                # Simulate processing time
-                await asyncio.sleep(0.1)
-            
-            # Generate the actual image
-            progress_callback(95, "Finalizing image...", {})
-            output_path = await self._generate_image(prompt, width, height, task_id)
-            
-            # Return result
-            return {
-                "task_id": task_id,
-                "status": "success",
-                "output_files": [str(output_path)],
-                "output_resources": [
-                    {
-                        "type": "image",
-                        "path": str(output_path),
-                        "mime_type": "image/png",
-                        "size": output_path.stat().st_size,
-                        "metadata": {
-                            "width": width,
-                            "height": height,
-                            "prompt": prompt
-                        }
-                    }
-                ],
-                "metadata": {
-                    "prompt": prompt,
-                    "width": width,
-                    "height": height,
-                    "steps": steps
+            if tool_name == "text2image":
+                return await self._execute_text2image_task(task_id, parameters, progress_callback)
+            elif tool_name == "image2image":
+                return await self._execute_image2image_task(task_id, parameters, progress_callback)
+            elif tool_name == "inpainting":
+                return await self._execute_inpainting_task(task_id, parameters, progress_callback)
+            else:
+                return {
+                    "task_id": task_id,
+                    "status": "error",
+                    "error_message": f"Unsupported tool: {tool_name}",
+                    "output_files": []
                 }
-            }
-            
+
         except Exception as e:
-            print(f"Error generating image: {e}")
+            print(f"Error executing task with tool {tool_name}: {e}")
             return {
                 "task_id": task_id,
                 "status": "error",
                 "error_message": str(e),
                 "output_files": []
             }
+
+    async def _execute_text2image_task(
+        self,
+        task_id: str,
+        parameters: Dict[str, Any],
+        progress_callback: Callable[[float, str, Dict[str, Any]], None]
+    ) -> Dict[str, Any]:
+        """
+        Execute text-to-image generation task.
+
+        Args:
+            task_id: Task identifier
+            parameters: Task parameters including prompt, width, height, etc.
+            progress_callback: Callback for reporting progress
+
+        Returns:
+            Result dictionary with output files
+        """
+        # Extract parameters
+        prompt = parameters.get("prompt", "")
+        negative_prompt = parameters.get("negative_prompt", "")
+        width = parameters.get("width", 512)
+        height = parameters.get("height", 512)
+        steps = parameters.get("steps", 20)
+
+        print(f"Generating image: {prompt} ({width}x{height})")
+
+        # Report initialization
+        progress_callback(0, "Initializing text-to-image generation...", {})
+        await asyncio.sleep(0.5)
+
+        # Simulate generation steps
+        for step in range(steps):
+            # Calculate progress
+            percent = (step + 1) / steps * 100
+            message = f"Generation step {step+1}/{steps}"
+
+            # Report progress
+            progress_callback(percent, message, {"step": step + 1, "total_steps": steps})
+
+            # Simulate processing time
+            await asyncio.sleep(0.1)
+
+        # Generate the actual image
+        progress_callback(95, "Finalizing image...", {})
+        output_path = await self._generate_image(prompt, width, height, task_id)
+
+        # Return result
+        return {
+            "task_id": task_id,
+            "status": "success",
+            "output_files": [str(output_path)],
+            "output_resources": [
+                {
+                    "type": "image",
+                    "path": str(output_path),
+                    "mime_type": "image/png",
+                    "size": output_path.stat().st_size,
+                    "metadata": {
+                        "width": width,
+                        "height": height,
+                        "prompt": prompt,
+                        "negative_prompt": negative_prompt
+                    }
+                }
+            ],
+            "metadata": {
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "width": width,
+                "height": height,
+                "steps": steps
+            }
+        }
+
+    async def _execute_image2image_task(
+        self,
+        task_id: str,
+        parameters: Dict[str, Any],
+        progress_callback: Callable[[float, str, Dict[str, Any]], None]
+    ) -> Dict[str, Any]:
+        """
+        Execute image-to-image transformation task.
+
+        Args:
+            task_id: Task identifier
+            parameters: Task parameters including prompt, strength, etc.
+            progress_callback: Callback for reporting progress
+
+        Returns:
+            Result dictionary with output files
+        """
+        # Extract parameters
+        prompt = parameters.get("prompt", "")
+        strength = parameters.get("strength", 0.7)
+
+        print(f"Transforming image with prompt: {prompt}, strength: {strength}")
+
+        # Report initialization
+        progress_callback(0, "Initializing image-to-image transformation...", {})
+        await asyncio.sleep(0.2)
+
+        # Simulate transformation steps
+        total_steps = 10
+        for step in range(total_steps):
+            # Calculate progress
+            percent = (step + 1) / total_steps * 100
+            message = f"Transformation step {step+1}/{total_steps}"
+
+            # Report progress
+            progress_callback(percent, message, {"step": step + 1, "total_steps": total_steps})
+
+            # Simulate processing time
+            await asyncio.sleep(0.1)
+
+        # Generate the actual image
+        progress_callback(95, "Finalizing transformed image...", {})
+        # For demo purposes, we'll just generate a new image with the prompt
+        width, height = 512, 512  # Using default values
+        output_path = await self._generate_image(prompt, width, height, task_id)
+
+        # Return result
+        return {
+            "task_id": task_id,
+            "status": "success",
+            "output_files": [str(output_path)],
+            "output_resources": [
+                {
+                    "type": "image",
+                    "path": str(output_path),
+                    "mime_type": "image/png",
+                    "size": output_path.stat().st_size,
+                    "metadata": {
+                        "prompt": prompt,
+                        "strength": strength
+                    }
+                }
+            ],
+            "metadata": {
+                "prompt": prompt,
+                "strength": strength
+            }
+        }
+
+    async def _execute_inpainting_task(
+        self,
+        task_id: str,
+        parameters: Dict[str, Any],
+        progress_callback: Callable[[float, str, Dict[str, Any]], None]
+    ) -> Dict[str, Any]:
+        """
+        Execute inpainting task.
+
+        Args:
+            task_id: Task identifier
+            parameters: Task parameters including prompt, mask_blur, etc.
+            progress_callback: Callback for reporting progress
+
+        Returns:
+            Result dictionary with output files
+        """
+        # Extract parameters
+        prompt = parameters.get("prompt", "")
+        mask_blur = parameters.get("mask_blur", 4)
+
+        print(f"Inpainting with prompt: {prompt}, mask_blur: {mask_blur}")
+
+        # Report initialization
+        progress_callback(0, "Initializing inpainting...", {})
+        await asyncio.sleep(0.3)
+
+        # Simulate inpainting steps
+        total_steps = 8
+        for step in range(total_steps):
+            # Calculate progress
+            percent = (step + 1) / total_steps * 100
+            message = f"Inpainting step {step+1}/{total_steps}"
+
+            # Report progress
+            progress_callback(percent, message, {"step": step + 1, "total_steps": total_steps})
+
+            # Simulate processing time
+            await asyncio.sleep(0.15)
+
+        # Generate the actual image
+        progress_callback(95, "Finalizing inpainted image...", {})
+        # For demo purposes, we'll just generate a new image with the prompt
+        width, height = 512, 512  # Using default values
+        output_path = await self._generate_image(prompt, width, height, task_id)
+
+        # Return result
+        return {
+            "task_id": task_id,
+            "status": "success",
+            "output_files": [str(output_path)],
+            "output_resources": [
+                {
+                    "type": "image",
+                    "path": str(output_path),
+                    "mime_type": "image/png",
+                    "size": output_path.stat().st_size,
+                    "metadata": {
+                        "prompt": prompt,
+                        "mask_blur": mask_blur
+                    }
+                }
+            ],
+            "metadata": {
+                "prompt": prompt,
+                "mask_blur": mask_blur
+            }
+        }
     
     async def _generate_image(
         self,
@@ -219,6 +479,6 @@ class Text2ImageDemoPlugin(BaseServerPlugin):
 
 if __name__ == "__main__":
     # Create and run the plugin
-    plugin = Text2ImageDemoPlugin()
+    plugin = MultiToolDemoPlugin()
     plugin.run()
 

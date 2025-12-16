@@ -4,6 +4,7 @@ Plugin Manager
 Manages plugin processes, lifecycle, and communication.
 """
 
+from __future__ import annotations
 import os
 import sys
 import json
@@ -11,11 +12,19 @@ import yaml
 import asyncio
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, Any, AsyncIterator
+from typing import Dict, Optional, Any, AsyncIterator, List
 from dataclasses import dataclass
 
 from server.api.types import FilmetoTask, TaskProgress, TaskResult, ProgressType
 from server.api.types import PluginNotFoundError, PluginExecutionError
+
+
+@dataclass
+class ToolInfo:
+    """Information about a specific tool supported by a plugin."""
+    name: str
+    description: str
+    parameters: List[Dict[str, Any]]
 
 
 @dataclass
@@ -25,7 +34,8 @@ class PluginInfo:
     version: str
     description: str
     author: str
-    tool_type: str
+    # Changed from single tool_type to list of tools
+    tools: List[ToolInfo]  # List of supported tools with their configurations
     engine: str
     plugin_path: Path
     main_script: Path
@@ -265,58 +275,84 @@ class PluginManager:
         Discover available plugins in the plugins directory.
         """
         print(f"Discovering plugins in: {self.plugins_dir}")
-        
+
         if not self.plugins_dir.exists():
             print(f"Plugins directory not found: {self.plugins_dir}")
             return
-        
+
         for plugin_dir in self.plugins_dir.iterdir():
             if not plugin_dir.is_dir() or plugin_dir.name.startswith('_'):
                 continue
-            
+
             # Look for plugin.yaml
             config_file = plugin_dir / "plugin.yaml"
             if not config_file.exists():
                 continue
-            
+
             try:
                 with open(config_file, 'r', encoding='utf-8') as f:
                     config = yaml.safe_load(f)
-                
-                # Validate required fields
-                required_fields = ['name', 'version', 'description', 'tool_type']
-                if not all(field in config for field in required_fields):
+
+                # Validate required fields - changed from single tool_type to tools
+                required_fields = ['name', 'version', 'description']
+
+                # Either tool_type (old way) or tools (new way) must be present
+                if not all(field in config for field in ['name', 'version', 'description']):
                     print(f"⚠️ Plugin config missing required fields: {plugin_dir.name}")
                     continue
-                
+
                 # Find main script
                 main_script = plugin_dir / "main.py"
                 if not main_script.exists():
                     print(f"⚠️ Plugin main.py not found: {plugin_dir.name}")
                     continue
-                
+
                 # Check for requirements.txt
                 requirements_file = plugin_dir / "requirements.txt"
                 if not requirements_file.exists():
                     requirements_file = None
-                
+
+                # Handle both old and new plugin configurations
+                if 'tool_type' in config:  # Old format - single tool
+                    # Convert to new format for backward compatibility
+                    tools = [ToolInfo(
+                        name=config['tool_type'],
+                        description=config.get('description', ''),
+                        parameters=config.get('parameters', [])
+                    )]
+                elif 'tools' in config:  # New format - multiple tools
+                    tools = []
+                    for tool_config in config['tools']:
+                        tool_info = ToolInfo(
+                            name=tool_config['name'],
+                            description=tool_config.get('description', ''),
+                            parameters=tool_config.get('parameters', [])
+                        )
+                        tools.append(tool_info)
+                else:
+                    print(f"⚠️ Plugin config missing 'tool_type' or 'tools': {plugin_dir.name}")
+                    continue
+
                 # Create plugin info
                 plugin_info = PluginInfo(
                     name=config['name'],
                     version=config.get('version', '1.0.0'),
                     description=config.get('description', ''),
                     author=config.get('author', ''),
-                    tool_type=config['tool_type'],
+                    tools=tools,  # Updated to use tools list
                     engine=config.get('engine', ''),
                     plugin_path=plugin_dir,
                     main_script=main_script,
                     requirements_file=requirements_file,
                     config=config
                 )
-                
+
                 self.plugin_infos[plugin_info.name] = plugin_info
-                print(f"✅ Discovered plugin: {plugin_info.name} ({plugin_info.tool_type})")
-                
+
+                # Print discovered tools
+                tool_names = [t.name for t in tools]
+                print(f"✅ Discovered plugin: {plugin_info.name} (supports: {', '.join(tool_names)})")
+
             except Exception as e:
                 print(f"❌ Failed to load plugin config {plugin_dir.name}: {e}")
     
@@ -395,18 +431,18 @@ class PluginManager:
         """
         return self.plugin_infos.get(plugin_name)
     
-    def get_plugins_by_tool(self, tool_type: str) -> list[PluginInfo]:
+    def get_plugins_by_tool(self, tool_name: str) -> list[PluginInfo]:
         """
-        Get all plugins supporting a specific tool type.
-        
+        Get all plugins supporting a specific tool by name.
+
         Args:
-            tool_type: Tool type (e.g., "text2image")
-        
+            tool_name: Tool name (e.g., "text2image")
+
         Returns:
             List of PluginInfo objects
         """
         return [
             info for info in self.plugin_infos.values()
-            if info.tool_type == tool_type
+            if any(tool.name == tool_name for tool in info.tools)
         ]
 

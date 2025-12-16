@@ -5,10 +5,10 @@ Unified API interface for AI model services.
 Supports both web-based access and local in-app calls with streaming.
 """
 
+from __future__ import annotations
 from typing import AsyncIterator, Union, Optional
 
 from server.api.types import FilmetoTask, TaskProgress, TaskResult, ValidationError
-from server.service.filmeto_service import FilmetoService
 
 
 class FilmetoApi:
@@ -22,11 +22,13 @@ class FilmetoApi:
     def __init__(self, plugins_dir: Optional[str] = None, cache_dir: Optional[str] = None):
         """
         Initialize Filmeto API.
-        
+
         Args:
             plugins_dir: Directory containing server plugins
             cache_dir: Directory for resource caching
         """
+        # Import here to avoid circular import
+        from server.service.filmeto_service import FilmetoService
         self.service = FilmetoService(plugins_dir, cache_dir)
     
     async def execute_task_stream(

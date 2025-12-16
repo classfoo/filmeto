@@ -1,8 +1,7 @@
-name: text2image_demo
+name: comfy_ui_demo
 version: 1.0.0
-description: Demo text-to-image plugin for testing
+description: Demo plugin supporting multiple tools for ComfyUI
 author: Filmeto Team
-tool_type: text2image
 engine: demo
 
 requirements:
@@ -10,41 +9,77 @@ requirements:
   packages:
     - pillow>=9.0.0
 
-parameters:
-  - name: prompt
-    type: string
-    required: true
-    description: Text prompt for generation
-  
-  - name: negative_prompt
-    type: string
-    required: false
-    default: ""
-    description: Negative prompt
-  
-  - name: width
-    type: integer
-    required: false
-    default: 512
-    min: 256
-    max: 2048
-    description: Image width
-  
-  - name: height
-    type: integer
-    required: false
-    default: 512
-    min: 256
-    max: 2048
-    description: Image height
-  
-  - name: steps
-    type: integer
-    required: false
-    default: 20
-    min: 1
-    max: 100
-    description: Number of generation steps
+# Define multiple tools supported by this plugin
+tools:
+  - name: text2image
+    description: Generate image from text prompt
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for generation
+
+      - name: negative_prompt
+        type: string
+        required: false
+        default: ""
+        description: Negative prompt
+
+      - name: width
+        type: integer
+        required: false
+        default: 512
+        min: 256
+        max: 2048
+        description: Image width
+
+      - name: height
+        type: integer
+        required: false
+        default: 512
+        min: 256
+        max: 2048
+        description: Image height
+
+      - name: steps
+        type: integer
+        required: false
+        default: 20
+        min: 1
+        max: 100
+        description: Number of generation steps
+
+  - name: image2image
+    description: Transform image based on text prompt
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for transformation
+
+      - name: strength
+        type: float
+        required: false
+        default: 0.7
+        min: 0.0
+        max: 1.0
+        description: Strength of transformation
+
+  - name: inpainting
+    description: Fill in masked regions of an image
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for inpainting
+
+      - name: mask_blur
+        type: integer
+        required: false
+        default: 4
+        min: 0
+        max: 64
+        description: Blur radius for mask feathering
 
 startup:
   timeout: 30

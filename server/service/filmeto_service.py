@@ -226,8 +226,8 @@ class FilmetoService:
     
     def list_plugins(self) -> list:
         """
-        List all available plugins.
-        
+        List all available plugins with their supported tools.
+
         Returns:
             List of plugin info dictionaries
         """
@@ -237,29 +237,71 @@ class FilmetoService:
                 "name": p.name,
                 "version": p.version,
                 "description": p.description,
-                "tool_type": p.tool_type,
                 "engine": p.engine,
-                "author": p.author
+                "author": p.author,
+                "tools": [
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters
+                    }
+                    for tool in p.tools
+                ]
             }
             for p in plugins
         ]
     
     def list_tools(self) -> list:
         """
-        List all available tools.
-        
+        List all available tools across plugins.
+
         Returns:
             List of tool info dictionaries
         """
-        from server.api.types import ToolType
-        
+        # Get unique tools from all plugins
+        all_tools = set()
+        plugins = self.plugin_manager.list_plugins()
+
+        for plugin in plugins:
+            for tool in plugin.tools:
+                all_tools.add(tool.name)
+
         return [
             {
-                "name": tool.value,
-                "display_name": tool.value.replace('2', ' to ').title()
+                "name": tool_name,
+                "display_name": tool_name.replace('2', ' to ').title()
             }
-            for tool in ToolType
+            for tool_name in sorted(list(all_tools))
         ]
+
+    def get_tool_details(self, tool_name: str) -> dict:
+        """
+        Get detailed information about a specific tool.
+
+        Args:
+            tool_name: Name of the tool to query
+
+        Returns:
+            Tool details including parameters and supporting plugins
+        """
+        plugins = self.plugin_manager.list_plugins()
+        supporting_plugins = []
+
+        for plugin in plugins:
+            for tool in plugin.tools:
+                if tool.name == tool_name:
+                    supporting_plugins.append({
+                        "plugin_name": plugin.name,
+                        "plugin_version": plugin.version,
+                        "plugin_description": plugin.description,
+                        "parameters": tool.parameters
+                    })
+
+        return {
+            "name": tool_name,
+            "display_name": tool_name.replace('2', ' to ').title(),
+            "supporting_plugins": supporting_plugins
+        }
     
     async def cleanup(self):
         """

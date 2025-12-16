@@ -4,7 +4,6 @@ Filmeto API Package
 Unified API interface for AI model services.
 """
 
-from server.api.filmeto_api import FilmetoApi
 from server.api.types import (
     ToolType,
     ResourceType,
@@ -21,6 +20,8 @@ from server.api.types import (
     ResourceProcessingError,
     TimeoutError,
 )
+
+from server.api.filmeto_api import FilmetoApi
 
 __all__ = [
     'FilmetoApi',
