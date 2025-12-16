@@ -1,0 +1,55 @@
+name: text2image_demo
+version: 1.0.0
+description: Demo text-to-image plugin for testing
+author: Filmeto Team
+tool_type: text2image
+engine: demo
+
+requirements:
+  python: ">=3.9"
+  packages:
+    - pillow>=9.0.0
+
+parameters:
+  - name: prompt
+    type: string
+    required: true
+    description: Text prompt for generation
+  
+  - name: negative_prompt
+    type: string
+    required: false
+    default: ""
+    description: Negative prompt
+  
+  - name: width
+    type: integer
+    required: false
+    default: 512
+    min: 256
+    max: 2048
+    description: Image width
+  
+  - name: height
+    type: integer
+    required: false
+    default: 512
+    min: 256
+    max: 2048
+    description: Image height
+  
+  - name: steps
+    type: integer
+    required: false
+    default: 20
+    min: 1
+    max: 100
+    description: Number of generation steps
+
+startup:
+  timeout: 30
+  health_check: true
+
+execution:
+  timeout: 300
+  max_retries: 3
