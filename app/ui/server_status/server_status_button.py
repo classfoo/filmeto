@@ -189,22 +189,20 @@ class ServerStatusWidget(BaseWidget):
     # Signal emitted when status needs to be shown
     show_status_dialog = Signal()
     
-    def __init__(self, workspace, parent=None):
+    def __init__(self, workspace):
         super().__init__(workspace)
-        if parent:
-            self.setParent(parent)
         
         # Create status button
         self.status_button = ServerStatusButton(self)
         self.status_button.status_clicked.connect(self._on_button_clicked)
         
-        # Setup refresh timer
-        self.refresh_timer = QTimer(self)
-        self.refresh_timer.timeout.connect(self._refresh_status)
-        self.refresh_timer.start(5000)  # Refresh every 5 seconds
-        
-        # Initial refresh
-        self._refresh_status()
+        # # Setup refresh timer
+        # self.refresh_timer = QTimer(self)
+        # self.refresh_timer.timeout.connect(self._refresh_status)
+        # self.refresh_timer.start(5000)  # Refresh every 5 seconds
+        #
+        # # Initial refresh
+        # self._refresh_status()
     
     def _on_button_clicked(self):
         """Handle button click - emit signal to show dialog"""

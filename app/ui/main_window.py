@@ -56,7 +56,7 @@ class MainWindowTopBar(BaseWidget):
         self.layout.addStretch()
 
         # Server status widget
-        self.server_status_widget = ServerStatusWidget(workspace, self)
+        self.server_status_widget = ServerStatusWidget(workspace)
         self.server_status_widget.show_status_dialog.connect(self._show_server_dialog)
         self.layout.addWidget(self.server_status_widget.status_button)
 
