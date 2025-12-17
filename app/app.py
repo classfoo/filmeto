@@ -11,7 +11,7 @@ from PySide6.QtCore import qInstallMessageHandler, QtMsgType
 
 from app.data.workspace import Workspace
 from app.ui.main_window import MainWindow
-from server.server import Server
+from server.server import Server, ServerManager
 from utils.i18n_utils import translation_manager
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,10 @@ class App():
             self.workspace = Workspace(workspacePath,"demo")
             
             logger.info("Initializing server...")
-            self.server = Server()
+            # Use ServerManager instead of trying to instantiate Server directly
+            self.server_manager = ServerManager(workspacePath)
+            # Get the default/local server from the manager
+            self.server = self.server_manager.get_server("local")
             
             logger.info("Creating main window...")
             self.window = MainWindow(self.workspace)

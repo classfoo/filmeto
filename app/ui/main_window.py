@@ -16,6 +16,7 @@ from app.ui.timeline.timeline_container import TimelineContainer
 from app.ui.timeline.subtitle_timeline import SubtitleTimeline
 from app.ui.timeline.voice_timeline import VoiceTimeline
 from app.ui.play_control import PlayControlWidget
+from app.ui.server_status import ServerStatusWidget, ServerListDialog
 from utils.i18n_utils import translation_manager, tr
 
 
@@ -54,6 +55,10 @@ class MainWindowTopBar(BaseWidget):
 
         self.layout.addStretch()
 
+        # Server status widget
+        self.server_status_widget = ServerStatusWidget(workspace, self)
+        self.server_status_widget.show_status_dialog.connect(self._show_server_dialog)
+        self.layout.addWidget(self.server_status_widget.status_button)
 
         # Language switcher button
         self.language_button = QPushButton("🌐", self)
@@ -227,6 +232,12 @@ class MainWindowTopBar(BaseWidget):
         """Handle settings changes"""
         print("Settings have been changed")
         # Here you could emit a signal or update other parts of the UI as needed
+    
+    def _show_server_dialog(self):
+        """Show server management dialog"""
+        server_dialog = ServerListDialog(self.workspace, self)
+        server_dialog.servers_modified.connect(self.server_status_widget.force_refresh)
+        server_dialog.exec()
 
     def _on_resolution_changed(self, index):
         """处理分辨率更改事件"""
