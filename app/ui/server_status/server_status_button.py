@@ -24,46 +24,45 @@ class ServerStatusButton(QPushButton):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setObjectName("server_status_button")
-        
+        self.setObjectName("main_window_top_bar_button")
+
         # Server counts
         self._active_count = 0
         self._inactive_count = 0
-        
+
         # Animation property for hover effect
         self._hover_progress = 0.0
-        
-        # Setup button
-        self.setFixedSize(80, 32)
-        self.setToolTip(tr("服务器状态"))
+
+        # Setup button - match language button dimensions
+        self.setFixedSize(80, 32)  # Width for icon + text, height matches language button
+        self.setToolTip(tr("服务器管理"))
         self.setCursor(Qt.PointingHandCursor)
-        
-        # Apply styling
+
+        # Apply styling - using the same style as language button
         self._apply_styles()
-        
+
         # Connect click signal
         self.clicked.connect(self.status_clicked)
     
     def _apply_styles(self):
-        """Apply button styling"""
+        """Apply button styling - matches language button style"""
         self.setStyleSheet("""
-            QPushButton#server_status_button {
+            QPushButton#main_window_top_bar_button {
                 background-color: #3c3f41;
                 border: 1px solid #555555;
                 border-radius: 4px;
-                margin: 2px;
                 color: #ffffff;
-                font-size: 12px;
-                padding: 4px 8px;
-                text-align: left;
+                font-size: 14px;
+                text-align: center;
+                padding: 4px;
             }
-            
-            QPushButton#server_status_button:hover {
+
+            QPushButton#main_window_top_bar_button:hover {
                 background-color: #4c5052;
                 border: 1px solid #666666;
             }
-            
-            QPushButton#server_status_button:pressed {
+
+            QPushButton#main_window_top_bar_button:pressed {
                 background-color: #2c2f31;
             }
         """)
@@ -89,47 +88,58 @@ class ServerStatusButton(QPushButton):
         return self._inactive_count
     
     def paintEvent(self, event: QPaintEvent):
-        """Custom paint event to draw badges"""
+        """Custom paint event to draw server icon with text and badge"""
         # Call parent paint first (draws the button background)
         super().paintEvent(event)
-        
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        
-        # Draw server icon (using Unicode character)
-        icon_font = QFont("iconfont", 12)
+
+        # Calculate total servers count
+        total_count = self._active_count + self._inactive_count
+
+        # Draw server icon (using Unicode character) - shifted to the left to make space for text
+        icon_font = QFont("iconfont", 14)  # Match language button font size
         painter.setFont(icon_font)
         painter.setPen(QColor(255, 255, 255))
-        painter.drawText(8, 20, "\ue66e")  # Server icon
-        
-        # Calculate badge positions
-        badge_y = 10
-        active_badge_x = 30
-        inactive_badge_x = 55
-        
-        # Draw active server badge (green)
-        self._draw_badge(
-            painter,
-            active_badge_x,
-            badge_y,
-            self._active_count,
-            QColor(76, 175, 80),  # Green
-            QColor(56, 142, 60)   # Dark green
-        )
-        
-        # Draw inactive server badge (orange/red)
-        badge_color = QColor(255, 152, 0) if self._inactive_count == 0 else QColor(244, 67, 54)  # Orange or Red
-        dark_color = QColor(230, 120, 0) if self._inactive_count == 0 else QColor(211, 47, 47)
-        
-        self._draw_badge(
-            painter,
-            inactive_badge_x,
-            badge_y,
-            self._inactive_count,
-            badge_color,
-            dark_color
-        )
-        
+
+        # Vertically center the icon
+        icon_metrics = painter.fontMetrics()
+        icon_y = (self.height() + icon_metrics.height()) // 2 - 2
+        painter.drawText(6, icon_y, "\ue66e")  # Server icon
+
+        # Draw "Server" text to the right of the icon
+        text_font = QFont()
+        text_font.setPointSize(9)  # Slightly smaller for better fit
+        painter.setFont(text_font)
+        painter.setPen(QColor(255, 255, 255))
+
+        # Vertically center the text
+        text_metrics = painter.fontMetrics()
+        text_y = (self.height() + text_metrics.height()) // 2 - 2
+        painter.drawText(24, text_y, "Server")  # Draw "Server" text to the right of icon
+
+        # Draw total server count badge, vertically centered on the right side
+        if total_count > 0:
+            # Calculate position for the badge (centered vertically on the right)
+            badge_radius = 9  # Same as in _draw_badge
+            badge_x = self.width() - badge_radius - 2  # Position to the right edge, accounting for radius
+            # Vertically center the badge
+            badge_y = self.height() // 2
+
+            # Draw total server badge (using active color if there are active servers, else inactive color)
+            badge_color = QColor(76, 175, 80) if self._active_count > 0 else QColor(244, 67, 54)  # Green if active, red if all inactive
+            dark_color = QColor(56, 142, 60) if self._active_count > 0 else QColor(211, 47, 47)
+
+            self._draw_badge(
+                painter,
+                badge_x,
+                badge_y,
+                total_count,
+                badge_color,
+                dark_color
+            )
+
         painter.end()
     
     def _draw_badge(

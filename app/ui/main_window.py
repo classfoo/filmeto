@@ -36,7 +36,7 @@ class MainWindowTopBar(BaseWidget):
         # widget.setObjectName("main_window_top_bar")
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(0)
+        self.layout.setSpacing(5)
 
         # mac title bar
         self.title_bar = MacTitleBar(window)
@@ -95,13 +95,11 @@ class MainWindowTopBar(BaseWidget):
                 background-color: #3c3f41;
                 border: 1px solid #555555;
                 border-radius: 4px;
-                width: 32px;
-                height: 32px;
-                margin: 2px;
                 color: #ffffff;
                 font-size: 14px;
                 text-align: center;
                 font-family: iconfont;
+                padding: 4px;
             }
             
             QPushButton#main_window_top_bar_button:hover {
@@ -113,6 +111,11 @@ class MainWindowTopBar(BaseWidget):
                 background-color: #2c2f31;
             }
         """
+        
+        # Set fixed size for all buttons to ensure consistency
+        self.language_button.setFixedSize(32, 32)
+        self.export_button.setFixedSize(32, 32)
+        self.settings_button.setFixedSize(32, 32)
         
         self.settings_button.setStyleSheet(button_style)
         self.language_button.setStyleSheet(button_style)
