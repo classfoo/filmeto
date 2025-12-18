@@ -6,7 +6,7 @@ Provides a list view with server details and management actions.
 """
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
+    QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QListWidget, QListWidgetItem, QWidget, QMessageBox, QInputDialog,
     QTextEdit, QComboBox, QLineEdit, QFormLayout, QCheckBox
 )
@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor
 
 from app.ui.base_widget import BaseWidget
+from app.ui.dialog.custom_dialog import CustomDialog
 from utils.i18n_utils import tr
 
 
@@ -66,7 +67,7 @@ class ServerItemWidget(QWidget):
         desc_label = QLabel(server.config.description or tr("无描述"), self)
         desc_label.setStyleSheet("color: #999999; font-size: 10px;")
         info_layout.addWidget(desc_label)
-        
+
         # Plugin name
         plugin_label = QLabel(f"{tr('插件')}: {server.config.plugin_name}", self)
         plugin_label.setStyleSheet("color: #888888; font-size: 9px;")
@@ -85,14 +86,14 @@ class ServerItemWidget(QWidget):
         self.toggle_button.clicked.connect(self._on_toggle_clicked)
         self._style_button(self.toggle_button, "#FF9800" if server.is_enabled else "#4CAF50")
         button_layout.addWidget(self.toggle_button)
-        
+
         # Edit button
         self.edit_button = QPushButton(tr("编辑"), self)
         self.edit_button.setFixedSize(50, 28)
         self.edit_button.clicked.connect(lambda: self.edit_clicked.emit(server.name))
         self._style_button(self.edit_button, "#2196F3")
         button_layout.addWidget(self.edit_button)
-        
+
         # Delete button (disabled for default servers)
         self.delete_button = QPushButton(tr("删除"), self)
         self.delete_button.setFixedSize(50, 28)
@@ -156,121 +157,81 @@ class ServerItemWidget(QWidget):
         self.enable_clicked.emit(self.server.name, new_state)
 
 
-class ServerListDialog(QDialog):
+class ServerListDialog(CustomDialog):
     """
     Dialog for displaying and managing servers.
     """
-    
+
     # Signal emitted when servers are modified
     servers_modified = Signal()
-    
+
     def __init__(self, workspace, parent=None):
         super().__init__(parent)
         self.workspace = workspace
         self.server_manager = None
-        
+
         # Setup dialog
-        self.setWindowTitle(tr("服务器管理"))
+        self.set_title(tr("服务器管理"))
         self.setMinimumSize(700, 500)
-        self.setModal(True)
-        
-        # Apply dark theme
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2b2b2b;
-                color: #E1E1E1;
-            }
-            QLabel {
-                color: #E1E1E1;
-            }
-            QListWidget {
-                background-color: #1e1e1e;
-                border: 1px solid #3c3c3c;
-                border-radius: 4px;
-                color: #E1E1E1;
-            }
-            QListWidget::item {
-                border-bottom: 1px solid #3c3c3c;
-                padding: 4px;
-            }
-            QListWidget::item:hover {
-                background-color: #323232;
-            }
-            QListWidget::item:selected {
-                background-color: #404040;
-            }
-            QPushButton {
-                background-color: #3c3f41;
-                color: #E1E1E1;
-                border: 1px solid #555555;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #4c5052;
-                border: 1px solid #666666;
-            }
-            QPushButton:pressed {
-                background-color: #2c2f31;
-            }
-        """)
-        
+
         # Initialize UI
         self._init_ui()
-        
+
         # Load servers
         self._load_servers()
     
     def _init_ui(self):
         """Initialize UI components"""
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout()
         layout.setSpacing(12)
-        layout.setContentsMargins(16, 16, 16, 16)
-        
+        # Note: Content margins are handled by CustomDialog, so we don't set them here
+
         # Header
         header_layout = QHBoxLayout()
-        
+
         title_label = QLabel(tr("服务器列表"), self)
         title_font = QFont()
         title_font.setPointSize(14)
         title_font.setBold(True)
         title_label.setFont(title_font)
         header_layout.addWidget(title_label)
-        
+
         header_layout.addStretch()
-        
+
         # Refresh button
         refresh_button = QPushButton("\ue6b8 " + tr("刷新"), self)
         refresh_button.clicked.connect(self._load_servers)
         header_layout.addWidget(refresh_button)
-        
+
         # Add server button
         add_button = QPushButton("\ue697 " + tr("添加服务器"), self)
         add_button.clicked.connect(self._on_add_server)
         header_layout.addWidget(add_button)
-        
+
         layout.addLayout(header_layout)
-        
+
         # Server list
         self.server_list = QListWidget(self)
         self.server_list.setSelectionMode(QListWidget.NoSelection)
         layout.addWidget(self.server_list)
-        
+
         # Status bar
         status_layout = QHBoxLayout()
         self.status_label = QLabel(self)
         self.status_label.setStyleSheet("color: #888888; font-size: 11px;")
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
-        
+
         layout.addLayout(status_layout)
-        
+
         # Close button
         close_button = QPushButton(tr("关闭"), self)
         close_button.setFixedWidth(100)
-        close_button.clicked.connect(self.accept)
+        close_button.clicked.connect(self.reject)  # Use reject() for CustomDialog
         layout.addWidget(close_button, alignment=Qt.AlignRight)
+
+        # Set the layout to the custom dialog's content area
+        self.setContentLayout(layout)
     
     def _load_servers(self):
         """Load servers from ServerManager"""

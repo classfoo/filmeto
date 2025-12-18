@@ -373,6 +373,108 @@
         <source>0 characters</source>
         <translation>0 characters</translation>
     </message>
-    
+
+    <!-- Server List Dialog -->
+    <message>
+        <source>服务器管理</source>
+        <translation>Server Management</translation>
+    </message>
+    <message>
+        <source>服务器列表</source>
+        <translation>Server List</translation>
+    </message>
+    <message>
+        <source>刷新</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>添加服务器</source>
+        <translation>Add Server</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>暂无服务器配置</source>
+        <translation>No server configurations</translation>
+    </message>
+    <message>
+        <source>总计</source>
+        <translation>Total</translation>
+    </message>
+    <message>
+        <source>活跃</source>
+        <translation>Active</translation>
+    </message>
+    <message>
+        <source>禁用</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <source>错误</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>加载服务器失败</source>
+        <translation>Failed to load servers</translation>
+    </message>
+    <message>
+        <source>更新服务器失败</source>
+        <translation>Failed to update server</translation>
+    </message>
+    <message>
+        <source>提示</source>
+        <translation>Note</translation>
+    </message>
+    <message>
+        <source>编辑服务器功能正在开发中</source>
+        <translation>Edit server functionality is under development</translation>
+    </message>
+    <message>
+        <source>确认删除</source>
+        <translation>Confirm Delete</translation>
+    </message>
+    <message>
+        <source>确定要删除服务器</source>
+        <translation>Are you sure you want to delete server</translation>
+    </message>
+    <message>
+        <source>吗</source>
+        <translation></translation>
+    </message>
+    <message>
+        <source>删除服务器失败</source>
+        <translation>Failed to delete server</translation>
+    </message>
+    <message>
+        <source>添加服务器功能正在开发中</source>
+        <translation>Add server functionality is under development</translation>
+    </message>
+    <message>
+        <source>无描述</source>
+        <translation>No description</translation>
+    </message>
+    <message>
+        <source>插件</source>
+        <translation>Plugin</translation>
+    </message>
+    <message>
+        <source>禁用</source>
+        <translation>Disable</translation>
+    </message>
+    <message>
+        <source>启用</source>
+        <translation>Enable</translation>
+    </message>
+    <message>
+        <source>编辑</source>
+        <translation>Edit</translation>
+    </message>
+    <message>
+        <source>删除</source>
+        <translation>Delete</translation>
+    </message>
+
 </context>
 </TS>
