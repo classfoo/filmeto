@@ -1,20 +1,16 @@
 from PySide6.QtGui import QMouseEvent, QKeyEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout,
-                               QPushButton, QVBoxLayout, QSplitter, QMenu, QComboBox,
-                               QLineEdit, QTextEdit, QPlainTextEdit)
+                               QPushButton, QVBoxLayout, QSplitter, QMenu, QLineEdit, QTextEdit, QPlainTextEdit)
 from PySide6.QtCore import Qt, Signal
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.drawing_tools import DrawingToolsWidget
 from app.ui.editor import MainEditorWidget
-from app.ui.mac_button import MacTitleBar
+from app.ui.dialog.mac_button import MacTitleBar
 from app.ui.project_menu.project_menu import ProjectMenu
 from app.ui.task_list import TaskListWidget
-from app.ui.timeline.video_timeline import VideoTimeline
 from app.ui.timeline.timeline_container import TimelineContainer
-from app.ui.timeline.subtitle_timeline import SubtitleTimeline
-from app.ui.timeline.voice_timeline import VoiceTimeline
 from app.ui.play_control import PlayControlWidget
 from app.ui.server_status import ServerStatusWidget, ServerListDialog
 from utils.i18n_utils import translation_manager, tr

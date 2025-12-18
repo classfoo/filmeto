@@ -1,14 +1,15 @@
-from PySide6.QtWidgets import QDialog, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QFrame
+from PySide6.QtWidgets import QDialog, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QMouseEvent
+from .mac_button import MacTitleBar
 
 
 class CustomTitleBar(QFrame):
     """自定义标题栏，模仿Mac风格"""
-    
+
     def __init__(self, parent, title=""):
         super().__init__(parent)
-        self.setFixedHeight(30)
+        self.setFixedHeight(36)  # 调整高度以适应 MacTitleBar
         self.setStyleSheet("""
             QFrame {
                 background-color: #3d3f4e;
@@ -17,15 +18,21 @@ class CustomTitleBar(QFrame):
                 border: none;
             }
         """)
-        
+
         self.parent_dialog = parent
         self.drag_position = QPoint()
-        
+
         # 创建标题栏布局
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 0, 10, 0)
-        layout.setSpacing(5)
-        
+        layout.setContentsMargins(8, 0, 8, 0)  # 调整边距以适应 MacTitleBar
+        layout.setSpacing(0)
+
+        # Mac风格的窗口控制按钮组
+        self.mac_title_bar = MacTitleBar(self.parent_dialog)
+        # 设置为对话框模式，使最大化按钮执行最小化操作
+        self.mac_title_bar.set_for_dialog()
+        layout.addWidget(self.mac_title_bar)
+
         # 标题标签
         self.title_label = QLabel(title)
         self.title_label.setStyleSheet("""
@@ -35,67 +42,11 @@ class CustomTitleBar(QFrame):
                 font-weight: bold;
             }
         """)
-        
+
         # 添加弹性空间
         layout.addWidget(self.title_label)
         layout.addStretch()
-        
-        # Mac风格的三个窗口控制按钮
-        # 关闭按钮
-        self.close_button = QPushButton("●")
-        self.close_button.setFixedSize(12, 12)
-        self.close_button.setStyleSheet("""
-            QPushButton {
-                background-color: #ff5f56;
-                border: none;
-                border-radius: 6px;
-                color: #ff5f56;
-                font-size: 8px;
-            }
-            QPushButton:hover {
-                background-color: #ff3b30;
-            }
-        """)
-        self.close_button.clicked.connect(self.parent_dialog.reject)
-        
-        # 最小化按钮
-        self.minimize_button = QPushButton("●")
-        self.minimize_button.setFixedSize(12, 12)
-        self.minimize_button.setStyleSheet("""
-            QPushButton {
-                background-color: #ffbd2e;
-                border: none;
-                border-radius: 6px;
-                color: #ffbd2e;
-                font-size: 8px;
-            }
-            QPushButton:hover {
-                background-color: #ffa500;
-            }
-        """)
-        self.minimize_button.clicked.connect(self.parent_dialog.showMinimized)
-        
-        # 最大化按钮
-        self.maximize_button = QPushButton("●")
-        self.maximize_button.setFixedSize(12, 12)
-        self.maximize_button.setStyleSheet("""
-            QPushButton {
-                background-color: #27c93f;
-                border: none;
-                border-radius: 6px;
-                color: #27c93f;
-                font-size: 8px;
-            }
-            QPushButton:hover {
-                background-color: #00b32c;
-            }
-        """)
-        self.maximize_button.clicked.connect(self._toggle_maximize)
-        
-        layout.addWidget(self.close_button)
-        layout.addWidget(self.minimize_button)
-        layout.addWidget(self.maximize_button)
-        
+
         # 启用鼠标跟踪
         self.setMouseTracking(True)
     
@@ -115,12 +66,6 @@ class CustomTitleBar(QFrame):
         """设置标题"""
         self.title_label.setText(title)
     
-    def _toggle_maximize(self):
-        """切换最大化状态"""
-        if self.parent_dialog.isMaximized():
-            self.parent_dialog.showNormal()
-        else:
-            self.parent_dialog.showMaximized()
 
 
 class CustomDialog(QDialog):

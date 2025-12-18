@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout,
-                               QVBoxLayout, QLabel)
+                               QVBoxLayout, QLabel, QDialog)
 from PySide6.QtCore import Qt, QPoint, QRectF, Signal
 from PySide6.QtGui import QPalette, QColor, QPainter, QBrush, QPen, QMouseEvent, QFont, QFontMetrics
 
@@ -94,6 +94,7 @@ class MacTitleBar(QWidget):
     def __init__(self, window):
         super().__init__()
         self.window = window
+        self.is_dialog = False  # 标记是否为对话框
         self.layout = QHBoxLayout(self)
         # macOS 标准间距：左边距 8px，上下 6px，按钮间距 8px
         self.layout.setContentsMargins(8, 6, 8, 6)
@@ -124,6 +125,10 @@ class MacTitleBar(QWidget):
         self.minimize_button.mousePressEvent = self.minimize_window
         self.maximize_button.mousePressEvent = self.maximize_window
 
+    def set_for_dialog(self):
+        """设置为对话框模式，此时最大化按钮变为最小化按钮"""
+        self.is_dialog = True
+
     def _on_button_hover_changed(self, is_hovering):
         """当任意按钮的悬停状态改变时，更新所有按钮的图标显示"""
         # 检查是否有任何按钮被悬停
@@ -147,15 +152,28 @@ class MacTitleBar(QWidget):
 
     def close_window(self, event):
         if event.button() == Qt.LeftButton:
-            self.window.close()
+            # 如果是对话框类型，使用 reject 方法来正确关闭
+            if isinstance(self.window, QDialog):
+                self.window.reject()
+            else:
+                self.window.close()
 
     def minimize_window(self, event):
         if event.button() == Qt.LeftButton:
-            self.window.showMinimized()
+            # 对于 QDialog，通常没有最小化按钮，但我们仍然可以实现
+            if isinstance(self.window, QDialog):
+                self.window.showMinimized()
+            else:
+                self.window.showMinimized()
 
     def maximize_window(self, event):
         if event.button() == Qt.LeftButton:
-            if self.window.isMaximized():
-                self.window.showNormal()
+            if self.is_dialog:
+                # 对于对话框，最大化按钮也执行最小化操作
+                self.window.showMinimized()
             else:
-                self.window.showMaximized()
+                # 正常窗口模式下，执行最大化/还原操作
+                if self.window.isMaximized():
+                    self.window.showNormal()
+                else:
+                    self.window.showMaximized()
