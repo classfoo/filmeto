@@ -194,6 +194,8 @@ class ServerListDialog(CustomDialog):
         title_font.setPointSize(14)
         title_font.setBold(True)
         title_label.setFont(title_font)
+        # Apply specific styling to ensure visibility against CustomDialog background
+        title_label.setStyleSheet("QLabel { color: #E1E1E1; }")
         header_layout.addWidget(title_label)
 
         header_layout.addStretch()
@@ -201,11 +203,47 @@ class ServerListDialog(CustomDialog):
         # Refresh button
         refresh_button = QPushButton("\ue6b8 " + tr("刷新"), self)
         refresh_button.clicked.connect(self._load_servers)
+        # Apply specific styling for consistency
+        refresh_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3c3f41;
+                color: #E1E1E1;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #4c5052;
+                border: 1px solid #666666;
+            }
+            QPushButton:pressed {
+                background-color: #2c2f31;
+            }
+        """)
         header_layout.addWidget(refresh_button)
 
         # Add server button
         add_button = QPushButton("\ue697 " + tr("添加服务器"), self)
         add_button.clicked.connect(self._on_add_server)
+        # Apply specific styling for consistency
+        add_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3c3f41;
+                color: #E1E1E1;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #4c5052;
+                border: 1px solid #666666;
+            }
+            QPushButton:pressed {
+                background-color: #2c2f31;
+            }
+        """)
         header_layout.addWidget(add_button)
 
         layout.addLayout(header_layout)
@@ -213,12 +251,32 @@ class ServerListDialog(CustomDialog):
         # Server list
         self.server_list = QListWidget(self)
         self.server_list.setSelectionMode(QListWidget.NoSelection)
+        # Apply specific styling to avoid conflicts with CustomDialog
+        self.server_list.setStyleSheet("""
+            QListWidget {
+                background-color: #1e1e1e;
+                border: 1px solid #3c3c3c;
+                border-radius: 4px;
+                color: #E1E1E1;
+            }
+            QListWidget::item {
+                border-bottom: 1px solid #3c3c3c;
+                padding: 4px;
+            }
+            QListWidget::item:hover {
+                background-color: #323232;
+            }
+            QListWidget::item:selected {
+                background-color: #404040;
+            }
+        """)
         layout.addWidget(self.server_list)
 
         # Status bar
         status_layout = QHBoxLayout()
         self.status_label = QLabel(self)
-        self.status_label.setStyleSheet("color: #888888; font-size: 11px;")
+        # Apply specific styling to ensure visibility against CustomDialog background
+        self.status_label.setStyleSheet("QLabel { color: #888888; font-size: 11px; }")
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
 
@@ -228,6 +286,24 @@ class ServerListDialog(CustomDialog):
         close_button = QPushButton(tr("关闭"), self)
         close_button.setFixedWidth(100)
         close_button.clicked.connect(self.reject)  # Use reject() for CustomDialog
+        # Apply specific styling for consistency
+        close_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3c3f41;
+                color: #E1E1E1;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #4c5052;
+                border: 1px solid #666666;
+            }
+            QPushButton:pressed {
+                background-color: #2c2f31;
+            }
+        """)
         layout.addWidget(close_button, alignment=Qt.AlignRight)
 
         # Set the layout to the custom dialog's content area
@@ -257,7 +333,8 @@ class ServerListDialog(CustomDialog):
                 item = QListWidgetItem(self.server_list)
                 empty_widget = QLabel(tr("暂无服务器配置"), self)
                 empty_widget.setAlignment(Qt.AlignCenter)
-                empty_widget.setStyleSheet("color: #666666; padding: 40px;")
+                # Apply specific styling to ensure visibility against CustomDialog background
+                empty_widget.setStyleSheet("QLabel { color: #666666; padding: 40px; }")
                 item.setSizeHint(empty_widget.sizeHint())
                 self.server_list.addItem(item)
                 self.server_list.setItemWidget(item, empty_widget)

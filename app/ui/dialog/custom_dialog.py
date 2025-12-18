@@ -9,9 +9,10 @@ class CustomTitleBar(QFrame):
 
     def __init__(self, parent, title=""):
         super().__init__(parent)
+        self.setObjectName("CustomDialogTitleBar")  # Add object name for CSS
         self.setFixedHeight(36)  # 调整高度以适应 MacTitleBar
         self.setStyleSheet("""
-            QFrame {
+            #CustomDialogTitleBar {
                 background-color: #3d3f4e;
                 border-top-left-radius: 10px;
                 border-top-right-radius: 10px;
@@ -35,8 +36,9 @@ class CustomTitleBar(QFrame):
 
         # 标题标签
         self.title_label = QLabel(title)
+        self.title_label.setObjectName("CustomDialogTitleLabel")  # Add object name for CSS
         self.title_label.setStyleSheet("""
-            QLabel {
+            #CustomDialogTitleLabel {
                 color: #E1E1E1;
                 font-size: 14px;
                 font-weight: bold;
@@ -75,20 +77,21 @@ class CustomDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        
+
         # 主布局
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        
+
         # 创建自定义标题栏
         self.title_bar = CustomTitleBar(self)
         main_layout.addWidget(self.title_bar)
-        
+
         # 内容区域容器
         self.content_container = QFrame()
+        self.content_container.setObjectName("CustomDialogContentContainer")  # Add object name for CSS
         self.content_container.setStyleSheet("""
-            QFrame {
+            #CustomDialogContentContainer {
                 background-color: #2b2d30;
                 border-bottom-left-radius: 10px;
                 border-bottom-right-radius: 10px;
@@ -99,9 +102,9 @@ class CustomDialog(QDialog):
         self.content_layout = QVBoxLayout(self.content_container)
         self.content_layout.setContentsMargins(20, 15, 20, 20)
         self.content_layout.setSpacing(10)
-        
+
         main_layout.addWidget(self.content_container)
-        
+
         # 启用鼠标跟踪
         self.setMouseTracking(True)
         self.drag_position = QPoint()
