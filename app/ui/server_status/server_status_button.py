@@ -120,25 +120,37 @@ class ServerStatusButton(QPushButton):
         painter.drawText(24, text_y, "Server")  # Draw "Server" text to the right of icon
 
         # Draw total server count badge, vertically centered on the right side
-        if total_count > 0:
-            # Calculate position for the badge (centered vertically on the right)
-            badge_radius = 9  # Same as in _draw_badge
-            badge_x = self.width() - badge_radius - 2  # Position to the right edge, accounting for radius
-            # Vertically center the badge
-            badge_y = self.height() // 2
+        # Always draw the badge, but change appearance based on server count
+        # Calculate position for the badge (centered vertically on the right)
+        badge_radius = 9  # Same as in _draw_badge
+        # Position the center of the badge so that the entire badge is within the button
+        # Right edge of badge = badge_x + badge_radius <= self.width() - 2 (for edge margin)
+        # So badge_x <= self.width() - badge_radius - 2
+        badge_x = self.width() - badge_radius - 6  # Position to the right with some margin from edge
+        # Vertically center the badge
+        badge_y = self.height() // 2
 
-            # Draw total server badge (using active color if there are active servers, else inactive color)
+        # Set colors based on server status
+        if total_count > 0:
+            # Draw full badge when there are servers
             badge_color = QColor(76, 175, 80) if self._active_count > 0 else QColor(244, 67, 54)  # Green if active, red if all inactive
             dark_color = QColor(56, 142, 60) if self._active_count > 0 else QColor(211, 47, 47)
+            show_text = True
+        else:
+            # Draw a more visible gray badge when no servers exist (to maintain consistent UI)
+            badge_color = QColor(128, 128, 128)  # Gray
+            dark_color = QColor(96, 96, 96)    # Darker gray
+            show_text = False
 
-            self._draw_badge(
-                painter,
-                badge_x,
-                badge_y,
-                total_count,
-                badge_color,
-                dark_color
-            )
+        self._draw_badge(
+            painter,
+            badge_x,
+            badge_y,
+            total_count,
+            badge_color,
+            dark_color,
+            show_text
+        )
 
         painter.end()
     
@@ -149,11 +161,12 @@ class ServerStatusButton(QPushButton):
         y: int,
         count: int,
         bg_color: QColor,
-        border_color: QColor
+        border_color: QColor,
+        show_count: bool = True
     ):
         """
         Draw a circular badge with count.
-        
+
         Args:
             painter: QPainter instance
             x: X coordinate of badge center
@@ -161,33 +174,35 @@ class ServerStatusButton(QPushButton):
             count: Number to display
             bg_color: Background color
             border_color: Border color
+            show_count: Whether to display the count number (default True)
         """
         # Badge dimensions
         radius = 9
-        
+
         # Draw border (outer circle)
         painter.setPen(border_color)
         painter.setBrush(border_color)
         painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
-        
+
         # Draw background (inner circle)
         inner_radius = radius - 1
         painter.setPen(Qt.NoPen)
         painter.setBrush(bg_color)
         painter.drawEllipse(x - inner_radius, y - inner_radius, inner_radius * 2, inner_radius * 2)
-        
-        # Draw count text
-        count_text = str(count) if count < 100 else "99+"
-        font = QFont("Arial", 7, QFont.Bold)
-        painter.setFont(font)
-        painter.setPen(QColor(255, 255, 255))
-        
-        # Center text in badge
-        text_rect = painter.fontMetrics().boundingRect(count_text)
-        text_x = x - text_rect.width() // 2
-        text_y = y + text_rect.height() // 2 - 2
-        
-        painter.drawText(text_x, text_y, count_text)
+
+        # Draw count text if requested and count > 0
+        if show_count and count > 0:
+            count_text = str(count) if count < 100 else "99+"
+            font = QFont("Arial", 7, QFont.Bold)
+            painter.setFont(font)
+            painter.setPen(QColor(255, 255, 255))
+
+            # Center text in badge
+            text_rect = painter.fontMetrics().boundingRect(count_text)
+            text_x = x - text_rect.width() // 2
+            text_y = y + text_rect.height() // 2 - 2
+
+            painter.drawText(text_x, text_y, count_text)
 
 
 class ServerStatusWidget(BaseWidget):
@@ -205,14 +220,14 @@ class ServerStatusWidget(BaseWidget):
         # Create status button
         self.status_button = ServerStatusButton(self)
         self.status_button.status_clicked.connect(self._on_button_clicked)
-        
-        # # Setup refresh timer
-        # self.refresh_timer = QTimer(self)
-        # self.refresh_timer.timeout.connect(self._refresh_status)
-        # self.refresh_timer.start(5000)  # Refresh every 5 seconds
-        #
-        # # Initial refresh
-        # self._refresh_status()
+
+        # Setup refresh timer
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self._refresh_status)
+        self.refresh_timer.start(5000)  # Refresh every 5 seconds
+
+        # Initial refresh
+        self._refresh_status()
     
     def _on_button_clicked(self):
         """Handle button click - emit signal to show dialog"""
