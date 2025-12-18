@@ -165,7 +165,7 @@ class ServerStatusButton(QPushButton):
         show_count: bool = True
     ):
         """
-        Draw a circular badge with count.
+        Draw a circular badge with count (no border).
 
         Args:
             painter: QPainter instance
@@ -173,34 +173,28 @@ class ServerStatusButton(QPushButton):
             y: Y coordinate of badge center
             count: Number to display
             bg_color: Background color
-            border_color: Border color
+            border_color: Border color (not used since no border)
             show_count: Whether to display the count number (default True)
         """
         # Badge dimensions
         radius = 9
 
-        # Draw border (outer circle)
-        painter.setPen(border_color)
-        painter.setBrush(border_color)
-        painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
-
-        # Draw background (inner circle)
-        inner_radius = radius - 1
-        painter.setPen(Qt.NoPen)
+        # Draw filled circle (no border, just filled)
+        painter.setPen(Qt.NoPen)  # No border pen
         painter.setBrush(bg_color)
-        painter.drawEllipse(x - inner_radius, y - inner_radius, inner_radius * 2, inner_radius * 2)
+        painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
 
         # Draw count text if requested and count > 0
         if show_count and count > 0:
             count_text = str(count) if count < 100 else "99+"
-            font = QFont("Arial", 7, QFont.Bold)
+            font = QFont("Arial", 10, QFont.Bold)  # Larger font
             painter.setFont(font)
             painter.setPen(QColor(255, 255, 255))
 
             # Center text in badge
             text_rect = painter.fontMetrics().boundingRect(count_text)
             text_x = x - text_rect.width() // 2
-            text_y = y + text_rect.height() // 2 - 2
+            text_y = y + text_rect.height() // 2 - 2  # Adjust vertical position for centering
 
             painter.drawText(text_x, text_y, count_text)
 
