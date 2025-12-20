@@ -390,7 +390,7 @@ class ServerListDialog(CustomDialog):
             if not server:
                 QMessageBox.warning(self, tr("错误"), f"{tr('服务器未找到')}: {server_name}")
                 return
-            
+
             # Get plugin info
             plugin_info = server.get_plugin_info()
             if not plugin_info:
@@ -400,22 +400,22 @@ class ServerListDialog(CustomDialog):
                     f"{tr('无法获取插件信息')}: {server.config.plugin_name}"
                 )
                 return
-            
-            # Create edit dialog (reuse config dialog)
+
+            # Create edit dialog (reuse config dialog) - same plugin extension mechanism as new server
             dialog = ServerConfigDialog(plugin_info, self)
             dialog.set_title(tr("编辑服务器") + f" - {server_name}")
-            
+
             # Pre-fill with existing values
             dialog.name_field.setText(server_name)
             dialog.name_field.setEnabled(False)  # Don't allow changing name
             dialog.description_field.setText(server.config.description or "")
             dialog.enabled_checkbox.setChecked(server.config.enabled)
-            
+
             # Pre-fill parameter fields
             for field_name, field_info in dialog.field_widgets.items():
                 widget = field_info["widget"]
                 value = server.config.parameters.get(field_name)
-                
+
                 if value is not None:
                     from PySide6.QtWidgets import QCheckBox, QSpinBox, QLineEdit
                     if isinstance(widget, QCheckBox):
@@ -424,24 +424,25 @@ class ServerListDialog(CustomDialog):
                         widget.setValue(int(value))
                     elif isinstance(widget, QLineEdit):
                         widget.setText(str(value))
-            
+
             # Handle special fields
             if server.config.endpoint:
                 endpoint_widget = dialog.field_widgets.get("endpoint", {}).get("widget")
                 if endpoint_widget:
                     endpoint_widget.setText(server.config.endpoint)
-            
+
             if server.config.api_key:
                 api_key_widget = dialog.field_widgets.get("api_key", {}).get("widget")
                 if api_key_widget:
                     api_key_widget.setText(server.config.api_key)
-            
-            # Disconnect the original signal and connect to update handler
-            dialog.server_created.disconnect()
+
+            # Connect to the update handler instead of the create handler
+            # Note: We don't need to disconnect anything because each dialog instance
+            # is fresh and has no prior connections
             dialog.server_created.connect(
                 lambda name, config: self._on_server_updated(server_name, config)
             )
-            
+
             dialog.exec()
             
         except Exception as e:
