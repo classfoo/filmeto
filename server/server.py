@@ -664,6 +664,15 @@ class ServerManager:
         plugins = self.plugin_manager.list_plugins()
         return list(set(plugin.engine for plugin in plugins if plugin.engine))
     
+    def list_available_plugins(self) -> List['PluginInfo']:
+        """
+        List all available plugins that can be used to create servers.
+        
+        Returns:
+            List of PluginInfo objects
+        """
+        return self.plugin_manager.list_plugins()
+    
     async def cleanup(self):
         """Cleanup resources"""
         await self.plugin_manager.stop_all_plugins()

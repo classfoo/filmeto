@@ -8,13 +8,14 @@ Provides a list view with server details and management actions.
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QListWidget, QListWidgetItem, QWidget, QMessageBox, QInputDialog,
-    QTextEdit, QComboBox, QLineEdit, QFormLayout, QCheckBox
+    QTextEdit, QComboBox, QLineEdit, QFormLayout, QCheckBox, QMenu
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont, QColor, QAction
 
 from app.ui.base_widget import BaseWidget
 from app.ui.dialog.custom_dialog import CustomDialog
+from app.ui.server_list.server_config_dialog import ServerConfigDialog
 from utils.i18n_utils import tr
 
 
@@ -384,11 +385,99 @@ class ServerListDialog(CustomDialog):
     
     def _on_edit_server(self, server_name: str):
         """Handle edit server"""
-        QMessageBox.information(
-            self,
-            tr("提示"),
-            f"{tr('编辑服务器功能正在开发中')}: {server_name}"
-        )
+        try:
+            server = self.server_manager.get_server(server_name)
+            if not server:
+                QMessageBox.warning(self, tr("错误"), f"{tr('服务器未找到')}: {server_name}")
+                return
+            
+            # Get plugin info
+            plugin_info = server.get_plugin_info()
+            if not plugin_info:
+                QMessageBox.warning(
+                    self,
+                    tr("错误"),
+                    f"{tr('无法获取插件信息')}: {server.config.plugin_name}"
+                )
+                return
+            
+            # Create edit dialog (reuse config dialog)
+            dialog = ServerConfigDialog(plugin_info, self)
+            dialog.set_title(tr("编辑服务器") + f" - {server_name}")
+            
+            # Pre-fill with existing values
+            dialog.name_field.setText(server_name)
+            dialog.name_field.setEnabled(False)  # Don't allow changing name
+            dialog.description_field.setText(server.config.description or "")
+            dialog.enabled_checkbox.setChecked(server.config.enabled)
+            
+            # Pre-fill parameter fields
+            for field_name, field_info in dialog.field_widgets.items():
+                widget = field_info["widget"]
+                value = server.config.parameters.get(field_name)
+                
+                if value is not None:
+                    from PySide6.QtWidgets import QCheckBox, QSpinBox, QLineEdit
+                    if isinstance(widget, QCheckBox):
+                        widget.setChecked(bool(value))
+                    elif isinstance(widget, QSpinBox):
+                        widget.setValue(int(value))
+                    elif isinstance(widget, QLineEdit):
+                        widget.setText(str(value))
+            
+            # Handle special fields
+            if server.config.endpoint:
+                endpoint_widget = dialog.field_widgets.get("endpoint", {}).get("widget")
+                if endpoint_widget:
+                    endpoint_widget.setText(server.config.endpoint)
+            
+            if server.config.api_key:
+                api_key_widget = dialog.field_widgets.get("api_key", {}).get("widget")
+                if api_key_widget:
+                    api_key_widget.setText(server.config.api_key)
+            
+            # Disconnect the original signal and connect to update handler
+            dialog.server_created.disconnect()
+            dialog.server_created.connect(
+                lambda name, config: self._on_server_updated(server_name, config)
+            )
+            
+            dialog.exec()
+            
+        except Exception as e:
+            QMessageBox.critical(self, tr("错误"), f"{tr('编辑服务器失败')}: {str(e)}")
+    
+    def _on_server_updated(self, server_name: str, config):
+        """
+        Handle server update from config dialog.
+        
+        Args:
+            server_name: Name of the server to update
+            config: Updated ServerConfig object
+        """
+        try:
+            # Update server through server manager
+            self.server_manager.update_server(server_name, config)
+            
+            # Reload server list
+            self._load_servers()
+            
+            # Emit signal
+            self.servers_modified.emit()
+            
+            # Show success message
+            QMessageBox.information(
+                self,
+                tr("成功"),
+                f"{tr('服务器')} '{server_name}' {tr('已成功更新')}"
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                tr("错误"),
+                f"{tr('更新服务器失败')}: {str(e)}"
+            )
     
     def _on_delete_server(self, server_name: str):
         """Handle delete server"""
@@ -410,10 +499,106 @@ class ServerListDialog(CustomDialog):
                 QMessageBox.critical(self, tr("错误"), f"{tr('删除服务器失败')}: {str(e)}")
     
     def _on_add_server(self):
-        """Handle add new server"""
-        QMessageBox.information(
-            self,
-            tr("提示"),
-            tr("添加服务器功能正在开发中")
-        )
+        """Handle add new server - show dropdown menu with available plugins"""
+        if not self.server_manager:
+            QMessageBox.warning(self, tr("错误"), tr("服务器管理器未初始化"))
+            return
+        
+        # Get available plugins
+        plugins = self.server_manager.list_available_plugins()
+        
+        if not plugins:
+            QMessageBox.warning(
+                self,
+                tr("提示"),
+                tr("没有可用的插件。请检查插件目录。")
+            )
+            return
+        
+        # Create menu
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #2b2b2b;
+                color: #E1E1E1;
+                border: 1px solid #3c3c3c;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 20px;
+                border-radius: 2px;
+            }
+            QMenu::item:selected {
+                background-color: #4CAF50;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #3c3c3c;
+                margin: 4px 0px;
+            }
+        """)
+        
+        # Add plugin actions
+        for plugin in plugins:
+            action = QAction(f"{plugin.name} - {plugin.description}", self)
+            action.setData(plugin)  # Store plugin info in action
+            action.triggered.connect(lambda checked=False, p=plugin: self._show_plugin_config_dialog(p))
+            menu.addAction(action)
+        
+        # Show menu at button position
+        button = self.sender()
+        if button:
+            menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
+        else:
+            menu.exec(self.mapToGlobal(self.rect().center()))
+    
+    def _show_plugin_config_dialog(self, plugin_info):
+        """
+        Show configuration dialog for selected plugin.
+        
+        Args:
+            plugin_info: PluginInfo object for the selected plugin
+        """
+        # Create and show config dialog
+        dialog = ServerConfigDialog(plugin_info, self)
+        dialog.server_created.connect(self._on_server_created)
+        dialog.exec()
+    
+    def _on_server_created(self, server_name: str, config):
+        """
+        Handle server creation from config dialog.
+        
+        Args:
+            server_name: Name of the new server
+            config: ServerConfig object
+        """
+        try:
+            # Add server through server manager
+            self.server_manager.add_server(config)
+            
+            # Reload server list
+            self._load_servers()
+            
+            # Emit signal
+            self.servers_modified.emit()
+            
+            # Show success message
+            QMessageBox.information(
+                self,
+                tr("成功"),
+                f"{tr('服务器')} '{server_name}' {tr('已成功创建')}"
+            )
+            
+        except ValueError as e:
+            QMessageBox.critical(
+                self,
+                tr("错误"),
+                f"{tr('创建服务器失败')}: {str(e)}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                tr("错误"),
+                f"{tr('创建服务器时发生错误')}: {str(e)}"
+            )
 

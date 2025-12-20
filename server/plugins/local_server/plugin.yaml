@@ -1,6 +1,6 @@
-name: comfy_ui_demo
+name: multi_tool_demo
 version: 1.0.0
-description: Demo plugin supporting multiple tools for ComfyUI
+description: Demo plugin supporting multiple tools
 author: Filmeto Team
 engine: demo
 
@@ -65,22 +65,6 @@ tools:
         max: 1.0
         description: Strength of transformation
 
-  - name: inpainting
-    description: Fill in masked regions of an image
-    parameters:
-      - name: prompt
-        type: string
-        required: true
-        description: Text prompt for inpainting
-
-      - name: mask_blur
-        type: integer
-        required: false
-        default: 4
-        min: 0
-        max: 64
-        description: Blur radius for mask feathering
-
 startup:
   timeout: 30
   health_check: true
@@ -88,3 +72,14 @@ startup:
 execution:
   timeout: 300
   max_retries: 3
+
+# Configuration schema for creating server instances
+config_schema:
+  fields:
+    - name: endpoint
+      label: Local Server Endpoint
+      type: url
+      required: false
+      default: "http://localhost:8188"
+      description: Local server endpoint URL
+      placeholder: "http://localhost:8188"

@@ -73,6 +73,54 @@ class BaseServerPlugin(ABC):
         """
         pass
     
+    def get_config_schema(self) -> Dict[str, Any]:
+        """
+        Get configuration schema for this plugin.
+        
+        This schema defines what configuration fields are needed when creating
+        a new server instance using this plugin.
+        
+        Returns:
+            Dictionary with configuration schema:
+            {
+                "fields": [
+                    {
+                        "name": "field_name",
+                        "label": "Display Label",
+                        "type": "string|integer|boolean|password|url",
+                        "required": True|False,
+                        "default": "default_value",
+                        "description": "Field description",
+                        "placeholder": "Placeholder text"
+                    },
+                    ...
+                ]
+            }
+        """
+        # Default schema with basic fields
+        return {
+            "fields": [
+                {
+                    "name": "endpoint",
+                    "label": "Endpoint URL",
+                    "type": "url",
+                    "required": False,
+                    "default": "",
+                    "description": "Service endpoint URL (if applicable)",
+                    "placeholder": "http://localhost:8188"
+                },
+                {
+                    "name": "api_key",
+                    "label": "API Key",
+                    "type": "password",
+                    "required": False,
+                    "default": "",
+                    "description": "API key for authentication (if required)",
+                    "placeholder": "Enter API key"
+                }
+            ]
+        }
+    
     def report_progress(
         self, 
         task_id: str, 
