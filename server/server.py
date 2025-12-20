@@ -293,6 +293,7 @@ class ServerManager:
         
         # Initialize
         self._ensure_directories()
+        self.cleanup_old_configs()  # Clean up old configurations first
         self._init_default_servers()
         self._load_servers()
         self._load_routing_rules()
@@ -306,34 +307,34 @@ class ServerManager:
         # Default local server
         local_server_dir = self.servers_dir / "local"
         local_config_path = local_server_dir / "server.yaml"
-        
+
         if not local_config_path.exists():
             local_config = ServerConfig(
                 name="local",
                 server_type="local",
-                plugin_name="comfy_ui_demo",  # Default local plugin
+                plugin_name="Local Server",  # Default local plugin
                 description="Local AIGC service running on this machine",
                 enabled=True,
                 endpoint="http://localhost:8188",
             )
             local_config.save_to_file(str(local_config_path))
             print(f"✅ Created default server: local")
-        
+
         # Default filmeto server
         filmeto_server_dir = self.servers_dir / "filmeto"
         filmeto_config_path = filmeto_server_dir / "server.yaml"
-        
+
         if not filmeto_config_path.exists():
             filmeto_config = ServerConfig(
                 name="filmeto",
                 server_type="filmeto",
-                plugin_name="comfy_ui_demo",  # Default filmeto plugin
+                plugin_name="Filmeto Server",  # Default filmeto plugin
                 description="Filmeto built-in AIGC service",
                 enabled=True,
             )
             filmeto_config.save_to_file(str(filmeto_config_path))
             print(f"✅ Created default server: filmeto")
-        
+
         # Default routing rules
         if not self.router_config_path.exists():
             default_rules = {
@@ -351,6 +352,34 @@ class ServerManager:
             with open(self.router_config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(default_rules, f, allow_unicode=True, sort_keys=False)
             print(f"✅ Created default routing rules")
+
+    def cleanup_old_configs(self):
+        """Clean up any old or invalid plugin configurations in the workspace"""
+        if not self.servers_dir.exists():
+            return
+
+        # Get list of all plugin directories
+        all_plugin_dirs = [d for d in self.servers_dir.iterdir() if d.is_dir()]
+
+        for plugin_dir in all_plugin_dirs:
+            # Skip default servers
+            if plugin_dir.name in ["local", "filmeto"]:
+                continue
+
+            config_path = plugin_dir / "server.yaml"
+            if config_path.exists():
+                try:
+                    # Try to load the config
+                    config = ServerConfig.load_from_file(str(config_path))
+
+                    # If we can load it, it should be valid
+                    print(f"✅ Valid config found for: {config.name}")
+                except Exception as e:
+                    # If there's an error loading the config, delete the entire directory
+                    import shutil
+                    print(f"❌ Invalid config in {plugin_dir.name}: {e} - removing")
+                    shutil.rmtree(plugin_dir)
+                    print(f"🗑️ Removed invalid server config: {plugin_dir.name}")
     
     def _load_servers(self):
         """Load all server configurations"""

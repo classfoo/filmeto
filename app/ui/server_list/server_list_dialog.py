@@ -506,7 +506,7 @@ class ServerListDialog(CustomDialog):
         
         # Get available plugins
         plugins = self.server_manager.list_available_plugins()
-        
+
         if not plugins:
             QMessageBox.warning(
                 self,
@@ -514,7 +514,19 @@ class ServerListDialog(CustomDialog):
                 tr("没有可用的插件。请检查插件目录。")
             )
             return
-        
+
+        # Filter out plugins that correspond to default servers to avoid duplicates
+        # We always want to prevent creating servers with these reserved plugin names
+        filtered_plugins = [plugin for plugin in plugins if plugin.name not in ["Local Server", "Filmeto Server"]]
+
+        if not filtered_plugins:
+            QMessageBox.warning(
+                self,
+                tr("提示"),
+                tr("没有可用的服务器插件。请检查插件目录。")
+            )
+            return
+
         # Create menu
         menu = QMenu(self)
         menu.setStyleSheet("""
@@ -537,9 +549,9 @@ class ServerListDialog(CustomDialog):
                 margin: 4px 0px;
             }
         """)
-        
+
         # Add plugin actions - only show plugin name to avoid overly wide menu
-        for plugin in plugins:
+        for plugin in filtered_plugins:
             action = QAction(plugin.name, self)
             action.setData(plugin)  # Store plugin info in action
             action.triggered.connect(lambda checked=False, p=plugin: self._show_plugin_config_dialog(p))
