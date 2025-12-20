@@ -538,9 +538,9 @@ class ServerListDialog(CustomDialog):
             }
         """)
         
-        # Add plugin actions
+        # Add plugin actions - only show plugin name to avoid overly wide menu
         for plugin in plugins:
-            action = QAction(f"{plugin.name} - {plugin.description}", self)
+            action = QAction(plugin.name, self)
             action.setData(plugin)  # Store plugin info in action
             action.triggered.connect(lambda checked=False, p=plugin: self._show_plugin_config_dialog(p))
             menu.addAction(action)

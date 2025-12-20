@@ -1,6 +1,6 @@
-name: comfy_ui_demo
+name: ComfyUI Server
 version: 1.0.0
-description: Demo plugin supporting multiple tools for ComfyUI
+description: ComfyUI sever
 author: Filmeto Team
 engine: demo
 

@@ -1,6 +1,6 @@
-name: multi_tool_demo
+name: local
 version: 1.0.0
-description: Demo plugin supporting multiple tools
+description: Local sever supporting multiple tools
 author: Filmeto Team
 engine: demo
 
