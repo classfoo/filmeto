@@ -26,23 +26,32 @@ class ServerConfigDialog(CustomDialog):
     
     # Signal emitted when server is created (server_name, config)
     server_created = Signal(str, object)
-    
-    def __init__(self, plugin_info, parent=None):
+    server_updated = Signal(str, object)  # New signal for updates
+
+    def __init__(self, plugin_info, parent=None, server_config=None):
         """
         Initialize server configuration dialog.
-        
+
         Args:
             plugin_info: PluginInfo object containing plugin metadata
             parent: Parent widget
+            server_config: ServerConfig object if editing existing server (None for new server)
         """
         super().__init__(parent)
         self.plugin_info = plugin_info
         self.field_widgets = {}
-        
+        self.server_config = server_config  # Store the server config for edit mode
+
+        # Determine if we're in edit mode
+        self.is_edit_mode = server_config is not None
+
         # Setup dialog
-        self.set_title(tr("添加服务器") + f" - {plugin_info.name}")
+        if self.is_edit_mode:
+            self.set_title(tr("编辑服务器") + f" - {server_config.name}")
+        else:
+            self.set_title(tr("添加服务器") + f" - {plugin_info.name}")
         self.setMinimumSize(500, 400)
-        
+
         # Initialize UI
         self._init_ui()
     
@@ -141,19 +150,27 @@ class ServerConfigDialog(CustomDialog):
         # Buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
-        
+
         cancel_button = QPushButton(tr("取消"), self)
         cancel_button.setFixedWidth(100)
         cancel_button.clicked.connect(self.reject)
         self._style_button(cancel_button, "#555555")
         button_layout.addWidget(cancel_button)
-        
-        create_button = QPushButton(tr("创建"), self)
-        create_button.setFixedWidth(100)
-        create_button.clicked.connect(self._on_create)
-        self._style_button(create_button, "#4CAF50")
-        button_layout.addWidget(create_button)
-        
+
+        # Change button text based on whether we're in edit or new mode
+        if self.is_edit_mode:
+            button_text = tr("保存")
+            button_handler = self._on_save
+        else:
+            button_text = tr("创建")
+            button_handler = self._on_create
+
+        action_button = QPushButton(button_text, self)
+        action_button.setFixedWidth(100)
+        action_button.clicked.connect(button_handler)
+        self._style_button(action_button, "#4CAF50")
+        button_layout.addWidget(action_button)
+
         layout.addLayout(button_layout)
         
         # Set the layout
@@ -321,12 +338,12 @@ class ServerConfigDialog(CustomDialog):
         if not server_name:
             QMessageBox.warning(self, tr("验证错误"), tr("请输入服务器名称"))
             return
-        
+
         # Validate field values
         for field_name, field_info in self.field_widgets.items():
             widget = field_info["widget"]
             required = field_info["required"]
-            
+
             # Get value based on widget type
             if isinstance(widget, QLineEdit):
                 value = widget.text().strip()
@@ -337,17 +354,17 @@ class ServerConfigDialog(CustomDialog):
                         f"{tr('字段')} '{field_name}' {tr('是必填的')}"
                     )
                     return
-        
-        # Build configuration
+
+        # Build configuration for new server
         from server.server import ServerConfig
         from datetime import datetime
-        
+
         # Collect parameters
         parameters = {}
         for field_name, field_info in self.field_widgets.items():
             widget = field_info["widget"]
             field_type = field_info["type"]
-            
+
             if isinstance(widget, QCheckBox):
                 parameters[field_name] = widget.isChecked()
             elif isinstance(widget, QSpinBox):
@@ -356,7 +373,7 @@ class ServerConfigDialog(CustomDialog):
                 value = widget.text().strip()
                 if value:  # Only add non-empty values
                     parameters[field_name] = value
-        
+
         # Create server config
         config = ServerConfig(
             name=server_name,
@@ -374,10 +391,66 @@ class ServerConfigDialog(CustomDialog):
             created_at=datetime.now(),
             updated_at=datetime.now()
         )
-        
+
         # Emit signal
         self.server_created.emit(server_name, config)
-        
+
+        # Close dialog
+        self.accept()
+
+    def _on_save(self):
+        """Handle save button click for editing existing server"""
+        # Validate required fields - skip name validation since it's disabled in edit mode
+        # Get server name from the original config
+        server_name = self.server_config.name
+
+        # Validate field values
+        for field_name, field_info in self.field_widgets.items():
+            widget = field_info["widget"]
+            required = field_info["required"]
+
+            # Get value based on widget type
+            if isinstance(widget, QLineEdit):
+                value = widget.text().strip()
+                if required and not value:
+                    QMessageBox.warning(
+                        self,
+                        tr("验证错误"),
+                        f"{tr('字段')} '{field_name}' {tr('是必填的')}"
+                    )
+                    return
+
+        # Build updated configuration using the original config as base
+        from datetime import datetime
+
+        # Collect parameters
+        parameters = {}
+        for field_name, field_info in self.field_widgets.items():
+            widget = field_info["widget"]
+            field_type = field_info["type"]
+
+            if isinstance(widget, QCheckBox):
+                parameters[field_name] = widget.isChecked()
+            elif isinstance(widget, QSpinBox):
+                parameters[field_name] = widget.value()
+            elif isinstance(widget, QLineEdit):
+                value = widget.text().strip()
+                if value:  # Only add non-empty values
+                    parameters[field_name] = value
+
+        # Update server config - preserve original timestamps and unchanged fields
+        updated_config = self.server_config  # We'll modify the original config object
+        updated_config.name = server_name  # Keep original name
+        updated_config.description = self.description_field.text().strip()
+        updated_config.enabled = self.enabled_checkbox.isChecked()
+        updated_config.endpoint = parameters.get("endpoint")
+        updated_config.api_key = parameters.get("api_key")
+        updated_config.parameters = parameters
+        updated_config.updated_at = datetime.now()
+
+        # Emit the updated signal
+        self.server_updated.emit(server_name, updated_config)
+
         # Close dialog
         self.accept()
 

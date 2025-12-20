@@ -402,8 +402,7 @@ class ServerListDialog(CustomDialog):
                 return
 
             # Create edit dialog (reuse config dialog) - same plugin extension mechanism as new server
-            dialog = ServerConfigDialog(plugin_info, self)
-            dialog.set_title(tr("编辑服务器") + f" - {server_name}")
+            dialog = ServerConfigDialog(plugin_info, self, server.config)
 
             # Pre-fill with existing values
             dialog.name_field.setText(server_name)
@@ -439,7 +438,7 @@ class ServerListDialog(CustomDialog):
             # Connect to the update handler instead of the create handler
             # Note: We don't need to disconnect anything because each dialog instance
             # is fresh and has no prior connections
-            dialog.server_created.connect(
+            dialog.server_updated.connect(
                 lambda name, config: self._on_server_updated(server_name, config)
             )
 
