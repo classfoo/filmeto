@@ -48,6 +48,11 @@ class CustomTitleBar(QFrame):
         # 添加弹性空间
         layout.addWidget(self.title_label)
         layout.addStretch()
+        
+        # 右侧工具栏容器（供子类添加按钮）
+        self.toolbar_layout = QHBoxLayout()
+        self.toolbar_layout.setSpacing(8)
+        layout.addLayout(self.toolbar_layout)
 
         # 启用鼠标跟踪
         self.setMouseTracking(True)

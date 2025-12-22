@@ -172,7 +172,7 @@ class ServerListDialog(CustomDialog):
         self.server_manager = None
 
         # Setup dialog
-        self.set_title(tr("服务器管理"))
+        self.set_title("")  # Remove title text as buttons are in title bar
         self.setMinimumSize(700, 500)
 
         # Initialize UI
@@ -183,71 +183,12 @@ class ServerListDialog(CustomDialog):
     
     def _init_ui(self):
         """Initialize UI components"""
+        # Add buttons to title bar
+        self._add_titlebar_buttons()
+        
         layout = QVBoxLayout()
         layout.setSpacing(12)
         # Note: Content margins are handled by CustomDialog, so we don't set them here
-
-        # Header
-        header_layout = QHBoxLayout()
-
-        title_label = QLabel(tr("服务器列表"), self)
-        title_font = QFont()
-        title_font.setPointSize(14)
-        title_font.setBold(True)
-        title_label.setFont(title_font)
-        # Apply specific styling to ensure visibility against CustomDialog background
-        title_label.setStyleSheet("QLabel { color: #E1E1E1; }")
-        header_layout.addWidget(title_label)
-
-        header_layout.addStretch()
-
-        # Refresh button
-        refresh_button = QPushButton("\ue6b8 " + tr("刷新"), self)
-        refresh_button.clicked.connect(self._load_servers)
-        # Apply specific styling for consistency
-        refresh_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3c3f41;
-                color: #E1E1E1;
-                border: 1px solid #555555;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #4c5052;
-                border: 1px solid #666666;
-            }
-            QPushButton:pressed {
-                background-color: #2c2f31;
-            }
-        """)
-        header_layout.addWidget(refresh_button)
-
-        # Add server button
-        add_button = QPushButton("\ue697 " + tr("添加服务器"), self)
-        add_button.clicked.connect(self._on_add_server)
-        # Apply specific styling for consistency
-        add_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3c3f41;
-                color: #E1E1E1;
-                border: 1px solid #555555;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #4c5052;
-                border: 1px solid #666666;
-            }
-            QPushButton:pressed {
-                background-color: #2c2f31;
-            }
-        """)
-        header_layout.addWidget(add_button)
-
-        layout.addLayout(header_layout)
 
         # Server list
         self.server_list = QListWidget(self)
@@ -309,6 +250,56 @@ class ServerListDialog(CustomDialog):
 
         # Set the layout to the custom dialog's content area
         self.setContentLayout(layout)
+    
+    def _add_titlebar_buttons(self):
+        """Add refresh and add server buttons to the title bar"""
+        # Refresh button
+        refresh_button = QPushButton("\ue6b8 " + tr("刷新"), self)
+        refresh_button.clicked.connect(self._load_servers)
+        refresh_button.setFixedHeight(26)
+        # Apply specific styling for title bar buttons
+        refresh_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4c5052;
+                color: #E1E1E1;
+                border: 1px solid #666666;
+                border-radius: 3px;
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #5c6062;
+                border: 1px solid #777777;
+            }
+            QPushButton:pressed {
+                background-color: #3c4042;
+            }
+        """)
+        self.title_bar.toolbar_layout.addWidget(refresh_button)
+
+        # Add server button
+        add_button = QPushButton("\ue697 " + tr("添加服务器"), self)
+        add_button.clicked.connect(self._on_add_server)
+        add_button.setFixedHeight(26)
+        # Apply specific styling for title bar buttons
+        add_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4c5052;
+                color: #E1E1E1;
+                border: 1px solid #666666;
+                border-radius: 3px;
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #5c6062;
+                border: 1px solid #777777;
+            }
+            QPushButton:pressed {
+                background-color: #3c4042;
+            }
+        """)
+        self.title_bar.toolbar_layout.addWidget(add_button)
     
     def _load_servers(self):
         """Load servers from ServerManager"""
