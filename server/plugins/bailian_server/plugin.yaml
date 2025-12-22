@@ -2,7 +2,7 @@ name: Bailian Server
 version: 1.0.0
 description: Bailian Server supporting multiple tools
 author: Filmeto Team
-engine: demo
+engine: bailian
 
 requirements:
   python: ">=3.9"

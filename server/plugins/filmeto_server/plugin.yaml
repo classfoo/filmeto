@@ -2,7 +2,7 @@ name: Filmeto Server
 version: 1.0.0
 description: Filmeto Server supporting multiple tools
 author: Filmeto Team
-engine: demo
+engine: filmeto
 
 requirements:
   python: ">=3.9"

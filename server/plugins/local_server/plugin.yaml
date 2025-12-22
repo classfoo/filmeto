@@ -2,7 +2,7 @@ name: Local Server
 version: 1.0.0
 description: Local sever supporting multiple tools
 author: Filmeto Team
-engine: demo
+engine: local
 
 requirements:
   python: ">=3.9"

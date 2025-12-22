@@ -2,7 +2,7 @@ name: ComfyUI Server
 version: 1.0.0
 description: ComfyUI sever
 author: Filmeto Team
-engine: demo
+engine: comfyui
 
 requirements:
   python: ">=3.9"
