@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QDialog, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
+from PySide6.QtWidgets import QDialog, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame, QPushButton
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QMouseEvent
 from .mac_button import MacTitleBar
@@ -32,14 +32,44 @@ class CustomTitleBar(QFrame):
         layout.setContentsMargins(8, 0, 8, 0)  # 调整边距以适应 MacTitleBar
         layout.setSpacing(0)
 
-        # Mac风格的窗口控制按钮组
-        self.mac_title_bar = MacTitleBar(self.parent_dialog)
-        # 设置为对话框模式，使最大化按钮执行最小化操作
-        self.mac_title_bar.set_for_dialog()
-        # Forward navigation signals
-        self.mac_title_bar.back_clicked.connect(self.back_clicked.emit)
-        self.mac_title_bar.forward_clicked.connect(self.forward_clicked.emit)
-        layout.addWidget(self.mac_title_bar)
+        # Mac风格的窗口控制按钮组 (red, yellow, green)
+        self.mac_control_buttons = MacTitleBar(self.parent_dialog)
+        self.mac_control_buttons.set_for_dialog()
+        # Hide navigation controls from MacTitleBar since we're providing our own in CustomTitleBar
+        self.mac_control_buttons.show_navigation_buttons(False)  # Ensure MacTitleBar's nav buttons are hidden
+        layout.addWidget(self.mac_control_buttons)
+
+        # Add a separator space between the Mac control buttons and the navigation buttons
+        separator = QWidget()
+        separator.setFixedWidth(8)
+        layout.addWidget(separator)
+
+        # Add navigation buttons after the Mac control buttons
+        nav_layout = QHBoxLayout()
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(4)
+
+        # Back button
+        self.back_button = QPushButton("◀", self)
+        self.back_button.setFixedSize(24, 24)
+        self.back_button.clicked.connect(self.back_clicked.emit)
+        self.back_button.setEnabled(False)
+        self._style_nav_button(self.back_button)
+        nav_layout.addWidget(self.back_button)
+
+        # Forward button
+        self.forward_button = QPushButton("▶", self)
+        self.forward_button.setFixedSize(24, 24)
+        self.forward_button.clicked.connect(self.forward_clicked.emit)
+        self.forward_button.setEnabled(False)
+        self._style_nav_button(self.forward_button)
+        nav_layout.addWidget(self.forward_button)
+
+        # Container for navigation buttons
+        self.nav_container = QWidget(self)
+        self.nav_container.setLayout(nav_layout)
+        self.nav_container.hide()  # Initially hidden
+        layout.addWidget(self.nav_container)
 
         # 标题标签
         self.title_label = QLabel(title)
@@ -55,7 +85,7 @@ class CustomTitleBar(QFrame):
         # 添加弹性空间
         layout.addWidget(self.title_label)
         layout.addStretch()
-        
+
         # 右侧工具栏容器（供子类添加按钮）
         self.toolbar_layout = QHBoxLayout()
         self.toolbar_layout.setSpacing(8)
@@ -63,6 +93,29 @@ class CustomTitleBar(QFrame):
 
         # 启用鼠标跟踪
         self.setMouseTracking(True)
+
+    def _style_nav_button(self, button):
+        """Apply styling to navigation buttons"""
+        button.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #888888;
+                border: none;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover:enabled {
+                background-color: #4c4f52;
+                color: #E1E1E1;
+            }
+            QPushButton:pressed:enabled {
+                background-color: #3c3f42;
+            }
+            QPushButton:disabled {
+                color: #444444;
+            }
+        """)
     
     def mousePressEvent(self, event: QMouseEvent):
         """处理鼠标按下事件"""
@@ -79,14 +132,18 @@ class CustomTitleBar(QFrame):
     def set_title(self, title):
         """设置标题"""
         self.title_label.setText(title)
-    
+
     def show_navigation_buttons(self, show: bool = True):
         """Show or hide navigation buttons"""
-        self.mac_title_bar.show_navigation_buttons(show)
-    
+        if show:
+            self.nav_container.show()
+        else:
+            self.nav_container.hide()
+
     def set_navigation_enabled(self, back_enabled: bool, forward_enabled: bool):
         """Enable or disable navigation buttons"""
-        self.mac_title_bar.set_navigation_enabled(back_enabled, forward_enabled)
+        self.back_button.setEnabled(back_enabled)
+        self.forward_button.setEnabled(forward_enabled)
     
 
 
