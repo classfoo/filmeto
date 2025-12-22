@@ -7,7 +7,7 @@ using navigation buttons instead of opening separate dialogs.
 
 from typing import Optional
 from PySide6.QtWidgets import (
-    QPushButton, QMessageBox, QMenu, QStackedWidget
+    QPushButton, QMessageBox, QMenu, QStackedWidget, QDialogButtonBox, QVBoxLayout, QWidget
 )
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
@@ -56,36 +56,52 @@ class UnifiedServerDialog(CustomDialog):
         """Initialize UI components"""
         # Show navigation buttons
         self.show_navigation_buttons(True)
-        
+
         # Connect navigation signals
         self.back_clicked.connect(self._on_back_clicked)
         self.forward_clicked.connect(self._on_forward_clicked)
-        
+
+        # Create main content widget with layout
+        main_content = QWidget()
+        main_layout = QVBoxLayout(main_content)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(10)
+
         # Create stacked widget for view switching
         self.stacked_widget = QStackedWidget(self)
-        
+
         # Create views
         self.list_view = ServerListView(self)
         self.config_view = ServerConfigView(self)
-        
+
         # Add views to stack
         self.stacked_widget.addWidget(self.list_view)
         self.stacked_widget.addWidget(self.config_view)
-        
+
         # Connect signals from list view
         self.list_view.server_selected_for_edit.connect(self._on_edit_server)
         self.list_view.server_toggled.connect(self._on_toggle_server)
         self.list_view.server_deleted.connect(self._on_delete_server)
         self.list_view.add_server_clicked.connect(self._on_add_server)
         self.list_view.refresh_clicked.connect(self._load_servers)
-        
+
         # Connect signals from config view
         self.config_view.save_clicked.connect(self._on_config_saved)
         self.config_view.cancel_clicked.connect(self._on_config_cancelled)
-        
-        # Set stacked widget as content
-        self.setContentWidget(self.stacked_widget)
-        
+
+        # Add the stacked widget to the main layout
+        main_layout.addWidget(self.stacked_widget)
+
+        # Create button box with close button at the bottom
+        self.button_box = QDialogButtonBox()
+        self.close_button = self.button_box.addButton(QDialogButtonBox.Close)
+        self.close_button.setText(tr("关闭"))  # Use translation for "Close"
+        self.close_button.clicked.connect(self.reject)  # Close the dialog when clicked
+        main_layout.addWidget(self.button_box)
+
+        # Set the main content as the dialog's content
+        self.setContentWidget(main_content)
+
         # Add title bar buttons
         self._add_titlebar_buttons()
     
