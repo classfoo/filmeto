@@ -1,11 +1,15 @@
 from PySide6.QtWidgets import QDialog, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QMouseEvent
 from .mac_button import MacTitleBar
 
 
 class CustomTitleBar(QFrame):
     """自定义标题栏，模仿Mac风格"""
+    
+    # Forward navigation signals from MacTitleBar
+    back_clicked = Signal()
+    forward_clicked = Signal()
 
     def __init__(self, parent, title=""):
         super().__init__(parent)
@@ -32,6 +36,9 @@ class CustomTitleBar(QFrame):
         self.mac_title_bar = MacTitleBar(self.parent_dialog)
         # 设置为对话框模式，使最大化按钮执行最小化操作
         self.mac_title_bar.set_for_dialog()
+        # Forward navigation signals
+        self.mac_title_bar.back_clicked.connect(self.back_clicked.emit)
+        self.mac_title_bar.forward_clicked.connect(self.forward_clicked.emit)
         layout.addWidget(self.mac_title_bar)
 
         # 标题标签
@@ -73,10 +80,22 @@ class CustomTitleBar(QFrame):
         """设置标题"""
         self.title_label.setText(title)
     
+    def show_navigation_buttons(self, show: bool = True):
+        """Show or hide navigation buttons"""
+        self.mac_title_bar.show_navigation_buttons(show)
+    
+    def set_navigation_enabled(self, back_enabled: bool, forward_enabled: bool):
+        """Enable or disable navigation buttons"""
+        self.mac_title_bar.set_navigation_enabled(back_enabled, forward_enabled)
+    
 
 
 class CustomDialog(QDialog):
     """自定义无边框对话框"""
+    
+    # Forward navigation signals
+    back_clicked = Signal()
+    forward_clicked = Signal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -90,6 +109,9 @@ class CustomDialog(QDialog):
 
         # 创建自定义标题栏
         self.title_bar = CustomTitleBar(self)
+        # Forward navigation signals from title bar
+        self.title_bar.back_clicked.connect(self.back_clicked.emit)
+        self.title_bar.forward_clicked.connect(self.forward_clicked.emit)
         main_layout.addWidget(self.title_bar)
 
         # 内容区域容器
@@ -129,6 +151,14 @@ class CustomDialog(QDialog):
     def set_title(self, title):
         """设置对话框标题"""
         self.title_bar.set_title(title)
+    
+    def show_navigation_buttons(self, show: bool = True):
+        """Show or hide navigation buttons in title bar"""
+        self.title_bar.show_navigation_buttons(show)
+    
+    def set_navigation_enabled(self, back_enabled: bool, forward_enabled: bool):
+        """Enable or disable navigation buttons in title bar"""
+        self.title_bar.set_navigation_enabled(back_enabled, forward_enabled)
     
     def setContentLayout(self, layout):
         """设置内容布局"""

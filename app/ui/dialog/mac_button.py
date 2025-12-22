@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout,
-                               QVBoxLayout, QLabel, QDialog)
+                               QVBoxLayout, QLabel, QDialog, QPushButton)
 from PySide6.QtCore import Qt, QPoint, QRectF, Signal
 from PySide6.QtGui import QPalette, QColor, QPainter, QBrush, QPen, QMouseEvent, QFont, QFontMetrics
 
@@ -91,6 +91,10 @@ class MacButton(QWidget):
 
 class MacTitleBar(QWidget):
     """macOS 风格的自定义标题栏"""
+    # Signals for navigation
+    back_clicked = Signal()
+    forward_clicked = Signal()
+    
     def __init__(self, window):
         super().__init__()
         self.window = window
@@ -124,10 +128,70 @@ class MacTitleBar(QWidget):
         self.close_button.mousePressEvent = self.close_window
         self.minimize_button.mousePressEvent = self.minimize_window
         self.maximize_button.mousePressEvent = self.maximize_window
+        
+        # Navigation buttons container (initially hidden)
+        self.nav_container = QWidget(self)
+        nav_layout = QHBoxLayout(self.nav_container)
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(4)
+        
+        # Back button
+        self.back_button = QPushButton("◀", self)
+        self.back_button.setFixedSize(24, 24)
+        self.back_button.clicked.connect(self.back_clicked.emit)
+        self.back_button.setEnabled(False)
+        self._style_nav_button(self.back_button)
+        nav_layout.addWidget(self.back_button)
+        
+        # Forward button
+        self.forward_button = QPushButton("▶", self)
+        self.forward_button.setFixedSize(24, 24)
+        self.forward_button.clicked.connect(self.forward_clicked.emit)
+        self.forward_button.setEnabled(False)
+        self._style_nav_button(self.forward_button)
+        nav_layout.addWidget(self.forward_button)
+        
+        self.nav_container.hide()  # Initially hidden
+        self.layout.addWidget(self.nav_container)
 
     def set_for_dialog(self):
         """设置为对话框模式，此时最大化按钮变为最小化按钮"""
         self.is_dialog = True
+    
+    def show_navigation_buttons(self, show: bool = True):
+        """Show or hide navigation buttons"""
+        if show:
+            self.nav_container.show()
+        else:
+            self.nav_container.hide()
+    
+    def set_navigation_enabled(self, back_enabled: bool, forward_enabled: bool):
+        """Enable or disable navigation buttons"""
+        self.back_button.setEnabled(back_enabled)
+        self.forward_button.setEnabled(forward_enabled)
+    
+    def _style_nav_button(self, button):
+        """Apply styling to navigation buttons"""
+        button.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #888888;
+                border: none;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover:enabled {
+                background-color: #4c4f52;
+                color: #E1E1E1;
+            }
+            QPushButton:pressed:enabled {
+                background-color: #3c3f42;
+            }
+            QPushButton:disabled {
+                color: #444444;
+            }
+        """)
 
     def _on_button_hover_changed(self, is_hovering):
         """当任意按钮的悬停状态改变时，更新所有按钮的图标显示"""

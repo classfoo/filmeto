@@ -8,3 +8,4 @@ from server.service.filmeto_service import FilmetoService
 
 __all__ = ['FilmetoService']
 
+

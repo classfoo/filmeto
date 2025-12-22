@@ -310,3 +310,4 @@ class FilmetoService:
         await self.plugin_manager.stop_all_plugins()
         self.resource_processor.cleanup_cache()
 
+
