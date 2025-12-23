@@ -274,8 +274,13 @@ class ServerConfigView(QWidget):
         self.plugin_info = None
         self.server_config = None
         self.field_widgets = {}
-        self.is_edit_mode = False
+        self._is_edit_mode = False
         self._init_ui()
+
+    @property
+    def is_edit_mode(self):
+        """Return whether the view is in edit mode"""
+        return self._is_edit_mode
     
     def _init_ui(self):
         """Initialize UI components"""
@@ -295,7 +300,7 @@ class ServerConfigView(QWidget):
         """
         self.plugin_info = plugin_info
         self.server_config = server_config
-        self.is_edit_mode = server_config is not None
+        self._is_edit_mode = server_config is not None
         self.field_widgets = {}
         
         # Clear existing layout
@@ -419,24 +424,6 @@ class ServerConfigView(QWidget):
         self.main_layout.addWidget(self.enabled_checkbox)
         
         self.main_layout.addStretch()
-        
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        cancel_button = QPushButton(tr("取消"), self)
-        cancel_button.setFixedWidth(100)
-        cancel_button.clicked.connect(self.cancel_clicked.emit)
-        self._style_button(cancel_button, "#555555")
-        button_layout.addWidget(cancel_button)
-        
-        save_button = QPushButton(tr("保存") if self.is_edit_mode else tr("创建"), self)
-        save_button.setFixedWidth(100)
-        save_button.clicked.connect(self._on_save_clicked)
-        self._style_button(save_button, "#4CAF50")
-        button_layout.addWidget(save_button)
-        
-        self.main_layout.addLayout(button_layout)
     
     def _prefill_field(self, field_name: str, widget: QWidget, field_type: str):
         """Pre-fill field with existing server config value"""

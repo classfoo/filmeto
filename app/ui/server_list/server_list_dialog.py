@@ -151,6 +151,7 @@ class ServerListDialog(CustomDialog):
         self.stacked_widget.setCurrentWidget(self.list_view)
         self.set_title(tr("服务器管理"))
         self._update_title_bar_buttons(show_list_buttons=True)
+        self._update_dialog_buttons()  # Update buttons for list view (just close button)
         self._add_to_history("list")
         self._update_navigation_buttons()
     
@@ -171,9 +172,34 @@ class ServerListDialog(CustomDialog):
             self.set_title(f"{tr('添加服务器')} - {plugin_info.name}")
         
         self._update_title_bar_buttons(show_list_buttons=False)
+        self._update_dialog_buttons()  # Update buttons for config view
         self._add_to_history("config")
         self._update_navigation_buttons()
     
+    def _update_dialog_buttons(self):
+        """Update the dialog's button row based on current view"""
+        # Use the button row method to set up all buttons at once
+        # This avoids the clear/add pattern that might be causing issues
+        if self.stacked_widget.currentWidget() == self.config_view:
+            # For config view: Close, Cancel, Save/Create buttons
+            buttons = [
+                (tr("关闭"), self.reject, "reject"),
+                (tr("取消"), self._on_config_cancelled, "reject"),
+                (tr("保存") if self.config_view.is_edit_mode else tr("创建"), self._emit_save_signal, "accept")
+            ]
+        else:
+            # For list view: Just the close button
+            buttons = [
+                (tr("关闭"), self.reject, "reject")
+            ]
+
+        # Use add_button_row which handles the layout properly
+        self.add_button_row(buttons)
+
+    def _emit_save_signal(self):
+        """Emit save signal to trigger validation and saving in config view"""
+        self.config_view._on_save_clicked()
+
     def _update_title_bar_buttons(self, show_list_buttons: bool):
         """Update visibility of title bar buttons based on current view"""
         self.refresh_button.setVisible(show_list_buttons)
