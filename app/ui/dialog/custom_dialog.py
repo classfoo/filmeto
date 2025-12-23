@@ -272,19 +272,16 @@ class CustomDialog(QDialog):
         if handler:
             button.clicked.connect(handler)
 
-        # Remove any existing stretch item at the end before adding the new button
-        # Get the last item in the layout
-        if self.button_area_layout.count() > 0:
-            last_item = self.button_area_layout.itemAt(self.button_area_layout.count() - 1)
-            if last_item and hasattr(last_item, 'spacerItem'):
-                # Remove the existing stretch
-                self.button_area_layout.takeAt(self.button_area_layout.count() - 1)
+        # Check if layout is currently empty (first button)
+        is_first_button = self.button_area_layout.count() == 0
 
-        # Add the new button
-        self.button_area_layout.addWidget(button)
-
-        # Add stretch at the end to align buttons to the right
-        self.button_area_layout.addStretch()
+        # Add a stretch at the beginning for right-alignment if this is the first button
+        if is_first_button:
+            self.button_area_layout.insertStretch(0)  # Insert stretch at position 0
+            self.button_area_layout.addWidget(button)  # Add button after the stretch
+        else:
+            # Not the first button, just add it (after the initial stretch)
+            self.button_area_layout.addWidget(button)
 
         self.button_area.show()
 
@@ -301,7 +298,10 @@ class CustomDialog(QDialog):
         # Clear existing buttons in the button area
         self.clear_buttons()
 
-        # Add the buttons
+        # Add a stretch at the beginning for right-alignment
+        self.button_area_layout.insertStretch(0)
+
+        # Add the buttons after the stretch
         for text, handler, role in buttons_config:
             # Create the button directly without calling add_button to avoid
             # redundantly showing the button area again
@@ -312,9 +312,6 @@ class CustomDialog(QDialog):
                 button.clicked.connect(handler)
 
             self.button_area_layout.addWidget(button)
-
-        # Add stretch at the end to align buttons to the right
-        self.button_area_layout.addStretch()
 
         # Show the button area after adding all buttons
         self.button_area.show()
