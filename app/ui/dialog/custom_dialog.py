@@ -189,6 +189,16 @@ class CustomDialog(QDialog):
 
         main_layout.addWidget(self.content_container)
 
+        # Bottom button area
+        self.button_area = QWidget()
+        self.button_area_layout = QHBoxLayout(self.button_area)
+        self.button_area_layout.setContentsMargins(20, 10, 20, 15)
+        self.button_area_layout.setSpacing(10)
+        # Align buttons to the right by adding a stretch at the end
+        # Initially hide the button area until buttons are added
+        self.button_area.hide()
+        main_layout.addWidget(self.button_area)
+
         # 启用鼠标跟踪
         self.setMouseTracking(True)
         self.drag_position = QPoint()
@@ -235,6 +245,129 @@ class CustomDialog(QDialog):
             item = self.content_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        
+
         # 添加控件
         self.content_layout.addWidget(widget)
+
+    def add_button(self, text, handler=None, role="default"):
+        """
+        Add a button to the standardized button area
+
+        Args:
+            text: Button text
+            handler: Function to call when button is clicked
+            role: Role of the button (e.g., 'accept', 'reject', 'default')
+        """
+        button = QPushButton(text)
+        self._style_button(button, role)
+
+        if handler:
+            button.clicked.connect(handler)
+
+        # Add the button to the layout
+        self.button_area_layout.addWidget(button)
+
+        # Add stretch to align buttons to the right (only if not already present at the end)
+        # Check if the last item is already a stretch
+        if (self.button_area_layout.count() == 0 or
+            not (self.button_area_layout.itemAt(self.button_area_layout.count()-1) is None or
+                 (hasattr(self.button_area_layout.itemAt(self.button_area_layout.count()-1), 'spacerItem')))):
+            # Add stretch if it's not already at the end
+            self.button_area_layout.addStretch()
+
+        self.button_area.show()
+
+        # Return the button so the caller can reference it if needed
+        return button
+
+    def add_button_row(self, buttons_config):
+        """
+        Add a row of buttons to the standardized button area
+
+        Args:
+            buttons_config: List of tuples (text, handler, role)
+        """
+        # Clear existing buttons in the button area
+        self.clear_buttons()
+
+        # Add the buttons
+        for text, handler, role in buttons_config:
+            # Create the button directly without calling add_button to avoid
+            # redundantly showing the button area again
+            button = QPushButton(text)
+            self._style_button(button, role)
+
+            if handler:
+                button.clicked.connect(handler)
+
+            self.button_area_layout.addWidget(button)
+
+        # Add stretch at the end to align buttons to the right
+        self.button_area_layout.addStretch()
+
+        # Show the button area after adding all buttons
+        self.button_area.show()
+
+    def clear_buttons(self):
+        """Clear all buttons from the button area"""
+        # Remove all widgets from the layout (keeping track of any stretch/spacer items)
+        # We need to recreate the layout properly
+        while self.button_area_layout.count():
+            item = self.button_area_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Hide the button area after clearing
+        self.button_area.hide()
+
+    def _style_button(self, button, role):
+        """Apply consistent button styling based on role"""
+        # Default styling similar to ServerConfigDialog
+        if role == "accept":
+            color = "#4CAF50"  # Green for accept/save
+        elif role == "reject":
+            color = "#555555"  # Gray for cancel
+        elif role == "danger":
+            color = "#F44336"  # Red for dangerous actions
+        else:
+            color = "#4c5052"  # Default color
+
+        button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {color};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {self._lighten_color(color)};
+            }}
+            QPushButton:pressed {{
+                background-color: {self._darken_color(color)};
+            }}
+        """)
+
+    def _lighten_color(self, color: str) -> str:
+        """Lighten a hex color"""
+        color = color.lstrip('#')
+        if len(color) != 6:
+            return color
+        r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
+        r = min(255, r + 20)
+        g = min(255, g + 20)
+        b = min(255, b + 20)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _darken_color(self, color: str) -> str:
+        """Darken a hex color"""
+        color = color.lstrip('#')
+        if len(color) != 6:
+            return color
+        r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
+        r = max(0, r - 20)
+        g = max(0, g - 20)
+        b = max(0, b - 20)
+        return f"#{r:02x}{g:02x}{b:02x}"
