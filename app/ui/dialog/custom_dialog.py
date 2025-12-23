@@ -272,16 +272,19 @@ class CustomDialog(QDialog):
         if handler:
             button.clicked.connect(handler)
 
-        # Add the button to the layout
+        # Remove any existing stretch item at the end before adding the new button
+        # Get the last item in the layout
+        if self.button_area_layout.count() > 0:
+            last_item = self.button_area_layout.itemAt(self.button_area_layout.count() - 1)
+            if last_item and hasattr(last_item, 'spacerItem'):
+                # Remove the existing stretch
+                self.button_area_layout.takeAt(self.button_area_layout.count() - 1)
+
+        # Add the new button
         self.button_area_layout.addWidget(button)
 
-        # Add stretch to align buttons to the right (only if not already present at the end)
-        # Check if the last item is already a stretch
-        if (self.button_area_layout.count() == 0 or
-            not (self.button_area_layout.itemAt(self.button_area_layout.count()-1) is None or
-                 (hasattr(self.button_area_layout.itemAt(self.button_area_layout.count()-1), 'spacerItem')))):
-            # Add stretch if it's not already at the end
-            self.button_area_layout.addStretch()
+        # Add stretch at the end to align buttons to the right
+        self.button_area_layout.addStretch()
 
         self.button_area.show()
 
