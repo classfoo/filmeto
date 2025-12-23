@@ -171,7 +171,7 @@ class CustomDialog(QDialog):
         self.title_bar.forward_clicked.connect(self.forward_clicked.emit)
         main_layout.addWidget(self.title_bar)
 
-        # 内容区域容器
+        # 内容区域容器 - includes both content and button area
         self.content_container = QFrame()
         self.content_container.setObjectName("CustomDialogContentContainer")  # Add object name for CSS
         self.content_container.setStyleSheet("""
@@ -183,21 +183,29 @@ class CustomDialog(QDialog):
                 border-top: none;
             }
         """)
-        self.content_layout = QVBoxLayout(self.content_container)
-        self.content_layout.setContentsMargins(20, 15, 20, 20)
-        self.content_layout.setSpacing(10)
 
-        main_layout.addWidget(self.content_container)
+        # Main content layout that will contain both the content and button area
+        self.main_content_layout = QVBoxLayout(self.content_container)
+        self.main_content_layout.setContentsMargins(20, 15, 20, 15)  # Keep consistent margins
+        self.main_content_layout.setSpacing(10)
 
-        # Bottom button area
+        # Content area layout for user content
+        self.content_layout = QVBoxLayout()
+        self.content_layout.setContentsMargins(0, 0, 0, 10)  # Add bottom margin for button area
+        self.main_content_layout.addLayout(self.content_layout)
+
+        # Bottom button area - now properly contained within content container
         self.button_area = QWidget()
+        self.button_area.setObjectName("CustomDialogButtonArea")  # Add object name for CSS
         self.button_area_layout = QHBoxLayout(self.button_area)
-        self.button_area_layout.setContentsMargins(20, 10, 20, 15)
+        self.button_area_layout.setContentsMargins(0, 0, 0, 0)
         self.button_area_layout.setSpacing(10)
         # Align buttons to the right by adding a stretch at the end
         # Initially hide the button area until buttons are added
         self.button_area.hide()
-        main_layout.addWidget(self.button_area)
+        self.main_content_layout.addWidget(self.button_area)
+
+        main_layout.addWidget(self.content_container)
 
         # 启用鼠标跟踪
         self.setMouseTracking(True)
