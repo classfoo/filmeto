@@ -1,7 +1,8 @@
 """
-Multi-Tool Demo Plugin
+ComfyUI Server Plugin
 
-A demo plugin that supports multiple tools like text-to-image and image-to-image.
+A plugin that integrates ComfyUI for AI image and video generation.
+Supports multiple tools via configurable workflows.
 """
 
 import os
@@ -9,7 +10,7 @@ import sys
 import time
 import asyncio
 from pathlib import Path
-from typing import Dict, Any, Callable, List
+from typing import Dict, Any, Callable, List, Optional
 
 # Add parent directory to path to import base_plugin
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -39,11 +40,35 @@ class MultiToolDemoPlugin(BaseServerPlugin):
     def get_plugin_info(self) -> Dict[str, Any]:
         """Get plugin metadata"""
         return {
-            "name": "comfy_ui_demo",
+            "name": "ComfyUI",
             "version": "1.0.0",
-            "description": "Demo plugin with multiple tools for ComfyUI",
+            "description": "ComfyUI integration for AI image and video generation",
             "author": "Filmeto Team"
         }
+    
+    def init_ui(self, workspace_path: str, server_config: Optional[Dict[str, Any]] = None):
+        """
+        Initialize custom UI widget for ComfyUI configuration.
+        
+        Args:
+            workspace_path: Path to workspace directory
+            server_config: Optional existing server configuration
+            
+        Returns:
+            QWidget: Custom configuration widget
+        """
+        try:
+            # Import the custom config widget
+            from server.plugins.comfy_ui_server.config_widget import ComfyUIConfigWidget
+            
+            # Create and return the widget
+            widget = ComfyUIConfigWidget(workspace_path, server_config)
+            return widget
+        except Exception as e:
+            print(f"Failed to create ComfyUI config widget: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def get_supported_tools(self) -> List[ToolConfig]:
         """Get list of tools supported by this plugin with their configs"""

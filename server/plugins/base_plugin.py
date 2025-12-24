@@ -121,6 +121,22 @@ class BaseServerPlugin(ABC):
             ]
         }
     
+    def init_ui(self, workspace_path: str, server_config: Optional[Dict[str, Any]] = None):
+        """
+        Initialize custom UI widget for server configuration.
+        
+        Plugins can override this method to provide a custom configuration UI
+        instead of using the default form-based configuration.
+        
+        Args:
+            workspace_path: Path to workspace directory
+            server_config: Optional existing server configuration
+            
+        Returns:
+            QWidget: Custom configuration widget, or None to use default form
+        """
+        return None
+    
     def report_progress(
         self, 
         task_id: str, 

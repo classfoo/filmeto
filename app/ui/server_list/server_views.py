@@ -275,6 +275,7 @@ class ServerConfigView(QWidget):
         self.server_config = None
         self.field_widgets = {}
         self._is_edit_mode = False
+        self.custom_config_widget = None
         self._init_ui()
 
     @property
@@ -325,6 +326,20 @@ class ServerConfigView(QWidget):
     
     def _build_config_ui(self):
         """Build the configuration UI based on plugin info"""
+        # Check if plugin has custom UI
+        custom_widget = self._try_get_custom_ui()
+        if custom_widget:
+            # Use custom UI from plugin
+            self.custom_config_widget = custom_widget
+            self.main_layout.addWidget(custom_widget)
+            
+            # Connect config changed signal if available
+            if hasattr(custom_widget, 'config_changed'):
+                custom_widget.config_changed.connect(self._on_custom_config_changed)
+            
+            return
+        
+        # Default form-based UI
         # Header
         header_label = QLabel(f"{tr('配置')} {self.plugin_info.name} {tr('服务器')}", self)
         header_font = QFont()
@@ -575,8 +590,95 @@ class ServerConfigView(QWidget):
         b = max(0, b - 20)
         return f"#{r:02x}{g:02x}{b:02x}"
     
+    def _try_get_custom_ui(self):
+        """Try to get custom UI widget from plugin"""
+        try:
+            # Get plugin instance
+            from server.server import ServerManager
+            
+            # Get workspace path from parent dialog
+            workspace_path = None
+            parent_dialog = self.parent()
+            if parent_dialog and hasattr(parent_dialog, 'workspace'):
+                workspace_path = parent_dialog.workspace.workspace_path
+            
+            if not workspace_path:
+                return None
+            
+            # Create server manager to get plugin
+            server_manager = ServerManager(workspace_path)
+            
+            # Get plugin by name
+            plugin_name = self.plugin_info.name.lower().replace(' ', '_')
+            
+            # Try to load the plugin module and call init_ui
+            plugin_path = server_manager.plugins_dir / f"{plugin_name}_server"
+            if not plugin_path.exists():
+                return None
+            
+            # Import the plugin module
+            import sys
+            import importlib.util
+            
+            main_file = plugin_path / "main.py"
+            if not main_file.exists():
+                return None
+            
+            spec = importlib.util.spec_from_file_location(f"{plugin_name}_plugin", main_file)
+            if not spec or not spec.loader:
+                return None
+            
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[f"{plugin_name}_plugin"] = module
+            spec.loader.exec_module(module)
+            
+            # Find the plugin class
+            plugin_class = None
+            for name in dir(module):
+                obj = getattr(module, name)
+                if isinstance(obj, type) and hasattr(obj, 'init_ui') and name != 'BaseServerPlugin':
+                    plugin_class = obj
+                    break
+            
+            if not plugin_class:
+                return None
+            
+            # Create plugin instance
+            plugin_instance = plugin_class()
+            
+            # Prepare server config dict for custom UI
+            server_config_dict = None
+            if self.server_config:
+                server_config_dict = {
+                    'name': self.server_config.name,
+                    'description': self.server_config.description,
+                    'enabled': self.server_config.enabled,
+                    'config': self.server_config.parameters
+                }
+            
+            # Call init_ui
+            custom_widget = plugin_instance.init_ui(workspace_path, server_config_dict)
+            
+            return custom_widget
+            
+        except Exception as e:
+            print(f"Failed to get custom UI from plugin: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _on_custom_config_changed(self):
+        """Handle configuration change from custom widget"""
+        # This can be used to enable/disable save button or show unsaved changes
+        pass
+    
     def _on_save_clicked(self):
         """Handle save button click"""
+        # Check if using custom UI
+        if self.custom_config_widget:
+            return self._on_save_clicked_custom()
+        
+        # Default form-based save
         # Validate required fields
         server_name = self.name_field.text().strip()
         if not server_name:
@@ -640,6 +742,58 @@ class ServerConfigView(QWidget):
                 metadata={
                     "plugin_version": self.plugin_info.version,
                     "created_via": "ui"
+                },
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+        
+        # Emit signal
+        self.save_clicked.emit(server_name, config)
+    
+    def _on_save_clicked_custom(self):
+        """Handle save button click for custom UI"""
+        # Validate custom widget config
+        if hasattr(self.custom_config_widget, 'validate_config'):
+            if not self.custom_config_widget.validate_config():
+                return
+        
+        # Get config from custom widget
+        if not hasattr(self.custom_config_widget, 'get_config'):
+            QMessageBox.warning(self, tr("错误"), "Custom widget does not implement get_config()")
+            return
+        
+        config_data = self.custom_config_widget.get_config()
+        
+        # Build configuration
+        from server.server import ServerConfig
+        from datetime import datetime
+        
+        # Get server name from custom widget or use existing
+        server_name = self.server_config.name if self.is_edit_mode else config_data.get('name', self.plugin_info.name)
+        
+        # Create or update config
+        if self.is_edit_mode:
+            # Update existing config
+            config = self.server_config
+            config.description = config_data.get('description', config.description)
+            config.enabled = config_data.get('enabled', config.enabled)
+            config.endpoint = config_data.get('server_url', config.endpoint)
+            config.parameters = config_data
+            config.updated_at = datetime.now()
+        else:
+            # Create new config
+            config = ServerConfig(
+                name=server_name,
+                server_type=self.plugin_info.engine or "custom",
+                plugin_name=self.plugin_info.name,
+                description=config_data.get('description', ''),
+                enabled=config_data.get('enabled', True),
+                endpoint=config_data.get('server_url'),
+                api_key=config_data.get('api_key'),
+                parameters=config_data,
+                metadata={
+                    "plugin_version": self.plugin_info.version,
+                    "created_via": "custom_ui"
                 },
                 created_at=datetime.now(),
                 updated_at=datetime.now()
