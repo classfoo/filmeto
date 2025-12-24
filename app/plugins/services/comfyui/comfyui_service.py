@@ -15,6 +15,7 @@ from app.spi.service import (
     BaseService, ServiceCapability, ConfigSchema, ConfigGroup, ConfigField,
     ServiceResult
 )
+from app.data.workflow import WorkflowManager
 from utils.comfy_ui_utils import ComfyUIClient
 from utils.progress_utils import Progress
 from utils.yaml_utils import load_yaml
@@ -26,6 +27,7 @@ class ComfyUIService(BaseService):
     def __init__(self):
         super().__init__()
         self._config = None
+        self._workflow_manager = None
 
     @classmethod
     def get_service_name(cls) -> str:
@@ -203,6 +205,15 @@ class ComfyUIService(BaseService):
         except Exception as e:
             print(f"❌ Failed to load ComfyUI config: {e}")
             return {}
+    
+    def _get_workflow_manager(self) -> Optional[WorkflowManager]:
+        """Get or create workflow manager"""
+        if self._workflow_manager is None:
+            # Try to get workspace path from config or environment
+            workspace_path = os.environ.get('FILMETO_WORKSPACE', 'workspace')
+            if os.path.exists(workspace_path):
+                self._workflow_manager = WorkflowManager(workspace_path, "comfyui")
+        return self._workflow_manager
 
     def validate_config(self, config: Dict[str, Any]) -> bool:
         """Validate configuration"""
@@ -422,7 +433,26 @@ class ComfyUIService(BaseService):
         return f"{server}:{port}"
 
     def _get_workflow_path(self, workflow_key: str) -> str:
-        """Get workflow file path from config"""
+        """Get workflow file path from config or workflow manager"""
+        # Try to use workflow manager first
+        workflow_manager = self._get_workflow_manager()
+        if workflow_manager:
+            # Map capability to workflow type
+            type_map = {
+                'text2image_workflow': 'text2image',
+                'image_edit_workflow': 'image_edit',
+                'image2video_workflow': 'image2video'
+            }
+            
+            workflow_type = type_map.get(workflow_key)
+            if workflow_type:
+                workflow = workflow_manager.get_workflow_by_type(workflow_type)
+                if workflow:
+                    path = workflow_manager.get_workflow_path(workflow.name)
+                    if path:
+                        return str(path)
+        
+        # Fallback to config-based path
         workflows = self._config.get('workflows', {})
         relative_path = workflows.get(workflow_key, '')
         

@@ -545,8 +545,19 @@ class SettingsWidget(BaseWidget):
             return
         
         try:
-            # Open plugin detail dialog
-            dialog = PluginDetailDialog(service_id, self.service_registry, self)
+            # Use specialized ComfyUI dialog for comfyui service
+            if service_id == "comfyui":
+                from app.ui.settings.comfyui_config_dialog import ComfyUIConfigDialog
+                dialog = ComfyUIConfigDialog(
+                    service_id,
+                    self.service_registry,
+                    self.workspace.workspace_path,
+                    self
+                )
+            else:
+                # Open standard plugin detail dialog
+                dialog = PluginDetailDialog(service_id, self.service_registry, self)
+            
             dialog.config_saved.connect(self._on_plugin_config_saved)
             dialog.exec()
         except Exception as e:
