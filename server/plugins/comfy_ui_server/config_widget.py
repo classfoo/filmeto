@@ -358,11 +358,11 @@ class ComfyUIConfigWidget(QWidget):
         
         # Connect change signal
         if hasattr(widget, 'textChanged'):
-            widget.textChanged.connect(self.config_changed.emit)
+            widget.textChanged.connect(lambda: self.config_changed.emit())
         elif hasattr(widget, 'valueChanged'):
-            widget.valueChanged.connect(self.config_changed.emit)
+            widget.valueChanged.connect(lambda: self.config_changed.emit())
         elif hasattr(widget, 'stateChanged'):
-            widget.stateChanged.connect(self.config_changed.emit)
+            widget.stateChanged.connect(lambda: self.config_changed.emit())
     
     def _get_input_style(self) -> str:
         """Get input field stylesheet"""
