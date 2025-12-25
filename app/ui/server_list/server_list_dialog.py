@@ -66,7 +66,7 @@ class ServerListDialog(CustomDialog):
 
         # Create views
         self.list_view = ServerListView(self)
-        self.config_view = ServerConfigView(self)
+        self.config_view = ServerConfigView(self.workspace)
 
         # Add views to stack
         self.stacked_widget.addWidget(self.list_view)

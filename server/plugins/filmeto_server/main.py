@@ -9,7 +9,7 @@ import sys
 import time
 import asyncio
 from pathlib import Path
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, List, Optional
 
 # Add parent directory to path to import base_plugin
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -23,27 +23,50 @@ except ImportError:
     sys.exit(1)
 
 
-class Text2ImageDemoPlugin(BaseServerPlugin):
+class FilmetoServerPlugin(BaseServerPlugin):
     """
-    Demo plugin for text-to-image generation.
-    
-    This is a simple demonstration plugin that creates colored images
-    with the prompt text rendered on them.
+    Filmeto Server plugin for AI services.
+
+    This plugin provides integration with Filmeto AI services.
     """
-    
+
     def __init__(self):
         super().__init__()
         self.output_dir = Path(__file__).parent / "outputs"
         self.output_dir.mkdir(exist_ok=True)
-    
+
     def get_plugin_info(self) -> Dict[str, Any]:
         """Get plugin metadata"""
         return {
-            "name": "multi_tool_demo",
+            "name": "Filmeto Server",
             "version": "1.0.0",
-            "description": "Demo plugin supporting multiple tools",
+            "description": "Filmeto Server supporting multiple tools",
             "author": "Filmeto Team"
         }
+
+    def init_ui(self, workspace_path: str, server_config: Optional[Dict[str, Any]] = None):
+        """
+        Initialize custom UI widget for server configuration.
+
+        Args:
+            workspace_path: Path to workspace directory
+            server_config: Optional existing server configuration
+
+        Returns:
+            QWidget: Custom configuration widget
+        """
+        try:
+            # Import the default config widget
+            from app.ui.server_list.default_config_widget import DefaultConfigWidget
+
+            # Create and return the widget using the plugin info and config
+            widget = DefaultConfigWidget(self.get_plugin_info(), server_config, None)
+            return widget
+        except Exception as e:
+            print(f"Failed to create FilmetoServer config widget: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def get_supported_tools(self) -> List[ToolConfig]:
         """Get list of tools supported by this plugin with their configs"""
@@ -389,6 +412,6 @@ class Text2ImageDemoPlugin(BaseServerPlugin):
 
 if __name__ == "__main__":
     # Create and run the plugin
-    plugin = Text2ImageDemoPlugin()
+    plugin = FilmetoServerPlugin()
     plugin.run()
 

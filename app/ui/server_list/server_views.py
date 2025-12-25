@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 
+from app.ui.base_widget import BaseWidget
+
 from utils.i18n_utils import tr
 
 
@@ -259,18 +261,18 @@ class ServerListView(QWidget):
         )
 
 
-class ServerConfigView(QWidget):
+class ServerConfigView(BaseWidget):
     """
     View for configuring a server.
     Supports both creating new servers and editing existing ones.
     """
-    
+
     # Signals
     save_clicked = Signal(str, object)  # server_name, config
     cancel_clicked = Signal()
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
+
+    def __init__(self, workspace, parent=None):
+        super().__init__(workspace)
         self.plugin_info = None
         self.server_config = None
         self.field_widgets = {}
@@ -325,21 +327,25 @@ class ServerConfigView(QWidget):
                 self._clear_layout(item.layout())
     
     def _build_config_ui(self):
-        """Build the configuration UI based on plugin info"""
+        """Build the configuration UI based on plugin info (should now be handled by plugin's init_ui)"""
         # Check if plugin has custom UI
         custom_widget = self._try_get_custom_ui()
         if custom_widget:
             # Use custom UI from plugin
             self.custom_config_widget = custom_widget
             self.main_layout.addWidget(custom_widget)
-            
+
             # Connect config changed signal if available
             if hasattr(custom_widget, 'config_changed'):
                 custom_widget.config_changed.connect(self._on_custom_config_changed)
-            
+
             return
-        
-        # Default form-based UI
+
+        # This fallback should not be needed anymore as all plugins should implement init_ui
+        # but we keep it for backwards compatibility and safety
+        print("Warning: Falling back to default UI, plugin should implement init_ui")
+
+        # Default form-based UI - this is the migrated logic that should now be in plugins
         # Header
         header_label = QLabel(f"{tr('配置')} {self.plugin_info.name} {tr('服务器')}", self)
         header_font = QFont()
@@ -348,18 +354,18 @@ class ServerConfigView(QWidget):
         header_label.setFont(header_font)
         header_label.setStyleSheet("QLabel { color: #E1E1E1; }")
         self.main_layout.addWidget(header_label)
-        
+
         # Description
         desc_label = QLabel(self.plugin_info.description, self)
         desc_label.setWordWrap(True)
         desc_label.setStyleSheet("QLabel { color: #999999; font-size: 11px; }")
         self.main_layout.addWidget(desc_label)
-        
+
         # Form layout
         form_layout = QFormLayout()
         form_layout.setSpacing(12)
         form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        
+
         # Server name field
         self.name_field = QLineEdit(self)
         self.name_field.setPlaceholderText(tr("输入唯一的服务器名称"))
@@ -367,12 +373,12 @@ class ServerConfigView(QWidget):
         name_label = QLabel(tr("服务器名称") + " *", self)
         name_label.setStyleSheet("QLabel { color: #E1E1E1; }")
         form_layout.addRow(name_label, self.name_field)
-        
+
         # Pre-fill name if editing
         if self.is_edit_mode:
             self.name_field.setText(self.server_config.name)
             self.name_field.setEnabled(False)
-        
+
         # Description field
         self.description_field = QLineEdit(self)
         self.description_field.setPlaceholderText(tr("输入服务器描述（可选）"))
@@ -380,14 +386,14 @@ class ServerConfigView(QWidget):
         desc_label = QLabel(tr("描述"), self)
         desc_label.setStyleSheet("QLabel { color: #E1E1E1; }")
         form_layout.addRow(desc_label, self.description_field)
-        
+
         # Pre-fill description if editing
         if self.is_edit_mode:
             self.description_field.setText(self.server_config.description or "")
-        
+
         # Get config schema from plugin
         config_schema = self._get_plugin_config_schema()
-        
+
         # Create fields based on schema
         for field_config in config_schema.get("fields", []):
             field_name = field_config["name"]
@@ -397,7 +403,7 @@ class ServerConfigView(QWidget):
             default = field_config.get("default", "")
             placeholder = field_config.get("placeholder", "")
             description = field_config.get("description", "")
-            
+
             # Create widget
             widget = self._create_field_widget(field_type, default, placeholder)
             self.field_widgets[field_name] = {
@@ -405,11 +411,11 @@ class ServerConfigView(QWidget):
                 "type": field_type,
                 "required": required
             }
-            
+
             # Pre-fill if editing
             if self.is_edit_mode:
                 self._prefill_field(field_name, widget, field_type)
-            
+
             # Create label
             label_text = field_label
             if required:
@@ -418,11 +424,11 @@ class ServerConfigView(QWidget):
             label.setStyleSheet("QLabel { color: #E1E1E1; }")
             if description:
                 label.setToolTip(description)
-            
+
             form_layout.addRow(label, widget)
-        
+
         self.main_layout.addLayout(form_layout)
-        
+
         # Enabled checkbox
         self.enabled_checkbox = QCheckBox(tr("启用此服务器"), self)
         self.enabled_checkbox.setChecked(True if not self.is_edit_mode else self.server_config.enabled)
@@ -437,7 +443,7 @@ class ServerConfigView(QWidget):
             }
         """)
         self.main_layout.addWidget(self.enabled_checkbox)
-        
+
         self.main_layout.addStretch()
     
     def _prefill_field(self, field_name: str, widget: QWidget, field_type: str):
@@ -593,59 +599,29 @@ class ServerConfigView(QWidget):
     def _try_get_custom_ui(self):
         """Try to get custom UI widget from plugin"""
         try:
-            # Get plugin instance
-            from server.server import ServerManager
-            
-            # Get workspace path from parent dialog
-            workspace_path = None
-            parent_dialog = self.parent()
-            if parent_dialog and hasattr(parent_dialog, 'workspace'):
-                workspace_path = parent_dialog.workspace.workspace_path
-            
+            # Get workspace path from self (now that we inherit from BaseWidget)
+            workspace_path = self.workspace.workspace_path
+
             if not workspace_path:
                 return None
-            
-            # Create server manager to get plugin
+
+            # Use plugin manager to get plugin info and load the actual plugin class
+            from server.server import ServerManager
             server_manager = ServerManager(workspace_path)
-            
-            # Get plugin by name
-            plugin_name = self.plugin_info.name.lower().replace(' ', '_')
-            
-            # Try to load the plugin module and call init_ui
-            plugin_path = server_manager.plugins_dir / f"{plugin_name}_server"
-            if not plugin_path.exists():
+
+            # Get the plugin directory based on plugin name
+            plugin_name = self.plugin_info.name
+            plugin_dir = self._find_plugin_directory(server_manager, plugin_name)
+
+            if not plugin_dir:
                 return None
-            
-            # Import the plugin module
-            import sys
-            import importlib.util
-            
-            main_file = plugin_path / "main.py"
-            if not main_file.exists():
+
+            # Import and instantiate the plugin class to get custom UI
+            plugin_instance = self._instantiate_plugin_class(plugin_dir)
+
+            if not plugin_instance:
                 return None
-            
-            spec = importlib.util.spec_from_file_location(f"{plugin_name}_plugin", main_file)
-            if not spec or not spec.loader:
-                return None
-            
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[f"{plugin_name}_plugin"] = module
-            spec.loader.exec_module(module)
-            
-            # Find the plugin class
-            plugin_class = None
-            for name in dir(module):
-                obj = getattr(module, name)
-                if isinstance(obj, type) and hasattr(obj, 'init_ui') and name != 'BaseServerPlugin':
-                    plugin_class = obj
-                    break
-            
-            if not plugin_class:
-                return None
-            
-            # Create plugin instance
-            plugin_instance = plugin_class()
-            
+
             # Prepare server config dict for custom UI
             server_config_dict = None
             if self.server_config:
@@ -655,16 +631,89 @@ class ServerConfigView(QWidget):
                     'enabled': self.server_config.enabled,
                     'config': self.server_config.parameters
                 }
-            
+
             # Call init_ui
             custom_widget = plugin_instance.init_ui(workspace_path, server_config_dict)
-            
+
             return custom_widget
-            
+
         except Exception as e:
             print(f"Failed to get custom UI from plugin: {e}")
             import traceback
             traceback.print_exc()
+            return None
+
+    def _find_plugin_directory(self, server_manager, plugin_name):
+        """Find the plugin directory based on plugin name"""
+        # First try to match by plugin name as stored in plugin config
+        for plugin_info in server_manager.plugin_manager.list_plugins():
+            if plugin_info.name.lower() == plugin_name.lower():
+                return plugin_info.plugin_path
+
+        # If not found, try to match by directory name (fallback)
+        plugins_dir = server_manager.plugin_manager.plugins_dir
+        for plugin_dir in plugins_dir.iterdir():
+            if plugin_dir.is_dir():
+                # Check if this directory has a plugin.yaml with matching name
+                config_file = plugin_dir / "plugin.yaml"
+                if config_file.exists():
+                    import yaml
+                    try:
+                        with open(config_file, 'r', encoding='utf-8') as f:
+                            config = yaml.safe_load(f)
+                        if config.get('name', '').lower() == plugin_name.lower():
+                            return plugin_dir
+                    except:
+                        continue
+
+        return None
+
+    def _instantiate_plugin_class(self, plugin_dir):
+        """Load and instantiate the plugin class from its main module"""
+        import sys
+        import importlib.util
+
+        main_file = plugin_dir / "main.py"
+        if not main_file.exists():
+            return None
+
+        # Create a unique module name to avoid conflicts
+        plugin_name = plugin_dir.name
+        module_name = f"plugin_{plugin_name.replace('-', '_')}_config_ui"
+
+        # Check if module already exists in sys.modules
+        if module_name in sys.modules:
+            module = sys.modules[module_name]
+        else:
+            # Import the plugin module
+            spec = importlib.util.spec_from_file_location(module_name, main_file)
+            if not spec or not spec.loader:
+                return None
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+        # Find the plugin class that inherits from BaseServerPlugin
+        plugin_class = None
+        for name in dir(module):
+            obj = getattr(module, name)
+            if (isinstance(obj, type) and
+                hasattr(obj, 'init_ui') and
+                hasattr(obj, 'get_plugin_info') and
+                name != 'BaseServerPlugin'):
+                plugin_class = obj
+                break
+
+        if not plugin_class:
+            return None
+
+        # Create plugin instance - this will be for UI only, not for actual task execution
+        try:
+            plugin_instance = plugin_class()
+            return plugin_instance
+        except Exception as e:
+            print(f"Failed to instantiate plugin class {plugin_class.__name__}: {e}")
             return None
     
     def _on_custom_config_changed(self):
