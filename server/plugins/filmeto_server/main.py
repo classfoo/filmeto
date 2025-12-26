@@ -14,7 +14,7 @@ from typing import Dict, Any, Callable, List, Optional
 # Add parent directory to path to import base_plugin
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from server.plugins.base_plugin import BaseServerPlugin
+from server.plugins.base_plugin import BaseServerPlugin, ToolConfig
 
 try:
     from PIL import Image, ImageDraw, ImageFont
