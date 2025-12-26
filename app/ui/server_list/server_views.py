@@ -605,22 +605,9 @@ class ServerConfigView(BaseWidget):
             if not workspace_path:
                 return None
 
-            # Use plugin manager to get plugin info and load the actual plugin class
+            # Use ServerManager to get custom UI widget
             from server.server import ServerManager
             server_manager = ServerManager(workspace_path)
-
-            # Get the plugin directory based on plugin name
-            plugin_name = self.plugin_info.name
-            plugin_dir = self._find_plugin_directory(server_manager, plugin_name)
-
-            if not plugin_dir:
-                return None
-
-            # Import and instantiate the plugin class to get custom UI
-            plugin_instance = self._instantiate_plugin_class(plugin_dir)
-
-            if not plugin_instance:
-                return None
 
             # Prepare server config dict for custom UI
             server_config_dict = None
@@ -632,8 +619,11 @@ class ServerConfigView(BaseWidget):
                     'config': self.server_config.parameters
                 }
 
-            # Call init_ui
-            custom_widget = plugin_instance.init_ui(workspace_path, server_config_dict)
+            # Call the ServerManager method to get the custom widget
+            custom_widget = server_manager.get_plugin_ui_widget(
+                self.plugin_info.name,
+                server_config_dict
+            )
 
             return custom_widget
 
@@ -643,79 +633,6 @@ class ServerConfigView(BaseWidget):
             traceback.print_exc()
             return None
 
-    def _find_plugin_directory(self, server_manager, plugin_name):
-        """Find the plugin directory based on plugin name"""
-        # First try to match by plugin name as stored in plugin config
-        for plugin_info in server_manager.plugin_manager.list_plugins():
-            if plugin_info.name.lower() == plugin_name.lower():
-                return plugin_info.plugin_path
-
-        # If not found, try to match by directory name (fallback)
-        plugins_dir = server_manager.plugin_manager.plugins_dir
-        for plugin_dir in plugins_dir.iterdir():
-            if plugin_dir.is_dir():
-                # Check if this directory has a plugin.yaml with matching name
-                config_file = plugin_dir / "plugin.yaml"
-                if config_file.exists():
-                    import yaml
-                    try:
-                        with open(config_file, 'r', encoding='utf-8') as f:
-                            config = yaml.safe_load(f)
-                        if config.get('name', '').lower() == plugin_name.lower():
-                            return plugin_dir
-                    except:
-                        continue
-
-        return None
-
-    def _instantiate_plugin_class(self, plugin_dir):
-        """Load and instantiate the plugin class from its main module"""
-        import sys
-        import importlib.util
-
-        main_file = plugin_dir / "main.py"
-        if not main_file.exists():
-            return None
-
-        # Create a unique module name to avoid conflicts
-        plugin_name = plugin_dir.name
-        module_name = f"plugin_{plugin_name.replace('-', '_')}_config_ui"
-
-        # Check if module already exists in sys.modules
-        if module_name in sys.modules:
-            module = sys.modules[module_name]
-        else:
-            # Import the plugin module
-            spec = importlib.util.spec_from_file_location(module_name, main_file)
-            if not spec or not spec.loader:
-                return None
-
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-
-        # Find the plugin class that inherits from BaseServerPlugin
-        plugin_class = None
-        for name in dir(module):
-            obj = getattr(module, name)
-            if (isinstance(obj, type) and
-                hasattr(obj, 'init_ui') and
-                hasattr(obj, 'get_plugin_info') and
-                name != 'BaseServerPlugin'):
-                plugin_class = obj
-                break
-
-        if not plugin_class:
-            return None
-
-        # Create plugin instance - this will be for UI only, not for actual task execution
-        try:
-            plugin_instance = plugin_class()
-            return plugin_instance
-        except Exception as e:
-            print(f"Failed to instantiate plugin class {plugin_class.__name__}: {e}")
-            return None
-    
     def _on_custom_config_changed(self):
         """Handle configuration change from custom widget"""
         # This can be used to enable/disable save button or show unsaved changes
