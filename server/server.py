@@ -257,46 +257,82 @@ class Server:
 class ServerManager:
     """
     Manages server instances and task routing.
-    
+
     Provides CRUD operations for servers and routes tasks to appropriate
     servers based on routing rules.
     """
-    
+    _instance = None
+    _initialized = False  # Flag to track if the instance has been initialized
+    _workspace_path = None
+
+    def __new__(cls, workspace_path: str, plugin_manager: Optional[PluginManager] = None):
+        """
+        Create or return the singleton instance of ServerManager.
+        """
+        if cls._instance is None:
+            cls._instance = super(ServerManager, cls).__new__(cls)
+        return cls._instance
+
     def __init__(
         self,
         workspace_path: str,
         plugin_manager: Optional[PluginManager] = None
     ):
         """
-        Initialize server manager.
-        
+        Initialize server manager (only once).
+
         Args:
             workspace_path: Path to workspace root
             plugin_manager: Plugin manager instance (creates new if None)
         """
+        # Check if we need to reinitialize because workspace path has changed
+        if self._initialized and str(self._workspace_path) != str(workspace_path):
+            print(f"⚠️ ServerManager workspace path changed from {self._workspace_path} to {workspace_path}")
+            # For singleton, we'll stick with the first workspace path
+            # This might need to be handled differently based on requirements
+            return
+
+        # Only initialize once
+        if self._initialized:
+            return
+
         self.workspace_path = Path(workspace_path)
+        self._workspace_path = self.workspace_path  # Store for comparison later
         self.servers_dir = self.workspace_path / "servers"
         self.router_config_path = self.servers_dir / "server_router.yaml"
-        
+
         # Initialize plugin manager
         if plugin_manager is None:
             self.plugin_manager = PluginManager()
             self.plugin_manager.discover_plugins()
         else:
             self.plugin_manager = plugin_manager
-        
+
         # Server instances
         self.servers: Dict[str, Server] = {}
-        
+
         # Routing rules
         self.routing_rules: List[RoutingRule] = []
-        
+
         # Initialize
         self._ensure_directories()
         self.cleanup_old_configs()  # Clean up old configurations first
         self._init_default_servers()
         self._load_servers()
         self._load_routing_rules()
+
+        # Mark as initialized
+        self._initialized = True
+
+    @classmethod
+    def get_instance(cls) -> Optional['ServerManager']:
+        """
+        Get the singleton instance of ServerManager.
+
+        Returns:
+            ServerManager instance if it exists, None otherwise
+        """
+        return cls._instance
     
     def _ensure_directories(self):
         """Ensure server directories exist"""

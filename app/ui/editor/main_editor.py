@@ -66,9 +66,8 @@ class MainEditorWidget(BaseTaskWidget):
         self._tool_instances: Dict[str, BaseTool] = {}  # tool_id -> tool instance
         self._tool_buttons: Dict[str, QPushButton] = {}  # tool_id -> button
         
-        # Load available tools from plugins
-        from app.plugins.plugins import Plugins
-        self.plugins = Plugins(None)
+        # Load available tools from shared plugins instance in workspace
+        self.plugins = self.workspace.plugins
         self._tools = self.plugins.get_tool_registry()
         
         self._setup_ui()
@@ -464,14 +463,18 @@ class MainEditorWidget(BaseTaskWidget):
         """处理项目切换"""
         # 更新工作区引用
         workspace = self.workspace
-        
+
         # 重新初始化提示输入组件
         if hasattr(self, 'prompt_input') and self.prompt_input:
             self.prompt_input.on_project_switched(project_name)
-        
+
+        # Reuse the shared plugins instance from workspace, don't recreate
+        # Just update the tools registry from the shared instance
+        self._tools = self.workspace.plugins.get_tool_registry()
+
         # 重新加载工具实例
         self._tool_instances.clear()
-        
+
         # 重新初始化当前工具
         timeline_item = workspace.get_project().get_timeline().get_current_item()
         self.update_current_tool(timeline_item)

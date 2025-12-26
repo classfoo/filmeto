@@ -19,16 +19,20 @@ class Workspace():
         self.project_name = project_name
         self.project_path = os.path.join(self.workspace_path,self.project_name)
         self.project = Project(self, self.project_path, self.project_name, load_data=True)
-        
+
         # 初始化ProjectManager
         self.project_manager = ProjectManager(workspace_path)
-        
+
         # Initialize PromptManager
         prompts_dir = os.path.join(self.project_path, 'prompts')
         self.prompt_manager = PromptManager(prompts_dir)
-        
+
         # Initialize Settings
         self.settings = Settings(workspace_path)
+
+        # Initialize Plugins once for the entire workspace
+        from app.plugins.plugins import Plugins
+        self.plugins = Plugins(self)
         return
 
     def get_project(self):

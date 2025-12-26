@@ -1,8 +1,0 @@
-routing_rules:
-- name: default_local
-  priority: 0
-  conditions: {}
-  server_name: local
-  fallback_servers:
-  - filmeto
-  enabled: true
