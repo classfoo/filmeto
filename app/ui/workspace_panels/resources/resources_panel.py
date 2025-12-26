@@ -122,7 +122,9 @@ class ResourceTreeView(QTreeWidget):
                     self.resource_manager.project_path))
                 
                 # Set icon based on file type
-                file_info = QFileInfo(resource.name)
+                # Use absolute path from resource to avoid macOS iconForFile: error
+                resource_path = resource.get_absolute_path(self.resource_manager.project_path)
+                file_info = QFileInfo(resource_path)
                 icon = self.icon_provider.icon(file_info)
                 resource_item.setIcon(0, icon)
                 

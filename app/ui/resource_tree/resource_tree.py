@@ -201,7 +201,8 @@ class ResourceTreeWidget(QTreeWidget):
                     placeholder.setText(0, "loading...")
                     placeholder.setHidden(True)
                 else: # 是文件
-                    file_info = QFileInfo(str(entry))
+                    # Ensure we use absolute path to avoid macOS iconForFile: error
+                    file_info = QFileInfo(str(entry.resolve()))
                     #item.setText(2, self._get_file_type(file_info.suffix()))
                     #item.setText(00000000, self._format_file_size(entry.stat().st_size))
                     #item.setText(3, entry.stat().st_mtime.strftime("%Y-%m-%d %H:%M"))
