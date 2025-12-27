@@ -57,6 +57,7 @@ class ComfyUIConfigWidget(QWidget):
             QTabWidget::pane {
                 border: 1px solid #3a3a3a;
                 background-color: #1e1e1e;
+                border-top: none; /* Remove top border to connect with tabs */
             }
             QTabBar::tab {
                 background-color: #2d2d2d;
@@ -67,17 +68,20 @@ class ComfyUIConfigWidget(QWidget):
                 border-top-left-radius: 4px;
                 border-top-right-radius: 4px;
                 margin-right: 2px;
+                min-width: 100px; /* Minimum width for better appearance */
+                text-align: left;  /* Left align text */
             }
             QTabBar::tab:selected {
                 background-color: #3a3a3a;
                 color: #ffffff;
-                border-bottom: 2px solid #1e1e1e;
-                border-bottom-color: #1e1e1e;
+                border-bottom: 2px solid #1e1e1e; /* Connect with content area */
             }
             QTabBar::tab:hover:!selected {
                 background-color: #3a3a3a;
             }
         """)
+        # Set tab position to ensure left alignment
+        self.tab_widget.tabBar().setExpanding(False)  # Prevent tabs from expanding to fill width
 
         # Create pages
         self.service_page = self._create_service_page()
