@@ -12,6 +12,8 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any, Callable, List, Optional
 
+from server.plugins.comfy_ui_server.config_widget import ComfyUIConfigWidget
+
 # Add parent directory to path to import base_plugin
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -24,7 +26,7 @@ except ImportError:
     sys.exit(1)
 
 
-class MultiToolDemoPlugin(BaseServerPlugin):
+class ComfyUiServerPlugin(BaseServerPlugin):
     """
     Demo plugin supporting multiple tools.
 
@@ -59,8 +61,6 @@ class MultiToolDemoPlugin(BaseServerPlugin):
         """
         try:
             # Import the custom config widget
-            from server.plugins.comfy_ui_server.config_widget import ComfyUIConfigWidget
-            
             # Create and return the widget
             widget = ComfyUIConfigWidget(workspace_path, server_config)
             return widget
@@ -504,6 +504,6 @@ class MultiToolDemoPlugin(BaseServerPlugin):
 
 if __name__ == "__main__":
     # Create and run the plugin
-    plugin = MultiToolDemoPlugin()
+    plugin = ComfyUiServerPlugin()
     plugin.run()
 
