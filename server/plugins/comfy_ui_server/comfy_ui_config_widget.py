@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QListWidget, QListWidgetItem, QStackedWidget, QFrame,
     QScrollArea, QFormLayout, QLineEdit, QSpinBox, QCheckBox,
-    QMessageBox, QFileDialog, QComboBox
+    QMessageBox, QFileDialog, QComboBox, QTabWidget
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor
@@ -45,87 +45,50 @@ class ComfyUIConfigWidget(QWidget):
             self._load_workflows()
     
     def _init_ui(self):
-        """Initialize the UI with sidebar layout"""
-        # Main layout
-        main_layout = QHBoxLayout(self)
+        """Initialize the UI with tab layout"""
+        # Main layout - vertical to accommodate tabs at top
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        
-        # Create sidebar
-        self.sidebar = self._create_sidebar()
-        main_layout.addWidget(self.sidebar)
-        
-        # Create content area
-        self.content_stack = QStackedWidget()
-        self.content_stack.setStyleSheet("background-color: #1e1e1e;")
-        
-        # Create pages
-        self.service_page = self._create_service_page()
-        self.workflow_page = self._create_workflow_page()
-        
-        self.content_stack.addWidget(self.service_page)
-        self.content_stack.addWidget(self.workflow_page)
-        
-        main_layout.addWidget(self.content_stack, 1)
-    
-    def _create_sidebar(self) -> QWidget:
-        """Create Mac-style sidebar"""
-        sidebar = QWidget()
-        sidebar.setFixedWidth(130)
-        sidebar.setStyleSheet("""
-            QWidget {
+
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #3a3a3a;
+                background-color: #1e1e1e;
+            }
+            QTabBar::tab {
                 background-color: #2d2d2d;
-                border-right: 1px solid #3a3a3a;
+                color: #cccccc;
+                padding: 8px 16px;
+                border: 1px solid #3a3a3a;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected {
+                background-color: #3a3a3a;
+                color: #ffffff;
+                border-bottom: 2px solid #1e1e1e;
+                border-bottom-color: #1e1e1e;
+            }
+            QTabBar::tab:hover:!selected {
+                background-color: #3a3a3a;
             }
         """)
 
-        layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(0, 5, 0, 0)  # Reduced top margin from 10 to 5
-        layout.setSpacing(0)
-        
-        # Menu list
-        self.menu_list = QListWidget()
-        self.menu_list.setStyleSheet("""
-            QListWidget {
-                background-color: transparent;
-                border: none;
-                outline: none;
-                padding: 6px 0;
-            }
-            QListWidget::item {
-                padding: 6px 12px;
-                color: #cccccc;
-                font-size: 11px;
-                border: none;
-            }
-            QListWidget::item:hover {
-                background-color: #3a3a3a;
-            }
-            QListWidget::item:selected {
-                background-color: #3498db;
-                color: #ffffff;
-            }
-        """)
-        self.menu_list.setSpacing(1)  # Reduced spacing from 2 to 1
-        
-        # Add menu items
-        menu_items = [
-            ("⚙ Service", 0),
-            ("⚡ Workflows", 1)
-        ]
-        
-        for text, index in menu_items:
-            item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, index)
-            self.menu_list.addItem(item)
-        
-        self.menu_list.setCurrentRow(0)
-        self.menu_list.currentRowChanged.connect(lambda row: self.content_stack.setCurrentIndex(row))
-        
-        layout.addWidget(self.menu_list)
-        layout.addStretch()
-        
-        return sidebar
+        # Create pages
+        self.service_page = self._create_service_page()
+        self.workflow_page = self._create_workflow_page()
+
+        # Add tabs
+        self.tab_widget.addTab(self.service_page, "⚙ Service")
+        self.tab_widget.addTab(self.workflow_page, "⚡ Workflows")
+
+        main_layout.addWidget(self.tab_widget)
+    
     
     def _create_service_page(self) -> QWidget:
         """Create service configuration page"""
@@ -188,7 +151,7 @@ class ComfyUIConfigWidget(QWidget):
         toolbar.setSpacing(8)
 
         add_btn = QPushButton("+ Add Workflow")
-        add_btn.setFixedHeight(12)
+        add_btn.setFixedHeight(26)
         add_btn.clicked.connect(self._on_add_workflow)
         add_btn.setCursor(QCursor(Qt.PointingHandCursor))
         add_btn.setStyleSheet("""

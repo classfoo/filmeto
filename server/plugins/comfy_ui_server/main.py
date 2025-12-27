@@ -12,7 +12,7 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any, Callable, List, Optional
 
-from server.plugins.comfy_ui_server.config_widget import ComfyUIConfigWidget
+from server.plugins.comfy_ui_server.comfy_ui_config_widget import ComfyUIConfigWidget
 
 # Add parent directory to path to import base_plugin
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
