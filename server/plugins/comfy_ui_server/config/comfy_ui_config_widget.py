@@ -46,12 +46,10 @@ class ComfyUIConfigWidget(QWidget):
         self.server_config = server_config or {}
         self.server_name = server_config.get('name', '') if server_config else ''
         
-        # Workflow storage path - use plugin directory workflows
-        # Get project root: from server/plugins/comfy_ui_server/config -> project root
-        # Path: config -> comfy_ui_server -> plugins -> server -> project_root
-        project_root = Path(__file__).parent.parent.parent.parent.parent
-        plugin_dir = project_root / "app" / "plugins" / "services" / "comfyui"
-        self.workflows_dir = plugin_dir / "workflows"
+        # Workflow storage path - use server plugin directory workflows
+        # Get workflows directory: from server/plugins/comfy_ui_server/config -> comfy_ui_server
+        # Path: config -> comfy_ui_server
+        self.workflows_dir = Path(__file__).parent.parent / "workflows"
         self.workflows_dir.mkdir(parents=True, exist_ok=True)
         
         # ToolType to workflow name mapping

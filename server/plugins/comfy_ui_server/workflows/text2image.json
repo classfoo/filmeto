@@ -1,0 +1,11 @@
+{
+  "name": "Text2Image",
+  "description": "Workflow for text2image",
+  "type": "text2image",
+  "file": "text2image_workflow.json",
+  "node_mapping": {
+    "prompt_node": "6",
+    "output_node": "60",
+    "seed_node": "3"
+  }
+}
