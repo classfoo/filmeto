@@ -71,16 +71,16 @@ class ComfyUIConfigWidget(QWidget):
     def _create_sidebar(self) -> QWidget:
         """Create Mac-style sidebar"""
         sidebar = QWidget()
-        sidebar.setFixedWidth(180)
+        sidebar.setFixedWidth(130)
         sidebar.setStyleSheet("""
             QWidget {
                 background-color: #2d2d2d;
                 border-right: 1px solid #3a3a3a;
             }
         """)
-        
+
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(0, 10, 0, 0)
+        layout.setContentsMargins(0, 5, 0, 0)  # Reduced top margin from 10 to 5
         layout.setSpacing(0)
         
         # Menu list
@@ -90,12 +90,12 @@ class ComfyUIConfigWidget(QWidget):
                 background-color: transparent;
                 border: none;
                 outline: none;
-                padding: 8px 0;
+                padding: 6px 0;
             }
             QListWidget::item {
-                padding: 10px 16px;
+                padding: 6px 12px;
                 color: #cccccc;
-                font-size: 12px;
+                font-size: 11px;
                 border: none;
             }
             QListWidget::item:hover {
@@ -106,7 +106,7 @@ class ComfyUIConfigWidget(QWidget):
                 color: #ffffff;
             }
         """)
-        self.menu_list.setSpacing(2)
+        self.menu_list.setSpacing(1)  # Reduced spacing from 2 to 1
         
         # Add menu items
         menu_items = [
@@ -131,21 +131,21 @@ class ComfyUIConfigWidget(QWidget):
         """Create service configuration page"""
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(20, 10, 20, 10)
-        layout.setSpacing(15)
-        
+        layout.setContentsMargins(10, 5, 10, 5)  # Reduced margins from 20,10,20,10 to 10,5,10,5
+        layout.setSpacing(8)
+
         # Scroll area for form
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll_area.setStyleSheet("QScrollArea { background-color: #1e1e1e; border: none; }")
-        
+
         # Form container
         form_container = QWidget()
         form_container.setStyleSheet("background-color: #1e1e1e;")
         container_layout = QVBoxLayout(form_container)
         container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.setSpacing(15)
+        container_layout.setSpacing(8)
         
         # Connection settings group
         conn_group = self._create_form_group("Connection Settings", [
@@ -180,26 +180,26 @@ class ComfyUIConfigWidget(QWidget):
         """Create workflow management page"""
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(20, 10, 20, 10)
-        layout.setSpacing(12)
-        
+        layout.setContentsMargins(10, 5, 10, 5)  # Reduced margins from 20,10,20,10 to 10,5,10,5
+        layout.setSpacing(4)
+
         # Toolbar
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
-        
+
         add_btn = QPushButton("+ Add Workflow")
-        add_btn.setFixedHeight(28)
+        add_btn.setFixedHeight(12)
         add_btn.clicked.connect(self._on_add_workflow)
         add_btn.setCursor(QCursor(Qt.PointingHandCursor))
         add_btn.setStyleSheet("""
             QPushButton {
-                padding: 4px 12px;
+                padding: 3px 10px;
                 background-color: #3498db;
                 border: none;
                 border-radius: 3px;
                 color: #ffffff;
                 font-weight: bold;
-                font-size: 11px;
+                font-size: 10px;
             }
             QPushButton:hover {
                 background-color: #5dade2;
@@ -207,9 +207,9 @@ class ComfyUIConfigWidget(QWidget):
         """)
         toolbar.addWidget(add_btn)
         toolbar.addStretch()
-        
+
         layout.addLayout(toolbar)
-        
+
         # Workflow list
         self.workflow_list = QListWidget()
         self.workflow_list.setStyleSheet("""
@@ -217,11 +217,11 @@ class ComfyUIConfigWidget(QWidget):
                 background-color: #2d2d2d;
                 border: 1px solid #3a3a3a;
                 border-radius: 4px;
-                padding: 6px;
+                padding: 3px;
             }
             QListWidget::item {
-                padding: 10px;
-                margin: 3px 0;
+                padding: 6px;
+                margin: 2px 0;
                 background-color: #252525;
                 border: 1px solid #3a3a3a;
                 border-radius: 3px;
@@ -230,35 +230,39 @@ class ComfyUIConfigWidget(QWidget):
             QListWidget::item:hover {
                 background-color: #2d2d2d;
                 border-color: #3498db;
+                color: #ffffff;
             }
             QListWidget::item:selected {
                 background-color: #3498db;
                 border-color: #3498db;
+                color: #ffffff;
             }
         """)
         self.workflow_list.itemDoubleClicked.connect(self._on_configure_workflow)
         layout.addWidget(self.workflow_list, 1)
-        
+
         # Workflow actions
         actions_layout = QHBoxLayout()
-        actions_layout.setSpacing(8)
-        
+        actions_layout.setSpacing(6)
+
         configure_btn = QPushButton("Configure")
+        configure_btn.setFixedHeight(24)
         configure_btn.clicked.connect(self._on_configure_workflow)
         configure_btn.setCursor(QCursor(Qt.PointingHandCursor))
         configure_btn.setStyleSheet(self._get_action_button_style())
         actions_layout.addWidget(configure_btn)
-        
+
         remove_btn = QPushButton("Remove")
+        remove_btn.setFixedHeight(24)
         remove_btn.clicked.connect(self._on_remove_workflow)
         remove_btn.setCursor(QCursor(Qt.PointingHandCursor))
         remove_btn.setStyleSheet(self._get_action_button_style("#e74c3c", "#c0392b"))
         actions_layout.addWidget(remove_btn)
-        
+
         actions_layout.addStretch()
-        
+
         layout.addLayout(actions_layout)
-        
+
         return page
     
     def _create_form_group(self, title: str, fields: list) -> QWidget:
@@ -271,11 +275,11 @@ class ComfyUIConfigWidget(QWidget):
                 border-radius: 4px;
             }
         """)
-        
+
         group_layout = QVBoxLayout(group_frame)
-        group_layout.setContentsMargins(15, 12, 15, 12)
-        group_layout.setSpacing(10)
-        
+        group_layout.setContentsMargins(10, 8, 10, 8)  # Reduced margins from 15,12,15,12 to 10,8,10,8
+        group_layout.setSpacing(6)
+
         # Group label
         group_label = QLabel(title)
         font = QFont()
@@ -284,19 +288,19 @@ class ComfyUIConfigWidget(QWidget):
         group_label.setFont(font)
         group_label.setStyleSheet("color: #ffffff; border: none;")
         group_layout.addWidget(group_label)
-        
+
         # Form layout
         form_layout = QFormLayout()
         form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        form_layout.setSpacing(8)
-        form_layout.setHorizontalSpacing(12)
-        
+        form_layout.setSpacing(5)
+        form_layout.setHorizontalSpacing(8)
+
         # Add fields
         for field_name, label, field_type, default, required, description in fields:
             self._add_field_to_form(form_layout, field_name, label, field_type, default, required, description)
-        
+
         group_layout.addLayout(form_layout)
-        
+
         return group_frame
     
     def _add_field_to_form(self, form_layout: QFormLayout, field_name: str, label: str, 
@@ -332,25 +336,25 @@ class ComfyUIConfigWidget(QWidget):
             widget.setText(str(default))
             widget.setStyleSheet(self._get_input_style())
         
-        widget.setFixedWidth(300)
-        
+        widget.setFixedWidth(240)
+
         # Store widget reference
         self.field_widgets[field_name] = widget
-        
+
         # Create container
         widget_container = QWidget()
         widget_layout = QVBoxLayout(widget_container)
         widget_layout.setContentsMargins(0, 0, 0, 0)
-        widget_layout.setSpacing(3)
-        
+        widget_layout.setSpacing(2)
+
         widget_layout.addWidget(widget)
-        
+
         # Add description
         if description:
             desc_label = QLabel(description)
-            desc_label.setStyleSheet("color: #666666; font-size: 9px;")
+            desc_label.setStyleSheet("color: #FFFFFF; font-size: 8px;")  # Reduced font size from 9px to 8px
             desc_label.setWordWrap(True)
-            desc_label.setMaximumWidth(300)
+            desc_label.setMaximumWidth(240)
             widget_layout.addWidget(desc_label)
         
         # Add to form
@@ -368,12 +372,12 @@ class ComfyUIConfigWidget(QWidget):
         """Get input field stylesheet"""
         return """
             QLineEdit, QSpinBox {
-                padding: 6px 10px;
+                padding: 4px 8px;
                 background-color: #1e1e1e;
                 border: 1px solid #3a3a3a;
                 border-radius: 3px;
                 color: #ffffff;
-                font-size: 11px;
+                font-size: 10px;
             }
             QLineEdit:focus, QSpinBox:focus {
                 border-color: #3498db;
@@ -384,12 +388,12 @@ class ComfyUIConfigWidget(QWidget):
         """Get action button stylesheet"""
         return f"""
             QPushButton {{
-                padding: 5px 14px;
+                padding: 4px 10px;
                 background-color: {bg_color};
                 border: none;
                 border-radius: 3px;
                 color: #ffffff;
-                font-size: 11px;
+                font-size: 10px;
             }}
             QPushButton:hover {{
                 background-color: {hover_color};
