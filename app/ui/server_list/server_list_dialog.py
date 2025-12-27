@@ -41,7 +41,8 @@ class ServerListDialog(CustomDialog):
         self.current_view_index = -1
         
         # Setup dialog
-        self.setMinimumSize(700, 500)
+        self.setMinimumSize(900, 600)
+        self.resize(900, 600)
         
         # Initialize UI
         self._init_ui()
