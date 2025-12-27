@@ -9,15 +9,17 @@ import json
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QWidget, QFormLayout, QLineEdit, QComboBox, QTextEdit,
     QMessageBox, QFrame, QScrollArea, QGroupBox
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor
 
+from app.ui.dialog.custom_dialog import CustomDialog
 
-class WorkflowConfigDialog(QDialog):
+
+class WorkflowConfigDialog(CustomDialog):
     """Dialog for configuring workflow node mappings"""
     
     def __init__(self, workflow_path: str, workflows_dir: Path, parent=None, existing_config: Optional[Dict] = None):
@@ -81,31 +83,38 @@ class WorkflowConfigDialog(QDialog):
     
     def _init_ui(self):
         """Initialize the UI"""
-        self.setWindowTitle("Configure Workflow")
+        self.set_title("Configure Workflow")
         self.setMinimumSize(700, 800)
         self.setModal(True)
-        
-        # Main layout
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        
-        # Header
-        header = self._create_header()
-        main_layout.addWidget(header)
         
         # Scroll area for content
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setStyleSheet("QScrollArea { background-color: #1e1e1e; border: none; }")
+        scroll_area.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
         
         # Content container
         content = QWidget()
-        content.setStyleSheet("background-color: #1e1e1e;")
+        content.setStyleSheet("background-color: transparent;")
         content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(30, 20, 30, 20)
+        content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(20)
+        
+        # Header info
+        header_widget = QWidget()
+        header_layout = QVBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(4)
+        
+        title_label = QLabel(f"File: {self.workflow_path.name}")
+        title_font = QFont()
+        title_font.setPointSize(12)
+        title_font.setBold(True)
+        title_label.setFont(title_font)
+        title_label.setStyleSheet("color: #ffffff; border: none;")
+        header_layout.addWidget(title_label)
+        
+        content_layout.addWidget(header_widget)
         
         # Basic info section
         basic_info = self._create_basic_info_section()
@@ -122,40 +131,19 @@ class WorkflowConfigDialog(QDialog):
         content_layout.addStretch()
         
         scroll_area.setWidget(content)
-        main_layout.addWidget(scroll_area, 1)
         
-        # Footer
-        footer = self._create_footer()
-        main_layout.addWidget(footer)
+        # Set content layout
+        main_content_layout = QVBoxLayout()
+        main_content_layout.setContentsMargins(0, 0, 0, 0)
+        main_content_layout.setSpacing(0)
+        main_content_layout.addWidget(scroll_area, 1)
         
-        # Apply styling
-        self._apply_style()
+        self.setContentLayout(main_content_layout)
+        
+        # Buttons
+        self.add_button("Cancel", self.reject, "reject")
+        self.add_button("Save Workflow", self._on_save, "accept")
     
-    def _create_header(self) -> QWidget:
-        """Create dialog header"""
-        header = QWidget()
-        header.setFixedHeight(70)
-        header.setStyleSheet("background-color: #252525; border-bottom: 1px solid #3a3a3a;")
-        
-        layout = QVBoxLayout(header)
-        layout.setContentsMargins(30, 15, 30, 15)
-        layout.setSpacing(4)
-        
-        # Title
-        title = QLabel("Configure Workflow")
-        title_font = QFont()
-        title_font.setPointSize(16)
-        title_font.setBold(True)
-        title.setFont(title_font)
-        title.setStyleSheet("color: #ffffff; border: none;")
-        layout.addWidget(title)
-        
-        # Subtitle
-        subtitle = QLabel(f"File: {self.workflow_path.name}")
-        subtitle.setStyleSheet("color: #888888; font-size: 11px; border: none;")
-        layout.addWidget(subtitle)
-        
-        return header
     
     def _create_basic_info_section(self) -> QWidget:
         """Create basic information section"""
@@ -175,6 +163,7 @@ class WorkflowConfigDialog(QDialog):
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 5px;
+                color: #ffffff;
             }
         """)
         
@@ -200,11 +189,12 @@ class WorkflowConfigDialog(QDialog):
         self.type_combo = QComboBox()
         self.type_combo.addItems([
             "text2image",
-            "image_edit",
+            "image2image",
             "image2video",
-            "video_edit",
-            "upscale",
-            "style_transfer",
+            "text2video",
+            "speak2video",
+            "text2speak",
+            "text2music",
             "custom"
         ])
         self.type_combo.setStyleSheet(self._get_combo_style())
@@ -230,6 +220,7 @@ class WorkflowConfigDialog(QDialog):
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 5px;
+                color: #ffffff;
             }
         """)
         
@@ -309,6 +300,7 @@ class WorkflowConfigDialog(QDialog):
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 5px;
+                color: #ffffff;
             }
         """)
         
@@ -350,63 +342,6 @@ class WorkflowConfigDialog(QDialog):
         
         return group
     
-    def _create_footer(self) -> QWidget:
-        """Create dialog footer"""
-        footer = QWidget()
-        footer.setFixedHeight(70)
-        footer.setStyleSheet("background-color: #252525; border-top: 1px solid #3a3a3a;")
-        
-        layout = QHBoxLayout(footer)
-        layout.setContentsMargins(30, 15, 30, 15)
-        layout.setSpacing(12)
-        
-        layout.addStretch()
-        
-        # Cancel button
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setFixedHeight(36)
-        cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                padding: 6px 24px;
-                background-color: #555555;
-                border: none;
-                border-radius: 4px;
-                color: #ffffff;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #666666;
-            }
-        """)
-        layout.addWidget(cancel_btn)
-        
-        # Save button
-        save_btn = QPushButton("Save Workflow")
-        save_btn.setFixedHeight(36)
-        save_btn.clicked.connect(self._on_save)
-        save_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        save_btn.setStyleSheet("""
-            QPushButton {
-                padding: 6px 24px;
-                background-color: #3498db;
-                border: none;
-                border-radius: 4px;
-                color: #ffffff;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #5dade2;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-        """)
-        layout.addWidget(save_btn)
-        
-        return footer
     
     def _create_label(self, text: str) -> QLabel:
         """Create a form label"""
@@ -479,13 +414,6 @@ class WorkflowConfigDialog(QDialog):
             }
         """
     
-    def _apply_style(self):
-        """Apply overall dialog style"""
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #1e1e1e;
-            }
-        """)
     
     def _load_existing_config(self):
         """Load existing workflow configuration"""

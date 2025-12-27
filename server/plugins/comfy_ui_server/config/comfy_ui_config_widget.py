@@ -10,9 +10,9 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QListWidget, QListWidgetItem, QStackedWidget, QFrame,
+    QListWidget, QListWidgetItem, QFrame,
     QScrollArea, QFormLayout, QLineEdit, QSpinBox, QCheckBox,
-    QMessageBox, QFileDialog, QComboBox, QTabWidget
+    QMessageBox, QFileDialog, QTabWidget
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor
@@ -434,7 +434,7 @@ class ComfyUIConfigWidget(QWidget):
         try:
             import sys
             sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-            from app.ui.settings.workflow_config_dialog import WorkflowConfigDialog
+            from server.plugins.comfy_ui_server.config.workflow_config_dialog import WorkflowConfigDialog
             
             dialog = WorkflowConfigDialog(file_path, self.workflows_dir, self)
             if dialog.exec() == dialog.Accepted:
@@ -460,7 +460,7 @@ class ComfyUIConfigWidget(QWidget):
         try:
             import sys
             sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-            from app.ui.settings.workflow_config_dialog import WorkflowConfigDialog
+            from server.plugins.comfy_ui_server.config.workflow_config_dialog import WorkflowConfigDialog
             
             dialog = WorkflowConfigDialog(str(workflow_file), self.workflows_dir, self, workflow_data)
             if dialog.exec() == dialog.Accepted:
