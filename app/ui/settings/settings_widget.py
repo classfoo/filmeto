@@ -4,15 +4,15 @@ Settings Widget
 Provides a UI for managing application settings with tabs, dynamic fields, and actions.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QTabWidget, QScrollArea, QFormLayout, QMessageBox, QSizePolicy
+    QTabWidget, QScrollArea, QFormLayout, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 
-from app.data.settings import Settings, SettingGroup, SettingField
+from app.data.settings import SettingGroup, SettingField
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.settings.field_widget_factory import FieldWidgetFactory
@@ -547,13 +547,7 @@ class SettingsWidget(BaseWidget):
         try:
             # Use specialized ComfyUI dialog for comfyui service
             if service_id == "comfyui":
-                from app.ui.settings.comfyui_config_dialog import ComfyUIConfigDialog
-                dialog = ComfyUIConfigDialog(
-                    service_id,
-                    self.service_registry,
-                    self.workspace.workspace_path,
-                    self
-                )
+                pass
             else:
                 # Open standard plugin detail dialog
                 dialog = PluginDetailDialog(service_id, self.service_registry, self)

@@ -6,6 +6,7 @@ Dialog for editing workflow JSON content directly.
 
 import json
 from pathlib import Path
+from typing import Tuple
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QWidget, QTextEdit, QMessageBox
@@ -126,7 +127,7 @@ class WorkflowJsonEditorDialog(CustomDialog):
             )
             self.reject()
     
-    def _validate_json(self) -> tuple[bool, str]:
+    def _validate_json(self) -> Tuple[bool, str]:
         """Validate JSON content"""
         content = self.json_editor.toPlainText().strip()
         if not content:

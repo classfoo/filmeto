@@ -12,10 +12,25 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QListWidget, QListWidgetItem, QFrame,
     QScrollArea, QFormLayout, QLineEdit, QSpinBox, QCheckBox,
-    QMessageBox, QFileDialog, QTabWidget
+    QMessageBox, QFileDialog, QTabWidget, QDialog
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor
+
+# Import ToolType from server API
+try:
+    from server.api.types import ToolType
+except ImportError:
+    # Fallback enum if import fails
+    from enum import Enum
+    class ToolType(str, Enum):
+        TEXT2IMAGE = "text2image"
+        IMAGE2IMAGE = "image2image"
+        IMAGE2VIDEO = "image2video"
+        TEXT2VIDEO = "text2video"
+        SPEAK2VIDEO = "speak2video"
+        TEXT2SPEAK = "text2speak"
+        TEXT2MUSIC = "text2music"
 
 
 class ComfyUIConfigWidget(QWidget):
@@ -31,18 +46,32 @@ class ComfyUIConfigWidget(QWidget):
         self.server_config = server_config or {}
         self.server_name = server_config.get('name', '') if server_config else ''
         
-        # Workflow storage path
-        self.workflows_dir = Path(workspace_path) / "servers" / self.server_name / "workflows" if self.server_name else None
-        if self.workflows_dir:
-            self.workflows_dir.mkdir(parents=True, exist_ok=True)
+        # Workflow storage path - use plugin directory workflows
+        # Get project root: from server/plugins/comfy_ui_server/config -> project root
+        # Path: config -> comfy_ui_server -> plugins -> server -> project_root
+        project_root = Path(__file__).parent.parent.parent.parent.parent
+        plugin_dir = project_root / "app" / "plugins" / "services" / "comfyui"
+        self.workflows_dir = plugin_dir / "workflows"
+        self.workflows_dir.mkdir(parents=True, exist_ok=True)
+        
+        # ToolType to workflow name mapping
+        self.tooltype_workflow_map = {
+            ToolType.TEXT2IMAGE: "text2image",
+            ToolType.IMAGE2IMAGE: "image2image",
+            ToolType.IMAGE2VIDEO: "image2video",
+            ToolType.TEXT2VIDEO: "text2video",
+            ToolType.SPEAK2VIDEO: "speak2video",
+            ToolType.TEXT2SPEAK: "text2speak",
+            ToolType.TEXT2MUSIC: "text2music",
+        }
         
         self.field_widgets: Dict[str, QWidget] = {}
         self.workflows = []
         
         self._init_ui()
         self._load_config()
-        if self.workflows_dir:
-            self._load_workflows()
+        self._initialize_default_workflows()
+        self._load_workflows()
     
     def _init_ui(self):
         """Initialize the UI with tab layout"""
@@ -147,29 +176,32 @@ class ComfyUIConfigWidget(QWidget):
         """Create workflow management page"""
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(10, 5, 10, 5)  # Reduced margins from 20,10,20,10 to 10,5,10,5
-        layout.setSpacing(4)
+        layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(8)
 
         # Toolbar
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
 
         add_btn = QPushButton("+ Add Workflow")
-        add_btn.setFixedHeight(26)
+        add_btn.setFixedHeight(28)
         add_btn.clicked.connect(self._on_add_workflow)
         add_btn.setCursor(QCursor(Qt.PointingHandCursor))
         add_btn.setStyleSheet("""
             QPushButton {
-                padding: 3px 10px;
+                padding: 4px 12px;
                 background-color: #3498db;
                 border: none;
-                border-radius: 3px;
+                border-radius: 4px;
                 color: #ffffff;
                 font-weight: bold;
-                font-size: 10px;
+                font-size: 11px;
             }
             QPushButton:hover {
                 background-color: #5dade2;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
             }
         """)
         toolbar.addWidget(add_btn)
@@ -177,58 +209,41 @@ class ComfyUIConfigWidget(QWidget):
 
         layout.addLayout(toolbar)
 
-        # Workflow list
+        # Workflow list with custom items
         self.workflow_list = QListWidget()
         self.workflow_list.setStyleSheet("""
             QListWidget {
                 background-color: #2d2d2d;
                 border: 1px solid #3a3a3a;
                 border-radius: 4px;
-                padding: 3px;
+                padding: 4px;
+                outline: none;
             }
             QListWidget::item {
-                padding: 6px;
-                margin: 2px 0;
-                background-color: #252525;
-                border: 1px solid #3a3a3a;
-                border-radius: 3px;
-                color: #ffffff;
+                padding: 0px;
+                margin: 4px 0;
+                background-color: transparent;
+                border: none;
             }
-            QListWidget::item:hover {
-                background-color: #2d2d2d;
-                border-color: #3498db;
-                color: #ffffff;
+            QScrollBar:vertical {
+                background-color: #1e1e1e;
+                width: 10px;
+                border: none;
+                border-radius: 5px;
             }
-            QListWidget::item:selected {
-                background-color: #3498db;
-                border-color: #3498db;
-                color: #ffffff;
+            QScrollBar::handle:vertical {
+                background-color: #4a4a4a;
+                border-radius: 5px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #5a5a5a;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
             }
         """)
-        self.workflow_list.itemDoubleClicked.connect(self._on_configure_workflow)
         layout.addWidget(self.workflow_list, 1)
-
-        # Workflow actions
-        actions_layout = QHBoxLayout()
-        actions_layout.setSpacing(6)
-
-        configure_btn = QPushButton("Configure")
-        configure_btn.setFixedHeight(24)
-        configure_btn.clicked.connect(self._on_configure_workflow)
-        configure_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        configure_btn.setStyleSheet(self._get_action_button_style())
-        actions_layout.addWidget(configure_btn)
-
-        remove_btn = QPushButton("Remove")
-        remove_btn.setFixedHeight(24)
-        remove_btn.clicked.connect(self._on_remove_workflow)
-        remove_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        remove_btn.setStyleSheet(self._get_action_button_style("#e74c3c", "#c0392b"))
-        actions_layout.addWidget(remove_btn)
-
-        actions_layout.addStretch()
-
-        layout.addLayout(actions_layout)
 
         return page
     
@@ -384,35 +399,241 @@ class ComfyUIConfigWidget(QWidget):
                 elif isinstance(widget, QCheckBox):
                     widget.setChecked(bool(value))
     
+    def _initialize_default_workflows(self):
+        """Initialize default workflow files for each ToolType"""
+        if not self.workflows_dir:
+            return
+        
+        self.workflows_dir.mkdir(parents=True, exist_ok=True)
+        
+        for tool_type, workflow_name in self.tooltype_workflow_map.items():
+            workflow_file = self.workflows_dir / f"{workflow_name}.json"
+            
+            # Create empty workflow if it doesn't exist
+            if not workflow_file.exists():
+                empty_workflow = {
+                    "prompt": {},
+                    "extra": {}
+                }
+                try:
+                    with open(workflow_file, 'w', encoding='utf-8') as f:
+                        json.dump(empty_workflow, f, indent=2, ensure_ascii=False)
+                except Exception as e:
+                    print(f"Failed to create default workflow {workflow_file}: {e}")
+    
     def _load_workflows(self):
-        """Load workflows from workspace directory"""
+        """Load workflows and initialize default workflows based on ToolType"""
         self.workflows = []
         self.workflow_list.clear()
         
         if not self.workflows_dir or not self.workflows_dir.exists():
             return
         
-        # Load workflow metadata files
+        # Load workflows for each ToolType
+        for tool_type, workflow_name in self.tooltype_workflow_map.items():
+            workflow_file = self.workflows_dir / f"{workflow_name}.json"
+            
+            # Ensure file exists (should have been created by _initialize_default_workflows)
+            if not workflow_file.exists():
+                continue
+            
+            try:
+                # Try to load as metadata/config file first
+                with open(workflow_file, 'r', encoding='utf-8') as f:
+                    workflow_data = json.load(f)
+                
+                # Check if it's a metadata/config file (has name and type)
+                if isinstance(workflow_data, dict) and "name" in workflow_data and "type" in workflow_data:
+                    workflow_data['file_path'] = workflow_file
+                    self.workflows.append(workflow_data)
+                else:
+                    # It's a raw workflow JSON, create metadata entry
+                    workflow_data = {
+                        'name': workflow_name.replace('_', ' ').title(),
+                        'type': workflow_name,
+                        'file_path': workflow_file,
+                        'description': f"Workflow for {workflow_name}"
+                    }
+                    self.workflows.append(workflow_data)
+            except Exception as e:
+                # If file is empty or invalid, create default entry
+                workflow_data = {
+                    'name': workflow_name.replace('_', ' ').title(),
+                    'type': workflow_name,
+                    'file_path': workflow_file,
+                    'description': f"Workflow for {workflow_name}"
+                }
+                self.workflows.append(workflow_data)
+        
+        # Load any additional workflow files that don't match ToolType patterns
         for workflow_file in self.workflows_dir.glob("*.json"):
-            if workflow_file.name.endswith('_workflow.json'):
+            # Skip if already loaded
+            if any(w.get('file_path') == workflow_file for w in self.workflows):
                 continue
             
             try:
                 with open(workflow_file, 'r', encoding='utf-8') as f:
                     workflow_data = json.load(f)
-                    
-                if "name" in workflow_data and "type" in workflow_data:
-                    self.workflows.append(workflow_data)
-                    
-                    item_text = f"{workflow_data['name']}\nType: {workflow_data.get('type', 'Unknown')}"
-                    if workflow_data.get('description'):
-                        item_text += f"\n{workflow_data['description']}"
-                    
-                    item = QListWidgetItem(item_text)
-                    item.setData(Qt.UserRole, workflow_data)
-                    self.workflow_list.addItem(item)
+                
+                if isinstance(workflow_data, dict):
+                    # If it has name and type, it's a metadata file
+                    if "name" in workflow_data and "type" in workflow_data:
+                        workflow_data['file_path'] = workflow_file
+                        self.workflows.append(workflow_data)
+                    else:
+                        # Try to determine type from filename
+                        workflow_name = workflow_file.stem
+                        tool_type = self._guess_tool_type_from_filename(workflow_name)
+                        workflow_data = {
+                            'name': workflow_name.replace('_', ' ').title(),
+                            'type': tool_type or 'custom',
+                            'file_path': workflow_file,
+                            'description': f"Workflow for {tool_type or 'custom'}"
+                        }
+                        self.workflows.append(workflow_data)
             except Exception as e:
                 print(f"Failed to load workflow {workflow_file}: {e}")
+        
+        # Update UI
+        self._refresh_workflow_list()
+    
+    def _guess_tool_type_from_filename(self, filename: str) -> Optional[str]:
+        """Guess tool type from filename"""
+        filename_lower = filename.lower()
+        for tool_type, workflow_name in self.tooltype_workflow_map.items():
+            if workflow_name in filename_lower:
+                return workflow_name
+        return None
+    
+    def _refresh_workflow_list(self):
+        """Refresh the workflow list UI"""
+        self.workflow_list.clear()
+        
+        # Group workflows by type
+        workflows_by_type = {}
+        for workflow in self.workflows:
+            tool_type = workflow.get('type', 'unknown')
+            if tool_type not in workflows_by_type:
+                workflows_by_type[tool_type] = []
+            workflows_by_type[tool_type].append(workflow)
+        
+        # Add workflows sorted by ToolType order
+        for tool_type in self.tooltype_workflow_map.values():
+            if tool_type in workflows_by_type:
+                for workflow in workflows_by_type[tool_type]:
+                    self._add_workflow_item(workflow)
+        
+        # Add any remaining workflows
+        for tool_type, workflows in workflows_by_type.items():
+            if tool_type not in self.tooltype_workflow_map.values():
+                for workflow in workflows:
+                    self._add_workflow_item(workflow)
+    
+    def _add_workflow_item(self, workflow: Dict[str, Any]):
+        """Add a workflow item to the list with edit and configure buttons"""
+        # Create item widget
+        item_widget = QWidget()
+        item_widget.setStyleSheet("""
+            QWidget {
+                background-color: #252525;
+                border: 1px solid #3a3a3a;
+                border-radius: 4px;
+            }
+        """)
+        item_layout = QHBoxLayout(item_widget)
+        item_layout.setContentsMargins(14, 12, 14, 12)
+        item_layout.setSpacing(14)
+        
+        # Workflow info
+        info_widget = QWidget()
+        info_widget.setStyleSheet("background-color: transparent;")
+        info_layout = QVBoxLayout(info_widget)
+        info_layout.setContentsMargins(0, 0, 0, 0)
+        info_layout.setSpacing(5)
+        
+        # Name
+        name_label = QLabel(workflow.get('name', 'Unnamed Workflow'))
+        name_font = QFont()
+        name_font.setPointSize(12)
+        name_font.setBold(True)
+        name_label.setFont(name_font)
+        name_label.setStyleSheet("color: #ffffff; border: none;")
+        info_layout.addWidget(name_label)
+        
+        # Type and description
+        type_text = f"Type: {workflow.get('type', 'Unknown')}"
+        if workflow.get('description'):
+            type_text += f" • {workflow['description']}"
+        type_label = QLabel(type_text)
+        type_label.setStyleSheet("color: #888888; font-size: 10px; border: none;")
+        type_label.setWordWrap(True)
+        info_layout.addWidget(type_label)
+        
+        item_layout.addWidget(info_widget, 1)
+        
+        # Action buttons container
+        buttons_widget = QWidget()
+        buttons_widget.setStyleSheet("background-color: transparent;")
+        buttons_layout = QHBoxLayout(buttons_widget)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(8)
+        
+        # Edit button
+        edit_btn = QPushButton("Edit")
+        edit_btn.setFixedSize(65, 30)
+        edit_btn.clicked.connect(lambda checked=False, w=workflow: self._on_edit_workflow(w))
+        edit_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        edit_btn.setStyleSheet("""
+            QPushButton {
+                padding: 5px 14px;
+                background-color: #555555;
+                border: none;
+                border-radius: 4px;
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: normal;
+            }
+            QPushButton:hover {
+                background-color: #666666;
+            }
+            QPushButton:pressed {
+                background-color: #444444;
+            }
+        """)
+        buttons_layout.addWidget(edit_btn)
+        
+        # Config button
+        config_btn = QPushButton("Config")
+        config_btn.setFixedSize(65, 30)
+        config_btn.clicked.connect(lambda checked=False, w=workflow: self._on_configure_workflow(w))
+        config_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        config_btn.setStyleSheet("""
+            QPushButton {
+                padding: 5px 14px;
+                background-color: #3498db;
+                border: none;
+                border-radius: 4px;
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5dade2;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+        """)
+        buttons_layout.addWidget(config_btn)
+        
+        item_layout.addWidget(buttons_widget)
+        
+        # Create list item
+        item = QListWidgetItem()
+        item.setSizeHint(item_widget.sizeHint())
+        item.setData(Qt.UserRole, workflow)
+        self.workflow_list.addItem(item)
+        self.workflow_list.setItemWidget(item, item_widget)
     
     def _on_add_workflow(self):
         """Handle add workflow button click"""
@@ -432,73 +653,106 @@ class ComfyUIConfigWidget(QWidget):
         
         # Import workflow configuration dialog
         try:
-            import sys
-            sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
             from server.plugins.comfy_ui_server.config.workflow_config_dialog import WorkflowConfigDialog
             
             dialog = WorkflowConfigDialog(file_path, self.workflows_dir, self)
-            if dialog.exec() == dialog.Accepted:
+            if dialog.exec() == QDialog.Accepted:
                 self._load_workflows()
                 self.config_changed.emit()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open workflow configuration: {e}")
     
-    def _on_configure_workflow(self):
-        """Handle configure workflow button click"""
-        current_item = self.workflow_list.currentItem()
-        if not current_item:
-            QMessageBox.warning(self, "No Selection", "Please select a workflow to configure.")
-            return
+    def _on_edit_workflow(self, workflow: Dict[str, Any]):
+        """Handle edit workflow button click - opens JSON editor"""
+        workflow_file = workflow.get('file_path')
+        if not workflow_file:
+            # Try to construct path from type
+            workflow_type = workflow.get('type', 'workflow')
+            workflow_file = self.workflows_dir / f"{workflow_type}.json"
         
-        workflow_data = current_item.data(Qt.UserRole)
-        workflow_file = self.workflows_dir / workflow_data.get('file', '')
+        if isinstance(workflow_file, str):
+            workflow_file = Path(workflow_file)
         
+        # Ensure file exists
         if not workflow_file.exists():
-            QMessageBox.warning(self, "File Not Found", "Workflow file not found.")
-            return
+            # Create empty workflow
+            empty_workflow = {
+                "prompt": {},
+                "extra": {}
+            }
+            try:
+                self.workflows_dir.mkdir(parents=True, exist_ok=True)
+                with open(workflow_file, 'w', encoding='utf-8') as f:
+                    json.dump(empty_workflow, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to create workflow file:\n{str(e)}"
+                )
+                return
         
+        # Open JSON editor dialog
         try:
-            import sys
-            sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+            from server.plugins.comfy_ui_server.config.workflow_json_editor_dialog import WorkflowJsonEditorDialog
+            
+            dialog = WorkflowJsonEditorDialog(workflow_file, self)
+            if dialog.exec() == QDialog.Accepted:
+                # Reload workflows
+                self._load_workflows()
+                self.config_changed.emit()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open workflow editor: {e}")
+    
+    def _on_configure_workflow(self, workflow: Optional[Dict[str, Any]] = None):
+        """Handle configure workflow button click - opens config dialog"""
+        if workflow is None:
+            # Try to get from selected item
+            current_item = self.workflow_list.currentItem()
+            if not current_item:
+                QMessageBox.warning(self, "No Selection", "Please select a workflow to configure.")
+                return
+            workflow = current_item.data(Qt.UserRole)
+        
+        workflow_file = workflow.get('file_path')
+        if not workflow_file:
+            # Try to construct path from type
+            workflow_type = workflow.get('type', 'workflow')
+            workflow_file = self.workflows_dir / f"{workflow_type}.json"
+        
+        if isinstance(workflow_file, str):
+            workflow_file = Path(workflow_file)
+        
+        # Ensure file exists, create if needed
+        if not workflow_file.exists():
+            # Create empty workflow
+            empty_workflow = {
+                "prompt": {},
+                "extra": {}
+            }
+            try:
+                self.workflows_dir.mkdir(parents=True, exist_ok=True)
+                with open(workflow_file, 'w', encoding='utf-8') as f:
+                    json.dump(empty_workflow, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to create workflow file:\n{str(e)}"
+                )
+                return
+        
+        # Open workflow configuration dialog (uses CustomDialog)
+        try:
             from server.plugins.comfy_ui_server.config.workflow_config_dialog import WorkflowConfigDialog
             
-            dialog = WorkflowConfigDialog(str(workflow_file), self.workflows_dir, self, workflow_data)
-            if dialog.exec() == dialog.Accepted:
+            dialog = WorkflowConfigDialog(str(workflow_file), self.workflows_dir, self, workflow)
+            if dialog.exec() == QDialog.Accepted:
+                # Reload workflows
                 self._load_workflows()
                 self.config_changed.emit()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open workflow configuration: {e}")
-    
-    def _on_remove_workflow(self):
-        """Handle remove workflow button click"""
-        current_item = self.workflow_list.currentItem()
-        if not current_item:
-            QMessageBox.warning(self, "No Selection", "Please select a workflow to remove.")
-            return
-        
-        workflow_data = current_item.data(Qt.UserRole)
-        
-        reply = QMessageBox.question(
-            self,
-            "Confirm Removal",
-            f"Are you sure you want to remove the workflow '{workflow_data['name']}'?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            # Remove workflow file
-            workflow_file = self.workflows_dir / workflow_data.get('file', '')
-            if workflow_file.exists():
-                workflow_file.unlink()
-            
-            # Remove metadata file
-            safe_name = workflow_data['name'].replace(' ', '_').lower()
-            metadata_file = self.workflows_dir / f"{safe_name}.json"
-            if metadata_file.exists():
-                metadata_file.unlink()
-            
-            self._load_workflows()
-            self.config_changed.emit()
     
     def get_config(self) -> Dict[str, Any]:
         """Get current configuration from widgets"""
