@@ -5,8 +5,10 @@ Core service layer that manages task execution through plugins.
 """
 
 import asyncio
+import os
 from typing import AsyncIterator, Union
 from datetime import datetime
+from pathlib import Path
 
 from server.api.types import (
     FilmetoTask, TaskProgress, TaskResult, ProgressType,
@@ -21,15 +23,30 @@ class FilmetoService:
     Service layer managing plugin lifecycle and task execution.
     """
     
-    def __init__(self, plugins_dir: str = None, cache_dir: str = None):
+    def __init__(self, plugins_dir: str = None, cache_dir: str = None, workspace_path: str = None):
         """
         Initialize Filmeto service.
         
         Args:
             plugins_dir: Directory containing plugins
             cache_dir: Directory for resource caching
+            workspace_path: Path to workspace directory
         """
+        # Determine workspace path
+        if workspace_path:
+            self.workspace_path = Path(workspace_path)
+        else:
+            # Try to find a default workspace path
+            # For now, use a 'workspace' directory in the project root
+            project_root = Path(__file__).parent.parent.parent
+            self.workspace_path = project_root / "workspace"
+        
+        self.workspace_path.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize components
+        from server.server import ServerManager
         self.plugin_manager = PluginManager(plugins_dir)
+        self.server_manager = ServerManager(str(self.workspace_path), self.plugin_manager)
         self.resource_processor = ResourceProcessor(cache_dir)
         self.heartbeat_interval = 5  # seconds
         
@@ -41,7 +58,7 @@ class FilmetoService:
         task: FilmetoTask
     ) -> AsyncIterator[Union[TaskProgress, TaskResult]]:
         """
-        Execute task through appropriate plugin with streaming.
+        Execute task through appropriate server with streaming.
         
         Args:
             task: Task to execute
@@ -95,44 +112,32 @@ class FilmetoService:
             # Update task with processed resource paths
             task.metadata['processed_resources'] = processed_resources
             
-            # Get or start plugin
+            # Execute task with routing via ServerManager
             yield TaskProgress(
                 task_id=task.task_id,
                 type=ProgressType.PROGRESS,
                 percent=10,
-                message=f"Starting plugin: {task.plugin_name}"
+                message="Routing task to server..."
             )
             
-            plugin = await self.plugin_manager.get_plugin(task.plugin_name)
-            
-            # Send task to plugin
-            yield TaskProgress(
-                task_id=task.task_id,
-                type=ProgressType.PROGRESS,
-                percent=15,
-                message="Executing task..."
-            )
-            
-            await plugin.send_task(task)
-            
-            # Create heartbeat task
-            heartbeat_task = asyncio.create_task(
-                self._send_heartbeats(task.task_id, plugin)
-            )
-            
-            try:
-                # Stream progress and results from plugin
-                async for message in plugin.receive_messages():
-                    method = message.get("method")
-                    result = message.get("result")
+            async for update in self.server_manager.execute_task_with_routing(task):
+                if isinstance(update, TaskProgress):
+                    # Scale progress: 10-95% for server execution
+                    scaled_percent = 10 + (update.percent * 0.85)
+                    update.percent = scaled_percent
+                    yield update
+                elif isinstance(update, TaskResult):
+                    # Final result
+                    yield update
+                elif isinstance(update, dict):
+                    # Handle JSON-RPC style messages from plugin via ServerManager
+                    method = update.get("method")
+                    result = update.get("result")
                     
                     if method == "progress":
-                        # Progress update from plugin
-                        params = message.get("params", {})
-                        
-                        # Scale progress: 15-95% for plugin execution
-                        plugin_percent = params.get("percent", 0)
-                        scaled_percent = 15 + (plugin_percent * 0.8)
+                        params = update.get("params", {})
+                        percent = params.get("percent", 0)
+                        scaled_percent = 10 + (percent * 0.85)
                         
                         yield TaskProgress(
                             task_id=task.task_id,
@@ -141,18 +146,14 @@ class FilmetoService:
                             message=params.get("message", ""),
                             data=params.get("data", {})
                         )
-                    
                     elif method == "heartbeat":
-                        # Heartbeat from plugin
                         yield TaskProgress(
                             task_id=task.task_id,
                             type=ProgressType.HEARTBEAT,
                             percent=0,
                             message="heartbeat"
                         )
-                    
                     elif result:
-                        # Final result from plugin
                         execution_time = (datetime.now() - start_time).total_seconds()
                         
                         task_result = TaskResult(
@@ -164,17 +165,7 @@ class FilmetoService:
                             execution_time=execution_time,
                             metadata=result.get("metadata", {})
                         )
-                        
                         yield task_result
-                        break
-                
-            finally:
-                # Cancel heartbeat task
-                heartbeat_task.cancel()
-                try:
-                    await heartbeat_task
-                except asyncio.CancelledError:
-                    pass
         
         except asyncio.TimeoutError:
             raise TaskTimeoutError(task.task_id, task.timeout)

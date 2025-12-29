@@ -1,7 +1,5 @@
 from qasync import asyncSlot
 
-from app.data.task import TaskResult, TaskProgress
-from app.plugins.models.comfy_ui.comfy_ui_model import ComfyUiModel
 from app.spi.tool import BaseTool
 from app.ui.base_widget import BaseTaskWidget
 from app.ui.media_selector.media_selector import MediaSelector
@@ -19,17 +17,6 @@ class Text2Image(BaseTool,BaseTaskWidget):
         self.editor = editor
         self.reference_image_path = None
         self.media_selector = None
-
-    def generate_image(self):
-        self.workspace.submit_task(self.params())
-
-    def params(self):
-        return {
-            "tool":"text2img",
-            "model":"comfy_ui",
-            "prompt":self.editor.get_prompt(),
-            "reference_image_path": self.reference_image_path
-        }
 
     def init_ui(self, main_editor):
         """Initialize the UI for the text2img tool"""
@@ -95,12 +82,57 @@ class Text2Image(BaseTool,BaseTaskWidget):
         if task.tool != "text2img" and task.tool != "text2image":
             return  # Exit early if this is not a text2img task
         try:
-            print(f"Processing text2img task: {task.options}")
-            model = ComfyUiModel()
-            progress = TaskProgress(task)
-            result = await model.text2image(task.options['prompt'],task.path, progress)
-            #刷新当前页面显示
-            task_result = TaskResult(task, result)
-            self.workspace.on_task_finished(task_result)
+            print(f"Processing text2img task with FilmetoApi: {task.options}")
+            from server.api import FilmetoApi, FilmetoTask, ToolType, ResourceInput, ResourceType
+            from app.data.task import TaskResult as AppTaskResult, TaskProgress as AppTaskProgress
+            from server.api.types import TaskProgress as FilmetoTaskProgress, TaskResult as FilmetoTaskResult
+
+            api = FilmetoApi()
+            
+            # Find a plugin that supports text2image
+            plugins = api.get_plugins_by_tool(ToolType.TEXT2IMAGE)
+            if not plugins:
+                print("No plugins found for text2image")
+                return
+            
+            # Prefer ComfyUI if available, otherwise use the first one
+            plugin_name = "ComfyUI"
+            if not any(p['name'] == plugin_name for p in plugins):
+                plugin_name = plugins[0]['name']
+
+            # Create input resources if any (e.g., reference image)
+            resources = []
+            if self.reference_image_path:
+                resources.append(ResourceInput(
+                    type=ResourceType.LOCAL_PATH,
+                    data=self.reference_image_path,
+                    mime_type="image/png"
+                ))
+
+            filmeto_task = FilmetoTask(
+                tool_name=ToolType.TEXT2IMAGE,
+                plugin_name=plugin_name,
+                parameters={
+                    "prompt": task.options['prompt'],
+                    "save_dir": task.path
+                },
+                resources=resources
+            )
+            
+            app_progress = AppTaskProgress(task)
+            
+            async for update in api.execute_task_stream(filmeto_task):
+                if isinstance(update, FilmetoTaskProgress):
+                    app_progress.on_progress(int(update.percent), update.message)
+                elif isinstance(update, FilmetoTaskResult):
+                    result_data = {
+                        "status": update.status,
+                        "output_files": update.output_files,
+                        "error": update.error_message
+                    }
+                    task_result = AppTaskResult(task, result_data)
+                    self.workspace.on_task_finished(task_result)
         except Exception as e:
-            print(str(e))
+            print(f"Error in Text2Image.execute: {e}")
+            import traceback
+            traceback.print_exc()

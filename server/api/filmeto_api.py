@@ -19,17 +19,18 @@ class FilmetoApi:
     to execute tasks and receive streaming progress updates.
     """
     
-    def __init__(self, plugins_dir: Optional[str] = None, cache_dir: Optional[str] = None):
+    def __init__(self, plugins_dir: Optional[str] = None, cache_dir: Optional[str] = None, workspace_path: Optional[str] = None):
         """
         Initialize Filmeto API.
 
         Args:
             plugins_dir: Directory containing server plugins
             cache_dir: Directory for resource caching
+            workspace_path: Path to workspace directory
         """
         # Import here to avoid circular import
         from server.service.filmeto_service import FilmetoService
-        self.service = FilmetoService(plugins_dir, cache_dir)
+        self.service = FilmetoService(plugins_dir, cache_dir, workspace_path)
     
     async def execute_task_stream(
         self, 

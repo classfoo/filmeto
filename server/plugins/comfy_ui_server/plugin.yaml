@@ -1,6 +1,6 @@
-name: ComfyUI Server
+name: ComfyUI
 version: 1.0.0
-description: ComfyUI sever
+description: ComfyUI integration for AI image and video generation
 author: Filmeto Team
 engine: comfyui
 
