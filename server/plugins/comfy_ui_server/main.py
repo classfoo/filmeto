@@ -7,11 +7,7 @@ Supports multiple tools via configurable workflows.
 
 import os
 import sys
-import time
 import json
-import asyncio
-import aiohttp
-import uuid
 from pathlib import Path
 from typing import Dict, Any, Callable, List, Optional
 
@@ -19,6 +15,7 @@ from typing import Dict, Any, Callable, List, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from server.plugins.base_plugin import BaseServerPlugin, ToolConfig
+from server.plugins.comfy_ui_server.comfy_ui_client import ComfyUIClient
 
 class ComfyUiServerPlugin(BaseServerPlugin):
     """
@@ -30,13 +27,12 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         self.output_dir = Path(__file__).parent / "outputs"
         self.output_dir.mkdir(exist_ok=True)
         self.workflows_dir = Path(__file__).parent / "workflows"
-        self.client_id = str(uuid.uuid4())
 
     def get_plugin_info(self) -> Dict[str, Any]:
         """Get plugin metadata"""
         return {
             "name": "ComfyUI",
-            "version": "1.2.0",
+            "version": "1.3.0",
             "description": "ComfyUI integration for AI image and video generation",
             "author": "Filmeto Team",
             "engine": "comfyui"
@@ -88,13 +84,15 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         if not base_url.startswith("http"):
             base_url = "http://" + base_url
 
+        client = ComfyUIClient(base_url)
+
         try:
             if tool_name == "text2image":
-                return await self._execute_text2image_comfy(task_id, base_url, parameters, progress_callback)
+                return await self._execute_text2image(client, task_id, parameters, progress_callback)
             elif tool_name == "image2image":
-                return await self._execute_image2image_comfy(task_id, base_url, parameters, task_data.get("resources", []), progress_callback)
+                return await self._execute_image2image(client, task_id, parameters, progress_callback)
             elif tool_name == "image2video":
-                return await self._execute_image2video_comfy(task_id, base_url, parameters, task_data.get("resources", []), progress_callback)
+                return await self._execute_image2video(client, task_id, parameters, progress_callback)
             else:
                 return {
                     "task_id": task_id,
@@ -114,132 +112,62 @@ class ComfyUiServerPlugin(BaseServerPlugin):
                 "output_files": []
             }
 
-    async def _upload_image(self, session: aiohttp.ClientSession, base_url: str, image_path: str) -> str:
-        """Upload image to ComfyUI and return the filename"""
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"Image not found for upload: {image_path}")
+    async def _load_workflow(self, name: str) -> Dict[str, Any]:
+        """Load workflow JSON from the workflows directory"""
+        workflow_path = self.workflows_dir / f"{name}.json"
+        if not workflow_path.exists():
+            # Fallback for text2image naming inconsistency
+            if name == "text2image":
+                workflow_path = self.workflows_dir / "text2image_workflow.json"
             
-        with open(image_path, 'rb') as f:
-            data = aiohttp.FormData()
-            data.add_field('image', f, filename=os.path.basename(image_path))
-            async with session.post(f"{base_url}/upload/image", data=data) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"Failed to upload image: {error_text}")
-                resp_json = await response.json()
-                return resp_json.get("name")
-
-    async def _execute_workflow(
-        self,
-        task_id: str,
-        base_url: str,
-        prompt_graph: Dict[str, Any],
-        progress_callback: Callable[[float, str, Dict[str, Any]], None]
-    ) -> List[str]:
-        """Helper to submit workflow and wait for results via WebSocket"""
-        progress_callback(10, "Submitting task to ComfyUI...", {})
-
-        async with aiohttp.ClientSession() as session:
-            # Submit prompt
-            payload = {"prompt": prompt_graph, "client_id": self.client_id}
-            async with session.post(f"{base_url}/prompt", json=payload) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"ComfyUI prompt submission failed: {error_text}")
-                resp_json = await response.json()
-                prompt_id = resp_json.get("prompt_id")
-
-            # Connect to WebSocket for progress
-            ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://") + f"/ws?client_id={self.client_id}"
+        if not workflow_path.exists():
+            raise FileNotFoundError(f"Workflow file not found: {workflow_path}")
             
-            try:
-                async with session.ws_connect(ws_url) as ws:
-                    async for msg in ws:
-                        if msg.type == aiohttp.WSMsgType.TEXT:
-                            data = json.loads(msg.data)
-                            if data['type'] == 'executing':
-                                node = data['data']['node']
-                                if node is None and data['data']['prompt_id'] == prompt_id:
-                                    break
-                                elif node is not None:
-                                    node_info = prompt_graph.get(node, {})
-                                    node_title = node_info.get("_meta", {}).get("title", f"Node {node}")
-                                    progress_callback(20, f"Executing: {node_title}", {"node": node})
-                            elif data['type'] == 'progress':
-                                value, max_val = data['data']['value'], data['data']['max']
-                                percent = 20 + (value / max_val * 70)
-                                progress_callback(percent, f"Generating... {value}/{max_val}", data['data'])
-            except Exception as e:
-                print(f"WebSocket error: {e}")
+        with open(workflow_path, 'r', encoding='utf-8') as f:
+            workflow = json.load(f)
+        
+        return workflow.get("prompt", workflow)
 
-            # Get history
-            progress_callback(90, "Finalizing results...", {})
-            output_files = []
-            async with session.get(f"{base_url}/history/{prompt_id}") as response:
-                if response.status == 200:
-                    history = await response.json()
-                    outputs = history.get(prompt_id, {}).get("outputs", {})
-                    for node_id, node_output in outputs.items():
-                        # Handle both images and videos
-                        media_items = node_output.get("images", []) + node_output.get("videos", []) + node_output.get("gifs", [])
-                        for item in media_items:
-                            filename = item["filename"]
-                            params = {"filename": filename, "subfolder": item.get("subfolder", ""), "type": item.get("type", "output")}
-                            async with session.get(f"{base_url}/view", params=params) as media_resp:
-                                if media_resp.status == 200:
-                                    content = await media_resp.read()
-                                    local_path = self.output_dir / f"{task_id}_{filename}"
-                                    with open(local_path, "wb") as f:
-                                        f.write(content)
-                                    output_files.append(str(local_path))
-            return output_files
-
-    async def _execute_text2image_comfy(self, task_id, base_url, parameters, progress_callback):
+    async def _execute_text2image(self, client, task_id, parameters, progress_callback):
         prompt_text = parameters.get("prompt", "")
         width = parameters.get("width", 720)
         height = parameters.get("height", 1280)
         
-        workflow_path = self.workflows_dir / "text2image_workflow.json"
-        with open(workflow_path, 'r', encoding='utf-8') as f:
-            workflow = json.load(f)
-        prompt_graph = workflow.get("prompt", workflow)
+        progress_callback(5, "Loading workflow...", {})
+        prompt_graph = await self._load_workflow("text2image")
         
         if "6" in prompt_graph: prompt_graph["6"]["inputs"]["text"] = prompt_text
         if "58" in prompt_graph:
             prompt_graph["58"]["inputs"]["width"] = width
             prompt_graph["58"]["inputs"]["height"] = height
             
-        files = await self._execute_workflow(task_id, base_url, prompt_graph, progress_callback)
+        files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
-    async def _execute_image2image_comfy(self, task_id, base_url, parameters, resources, progress_callback):
+    async def _execute_image2image(self, client, task_id, parameters, progress_callback):
         prompt_text = parameters.get("prompt", "")
         input_image_path = parameters.get("input_image_path")
         
-        # If resources are provided, use the first processed one
-        if resources and 'processed_resources' in parameters: # Actually FilmetoService puts it in metadata
-            pass # We'll get it from parameters or resources below
-            
-        # Re-verify image path from resources if possible
-        processed_resources = parameters.get("processed_resources") # Injected by service
+        # Check metadata for processed resources (preferred)
+        processed_resources = parameters.get("processed_resources")
         if processed_resources:
             input_image_path = processed_resources[0]
 
-        async with aiohttp.ClientSession() as session:
-            comfy_filename = await self._upload_image(session, base_url, input_image_path)
+        progress_callback(5, "Uploading image...", {})
+        comfy_filename = await client.upload_image(input_image_path)
+        if not comfy_filename:
+            raise Exception("Failed to upload image to ComfyUI")
             
-        workflow_path = self.workflows_dir / "image2image.json"
-        with open(workflow_path, 'r', encoding='utf-8') as f:
-            workflow = json.load(f)
-        prompt_graph = workflow.get("prompt", workflow)
+        progress_callback(8, "Loading workflow...", {})
+        prompt_graph = await self._load_workflow("image2image")
         
         if "133" in prompt_graph: prompt_graph["133"]["inputs"]["image"] = comfy_filename
         if "187:6" in prompt_graph: prompt_graph["187:6"]["inputs"]["text"] = prompt_text
         
-        files = await self._execute_workflow(task_id, base_url, prompt_graph, progress_callback)
+        files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
-    async def _execute_image2video_comfy(self, task_id, base_url, parameters, resources, progress_callback):
+    async def _execute_image2video(self, client, task_id, parameters, progress_callback):
         prompt_text = parameters.get("prompt", "")
         input_image_path = parameters.get("input_image_path")
         
@@ -247,18 +175,18 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         if processed_resources:
             input_image_path = processed_resources[0]
 
-        async with aiohttp.ClientSession() as session:
-            comfy_filename = await self._upload_image(session, base_url, input_image_path)
+        progress_callback(5, "Uploading image...", {})
+        comfy_filename = await client.upload_image(input_image_path)
+        if not comfy_filename:
+            raise Exception("Failed to upload image to ComfyUI")
             
-        workflow_path = self.workflows_dir / "image2video.json"
-        with open(workflow_path, 'r', encoding='utf-8') as f:
-            workflow = json.load(f)
-        prompt_graph = workflow.get("prompt", workflow)
+        progress_callback(8, "Loading workflow...", {})
+        prompt_graph = await self._load_workflow("image2video")
         
         if "67" in prompt_graph: prompt_graph["67"]["inputs"]["image"] = comfy_filename
         if "16" in prompt_graph: prompt_graph["16"]["inputs"]["positive_prompt"] = prompt_text
         
-        files = await self._execute_workflow(task_id, base_url, prompt_graph, progress_callback)
+        files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
 if __name__ == "__main__":
