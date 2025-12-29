@@ -1,2 +1,5 @@
 Pillow>=9.0.0
+broadscope-bailian>=1.1.0
+dashscope>=1.14.0
+requests>=2.25.0
 
