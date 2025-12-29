@@ -106,12 +106,58 @@ class ImageEdit(BaseTool, BaseTaskWidget):
         if task.tool != "imgedit":
             return  # Exit early if this is not an imgedit task
         try:
-            print(f"Processing imgedit task: {task.options}")
-            model = ComfyUiModel()
-            progress = TaskProgress(task)
-            result = await model.image_edit(task.options['input_image_path'], task.options['prompt'], task.path, progress)
-            # 刷新当前页面显示
-            task_result = TaskResult(task, result)
-            self.workspace.on_task_finished(task_result)
+            print(f"Processing imgedit task with FilmetoApi: {task.options}")
+            from server.api import FilmetoApi, FilmetoTask, ToolType, ResourceInput, ResourceType
+            from app.data.task import TaskResult as AppTaskResult, TaskProgress as AppTaskProgress
+            from server.api.types import TaskProgress as FilmetoTaskProgress, TaskResult as FilmetoTaskResult
+
+            api = FilmetoApi()
+            
+            # Find a plugin that supports image2image (used for imgedit)
+            plugins = api.get_plugins_by_tool(ToolType.IMAGE2IMAGE)
+            if not plugins:
+                print("No plugins found for image2image")
+                return
+            
+            # Prefer ComfyUI if available, otherwise use the first one
+            plugin_name = "ComfyUI"
+            if not any(p['name'] == plugin_name for p in plugins):
+                plugin_name = plugins[0]['name']
+
+            # Create input resources (input image)
+            resources = []
+            if task.options.get('input_image_path'):
+                resources.append(ResourceInput(
+                    type=ResourceType.LOCAL_PATH,
+                    data=task.options['input_image_path'],
+                    mime_type="image/png"
+                ))
+
+            filmeto_task = FilmetoTask(
+                tool_name=ToolType.IMAGE2IMAGE,
+                plugin_name=plugin_name,
+                parameters={
+                    "prompt": task.options['prompt'],
+                    "input_image_path": task.options['input_image_path'],
+                    "save_dir": task.path
+                },
+                resources=resources
+            )
+            
+            app_progress = AppTaskProgress(task)
+            
+            async for update in api.execute_task_stream(filmeto_task):
+                if isinstance(update, FilmetoTaskProgress):
+                    app_progress.on_progress(int(update.percent), update.message)
+                elif isinstance(update, FilmetoTaskResult):
+                    result_data = {
+                        "status": update.status,
+                        "output_files": update.output_files,
+                        "error": update.error_message
+                    }
+                    task_result = AppTaskResult(task, result_data)
+                    self.workspace.on_task_finished(task_result)
         except Exception as e:
-            print(str(e))
+            print(f"Error in ImageEdit.execute: {e}")
+            import traceback
+            traceback.print_exc()
