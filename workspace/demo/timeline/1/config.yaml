@@ -37,9 +37,9 @@ layers:
   x: 0
   y: 0
 text2img:
-  logs: ✅ 执行完成
+  logs: Routing task to server...
   model: comfy_ui
-  percent: 100
+  percent: 10
   prompt: 真实风格，一只小猫穿着靴子，带着帽子，腰间别着一把火枪，站在城门口
   reference_image_path: null
   timeline_index: 1

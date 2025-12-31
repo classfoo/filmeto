@@ -135,10 +135,10 @@ class FilmetoApi:
     def list_plugins(self) -> list[dict]:
         """
         List all available plugins.
-        
+
         Returns:
             List of plugin information dictionaries
-            
+
         Example:
             ```python
             api = FilmetoApi()
@@ -147,18 +147,46 @@ class FilmetoApi:
                 print(f"{plugin['name']} v{plugin['version']} - {plugin['tool_type']}")
             ```
         """
-        return self.service.list_plugins()
+        all_plugins_data = []
+        plugins = self.service.list_plugins()
+
+        for plugin in plugins:
+            # If plugin has multiple tools, create a separate entry for each tool
+            if 'tools' in plugin and len(plugin['tools']) > 0:
+                for tool in plugin['tools']:
+                    plugin_entry = {
+                        "name": plugin["name"],
+                        "version": plugin["version"],
+                        "description": plugin["description"],
+                        "tool_type": tool["name"],  # Use the specific tool name
+                        "engine": plugin["engine"],
+                        "author": plugin["author"]
+                    }
+                    all_plugins_data.append(plugin_entry)
+            else:
+                # If plugin has no tools, still include it with a general tool_type
+                plugin_entry = {
+                    "name": plugin["name"],
+                    "version": plugin["version"],
+                    "description": plugin["description"],
+                    "tool_type": "general",  # Generic placeholder if no specific tools
+                    "engine": plugin["engine"],
+                    "author": plugin["author"]
+                }
+                all_plugins_data.append(plugin_entry)
+
+        return all_plugins_data
     
     def get_plugins_by_tool(self, tool_name: str) -> list[dict]:
         """
         Get all plugins supporting a specific tool type.
-        
+
         Args:
             tool_name: Tool type (e.g., "text2image")
-            
+
         Returns:
             List of plugin information dictionaries
-            
+
         Example:
             ```python
             api = FilmetoApi()
@@ -172,7 +200,7 @@ class FilmetoApi:
                 "name": p.name,
                 "version": p.version,
                 "description": p.description,
-                "tool_type": p.tool_type,
+                "tool_type": tool_name,  # Using the tool_name parameter as the tool_type
                 "engine": p.engine,
                 "author": p.author
             }

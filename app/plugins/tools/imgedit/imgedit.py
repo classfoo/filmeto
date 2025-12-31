@@ -150,12 +150,19 @@ class ImageEdit(BaseTool, BaseTaskWidget):
                 if isinstance(update, FilmetoTaskProgress):
                     app_progress.on_progress(int(update.percent), update.message)
                 elif isinstance(update, FilmetoTaskResult):
-                    result_data = {
-                        "status": update.status,
-                        "output_files": update.output_files,
-                        "error": update.error_message
-                    }
-                    task_result = AppTaskResult(task, result_data)
+                    # Create a BaseModelResult wrapper for the FilmetoTaskResult
+                    class FilmetoResultWrapper:
+                        def __init__(self, filmeto_result):
+                            self.filmeto_result = filmeto_result
+
+                        def get_image_path(self):
+                            return self.filmeto_result.get_image_path()
+
+                        def get_video_path(self):
+                            return self.filmeto_result.get_video_path()
+
+                    result_wrapper = FilmetoResultWrapper(update)
+                    task_result = AppTaskResult(task, result_wrapper)
                     self.workspace.on_task_finished(task_result)
         except Exception as e:
             print(f"Error in ImageEdit.execute: {e}")
