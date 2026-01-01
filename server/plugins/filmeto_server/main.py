@@ -11,10 +11,26 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any, Callable, List, Optional
 
-# Add parent directory to path to import base_plugin
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Import base plugin directly using file path to avoid naming conflicts
+import sys
+from pathlib import Path
+import importlib.util
 
-from server.plugins.base_plugin import BaseServerPlugin, ToolConfig
+# Get the absolute path to the base_plugin.py file
+plugin_dir = Path(__file__).parent  # Current plugin directory
+plugins_dir = plugin_dir.parent     # Parent plugins directory
+base_plugin_path = plugins_dir / "base_plugin.py"  # Path to base_plugin.py
+
+# Load the base plugin module directly
+spec = importlib.util.spec_from_file_location("base_plugin", str(base_plugin_path))
+base_plugin_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(base_plugin_module)
+
+# Import the required classes
+BaseServerPlugin = base_plugin_module.BaseServerPlugin
+ToolConfig = base_plugin_module.ToolConfig
+
+# This import is not needed since we import directly above
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -223,6 +239,9 @@ class FilmetoServerPlugin(BaseServerPlugin):
         # Generate the actual image
         progress_callback(95, "Finalizing image...", {})
         output_path = await self._generate_image(prompt, width, height, task_id)
+
+        # Report completion before returning
+        progress_callback(100, "Image generation completed", {})
 
         # Return result
         return {
