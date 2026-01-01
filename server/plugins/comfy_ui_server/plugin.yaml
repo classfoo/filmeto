@@ -81,6 +81,19 @@ tools:
         max: 64
         description: Blur radius for mask feathering
 
+  - name: image2video
+    description: Animate image based on text prompt
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for animation
+
+      - name: input_image_path
+        type: string
+        required: true
+        description: Path to input image for animation
+
 startup:
   timeout: 30
   health_check: true
