@@ -199,13 +199,16 @@ class TaskListWidget(BaseTaskWidget):
                 clicked_on_item = False
                 for widget in self.loaded_tasks.values():
                     if widget.isVisible():
-                        widget_global_rect = widget.mapToGlobal(widget.rect())
-                        if widget_global_rect.contains(click_pos):
+                        # Get the widget's geometry in global coordinates
+                        widget_top_left = widget.mapToGlobal(widget.rect().topLeft())
+                        widget_rect = QRect(widget_top_left, widget.rect().size())
+                        if widget_rect.contains(click_pos):
                             clicked_on_item = True
                             break
                 
                 # Check if click is on the task list widget itself (but not on items)
-                task_list_rect = self.mapToGlobal(self.rect())
+                task_list_top_left = self.mapToGlobal(self.rect().topLeft())
+                task_list_rect = QRect(task_list_top_left, self.rect().size())
                 clicked_on_task_list = task_list_rect.contains(click_pos)
                 
                 # If click is outside both task items and preview panel and task list, hide preview
