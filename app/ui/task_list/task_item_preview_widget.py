@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from utils.i18n_utils import tr
+from utils.yaml_utils import load_yaml
 
 
 class TaskItemPreviewWidget(QWidget):
@@ -66,12 +67,54 @@ class TaskItemPreviewWidget(QWidget):
                 widget.setParent(None)
                 widget.deleteLater()
         
-        # Look for result files in the task directory
+        # Get resource paths from task config.yaml
         result_files = []
-        if os.path.exists(self.task.path):
-            for filename in os.listdir(self.task.path):
-                if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
-                    result_files.append(os.path.join(self.task.path, filename))
+        try:
+            # Load task config
+            task_config = load_yaml(self.task.config_path) or {}
+            
+            # Get project path to resolve relative resource paths
+            project_path = None
+            if hasattr(self.task, 'task_manager') and hasattr(self.task.task_manager, 'project'):
+                project_path = self.task.task_manager.project.project_path
+            
+            # Try to get resources from config
+            resources = task_config.get('resources', [])
+            if resources:
+                # Use resources list from config
+                for resource_info in resources:
+                    resource_path = resource_info.get('resource_path', '')
+                    if resource_path and project_path:
+                        absolute_path = os.path.join(project_path, resource_path)
+                        if os.path.exists(absolute_path):
+                            result_files.append(absolute_path)
+            else:
+                # Fallback to individual resource paths for backward compatibility
+                image_path = task_config.get('image_resource_path', '')
+                video_path = task_config.get('video_resource_path', '')
+                
+                if image_path and project_path:
+                    absolute_path = os.path.join(project_path, image_path)
+                    if os.path.exists(absolute_path):
+                        result_files.append(absolute_path)
+                
+                if video_path and project_path:
+                    absolute_path = os.path.join(project_path, video_path)
+                    if os.path.exists(absolute_path):
+                        result_files.append(absolute_path)
+            
+            # If no resources found in config, fallback to scanning task directory
+            if not result_files and os.path.exists(self.task.path):
+                for filename in os.listdir(self.task.path):
+                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
+                        result_files.append(os.path.join(self.task.path, filename))
+        except Exception as e:
+            print(f"Error loading resources from task config: {e}")
+            # Fallback to scanning task directory
+            if os.path.exists(self.task.path):
+                for filename in os.listdir(self.task.path):
+                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
+                        result_files.append(os.path.join(self.task.path, filename))
         
         # Maximum preview size
         max_preview_size = 280

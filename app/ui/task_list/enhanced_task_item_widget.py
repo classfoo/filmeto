@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout, QTextEd
 from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve, QTime
 from PySide6.QtGui import QPainter, QColor, QPen, QFont, QPixmap, QMovie, QPainterPath, QBrush
 from utils.i18n_utils import tr
+from utils.yaml_utils import load_yaml
 
 
 class EnhancedTaskItemWidget(QWidget):
@@ -82,13 +83,61 @@ class EnhancedTaskItemWidget(QWidget):
             import os
             from PySide6.QtGui import QPixmap
 
-            # Look for result files in the task directory
+            # Get resource paths from task config.yaml
             result_path = None
-            if hasattr(self.task, 'path') and os.path.exists(self.task.path):
-                for filename in os.listdir(self.task.path):
-                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
-                        result_path = os.path.join(self.task.path, filename)
-                        break
+            try:
+                # Load task config
+                task_config = load_yaml(self.task.config_path) or {}
+                
+                # Get project path to resolve relative resource paths
+                project_path = None
+                if hasattr(self.task, 'task_manager') and hasattr(self.task.task_manager, 'project'):
+                    project_path = self.task.task_manager.project.project_path
+                
+                # Try to get resources from config
+                resources = task_config.get('resources', [])
+                if resources:
+                    # Prefer image over video for thumbnail
+                    for resource_info in resources:
+                        resource_type = resource_info.get('type', '')
+                        resource_path = resource_info.get('resource_path', '')
+                        if resource_path and project_path:
+                            absolute_path = os.path.join(project_path, resource_path)
+                            if os.path.exists(absolute_path):
+                                # Prefer image for thumbnail, but accept video if no image
+                                if resource_type == 'image' or (resource_type == 'video' and result_path is None):
+                                    result_path = absolute_path
+                                    if resource_type == 'image':
+                                        break  # Found image, use it
+                else:
+                    # Fallback to individual resource paths for backward compatibility
+                    image_path = task_config.get('image_resource_path', '')
+                    video_path = task_config.get('video_resource_path', '')
+                    
+                    # Prefer image over video
+                    if image_path and project_path:
+                        absolute_path = os.path.join(project_path, image_path)
+                        if os.path.exists(absolute_path):
+                            result_path = absolute_path
+                    elif video_path and project_path:
+                        absolute_path = os.path.join(project_path, video_path)
+                        if os.path.exists(absolute_path):
+                            result_path = absolute_path
+                
+                # If no resources found in config, fallback to scanning task directory
+                if not result_path and hasattr(self.task, 'path') and os.path.exists(self.task.path):
+                    for filename in os.listdir(self.task.path):
+                        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
+                            result_path = os.path.join(self.task.path, filename)
+                            break
+            except Exception as e:
+                print(f"Error loading resources from task config in thumbnail: {e}")
+                # Fallback to scanning task directory
+                if hasattr(self.task, 'path') and os.path.exists(self.task.path):
+                    for filename in os.listdir(self.task.path):
+                        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
+                            result_path = os.path.join(self.task.path, filename)
+                            break
 
             if result_path and os.path.exists(result_path):
                 # Load and draw the image/video thumbnail

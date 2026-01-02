@@ -213,6 +213,9 @@ class Project():
         model = task_options.get('model', '')
         prompt = task_options.get('prompt', '')
         
+        # Track registered resources to save their paths in task config
+        registered_resources = []
+        
         # Register image output if exists
         image_path = result.get_image_path()
         if image_path and os.path.exists(image_path):
@@ -230,6 +233,12 @@ class Project():
             )
             if resource:
                 print(f"✅ Registered image resource: {resource.name}")
+                registered_resources.append({
+                    'type': 'image',
+                    'resource_path': resource.file_path,  # Relative path from project root
+                    'resource_name': resource.name,
+                    'resource_id': resource.resource_id
+                })
         
         # Register video output if exists
         video_path = result.get_video_path()
@@ -248,6 +257,43 @@ class Project():
             )
             if resource:
                 print(f"✅ Registered video resource: {resource.name}")
+                registered_resources.append({
+                    'type': 'video',
+                    'resource_path': resource.file_path,  # Relative path from project root
+                    'resource_name': resource.name,
+                    'resource_id': resource.resource_id
+                })
+        
+        # Update task config.yaml with resource paths
+        if registered_resources:
+            try:
+                # Load current task config
+                task_config = load_yaml(task.config_path) or {}
+                
+                # Update task config with resource information
+                task_config['status'] = 'success'
+                task_config['resources'] = registered_resources
+                
+                # Also store individual paths for backward compatibility
+                for resource_info in registered_resources:
+                    if resource_info['type'] == 'image':
+                        task_config['image_resource_path'] = resource_info['resource_path']
+                        task_config['image_resource_name'] = resource_info['resource_name']
+                    elif resource_info['type'] == 'video':
+                        task_config['video_resource_path'] = resource_info['resource_path']
+                        task_config['video_resource_name'] = resource_info['resource_name']
+                
+                # Save updated config
+                save_yaml(task.config_path, task_config)
+                
+                # Update task.options to reflect the changes
+                task.options.update(task_config)
+                
+                print(f"✅ Updated task config.yaml with resource paths for task {task_id}")
+            except Exception as e:
+                print(f"❌ Error updating task config.yaml: {e}")
+                import traceback
+                traceback.print_exc()
         
         # Continue with normal processing
         self.timeline.on_task_finished(result)

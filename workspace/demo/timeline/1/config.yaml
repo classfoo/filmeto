@@ -54,11 +54,28 @@ layers:
   width: 720
   x: 0
   y: 0
+- height: 1280
+  id: 6
+  locked: false
+  name: Layer-6
+  type: image
+  visible: true
+  width: 720
+  x: 0
+  y: 0
 text2img:
+  image_resource_name: 3a07b62b-ed60-4559-b82f-f8ff307628f3_ComfyUI_01178_.png
+  image_resource_path: resources/images/3a07b62b-ed60-4559-b82f-f8ff307628f3_ComfyUI_01178_.png
   logs: Task completed
   model: comfy_ui
   percent: 95
   prompt: 真实风格，一只小猫穿着靴子，带着帽子，腰间别着一把火枪，站在城门口
   reference_image_path: null
+  resources:
+  - resource_id: 8232b94a-5684-45e8-8518-2002c1adaeb7
+    resource_name: 3a07b62b-ed60-4559-b82f-f8ff307628f3_ComfyUI_01178_.png
+    resource_path: resources/images/3a07b62b-ed60-4559-b82f-f8ff307628f3_ComfyUI_01178_.png
+    type: image
+  status: success
   timeline_index: 1
   tool: text2img
