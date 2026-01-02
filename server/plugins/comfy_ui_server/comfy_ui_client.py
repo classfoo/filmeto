@@ -31,10 +31,10 @@ class ComfyUIClient:
         """Establish HTTP and WebSocket connections"""
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession()
-        
+
         # Prepare WS URL
         ws_url = self.base_url.replace("http://", "ws://").replace("https://", "wss://") + f"/ws?clientId={self.client_id}"
-        
+
         try:
             self.websocket = await websockets.connect(
                 ws_url,
@@ -43,7 +43,8 @@ class ComfyUIClient:
                 close_timeout=10
             )
         except Exception as e:
-            print(f"Failed to connect to ComfyUI WebSocket: {e}")
+            # Don't print to stdout as it interferes with JSON-RPC communication
+            # Instead, we can log to a file or just silently handle the error
             self.websocket = None
 
     async def close(self):
@@ -67,15 +68,17 @@ class ComfyUIClient:
             with open(image_path, 'rb') as f:
                 data = aiohttp.FormData()
                 data.add_field('image', f, filename=os.path.basename(image_path))
-                
+
                 async with self.session.post(f"{self.base_url}/upload/image", data=data) as resp:
                     if resp.status == 200:
                         result = await resp.json()
                         return result.get("name")
                     else:
-                        print(f"Upload failed: {resp.status}")
-        except Exception as e:
-            print(f"Upload error: {e}")
+                        # Upload failed but don't print to stdout
+                        pass
+        except Exception:
+            # Upload error but don't print to stdout
+            pass
         return None
 
     async def send_prompt(self, prompt_graph: Dict[str, Any]) -> Optional[str]:
@@ -94,10 +97,11 @@ class ComfyUIClient:
                     result = await resp.json()
                     return result["prompt_id"]
                 else:
-                    text = await resp.text()
-                    print(f"Prompt submission failed: {resp.status}, {text}")
-        except Exception as e:
-            print(f"Request error: {e}")
+                    # Prompt submission failed but don't print to stdout
+                    pass
+        except Exception:
+            # Request error but don't print to stdout
+            pass
         return None
 
     async def get_history(self, prompt_id: str) -> Dict[str, Any]:
@@ -110,8 +114,9 @@ class ComfyUIClient:
                 if resp.status == 200:
                     data = await resp.json()
                     return data.get(prompt_id, {})
-        except Exception as e:
-            print(f"Get history failed: {e}")
+        except Exception:
+            # Get history failed but don't print to stdout
+            pass
         return {}
 
     async def download_view(self, filename: str, subfolder: str, img_type: str, save_path: Path) -> bool:
@@ -128,8 +133,9 @@ class ComfyUIClient:
                     with open(save_path, 'wb') as f:
                         f.write(data)
                     return True
-        except Exception as e:
-            print(f"Download error: {e}")
+        except Exception:
+            # Download error but don't print to stdout
+            pass
         return False
 
     async def track_progress(
@@ -144,7 +150,7 @@ class ComfyUIClient:
             await self.connect()
             
         if self.websocket is None:
-            print("Cannot track progress: No WebSocket connection")
+            # Cannot track progress but don't print to stdout
             return
 
         start_time = time.time()
@@ -184,11 +190,12 @@ class ComfyUIClient:
                 except asyncio.TimeoutError:
                     continue
                 except ConnectionClosed:
-                    print("WebSocket connection closed, attempting reconnect...")
+                    # WebSocket connection closed, attempting reconnect silently
                     await self.connect()
                     if self.websocket is None: break
-        except Exception as e:
-            print(f"Error tracking progress: {e}")
+        except Exception:
+            # Error tracking progress but don't print to stdout
+            pass
 
     async def run_workflow(
         self,
