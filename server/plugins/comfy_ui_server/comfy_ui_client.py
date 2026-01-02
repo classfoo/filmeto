@@ -119,30 +119,34 @@ class ComfyUIClient:
         # If it doesn't have "prompt" key, it's likely already the prompt graph
         workflow_to_send = workflow.copy()
         
-        # Replace client_id if present to ensure WebSocket routing works correctly
-        if "client_id" in workflow_to_send:
-            old_client_id = workflow_to_send["client_id"]
-            workflow_to_send["client_id"] = self.client_id
-            self.logger.debug(f"Replaced client_id from {old_client_id} to {self.client_id}")
-        else:
-            workflow_to_send["client_id"] = self.client_id
-            self.logger.debug(f"Set client_id to {self.client_id}")
-        
         # Extract the prompt graph if it's wrapped in a "prompt" key
         # Standard ComfyUI workflow JSONs have the node graph at the root level
         if "prompt" in workflow_to_send:
             # If it has a "prompt" key, use the whole workflow as is
+            # Replace client_id if present to ensure WebSocket routing works correctly
+            if "client_id" in workflow_to_send:
+                old_client_id = workflow_to_send["client_id"]
+                workflow_to_send["client_id"] = self.client_id
+                self.logger.debug(f"Replaced client_id from {old_client_id} to {self.client_id}")
+            else:
+                workflow_to_send["client_id"] = self.client_id
+                self.logger.debug(f"Set client_id to {self.client_id}")
             payload = workflow_to_send
             self.logger.debug(f"Using full workflow with prompt key")
         else:
             # If it doesn't have a "prompt" key, it's already the prompt graph
+            # IMPORTANT: Don't add client_id to the prompt graph itself, only to the payload
+            # The prompt graph should only contain node definitions, not client_id
             payload = {
                 "prompt": workflow_to_send,
                 "client_id": self.client_id
             }
             self.logger.debug(f"Using prompt graph directly")
         
-        self.logger.debug(f"Sending request with payload containing {len(workflow_to_send)} nodes")
+        # Count nodes in the prompt graph (not including client_id)
+        prompt_graph = payload.get("prompt", {})
+        node_count = len([k for k in prompt_graph.keys() if k != "client_id"])
+        self.logger.debug(f"Sending request with payload containing {node_count} nodes")
         
         try:
             async with self.session.post(f"{self.base_url}/prompt", json=payload) as resp:

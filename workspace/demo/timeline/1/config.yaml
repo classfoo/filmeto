@@ -36,6 +36,24 @@ layers:
   width: 720
   x: 0
   y: 0
+- height: 1280
+  id: 4
+  locked: false
+  name: Layer-4
+  type: image
+  visible: true
+  width: 720
+  x: 0
+  y: 0
+- height: 1280
+  id: 5
+  locked: false
+  name: Layer-5
+  type: image
+  visible: true
+  width: 720
+  x: 0
+  y: 0
 text2img:
   logs: Task completed
   model: comfy_ui
