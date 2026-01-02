@@ -22,19 +22,37 @@ def setup_crash_logging():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = os.path.join(log_dir, f"filmeto_{timestamp}.log")
     
-    # Configure root logger
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file, encoding='utf-8'),
-            logging.StreamHandler(sys.stdout)
-        ]
+    # Create handlers with explicit levels to ensure ERROR logs are captured
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)  # Capture all levels including ERROR
+    
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG)  # Capture all levels including ERROR
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
     )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    # Configure root logger explicitly to ensure ERROR logs are captured
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)  # Set root logger to DEBUG to capture ERROR
+    
+    # Clear any existing handlers to avoid duplicates
+    root_logger.handlers.clear()
+    
+    # Add handlers to root logger
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
     
     logger = logging.getLogger(__name__)
     logger.info("=" * 80)
     logger.info(f"Filmeto Application Started - Log file: {log_file}")
+    logger.info(f"Root logger level: {logging.getLevelName(root_logger.level)}")
+    logger.info(f"File handler level: {logging.getLevelName(file_handler.level)}")
+    logger.info(f"Console handler level: {logging.getLevelName(console_handler.level)}")
     logger.info("=" * 80)
     
     return logger, log_file
