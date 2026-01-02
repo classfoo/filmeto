@@ -8,6 +8,7 @@ Supports multiple tools via configurable workflows.
 import os
 import sys
 import json
+import random
 from pathlib import Path
 from typing import Dict, Any, Callable, List, Optional, Tuple
 
@@ -236,6 +237,89 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         
         return prompt_graph, filmeto_config
 
+    def _apply_node_value(self, prompt_graph: Dict[str, Any], node_id: str, input_key: str, value: Any) -> bool:
+        """
+        Apply a value to a specific node input in the prompt graph.
+        
+        Args:
+            prompt_graph: The ComfyUI workflow prompt graph
+            node_id: Node ID to update
+            input_key: Input key within the node's inputs
+            value: Value to set
+            
+        Returns:
+            bool: True if the value was applied, False if node doesn't exist
+        """
+        if node_id and node_id in prompt_graph:
+            if "inputs" not in prompt_graph[node_id]:
+                prompt_graph[node_id]["inputs"] = {}
+            prompt_graph[node_id]["inputs"][input_key] = value
+            return True
+        return False
+
+    def _apply_seed_node(self, prompt_graph: Dict[str, Any], node_id: str) -> bool:
+        """
+        Apply random seed to a seed node.
+        
+        Args:
+            prompt_graph: The ComfyUI workflow prompt graph
+            node_id: Seed node ID to update
+            
+        Returns:
+            bool: True if the seed was applied, False if node doesn't exist
+        """
+        if not node_id or node_id not in prompt_graph:
+            return False
+        
+        # Generate random seed (using large integer range similar to ComfyUI)
+        random_seed = random.randint(0, 2**32 - 1)
+        
+        # Try to set seed in inputs
+        if "inputs" not in prompt_graph[node_id]:
+            prompt_graph[node_id]["inputs"] = {}
+        
+        # Set seed value
+        prompt_graph[node_id]["inputs"]["seed"] = random_seed
+        return True
+
+    def _apply_input_nodes(self, prompt_graph: Dict[str, Any], input_nodes: Any, values: Any, input_key: str = "image") -> int:
+        """
+        Apply values to multiple input nodes in the prompt graph.
+        Supports mapping multiple input images to multiple nodes (e.g., start frame and end frame).
+        
+        Args:
+            prompt_graph: The ComfyUI workflow prompt graph
+            input_nodes: Node ID(s) to update - can be:
+                - Single node ID (string): applies first value to this node
+                - List of node IDs: maps values to nodes in order
+            values: Value(s) to set - can be:
+                - Single value: applies to all nodes (if single node) or first node (if multiple nodes)
+                - List of values: maps to nodes in order
+            input_key: Input key within the node's inputs (default: "image")
+            
+        Returns:
+            int: Number of nodes successfully updated
+        """
+        if not input_nodes:
+            return 0
+        
+        # Handle both single node ID (string) and list of node IDs
+        if isinstance(input_nodes, str):
+            input_nodes = [input_nodes]
+        
+        # Handle both single value and list of values
+        if not isinstance(values, list):
+            values = [values]
+        
+        count = 0
+        for idx, node_id in enumerate(input_nodes):
+            # Use corresponding value if available, otherwise use first value
+            value = values[idx] if idx < len(values) else values[0]
+            if self._apply_node_value(prompt_graph, node_id, input_key, value):
+                count += 1
+        
+        return count
+
     async def _execute_text2image(self, client, task_id, parameters, progress_callback, server_config: Optional[Dict[str, Any]] = None):
         prompt_text = parameters.get("prompt", "")
         width = parameters.get("width", 720)
@@ -246,24 +330,25 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         
         # Get node mappings from filmeto config
         node_mapping = filmeto_config.get("node_mapping", {})
-        prompt_node = node_mapping.get("prompt_node", "6")  # Default fallback
-        width_node = node_mapping.get("width_node")  # Optional
-        height_node = node_mapping.get("height_node")  # Optional
         
-        # Apply prompt to prompt node
-        if prompt_node in prompt_graph:
-            prompt_graph[prompt_node]["inputs"]["text"] = prompt_text
+        # Apply prompt to prompt node (if configured)
+        prompt_node = node_mapping.get("prompt_node")
+        if prompt_node:
+            self._apply_node_value(prompt_graph, prompt_node, "text", prompt_text)
         
         # Apply width/height if nodes are specified
-        if width_node and width_node in prompt_graph:
-            prompt_graph[width_node]["inputs"]["width"] = width
-        elif not width_node and "58" in prompt_graph:  # Fallback to old hardcoded node
-            prompt_graph["58"]["inputs"]["width"] = width
+        width_node = node_mapping.get("width_node")
+        if width_node:
+            self._apply_node_value(prompt_graph, width_node, "width", width)
             
-        if height_node and height_node in prompt_graph:
-            prompt_graph[height_node]["inputs"]["height"] = height
-        elif not height_node and "58" in prompt_graph:  # Fallback to old hardcoded node
-            prompt_graph["58"]["inputs"]["height"] = height
+        height_node = node_mapping.get("height_node")
+        if height_node:
+            self._apply_node_value(prompt_graph, height_node, "height", height)
+        
+        # Apply random seed to seed node (if configured)
+        seed_node = node_mapping.get("seed_node")
+        if seed_node:
+            self._apply_seed_node(prompt_graph, seed_node)
             
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
@@ -275,32 +360,38 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         # Check metadata for processed resources (preferred)
         processed_resources = parameters.get("processed_resources")
         if processed_resources:
-            input_image_path = processed_resources[0]
+            input_image_paths = processed_resources
+        else:
+            input_image_paths = [input_image_path] if input_image_path else []
 
-        progress_callback(5, "Uploading image...", {})
-        comfy_filename = await client.upload_image(input_image_path)
-        if not comfy_filename:
-            raise Exception("Failed to upload image to ComfyUI")
+        progress_callback(5, "Uploading image(s)...", {})
+        comfy_filenames = []
+        for img_path in input_image_paths:
+            comfy_filename = await client.upload_image(img_path)
+            if not comfy_filename:
+                raise Exception(f"Failed to upload image to ComfyUI: {img_path}")
+            comfy_filenames.append(comfy_filename)
             
         progress_callback(8, "Loading workflow...", {})
         prompt_graph, filmeto_config = await self._load_workflow("image2image", server_config)
         
         # Get node mappings from filmeto config
         node_mapping = filmeto_config.get("node_mapping", {})
-        input_node = node_mapping.get("input_node", "133")  # Default fallback
-        prompt_node = node_mapping.get("prompt_node", "187:6")  # Default fallback
         
-        # Apply input image to input node
-        if input_node in prompt_graph:
-            prompt_graph[input_node]["inputs"]["image"] = comfy_filename
-        elif "133" in prompt_graph:  # Fallback to old hardcoded node
-            prompt_graph["133"]["inputs"]["image"] = comfy_filename
+        # Apply input image(s) to input node(s) - support multiple input nodes and multiple images
+        input_node = node_mapping.get("input_node")
+        if input_node and comfy_filenames:
+            self._apply_input_nodes(prompt_graph, input_node, comfy_filenames, "image")
         
-        # Apply prompt to prompt node
-        if prompt_node in prompt_graph:
-            prompt_graph[prompt_node]["inputs"]["text"] = prompt_text
-        elif "187:6" in prompt_graph:  # Fallback to old hardcoded node
-            prompt_graph["187:6"]["inputs"]["text"] = prompt_text
+        # Apply prompt to prompt node (if configured)
+        prompt_node = node_mapping.get("prompt_node")
+        if prompt_node:
+            self._apply_node_value(prompt_graph, prompt_node, "text", prompt_text)
+        
+        # Apply random seed to seed node (if configured)
+        seed_node = node_mapping.get("seed_node")
+        if seed_node:
+            self._apply_seed_node(prompt_graph, seed_node)
         
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
@@ -309,42 +400,51 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         prompt_text = parameters.get("prompt", "")
         input_image_path = parameters.get("input_image_path")
         
+        # Check metadata for processed resources (preferred) - supports multiple images (e.g., start frame, end frame)
         processed_resources = parameters.get("processed_resources")
         if processed_resources:
-            input_image_path = processed_resources[0]
+            input_image_paths = processed_resources
+        else:
+            input_image_paths = [input_image_path] if input_image_path else []
 
-        progress_callback(5, "Uploading image...", {})
-        comfy_filename = await client.upload_image(input_image_path)
-        if not comfy_filename:
-            raise Exception("Failed to upload image to ComfyUI")
+        progress_callback(5, "Uploading image(s)...", {})
+        comfy_filenames = []
+        for img_path in input_image_paths:
+            comfy_filename = await client.upload_image(img_path)
+            if not comfy_filename:
+                raise Exception(f"Failed to upload image to ComfyUI: {img_path}")
+            comfy_filenames.append(comfy_filename)
             
         progress_callback(8, "Loading workflow...", {})
         prompt_graph, filmeto_config = await self._load_workflow("image2video", server_config)
         
         # Get node mappings from filmeto config
         node_mapping = filmeto_config.get("node_mapping", {})
-        input_node = node_mapping.get("input_node", "67")  # Default fallback
-        prompt_node = node_mapping.get("prompt_node", "16")  # Default fallback
-        prompt_input_key = node_mapping.get("prompt_input_key", "positive_prompt")  # Default fallback
         
-        # Apply input image to input node
-        if input_node in prompt_graph:
-            prompt_graph[input_node]["inputs"]["image"] = comfy_filename
-        elif "67" in prompt_graph:  # Fallback to old hardcoded node
-            prompt_graph["67"]["inputs"]["image"] = comfy_filename
+        # Apply input image(s) to input node(s) - support multiple input nodes and multiple images
+        # Example: ["start_frame_node", "end_frame_node"] with [start_image, end_image]
+        input_node = node_mapping.get("input_node")
+        if input_node and comfy_filenames:
+            self._apply_input_nodes(prompt_graph, input_node, comfy_filenames, "image")
         
-        # Apply prompt to prompt node
-        if prompt_node in prompt_graph:
-            if prompt_input_key in prompt_graph[prompt_node].get("inputs", {}):
-                prompt_graph[prompt_node]["inputs"][prompt_input_key] = prompt_text
-            else:
-                # Try common prompt input keys
-                for key in ["text", "positive_prompt", "prompt"]:
-                    if key in prompt_graph[prompt_node].get("inputs", {}):
-                        prompt_graph[prompt_node]["inputs"][key] = prompt_text
-                        break
-        elif "16" in prompt_graph:  # Fallback to old hardcoded node
-            prompt_graph["16"]["inputs"]["positive_prompt"] = prompt_text
+        # Apply prompt to prompt node (if configured)
+        prompt_node = node_mapping.get("prompt_node")
+        if prompt_node:
+            prompt_input_key = node_mapping.get("prompt_input_key", "text")
+            # Try to apply with specified key first
+            if not self._apply_node_value(prompt_graph, prompt_node, prompt_input_key, prompt_text):
+                # If node exists but key doesn't, try common prompt input keys
+                if prompt_node in prompt_graph:
+                    node_inputs = prompt_graph[prompt_node].get("inputs", {})
+                    for key in ["text", "positive_prompt", "prompt"]:
+                        if key in node_inputs:
+                            node_inputs[key] = prompt_text
+                            break
+        
+        # Apply random seed to seed node (if configured)
+        seed_node = node_mapping.get("seed_node")
+        if seed_node:
+            self._apply_seed_node(prompt_graph, seed_node)
         
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
