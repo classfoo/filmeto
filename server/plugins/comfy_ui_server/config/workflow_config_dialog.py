@@ -34,8 +34,8 @@ class WorkflowConfigDialog(CustomDialog):
         self._load_workflow()
         self._init_ui()
         
-        if existing_config:
-            self._load_existing_config()
+        # Load existing config (from _filmeto or existing_config parameter)
+        self._load_existing_config()
     
     def _load_workflow(self):
         """Load and parse workflow JSON"""
@@ -46,31 +46,29 @@ class WorkflowConfigDialog(CustomDialog):
                 # Try to parse as JSON
                 self.workflow_data = json.loads(content)
                 
-                # Extract nodes from workflow
+                # Extract prompt graph (actual workflow nodes)
+                prompt_data = None
                 if isinstance(self.workflow_data, dict):
                     # Check for 'prompt' key (ComfyUI format)
                     if 'prompt' in self.workflow_data:
                         prompt_data = self.workflow_data['prompt']
-                        if isinstance(prompt_data, dict):
-                            self.nodes = [
-                                {
-                                    'id': node_id,
-                                    'class_type': node_data.get('class_type', 'Unknown'),
-                                    'inputs': node_data.get('inputs', {})
-                                }
-                                for node_id, node_data in prompt_data.items()
-                            ]
                     else:
-                        # Direct node format
-                        self.nodes = [
-                            {
-                                'id': node_id,
-                                'class_type': node_data.get('class_type', 'Unknown'),
-                                'inputs': node_data.get('inputs', {})
-                            }
-                            for node_id, node_data in self.workflow_data.items()
-                            if isinstance(node_data, dict)
-                        ]
+                        # Direct node format (old style)
+                        prompt_data = self.workflow_data
+                
+                # Extract nodes from prompt graph
+                if isinstance(prompt_data, dict):
+                    self.nodes = [
+                        {
+                            'id': node_id,
+                            'class_type': node_data.get('class_type', 'Unknown'),
+                            'inputs': node_data.get('inputs', {})
+                        }
+                        for node_id, node_data in prompt_data.items()
+                        if isinstance(node_data, dict) and 'class_type' in node_data
+                    ]
+                else:
+                    self.nodes = []
                 
         except Exception as e:
             QMessageBox.critical(
@@ -416,22 +414,31 @@ class WorkflowConfigDialog(CustomDialog):
     
     
     def _load_existing_config(self):
-        """Load existing workflow configuration"""
-        if not self.existing_config:
+        """Load existing workflow configuration from _filmeto key"""
+        # Try to load from workflow file's _filmeto key first
+        filmeto_config = None
+        if self.workflow_data and isinstance(self.workflow_data, dict):
+            filmeto_config = self.workflow_data.get('_filmeto', {})
+        
+        # Fallback to existing_config parameter (for backward compatibility)
+        if not filmeto_config and self.existing_config:
+            filmeto_config = self.existing_config
+        
+        if not filmeto_config:
             return
         
         # Load basic info
-        self.name_input.setText(self.existing_config.get('name', ''))
-        self.desc_input.setText(self.existing_config.get('description', ''))
+        self.name_input.setText(filmeto_config.get('name', self.workflow_path.stem))
+        self.desc_input.setText(filmeto_config.get('description', ''))
         
         # Load type
-        tool_type = self.existing_config.get('type', 'text2image')
+        tool_type = filmeto_config.get('type', 'text2image')
         index = self.type_combo.findText(tool_type)
         if index >= 0:
             self.type_combo.setCurrentIndex(index)
         
         # Load node mappings
-        node_mapping = self.existing_config.get('node_mapping', {})
+        node_mapping = filmeto_config.get('node_mapping', {})
         
         if 'input_node' in node_mapping:
             self._select_node_in_combo(self.input_node_combo, node_mapping['input_node'])
@@ -465,7 +472,7 @@ class WorkflowConfigDialog(CustomDialog):
         return None
     
     def _on_save(self):
-        """Handle save button click"""
+        """Handle save button click - saves configuration to _filmeto key in workflow JSON"""
         # Validate required fields
         name = self.name_input.text().strip()
         if not name:
@@ -483,12 +490,11 @@ class WorkflowConfigDialog(CustomDialog):
             )
             return
         
-        # Collect configuration
-        config = {
+        # Collect filmeto configuration
+        filmeto_config = {
             'name': name,
             'description': self.desc_input.text().strip(),
             'type': self.type_combo.currentText(),
-            'file': f"{name.replace(' ', '_').lower()}_workflow.json",
             'node_mapping': {
                 'prompt_node': prompt_node,
                 'output_node': output_node
@@ -498,29 +504,52 @@ class WorkflowConfigDialog(CustomDialog):
         # Optional nodes
         input_node = self._extract_node_id(self.input_node_combo.currentText())
         if input_node:
-            config['node_mapping']['input_node'] = input_node
+            filmeto_config['node_mapping']['input_node'] = input_node
         
         seed_node = self._extract_node_id(self.seed_node_combo.currentText())
         if seed_node:
-            config['node_mapping']['seed_node'] = seed_node
+            filmeto_config['node_mapping']['seed_node'] = seed_node
         
-        # Save workflow file
+        # Save workflow file with _filmeto key
         try:
-            safe_name = name.replace(' ', '_').lower()
+            # Determine target file path
+            if self.existing_config:
+                # Use existing workflow file path
+                target_file = self.workflow_path
+            else:
+                # New workflow - save to workflows directory
+                safe_name = name.replace(' ', '_').lower()
+                target_file = self.workflows_dir / f"{safe_name}.json"
+                
+                # If source file is different, copy workflow content
+                if self.workflow_path != target_file:
+                    import shutil
+                    shutil.copy2(self.workflow_path, target_file)
             
-            # Copy original workflow to workflows directory
-            workflow_file = self.workflows_dir / f"{safe_name}_workflow.json"
+            # Load existing workflow data (preserve ComfyUI workflow structure)
+            workflow_data = {}
+            if target_file.exists():
+                with open(target_file, 'r', encoding='utf-8') as f:
+                    workflow_data = json.load(f)
             
-            # If this is a new workflow, copy the file
-            if not self.existing_config or self.workflow_path != workflow_file:
-                import shutil
-                shutil.copy2(self.workflow_path, workflow_file)
+            # Ensure workflow_data has proper structure
+            if 'prompt' not in workflow_data and self.workflow_data:
+                # If we have prompt data from source, preserve it
+                if 'prompt' in self.workflow_data:
+                    workflow_data['prompt'] = self.workflow_data['prompt']
+                elif isinstance(self.workflow_data, dict):
+                    # Direct node format - wrap in prompt key
+                    workflow_data['prompt'] = {
+                        k: v for k, v in self.workflow_data.items()
+                        if isinstance(v, dict) and 'class_type' in v
+                    }
             
-            # Create a single combined metadata+workflow reference file
-            # This matches what the ComfyUIConfigDialog expects
-            combined_file = self.workflows_dir / f"{safe_name}.json"
-            with open(combined_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
+            # Add/update _filmeto configuration
+            workflow_data['_filmeto'] = filmeto_config
+            
+            # Save updated workflow file
+            with open(target_file, 'w', encoding='utf-8') as f:
+                json.dump(workflow_data, f, indent=2, ensure_ascii=False)
             
             QMessageBox.information(
                 self,
@@ -535,4 +564,6 @@ class WorkflowConfigDialog(CustomDialog):
                 "Save Error",
                 f"Failed to save workflow:\n{str(e)}"
             )
+            import traceback
+            traceback.print_exc()
 

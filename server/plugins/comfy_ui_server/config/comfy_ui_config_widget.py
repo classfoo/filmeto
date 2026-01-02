@@ -411,7 +411,13 @@ class ComfyUIConfigWidget(QWidget):
             if not workflow_file.exists():
                 empty_workflow = {
                     "prompt": {},
-                    "extra": {}
+                    "extra": {},
+                    "_filmeto": {
+                        "name": workflow_name.replace('_', ' ').title(),
+                        "type": workflow_name,
+                        "description": f"Workflow for {workflow_name}",
+                        "node_mapping": {}
+                    }
                 }
                 try:
                     with open(workflow_file, 'w', encoding='utf-8') as f:
@@ -436,32 +442,48 @@ class ComfyUIConfigWidget(QWidget):
                 continue
             
             try:
-                # Try to load as metadata/config file first
+                # Load workflow file
                 with open(workflow_file, 'r', encoding='utf-8') as f:
                     workflow_data = json.load(f)
                 
-                # Check if it's a metadata/config file (has name and type)
-                if isinstance(workflow_data, dict) and "name" in workflow_data and "type" in workflow_data:
-                    workflow_data['file_path'] = workflow_file
-                    self.workflows.append(workflow_data)
-                else:
-                    # It's a raw workflow JSON, create metadata entry
-                    workflow_data = {
-                        'name': workflow_name.replace('_', ' ').title(),
-                        'type': workflow_name,
+                # Extract filmeto configuration from _filmeto key
+                filmeto_config = workflow_data.get('_filmeto', {})
+                
+                if filmeto_config:
+                    # Has filmeto config - use it
+                    workflow_entry = {
+                        'name': filmeto_config.get('name', workflow_name.replace('_', ' ').title()),
+                        'type': filmeto_config.get('type', workflow_name),
+                        'description': filmeto_config.get('description', f"Workflow for {workflow_name}"),
                         'file_path': workflow_file,
-                        'description': f"Workflow for {workflow_name}"
+                        'node_mapping': filmeto_config.get('node_mapping', {})
                     }
-                    self.workflows.append(workflow_data)
+                    self.workflows.append(workflow_entry)
+                else:
+                    # No filmeto config - check if it's old format metadata file
+                    if isinstance(workflow_data, dict) and "name" in workflow_data and "type" in workflow_data:
+                        # Old format metadata file
+                        workflow_data['file_path'] = workflow_file
+                        self.workflows.append(workflow_data)
+                    else:
+                        # Raw workflow JSON without filmeto config - create default entry
+                        workflow_entry = {
+                            'name': workflow_name.replace('_', ' ').title(),
+                            'type': workflow_name,
+                            'file_path': workflow_file,
+                            'description': f"Workflow for {workflow_name} (needs configuration)"
+                        }
+                        self.workflows.append(workflow_entry)
             except Exception as e:
-                # If file is empty or invalid, create default entry
-                workflow_data = {
+                print(f"Failed to load workflow {workflow_file}: {e}")
+                # Create default entry on error
+                workflow_entry = {
                     'name': workflow_name.replace('_', ' ').title(),
                     'type': workflow_name,
                     'file_path': workflow_file,
                     'description': f"Workflow for {workflow_name}"
                 }
-                self.workflows.append(workflow_data)
+                self.workflows.append(workflow_entry)
         
         # Load any additional workflow files that don't match ToolType patterns
         for workflow_file in self.workflows_dir.glob("*.json"):
@@ -474,21 +496,32 @@ class ComfyUIConfigWidget(QWidget):
                     workflow_data = json.load(f)
                 
                 if isinstance(workflow_data, dict):
-                    # If it has name and type, it's a metadata file
-                    if "name" in workflow_data and "type" in workflow_data:
+                    # Check for _filmeto key first
+                    filmeto_config = workflow_data.get('_filmeto', {})
+                    if filmeto_config:
+                        workflow_entry = {
+                            'name': filmeto_config.get('name', workflow_file.stem.replace('_', ' ').title()),
+                            'type': filmeto_config.get('type', 'custom'),
+                            'description': filmeto_config.get('description', f"Custom workflow"),
+                            'file_path': workflow_file,
+                            'node_mapping': filmeto_config.get('node_mapping', {})
+                        }
+                        self.workflows.append(workflow_entry)
+                    elif "name" in workflow_data and "type" in workflow_data:
+                        # Old format metadata file
                         workflow_data['file_path'] = workflow_file
                         self.workflows.append(workflow_data)
                     else:
                         # Try to determine type from filename
                         workflow_name = workflow_file.stem
                         tool_type = self._guess_tool_type_from_filename(workflow_name)
-                        workflow_data = {
+                        workflow_entry = {
                             'name': workflow_name.replace('_', ' ').title(),
                             'type': tool_type or 'custom',
                             'file_path': workflow_file,
-                            'description': f"Workflow for {tool_type or 'custom'}"
+                            'description': f"Workflow for {tool_type or 'custom'} (needs configuration)"
                         }
-                        self.workflows.append(workflow_data)
+                        self.workflows.append(workflow_entry)
             except Exception as e:
                 print(f"Failed to load workflow {workflow_file}: {e}")
         
@@ -673,10 +706,16 @@ class ComfyUIConfigWidget(QWidget):
         
         # Ensure file exists
         if not workflow_file.exists():
-            # Create empty workflow
+            # Create empty workflow with _filmeto structure
             empty_workflow = {
                 "prompt": {},
-                "extra": {}
+                "extra": {},
+                "_filmeto": {
+                    "name": workflow.get('name', workflow_file.stem.replace('_', ' ').title()),
+                    "type": workflow.get('type', 'custom'),
+                    "description": workflow.get('description', ''),
+                    "node_mapping": workflow.get('node_mapping', {})
+                }
             }
             try:
                 self.workflows_dir.mkdir(parents=True, exist_ok=True)
@@ -723,10 +762,16 @@ class ComfyUIConfigWidget(QWidget):
         
         # Ensure file exists, create if needed
         if not workflow_file.exists():
-            # Create empty workflow
+            # Create empty workflow with proper structure
             empty_workflow = {
                 "prompt": {},
-                "extra": {}
+                "extra": {},
+                "_filmeto": {
+                    "name": workflow.get('name', workflow_file.stem),
+                    "type": workflow.get('type', 'custom'),
+                    "description": workflow.get('description', ''),
+                    "node_mapping": {}
+                }
             }
             try:
                 self.workflows_dir.mkdir(parents=True, exist_ok=True)
@@ -740,17 +785,29 @@ class ComfyUIConfigWidget(QWidget):
                 )
                 return
         
-        # Open workflow configuration dialog (uses CustomDialog)
+        # Load workflow data to pass to dialog
+        try:
+            with open(workflow_file, 'r', encoding='utf-8') as f:
+                workflow_data = json.load(f)
+            
+            # Extract _filmeto config for existing_config parameter
+            existing_config = workflow_data.get('_filmeto', workflow)
+        except Exception as e:
+            existing_config = workflow
+        
+        # Open workflow configuration dialog
         try:
             from server.plugins.comfy_ui_server.config.workflow_config_dialog import WorkflowConfigDialog
             
-            dialog = WorkflowConfigDialog(str(workflow_file), self.workflows_dir, self, workflow)
+            dialog = WorkflowConfigDialog(str(workflow_file), self.workflows_dir, self, existing_config)
             if dialog.exec() == QDialog.Accepted:
                 # Reload workflows
                 self._load_workflows()
                 self.config_changed.emit()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open workflow configuration: {e}")
+            import traceback
+            traceback.print_exc()
     
     def get_config(self) -> Dict[str, Any]:
         """Get current configuration from widgets"""

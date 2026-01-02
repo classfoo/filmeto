@@ -9,7 +9,7 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import Dict, Any, Callable, List, Optional
+from typing import Dict, Any, Callable, List, Optional, Tuple
 
 # Import base plugin directly using file path to avoid naming conflicts
 import importlib.util
@@ -155,8 +155,15 @@ class ComfyUiServerPlugin(BaseServerPlugin):
                 "output_files": []
             }
 
-    async def _load_workflow(self, name: str) -> Dict[str, Any]:
-        """Load workflow JSON from the workflows directory"""
+    async def _load_workflow(self, name: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Load workflow JSON from the workflows directory.
+        
+        Returns:
+            tuple: (prompt_graph, filmeto_config)
+            - prompt_graph: The ComfyUI workflow prompt graph
+            - filmeto_config: Filmeto-specific configuration including node mappings
+        """
         workflow_path = self.workflows_dir / f"{name}.json"
         if not workflow_path.exists():
             # Fallback for text2image naming inconsistency
@@ -169,7 +176,17 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         with open(workflow_path, 'r', encoding='utf-8') as f:
             workflow = json.load(f)
         
-        return workflow.get("prompt", workflow)
+        # Extract filmeto configuration (if exists)
+        filmeto_config = workflow.get("_filmeto", {})
+        
+        # Extract prompt graph (ComfyUI workflow)
+        prompt_graph = workflow.get("prompt", workflow)
+        
+        # If prompt_graph is the whole workflow (old format), extract just the prompt
+        if "prompt" in prompt_graph and isinstance(prompt_graph["prompt"], dict):
+            prompt_graph = prompt_graph["prompt"]
+        
+        return prompt_graph, filmeto_config
 
     async def _execute_text2image(self, client, task_id, parameters, progress_callback):
         prompt_text = parameters.get("prompt", "")
@@ -177,11 +194,27 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         height = parameters.get("height", 1280)
         
         progress_callback(5, "Loading workflow...", {})
-        prompt_graph = await self._load_workflow("text2image")
+        prompt_graph, filmeto_config = await self._load_workflow("text2image")
         
-        if "6" in prompt_graph: prompt_graph["6"]["inputs"]["text"] = prompt_text
-        if "58" in prompt_graph:
+        # Get node mappings from filmeto config
+        node_mapping = filmeto_config.get("node_mapping", {})
+        prompt_node = node_mapping.get("prompt_node", "6")  # Default fallback
+        width_node = node_mapping.get("width_node")  # Optional
+        height_node = node_mapping.get("height_node")  # Optional
+        
+        # Apply prompt to prompt node
+        if prompt_node in prompt_graph:
+            prompt_graph[prompt_node]["inputs"]["text"] = prompt_text
+        
+        # Apply width/height if nodes are specified
+        if width_node and width_node in prompt_graph:
+            prompt_graph[width_node]["inputs"]["width"] = width
+        elif not width_node and "58" in prompt_graph:  # Fallback to old hardcoded node
             prompt_graph["58"]["inputs"]["width"] = width
+            
+        if height_node and height_node in prompt_graph:
+            prompt_graph[height_node]["inputs"]["height"] = height
+        elif not height_node and "58" in prompt_graph:  # Fallback to old hardcoded node
             prompt_graph["58"]["inputs"]["height"] = height
             
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
@@ -202,10 +235,24 @@ class ComfyUiServerPlugin(BaseServerPlugin):
             raise Exception("Failed to upload image to ComfyUI")
             
         progress_callback(8, "Loading workflow...", {})
-        prompt_graph = await self._load_workflow("image2image")
+        prompt_graph, filmeto_config = await self._load_workflow("image2image")
         
-        if "133" in prompt_graph: prompt_graph["133"]["inputs"]["image"] = comfy_filename
-        if "187:6" in prompt_graph: prompt_graph["187:6"]["inputs"]["text"] = prompt_text
+        # Get node mappings from filmeto config
+        node_mapping = filmeto_config.get("node_mapping", {})
+        input_node = node_mapping.get("input_node", "133")  # Default fallback
+        prompt_node = node_mapping.get("prompt_node", "187:6")  # Default fallback
+        
+        # Apply input image to input node
+        if input_node in prompt_graph:
+            prompt_graph[input_node]["inputs"]["image"] = comfy_filename
+        elif "133" in prompt_graph:  # Fallback to old hardcoded node
+            prompt_graph["133"]["inputs"]["image"] = comfy_filename
+        
+        # Apply prompt to prompt node
+        if prompt_node in prompt_graph:
+            prompt_graph[prompt_node]["inputs"]["text"] = prompt_text
+        elif "187:6" in prompt_graph:  # Fallback to old hardcoded node
+            prompt_graph["187:6"]["inputs"]["text"] = prompt_text
         
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
@@ -224,10 +271,32 @@ class ComfyUiServerPlugin(BaseServerPlugin):
             raise Exception("Failed to upload image to ComfyUI")
             
         progress_callback(8, "Loading workflow...", {})
-        prompt_graph = await self._load_workflow("image2video")
+        prompt_graph, filmeto_config = await self._load_workflow("image2video")
         
-        if "67" in prompt_graph: prompt_graph["67"]["inputs"]["image"] = comfy_filename
-        if "16" in prompt_graph: prompt_graph["16"]["inputs"]["positive_prompt"] = prompt_text
+        # Get node mappings from filmeto config
+        node_mapping = filmeto_config.get("node_mapping", {})
+        input_node = node_mapping.get("input_node", "67")  # Default fallback
+        prompt_node = node_mapping.get("prompt_node", "16")  # Default fallback
+        prompt_input_key = node_mapping.get("prompt_input_key", "positive_prompt")  # Default fallback
+        
+        # Apply input image to input node
+        if input_node in prompt_graph:
+            prompt_graph[input_node]["inputs"]["image"] = comfy_filename
+        elif "67" in prompt_graph:  # Fallback to old hardcoded node
+            prompt_graph["67"]["inputs"]["image"] = comfy_filename
+        
+        # Apply prompt to prompt node
+        if prompt_node in prompt_graph:
+            if prompt_input_key in prompt_graph[prompt_node].get("inputs", {}):
+                prompt_graph[prompt_node]["inputs"][prompt_input_key] = prompt_text
+            else:
+                # Try common prompt input keys
+                for key in ["text", "positive_prompt", "prompt"]:
+                    if key in prompt_graph[prompt_node].get("inputs", {}):
+                        prompt_graph[prompt_node]["inputs"][key] = prompt_text
+                        break
+        elif "16" in prompt_graph:  # Fallback to old hardcoded node
+            prompt_graph["16"]["inputs"]["positive_prompt"] = prompt_text
         
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
