@@ -81,15 +81,42 @@ class ComfyUIClient:
             pass
         return None
 
-    async def send_prompt(self, prompt_graph: Dict[str, Any]) -> Optional[str]:
-        """Submit workflow prompt, returns prompt_id"""
+    async def send_prompt(self, workflow: Dict[str, Any]) -> Optional[str]:
+        """Submit workflow, returns prompt_id
+        
+        Args:
+            workflow: Standard ComfyUI workflow JSON (may include prompt, extra_data, _filmeto, etc.)
+        
+        The workflow can be:
+        - A full workflow JSON with prompt, extra_data, and _filmeto sections
+        - Just the prompt graph (nodes dictionary)
+        - A workflow with client_id field (will be replaced with current client_id)
+        """
         if self.session is None or self.session.closed:
             await self.connect()
             
-        payload = {
-            "prompt": prompt_graph,
-            "client_id": self.client_id
-        }
+        # Prepare the workflow for submission
+        # If the workflow contains a "prompt" key, use the whole workflow as is
+        # If it doesn't have "prompt" key, it's likely already the prompt graph
+        workflow_to_send = workflow.copy()
+        
+        # Replace client_id if present to ensure WebSocket routing works correctly
+        if "client_id" in workflow_to_send:
+            workflow_to_send["client_id"] = self.client_id
+        else:
+            workflow_to_send["client_id"] = self.client_id
+        
+        # Extract the prompt graph if it's wrapped in a "prompt" key
+        # Standard ComfyUI workflow JSONs have the node graph at the root level
+        if "prompt" in workflow_to_send:
+            # If it has a "prompt" key, use the whole workflow as is
+            payload = workflow_to_send
+        else:
+            # If it doesn't have a "prompt" key, it's already the prompt graph
+            payload = {
+                "prompt": workflow_to_send,
+                "client_id": self.client_id
+            }
         
         try:
             async with self.session.post(f"{self.base_url}/prompt", json=payload) as resp:
@@ -99,7 +126,7 @@ class ComfyUIClient:
                 else:
                     # Prompt submission failed but don't print to stdout
                     pass
-        except Exception:
+        except Exception as e:
             # Request error but don't print to stdout
             pass
         return None
@@ -141,7 +168,7 @@ class ComfyUIClient:
     async def track_progress(
         self, 
         prompt_id: str, 
-        prompt_graph: Dict[str, Any],
+        workflow: Dict[str, Any],
         progress_callback: Callable[[float, str, Dict[str, Any]], None],
         timeout: float = 600.0
     ):
@@ -169,7 +196,7 @@ class ComfyUIClient:
                             # Finished
                             break
                         elif node is not None:
-                            node_info = prompt_graph.get(node, {})
+                            node_info = workflow.get(node, {})
                             node_title = node_info.get("_meta", {}).get("title", f"Node {node}")
                             progress_callback(20, f"Executing: {node_title}", {"node": node})
                     
@@ -199,7 +226,7 @@ class ComfyUIClient:
 
     async def run_workflow(
         self,
-        prompt_graph: Dict[str, Any],
+        workflow: Dict[str, Any],
         progress_callback: Callable[[float, str, Dict[str, Any]], None],
         output_dir: Path,
         task_id: str,
@@ -214,12 +241,12 @@ class ComfyUIClient:
         try:
             # 2. Submit
             progress_callback(10, "Submitting task to ComfyUI...", {})
-            prompt_id = await self.send_prompt(prompt_graph)
+            prompt_id = await self.send_prompt(workflow)
             if not prompt_id:
                 raise Exception("Failed to submit prompt to ComfyUI")
 
             # 3. Monitor
-            await self.track_progress(prompt_id, prompt_graph, progress_callback, timeout)
+            await self.track_progress(prompt_id, workflow, progress_callback, timeout)
 
             # 4. Results
             progress_callback(90, "Finalizing results...", {})
