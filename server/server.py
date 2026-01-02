@@ -16,6 +16,7 @@ from datetime import datetime
 
 from server.api.types import FilmetoTask, TaskProgress, TaskResult
 from server.plugins.plugin_manager import PluginManager, PluginInfo
+from server.plugins.plugin_ui_loader import PluginUILoader
 
 
 @dataclass
@@ -301,12 +302,15 @@ class ServerManager:
         self.servers_dir = self.workspace_path / "servers"
         self.router_config_path = self.servers_dir / "server_router.yaml"
 
-        # Initialize plugin manager
+        # Initialize plugin manager (for subprocess execution)
         if plugin_manager is None:
             self.plugin_manager = PluginManager()
             self.plugin_manager.discover_plugins()
         else:
             self.plugin_manager = plugin_manager
+
+        # Initialize plugin UI loader (for UI component loading)
+        self.plugin_ui_loader = PluginUILoader(self.plugin_manager.plugins_dir)
 
         # Server instances
         self.servers: Dict[str, Server] = {}
@@ -738,94 +742,6 @@ class ServerManager:
         """
         return self.plugin_manager.list_plugins()
 
-    def get_plugin_directory(self, plugin_name: str) -> Optional[Path]:
-        """
-        Find the plugin directory based on plugin name.
-
-        Args:
-            plugin_name: Name of the plugin
-
-        Returns:
-            Path to plugin directory or None if not found
-        """
-        # First try to match by plugin name as stored in plugin config
-        for plugin_info in self.plugin_manager.list_plugins():
-            if plugin_info.name.lower() == plugin_name.lower():
-                return plugin_info.plugin_path
-
-        # If not found, try to match by directory name (fallback)
-        plugins_dir = self.plugin_manager.plugins_dir
-        for plugin_dir in plugins_dir.iterdir():
-            if plugin_dir.is_dir():
-                # Check if this directory has a plugin.yaml with matching name
-                config_file = plugin_dir / "plugin.yaml"
-                if config_file.exists():
-                    import yaml
-                    try:
-                        with open(config_file, 'r', encoding='utf-8') as f:
-                            config = yaml.safe_load(f)
-                        if config.get('name', '').lower() == plugin_name.lower():
-                            return plugin_dir
-                    except:
-                        continue
-
-        return None
-
-    def load_plugin_instance_for_ui(self, plugin_dir: Path):
-        """
-        Load and instantiate the plugin class from its main module for UI purposes.
-
-        Args:
-            plugin_dir: Path to the plugin directory
-
-        Returns:
-            Plugin instance or None if failed
-        """
-        import sys
-        import importlib.util
-
-        main_file = plugin_dir / "main.py"
-        if not main_file.exists():
-            return None
-
-        # Create a unique module name to avoid conflicts
-        plugin_name = plugin_dir.name
-        module_name = f"plugin_{plugin_name.replace('-', '_')}_config_ui"
-
-        # Check if module already exists in sys.modules
-        if module_name in sys.modules:
-            module = sys.modules[module_name]
-        else:
-            # Import the plugin module
-            spec = importlib.util.spec_from_file_location(module_name, main_file)
-            if not spec or not spec.loader:
-                return None
-
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-
-        plugin_class = None
-        for name in dir(module):
-            obj = getattr(module, name)
-            if (isinstance(obj, type) and
-                hasattr(obj, 'init_ui') and
-                hasattr(obj, 'get_plugin_info') and
-                name != 'BaseServerPlugin'):
-                plugin_class = obj
-                break
-
-        if not plugin_class:
-            return None
-
-        # Create plugin instance - this will be for UI only, not for actual task execution
-        try:
-            plugin_instance = plugin_class()
-            return plugin_instance
-        except Exception as e:
-            print(f"Failed to instantiate plugin class {plugin_class.__name__}: {e}")
-            return None
-
     def get_plugin_ui_widget(self, plugin_name: str, server_config_dict: Optional[Dict[str, Any]] = None):
         """
         Get custom UI widget from a plugin for configuration purposes.
@@ -837,30 +753,11 @@ class ServerManager:
         Returns:
             Custom UI widget or None if not available
         """
-        try:
-            # Get the plugin directory based on plugin name
-            plugin_dir = self.get_plugin_directory(plugin_name)
-
-            if not plugin_dir:
-                return None
-
-            # Import and instantiate the plugin class to get custom UI
-            plugin_instance = self.load_plugin_instance_for_ui(plugin_dir)
-
-            if not plugin_instance:
-                return None
-
-            # Call init_ui method with workspace path and server config
-            # Note: workspace_path would normally be provided by the caller
-            custom_widget = plugin_instance.init_ui(self.workspace_path, server_config_dict)
-
-            return custom_widget
-
-        except Exception as e:
-            print(f"Failed to get custom UI from plugin: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
+        return self.plugin_ui_loader.get_plugin_ui_widget(
+            plugin_name,
+            workspace_path=self.workspace_path,
+            server_config_dict=server_config_dict
+        )
 
     async def cleanup(self):
         """Cleanup resources"""

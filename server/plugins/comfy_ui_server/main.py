@@ -81,6 +81,30 @@ class ComfyUiServerPlugin(BaseServerPlugin):
             ToolConfig(name="image2video", description="Animate image using ComfyUI", parameters=image2video_params),
         ]
 
+    def init_ui(self, workspace_path: str, server_config: Optional[Dict[str, Any]] = None):
+        """
+        Initialize custom UI widget for server configuration.
+
+        Args:
+            workspace_path: Path to workspace directory
+            server_config: Optional existing server configuration
+
+        Returns:
+            QWidget: Custom configuration widget
+        """
+        try:
+            # Import the ComfyUI config widget
+            from server.plugins.comfy_ui_server.config.comfy_ui_config_widget import ComfyUIConfigWidget
+
+            # Create and return the widget using the plugin info and config
+            widget = ComfyUIConfigWidget(workspace_path, server_config, None)
+            return widget
+        except Exception as e:
+            print(f"Failed to create ComfyUI config widget: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     async def execute_task(
         self,
         task_data: Dict[str, Any],
