@@ -42,15 +42,24 @@ class ComfyUIConfigWidget(QWidget):
     def __init__(self, workspace_path: str, server_config: Optional[Dict[str, Any]] = None, parent=None):
         super().__init__(parent)
         
-        self.workspace_path = workspace_path
+        self.workspace_path = Path(workspace_path) if workspace_path else None
         self.server_config = server_config or {}
         self.server_name = server_config.get('name', '') if server_config else ''
         
-        # Workflow storage path - use server plugin directory workflows
-        # Get workflows directory: from server/plugins/comfy_ui_server/config -> comfy_ui_server
-        # Path: config -> comfy_ui_server
-        self.workflows_dir = Path(__file__).parent.parent / "workflows"
-        self.workflows_dir.mkdir(parents=True, exist_ok=True)
+        # Built-in workflows directory (read-only templates)
+        # Located in plugin directory: server/plugins/comfy_ui_server/workflows
+        self.builtin_workflows_dir = Path(__file__).parent.parent / "workflows"
+        
+        # Workspace workflows directory (user-editable)
+        # Located in workspace: workspace_path/servers/{server_name}/workflows
+        if self.workspace_path and self.server_name:
+            self.workspace_workflows_dir = self.workspace_path / "servers" / self.server_name / "workflows"
+            self.workspace_workflows_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self.workspace_workflows_dir = None
+        
+        # Use workspace workflows dir as primary workflows dir for saving
+        self.workflows_dir = self.workspace_workflows_dir if self.workspace_workflows_dir else self.builtin_workflows_dir
         
         # ToolType to workflow name mapping
         self.tooltype_workflow_map = {
@@ -398,17 +407,29 @@ class ComfyUIConfigWidget(QWidget):
                     widget.setChecked(bool(value))
     
     def _initialize_default_workflows(self):
-        """Initialize default workflow files for each ToolType"""
-        if not self.workflows_dir:
+        """Initialize default workflow files for each ToolType in workspace directory"""
+        # Only initialize in workspace directory, not in builtin directory
+        if not self.workspace_workflows_dir:
             return
         
-        self.workflows_dir.mkdir(parents=True, exist_ok=True)
+        self.workspace_workflows_dir.mkdir(parents=True, exist_ok=True)
         
         for tool_type, workflow_name in self.tooltype_workflow_map.items():
-            workflow_file = self.workflows_dir / f"{workflow_name}.json"
+            workflow_file = self.workspace_workflows_dir / f"{workflow_name}.json"
             
-            # Create empty workflow if it doesn't exist
+            # Only create if it doesn't exist (don't overwrite existing)
             if not workflow_file.exists():
+                # Try to copy from builtin templates first
+                builtin_file = self.builtin_workflows_dir / f"{workflow_name}.json"
+                if builtin_file.exists():
+                    try:
+                        import shutil
+                        shutil.copy2(builtin_file, workflow_file)
+                        continue
+                    except Exception as e:
+                        print(f"Failed to copy builtin workflow {builtin_file}: {e}")
+                
+                # Create empty workflow if builtin doesn't exist
                 empty_workflow = {
                     "prompt": {},
                     "extra": {},
@@ -426,19 +447,38 @@ class ComfyUIConfigWidget(QWidget):
                     print(f"Failed to create default workflow {workflow_file}: {e}")
     
     def _load_workflows(self):
-        """Load workflows and initialize default workflows based on ToolType"""
+        """Load workflows from both workspace and builtin directories, merge and deduplicate"""
         self.workflows = []
         self.workflow_list.clear()
         
-        if not self.workflows_dir or not self.workflows_dir.exists():
-            return
+        # Track loaded workflows by name to avoid duplicates
+        loaded_workflows = {}  # workflow_name -> workflow_entry
         
+        # First, load from workspace directory (user-editable, takes priority)
+        if self.workspace_workflows_dir and self.workspace_workflows_dir.exists():
+            self._load_workflows_from_dir(self.workspace_workflows_dir, loaded_workflows, is_builtin=False)
+        
+        # Then, load from builtin directory (templates, only if not already loaded)
+        if self.builtin_workflows_dir and self.builtin_workflows_dir.exists():
+            self._load_workflows_from_dir(self.builtin_workflows_dir, loaded_workflows, is_builtin=True)
+        
+        # Convert dict to list
+        self.workflows = list(loaded_workflows.values())
+        
+        # Update UI
+        self._refresh_workflow_list()
+    
+    def _load_workflows_from_dir(self, workflows_dir: Path, loaded_workflows: Dict, is_builtin: bool):
+        """Load workflows from a specific directory"""
         # Load workflows for each ToolType
         for tool_type, workflow_name in self.tooltype_workflow_map.items():
-            workflow_file = self.workflows_dir / f"{workflow_name}.json"
+            workflow_file = workflows_dir / f"{workflow_name}.json"
             
-            # Ensure file exists (should have been created by _initialize_default_workflows)
             if not workflow_file.exists():
+                continue
+            
+            # Skip if already loaded from workspace (workspace takes priority)
+            if workflow_name in loaded_workflows and not is_builtin:
                 continue
             
             try:
@@ -456,39 +496,48 @@ class ComfyUIConfigWidget(QWidget):
                         'type': filmeto_config.get('type', workflow_name),
                         'description': filmeto_config.get('description', f"Workflow for {workflow_name}"),
                         'file_path': workflow_file,
-                        'node_mapping': filmeto_config.get('node_mapping', {})
+                        'node_mapping': filmeto_config.get('node_mapping', {}),
+                        'is_builtin': is_builtin
                     }
-                    self.workflows.append(workflow_entry)
                 else:
                     # No filmeto config - check if it's old format metadata file
                     if isinstance(workflow_data, dict) and "name" in workflow_data and "type" in workflow_data:
                         # Old format metadata file
-                        workflow_data['file_path'] = workflow_file
-                        self.workflows.append(workflow_data)
+                        workflow_entry = dict(workflow_data)
+                        workflow_entry['file_path'] = workflow_file
+                        workflow_entry['is_builtin'] = is_builtin
                     else:
                         # Raw workflow JSON without filmeto config - create default entry
                         workflow_entry = {
                             'name': workflow_name.replace('_', ' ').title(),
                             'type': workflow_name,
                             'file_path': workflow_file,
-                            'description': f"Workflow for {workflow_name} (needs configuration)"
+                            'description': f"Workflow for {workflow_name} (needs configuration)",
+                            'is_builtin': is_builtin
                         }
-                        self.workflows.append(workflow_entry)
+                
+                # Store by workflow_name (type) for deduplication
+                loaded_workflows[workflow_name] = workflow_entry
+                
             except Exception as e:
                 print(f"Failed to load workflow {workflow_file}: {e}")
                 # Create default entry on error
-                workflow_entry = {
-                    'name': workflow_name.replace('_', ' ').title(),
-                    'type': workflow_name,
-                    'file_path': workflow_file,
-                    'description': f"Workflow for {workflow_name}"
-                }
-                self.workflows.append(workflow_entry)
+                if workflow_name not in loaded_workflows:
+                    workflow_entry = {
+                        'name': workflow_name.replace('_', ' ').title(),
+                        'type': workflow_name,
+                        'file_path': workflow_file,
+                        'description': f"Workflow for {workflow_name}",
+                        'is_builtin': is_builtin
+                    }
+                    loaded_workflows[workflow_name] = workflow_entry
         
         # Load any additional workflow files that don't match ToolType patterns
-        for workflow_file in self.workflows_dir.glob("*.json"):
+        for workflow_file in workflows_dir.glob("*.json"):
+            workflow_name = workflow_file.stem
+            
             # Skip if already loaded
-            if any(w.get('file_path') == workflow_file for w in self.workflows):
+            if workflow_name in loaded_workflows:
                 continue
             
             try:
@@ -500,33 +549,32 @@ class ComfyUIConfigWidget(QWidget):
                     filmeto_config = workflow_data.get('_filmeto', {})
                     if filmeto_config:
                         workflow_entry = {
-                            'name': filmeto_config.get('name', workflow_file.stem.replace('_', ' ').title()),
+                            'name': filmeto_config.get('name', workflow_name.replace('_', ' ').title()),
                             'type': filmeto_config.get('type', 'custom'),
                             'description': filmeto_config.get('description', f"Custom workflow"),
                             'file_path': workflow_file,
-                            'node_mapping': filmeto_config.get('node_mapping', {})
+                            'node_mapping': filmeto_config.get('node_mapping', {}),
+                            'is_builtin': is_builtin
                         }
-                        self.workflows.append(workflow_entry)
                     elif "name" in workflow_data and "type" in workflow_data:
                         # Old format metadata file
-                        workflow_data['file_path'] = workflow_file
-                        self.workflows.append(workflow_data)
+                        workflow_entry = dict(workflow_data)
+                        workflow_entry['file_path'] = workflow_file
+                        workflow_entry['is_builtin'] = is_builtin
                     else:
                         # Try to determine type from filename
-                        workflow_name = workflow_file.stem
                         tool_type = self._guess_tool_type_from_filename(workflow_name)
                         workflow_entry = {
                             'name': workflow_name.replace('_', ' ').title(),
                             'type': tool_type or 'custom',
                             'file_path': workflow_file,
-                            'description': f"Workflow for {tool_type or 'custom'} (needs configuration)"
+                            'description': f"Workflow for {tool_type or 'custom'} (needs configuration)",
+                            'is_builtin': is_builtin
                         }
-                        self.workflows.append(workflow_entry)
+                    
+                    loaded_workflows[workflow_name] = workflow_entry
             except Exception as e:
                 print(f"Failed to load workflow {workflow_file}: {e}")
-        
-        # Update UI
-        self._refresh_workflow_list()
     
     def _guess_tool_type_from_filename(self, filename: str) -> Optional[str]:
         """Guess tool type from filename"""
@@ -695,32 +743,49 @@ class ComfyUIConfigWidget(QWidget):
     
     def _on_edit_workflow(self, workflow: Dict[str, Any]):
         """Handle edit workflow button click - opens JSON editor"""
-        workflow_file = workflow.get('file_path')
-        if not workflow_file:
-            # Try to construct path from type
-            workflow_type = workflow.get('type', 'workflow')
-            workflow_file = self.workflows_dir / f"{workflow_type}.json"
+        workflow_type = workflow.get('type', 'workflow')
+        is_builtin = workflow.get('is_builtin', False)
         
-        if isinstance(workflow_file, str):
-            workflow_file = Path(workflow_file)
+        # Determine target file path (always save to workspace, not builtin)
+        if not self.workspace_workflows_dir:
+            QMessageBox.warning(self, "Error", "Workspace workflows directory not available.")
+            return
         
-        # Ensure file exists
-        if not workflow_file.exists():
-            # Create empty workflow with _filmeto structure
+        target_workflow_file = self.workspace_workflows_dir / f"{workflow_type}.json"
+        
+        # Source file for loading (prefer workspace, fallback to builtin)
+        source_workflow_file = None
+        if target_workflow_file.exists():
+            source_workflow_file = target_workflow_file
+        elif is_builtin:
+            builtin_file = workflow.get('file_path')
+            if builtin_file and Path(builtin_file).exists():
+                # Copy from builtin to workspace
+                try:
+                    import shutil
+                    self.workspace_workflows_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(builtin_file, target_workflow_file)
+                    source_workflow_file = target_workflow_file
+                except Exception as e:
+                    print(f"Failed to copy builtin workflow: {e}")
+        
+        # If still no source file, create empty one
+        if not source_workflow_file or not Path(source_workflow_file).exists():
             empty_workflow = {
                 "prompt": {},
                 "extra": {},
                 "_filmeto": {
-                    "name": workflow.get('name', workflow_file.stem.replace('_', ' ').title()),
-                    "type": workflow.get('type', 'custom'),
+                    "name": workflow.get('name', workflow_type.replace('_', ' ').title()),
+                    "type": workflow_type,
                     "description": workflow.get('description', ''),
                     "node_mapping": workflow.get('node_mapping', {})
                 }
             }
             try:
-                self.workflows_dir.mkdir(parents=True, exist_ok=True)
-                with open(workflow_file, 'w', encoding='utf-8') as f:
+                self.workspace_workflows_dir.mkdir(parents=True, exist_ok=True)
+                with open(target_workflow_file, 'w', encoding='utf-8') as f:
                     json.dump(empty_workflow, f, indent=2, ensure_ascii=False)
+                source_workflow_file = target_workflow_file
             except Exception as e:
                 QMessageBox.critical(
                     self,
@@ -733,7 +798,7 @@ class ComfyUIConfigWidget(QWidget):
         try:
             from server.plugins.comfy_ui_server.config.workflow_json_editor_dialog import WorkflowJsonEditorDialog
             
-            dialog = WorkflowJsonEditorDialog(workflow_file, self)
+            dialog = WorkflowJsonEditorDialog(source_workflow_file, self)
             if dialog.exec() == QDialog.Accepted:
                 # Reload workflows
                 self._load_workflows()
@@ -751,32 +816,53 @@ class ComfyUIConfigWidget(QWidget):
                 return
             workflow = current_item.data(Qt.UserRole)
         
-        workflow_file = workflow.get('file_path')
-        if not workflow_file:
-            # Try to construct path from type
-            workflow_type = workflow.get('type', 'workflow')
-            workflow_file = self.workflows_dir / f"{workflow_type}.json"
+        workflow_type = workflow.get('type', 'workflow')
+        is_builtin = workflow.get('is_builtin', False)
         
-        if isinstance(workflow_file, str):
-            workflow_file = Path(workflow_file)
+        # Determine target file path (always save to workspace, not builtin)
+        if not self.workspace_workflows_dir:
+            QMessageBox.warning(self, "Error", "Workspace workflows directory not available.")
+            return
         
-        # Ensure file exists, create if needed
-        if not workflow_file.exists():
-            # Create empty workflow with proper structure
+        target_workflow_file = self.workspace_workflows_dir / f"{workflow_type}.json"
+        
+        # Source file for loading (prefer workspace, fallback to builtin)
+        source_workflow_file = None
+        if target_workflow_file.exists():
+            source_workflow_file = target_workflow_file
+        elif is_builtin:
+            source_workflow_file = workflow.get('file_path')
+        
+        # If source file doesn't exist, try to copy from builtin
+        if not source_workflow_file or not Path(source_workflow_file).exists():
+            if is_builtin:
+                builtin_file = workflow.get('file_path')
+                if builtin_file and Path(builtin_file).exists():
+                    try:
+                        import shutil
+                        self.workspace_workflows_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(builtin_file, target_workflow_file)
+                        source_workflow_file = target_workflow_file
+                    except Exception as e:
+                        print(f"Failed to copy builtin workflow: {e}")
+        
+        # If still no source file, create empty one
+        if not source_workflow_file or not Path(source_workflow_file).exists():
             empty_workflow = {
                 "prompt": {},
                 "extra": {},
                 "_filmeto": {
-                    "name": workflow.get('name', workflow_file.stem),
-                    "type": workflow.get('type', 'custom'),
+                    "name": workflow.get('name', workflow_type.replace('_', ' ').title()),
+                    "type": workflow_type,
                     "description": workflow.get('description', ''),
-                    "node_mapping": {}
+                    "node_mapping": workflow.get('node_mapping', {})
                 }
             }
             try:
-                self.workflows_dir.mkdir(parents=True, exist_ok=True)
-                with open(workflow_file, 'w', encoding='utf-8') as f:
+                self.workspace_workflows_dir.mkdir(parents=True, exist_ok=True)
+                with open(target_workflow_file, 'w', encoding='utf-8') as f:
                     json.dump(empty_workflow, f, indent=2, ensure_ascii=False)
+                source_workflow_file = target_workflow_file
             except Exception as e:
                 QMessageBox.critical(
                     self,
@@ -787,7 +873,7 @@ class ComfyUIConfigWidget(QWidget):
         
         # Load workflow data to pass to dialog
         try:
-            with open(workflow_file, 'r', encoding='utf-8') as f:
+            with open(source_workflow_file, 'r', encoding='utf-8') as f:
                 workflow_data = json.load(f)
             
             # Extract _filmeto config for existing_config parameter
@@ -795,11 +881,11 @@ class ComfyUIConfigWidget(QWidget):
         except Exception as e:
             existing_config = workflow
         
-        # Open workflow configuration dialog
+        # Open workflow configuration dialog (save to workspace directory)
         try:
             from server.plugins.comfy_ui_server.config.workflow_config_dialog import WorkflowConfigDialog
             
-            dialog = WorkflowConfigDialog(str(workflow_file), self.workflows_dir, self, existing_config)
+            dialog = WorkflowConfigDialog(str(source_workflow_file), self.workspace_workflows_dir, self, existing_config)
             if dialog.exec() == QDialog.Accepted:
                 # Reload workflows
                 self._load_workflows()

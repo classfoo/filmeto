@@ -187,16 +187,18 @@ class Server:
     and provides methods to execute tasks through its associated plugin.
     """
     
-    def __init__(self, config: ServerConfig, plugin_manager: PluginManager):
+    def __init__(self, config: ServerConfig, plugin_manager: PluginManager, workspace_path: Optional[Path] = None):
         """
         Initialize server instance.
         
         Args:
             config: Server configuration
             plugin_manager: Plugin manager for task execution
+            workspace_path: Optional workspace path for workflow loading
         """
         self.config = config
         self.plugin_manager = plugin_manager
+        self.workspace_path = workspace_path
         self._plugin_info: Optional[PluginInfo] = None
     
     @property
@@ -243,6 +245,11 @@ class Server:
         # Inject server-specific parameters
         if self.config.parameters:
             task.metadata["server_config"] = self.config.parameters
+        
+        # Inject workspace_path and server_name for workflow loading
+        if self.workspace_path:
+            task.metadata["workspace_path"] = str(self.workspace_path)
+            task.metadata["server_name"] = self.config.name
         
         # Send task to plugin
         await plugin.send_task(task)
@@ -436,7 +443,7 @@ class ServerManager:
             
             try:
                 config = ServerConfig.load_from_file(str(config_path))
-                server = Server(config, self.plugin_manager)
+                server = Server(config, self.plugin_manager, self.workspace_path)
                 self.servers[config.name] = server
                 print(f"✅ Loaded server: {config.name} ({config.server_type})")
             except Exception as e:
@@ -498,7 +505,7 @@ class ServerManager:
         config.save_to_file(str(config_path))
         
         # Create server instance
-        server = Server(config, self.plugin_manager)
+        server = Server(config, self.plugin_manager, self.workspace_path)
         self.servers[config.name] = server
         
         print(f"✅ Added server: {config.name}")
@@ -551,7 +558,7 @@ class ServerManager:
         config.save_to_file(str(config_path))
         
         # Update server instance
-        server = Server(config, self.plugin_manager)
+        server = Server(config, self.plugin_manager, self.workspace_path)
         self.servers[name] = server
         
         print(f"✅ Updated server: {name}")

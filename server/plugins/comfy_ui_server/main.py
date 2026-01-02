@@ -45,7 +45,10 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         super().__init__()
         self.output_dir = Path(__file__).parent / "outputs"
         self.output_dir.mkdir(exist_ok=True)
-        self.workflows_dir = Path(__file__).parent / "workflows"
+        # Built-in workflows directory (read-only templates)
+        self.builtin_workflows_dir = Path(__file__).parent / "workflows"
+        # Workspace workflows directory (will be set when workspace_path is available)
+        self.workspace_workflows_dir = None
 
     def get_plugin_info(self) -> Dict[str, Any]:
         """Get plugin metadata"""
@@ -118,6 +121,11 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         parameters = task_data.get("parameters", {})
         metadata = task_data.get("metadata", {})
         server_config = metadata.get("server_config", {})
+        
+        # Extract workspace_path and server_name from metadata for workflow loading
+        # These are set by ServerManager when executing tasks
+        workspace_path = metadata.get("workspace_path")
+        server_name = metadata.get("server_name")
 
         # ComfyUI server details
         server_url = server_config.get("server_url", "http://localhost")
@@ -128,14 +136,20 @@ class ComfyUiServerPlugin(BaseServerPlugin):
             base_url = "http://" + base_url
 
         client = ComfyUIClient(base_url)
+        
+        # Prepare server config for workflow loading (include workspace_path and server_name)
+        workflow_server_config = {
+            "workspace_path": metadata.get("workspace_path"),
+            "server_name": metadata.get("server_name")
+        }
 
         try:
             if tool_name == "text2image":
-                return await self._execute_text2image(client, task_id, parameters, progress_callback)
+                return await self._execute_text2image(client, task_id, parameters, progress_callback, workflow_server_config)
             elif tool_name == "image2image":
-                return await self._execute_image2image(client, task_id, parameters, progress_callback)
+                return await self._execute_image2image(client, task_id, parameters, progress_callback, workflow_server_config)
             elif tool_name == "image2video":
-                return await self._execute_image2video(client, task_id, parameters, progress_callback)
+                return await self._execute_image2video(client, task_id, parameters, progress_callback, workflow_server_config)
             else:
                 return {
                     "task_id": task_id,
@@ -155,23 +169,57 @@ class ComfyUiServerPlugin(BaseServerPlugin):
                 "output_files": []
             }
 
-    async def _load_workflow(self, name: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def _get_workspace_workflows_dir(self, server_config: Dict[str, Any]) -> Optional[Path]:
         """
-        Load workflow JSON from the workflows directory.
+        Get workspace workflows directory from server config.
         
+        Args:
+            server_config: Server configuration containing workspace_path and server name
+            
+        Returns:
+            Path to workspace workflows directory or None
+        """
+        workspace_path = server_config.get("workspace_path")
+        server_name = server_config.get("server_name")
+        
+        if workspace_path and server_name:
+            workspace_workflows_dir = Path(workspace_path) / "servers" / server_name / "workflows"
+            return workspace_workflows_dir if workspace_workflows_dir.exists() else None
+        return None
+    
+    async def _load_workflow(self, name: str, server_config: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Load workflow JSON from workspace directory first, then fallback to builtin directory.
+        
+        Args:
+            name: Workflow name (e.g., "text2image")
+            server_config: Optional server configuration for workspace path
+            
         Returns:
             tuple: (prompt_graph, filmeto_config)
             - prompt_graph: The ComfyUI workflow prompt graph
             - filmeto_config: Filmeto-specific configuration including node mappings
         """
-        workflow_path = self.workflows_dir / f"{name}.json"
+        workflow_path = None
+        
+        # Try workspace directory first (if available)
+        if server_config:
+            workspace_workflows_dir = self._get_workspace_workflows_dir(server_config)
+            if workspace_workflows_dir:
+                workflow_path = workspace_workflows_dir / f"{name}.json"
+                if not workflow_path.exists() and name == "text2image":
+                    workflow_path = workspace_workflows_dir / "text2image_workflow.json"
+        
+        # Fallback to builtin directory
+        if not workflow_path or not workflow_path.exists():
+            workflow_path = self.builtin_workflows_dir / f"{name}.json"
+            if not workflow_path.exists():
+                # Fallback for text2image naming inconsistency
+                if name == "text2image":
+                    workflow_path = self.builtin_workflows_dir / "text2image_workflow.json"
+        
         if not workflow_path.exists():
-            # Fallback for text2image naming inconsistency
-            if name == "text2image":
-                workflow_path = self.workflows_dir / "text2image_workflow.json"
-            
-        if not workflow_path.exists():
-            raise FileNotFoundError(f"Workflow file not found: {workflow_path}")
+            raise FileNotFoundError(f"Workflow file not found: {name}.json (checked workspace and builtin directories)")
             
         with open(workflow_path, 'r', encoding='utf-8') as f:
             workflow = json.load(f)
@@ -188,13 +236,13 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         
         return prompt_graph, filmeto_config
 
-    async def _execute_text2image(self, client, task_id, parameters, progress_callback):
+    async def _execute_text2image(self, client, task_id, parameters, progress_callback, server_config: Optional[Dict[str, Any]] = None):
         prompt_text = parameters.get("prompt", "")
         width = parameters.get("width", 720)
         height = parameters.get("height", 1280)
         
         progress_callback(5, "Loading workflow...", {})
-        prompt_graph, filmeto_config = await self._load_workflow("text2image")
+        prompt_graph, filmeto_config = await self._load_workflow("text2image", server_config)
         
         # Get node mappings from filmeto config
         node_mapping = filmeto_config.get("node_mapping", {})
@@ -220,7 +268,7 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
-    async def _execute_image2image(self, client, task_id, parameters, progress_callback):
+    async def _execute_image2image(self, client, task_id, parameters, progress_callback, server_config: Optional[Dict[str, Any]] = None):
         prompt_text = parameters.get("prompt", "")
         input_image_path = parameters.get("input_image_path")
         
@@ -235,7 +283,7 @@ class ComfyUiServerPlugin(BaseServerPlugin):
             raise Exception("Failed to upload image to ComfyUI")
             
         progress_callback(8, "Loading workflow...", {})
-        prompt_graph, filmeto_config = await self._load_workflow("image2image")
+        prompt_graph, filmeto_config = await self._load_workflow("image2image", server_config)
         
         # Get node mappings from filmeto config
         node_mapping = filmeto_config.get("node_mapping", {})
@@ -257,7 +305,7 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
-    async def _execute_image2video(self, client, task_id, parameters, progress_callback):
+    async def _execute_image2video(self, client, task_id, parameters, progress_callback, server_config: Optional[Dict[str, Any]] = None):
         prompt_text = parameters.get("prompt", "")
         input_image_path = parameters.get("input_image_path")
         
@@ -271,7 +319,7 @@ class ComfyUiServerPlugin(BaseServerPlugin):
             raise Exception("Failed to upload image to ComfyUI")
             
         progress_callback(8, "Loading workflow...", {})
-        prompt_graph, filmeto_config = await self._load_workflow("image2video")
+        prompt_graph, filmeto_config = await self._load_workflow("image2video", server_config)
         
         # Get node mappings from filmeto config
         node_mapping = filmeto_config.get("node_mapping", {})

@@ -512,27 +512,33 @@ class WorkflowConfigDialog(CustomDialog):
         
         # Save workflow file with _filmeto key
         try:
-            # Determine target file path
-            if self.existing_config:
-                # Use existing workflow file path
-                target_file = self.workflow_path
-            else:
-                # New workflow - save to workflows directory
-                safe_name = name.replace(' ', '_').lower()
-                target_file = self.workflows_dir / f"{safe_name}.json"
-                
-                # If source file is different, copy workflow content
-                if self.workflow_path != target_file:
-                    import shutil
-                    shutil.copy2(self.workflow_path, target_file)
+            # Always save to workflows_dir (workspace directory)
+            # Determine target file path based on workflow type
+            workflow_type = filmeto_config.get('type', name.replace(' ', '_').lower())
+            target_file = self.workflows_dir / f"{workflow_type}.json"
+            
+            # Ensure target directory exists
+            self.workflows_dir.mkdir(parents=True, exist_ok=True)
             
             # Load existing workflow data (preserve ComfyUI workflow structure)
             workflow_data = {}
+            
+            # If target file exists, load it
             if target_file.exists():
                 with open(target_file, 'r', encoding='utf-8') as f:
                     workflow_data = json.load(f)
             
-            # Ensure workflow_data has proper structure
+            # If source file is different and exists, copy workflow content from source
+            if self.workflow_path != target_file and self.workflow_path.exists():
+                with open(self.workflow_path, 'r', encoding='utf-8') as f:
+                    source_data = json.load(f)
+                # Preserve prompt and extra from source (if not already in target)
+                if 'prompt' in source_data and 'prompt' not in workflow_data:
+                    workflow_data['prompt'] = source_data['prompt']
+                if 'extra' in source_data and 'extra' not in workflow_data:
+                    workflow_data['extra'] = source_data['extra']
+            
+            # Ensure workflow_data has proper structure (from current loaded workflow)
             if 'prompt' not in workflow_data and self.workflow_data:
                 # If we have prompt data from source, preserve it
                 if 'prompt' in self.workflow_data:
