@@ -81,7 +81,7 @@ class AgentPromptInputWidget(BaseWidget):
 
         # Calculate single line height
         self._line_height = self._calculate_line_height()
-        self._min_height = self._line_height * 2  # 2 lines default
+        self._min_height = self._line_height * 1  # 1 line default
         self._max_height = self._line_height * 10  # 10 lines max
 
         # Set size policy to allow height changes
@@ -102,7 +102,7 @@ class AgentPromptInputWidget(BaseWidget):
 
         # Track if we're currently adjusting to prevent loops
         self._is_adjusting = False
-        self._last_line_count = 2  # Track the last calculated line count
+        self._last_line_count = 1  # Track the last calculated line count (default to 1 line)
 
         # Connect text changed signal
         self.input_text.textChanged.connect(self._on_text_changed)
@@ -185,16 +185,16 @@ class AgentPromptInputWidget(BaseWidget):
         if doc_height > 0:
             import math
             line_count = math.ceil(doc_height / self._line_height)
-            # Ensure minimum 2 lines
-            return max(2, line_count)
+            # Ensure minimum 1 line
+            return max(1, line_count)
         else:
-            # If document height is 0, return 2 for empty text
+            # If document height is 0, return 1 for empty text
             text = self.input_text.toPlainText()
             if not text.strip():
-                return 2
+                return 1
             else:
                 # Fallback: count actual newlines + 1
-                return max(2, text.count('\n') + 1)
+                return max(1, text.count('\n') + 1)
     
     def _on_text_changed(self):
         """Handle text change with debouncing to prevent flickering."""
@@ -215,8 +215,8 @@ class AgentPromptInputWidget(BaseWidget):
             # Get the current line count
             line_count = self._get_text_line_count()
 
-            # Clamp line count between 2 and 10
-            clamped_lines = max(2, min(10, line_count))
+            # Clamp line count between 1 and 10
+            clamped_lines = max(1, min(10, line_count))
 
             # Calculate target height
             target_height = self._line_height * clamped_lines
@@ -288,7 +288,7 @@ class AgentPromptInputWidget(BaseWidget):
         self.input_text.setMinimumHeight(self._min_height)
         self.input_text.setMaximumHeight(self._min_height)
         self.input_text.setFixedHeight(self._min_height)
-        self._last_line_count = 2
+        self._last_line_count = 1
     
     def set_enabled(self, enabled: bool):
         """Enable or disable the input widget."""
