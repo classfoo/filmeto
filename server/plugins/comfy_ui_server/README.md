@@ -84,7 +84,7 @@ curl -X POST http://localhost:8000/api/v1/tasks/execute \
 
 ## Output
 
-Generated images are saved to the `outputs/` directory within the plugin folder.
+Generated images and videos are temporarily saved to a system temporary directory and then copied to the project's resources directory. The temporary files are managed by the system and will be automatically cleaned up.
 
 ## Testing
 

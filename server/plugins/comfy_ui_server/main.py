@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import random
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, Callable, List, Optional, Tuple
 
@@ -44,9 +45,8 @@ class ComfyUiServerPlugin(BaseServerPlugin):
 
     def __init__(self):
         super().__init__()
-        self.output_dir = Path(__file__).parent / "outputs"
-        self.output_dir.mkdir(exist_ok=True)
-        # Built-in workflows directory (read-only templates)
+        # Use temporary directory for output files instead of plugin directory
+        # Files will be copied to project resources directory after generation
         self.builtin_workflows_dir = Path(__file__).parent / "workflows"
         # Workspace workflows directory (will be set when workspace_path is available)
         self.workspace_workflows_dir = None
@@ -349,8 +349,11 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         seed_node = node_mapping.get("seed_node")
         if seed_node:
             self._apply_seed_node(prompt_graph, seed_node)
+        
+        # Create temporary directory for this task's output files
+        output_dir = Path(tempfile.mkdtemp(prefix=f"comfyui_{task_id}_"))
             
-        files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
+        files = await client.run_workflow(prompt_graph, progress_callback, output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
     async def _execute_image2image(self, client, task_id, parameters, progress_callback, server_config: Optional[Dict[str, Any]] = None):
@@ -393,7 +396,10 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         if seed_node:
             self._apply_seed_node(prompt_graph, seed_node)
         
-        files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
+        # Create temporary directory for this task's output files
+        output_dir = Path(tempfile.mkdtemp(prefix=f"comfyui_{task_id}_"))
+        
+        files = await client.run_workflow(prompt_graph, progress_callback, output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
     async def _execute_image2video(self, client, task_id, parameters, progress_callback, server_config: Optional[Dict[str, Any]] = None):
@@ -446,7 +452,10 @@ class ComfyUiServerPlugin(BaseServerPlugin):
         if seed_node:
             self._apply_seed_node(prompt_graph, seed_node)
         
-        files = await client.run_workflow(prompt_graph, progress_callback, self.output_dir, task_id)
+        # Create temporary directory for this task's output files
+        output_dir = Path(tempfile.mkdtemp(prefix=f"comfyui_{task_id}_"))
+        
+        files = await client.run_workflow(prompt_graph, progress_callback, output_dir, task_id)
         return {"task_id": task_id, "status": "success", "output_files": files}
 
 if __name__ == "__main__":
