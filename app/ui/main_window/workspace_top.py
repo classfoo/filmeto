@@ -4,7 +4,6 @@ from PySide6.QtCore import Qt
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.editor import MainEditorWidget
-from app.ui.task_list import TaskListWidget
 
 
 class MainWindowWorkspaceTop(BaseWidget):
@@ -34,9 +33,12 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.center: MainEditorWidget = MainEditorWidget(workspace)
         self.splitter.addWidget(self.center)
 
-        # Right panel - task list widget (moved from left)
-        self.right = TaskListWidget(self, workspace)
+        # Right panel - switchable tool panels
+        from app.ui.workspace_panels.workspace_top_right_bar import MainWindowWorkspaceTopRightBar
+        self.right = MainWindowWorkspaceTopRightBar(workspace, self)
         self.right.setObjectName("main_window_workspace_top_right")
+        self.right.setMinimumWidth(200)
+        self.right.setMaximumWidth(200)
         self.splitter.addWidget(self.right)
 
         # Set initial sizes and stretch factors

@@ -33,6 +33,12 @@ class MainWindowHLayout(BaseWidget):
         # Connect left bar button clicks to panel switcher
         self.left_bar.connect_signals(self.workspace.workspace_top.left)
         
+        # Connect right bar button clicks to panel switcher
+        self.right_bar.connect_signals(self.workspace.workspace_top.right)
+        
         # Switch to resource panel by default (this will also update button state via signal)
         self.workspace.workspace_top.left.switch_to_panel('resource')
+        
+        # Switch to agent panel by default for right side (this will also update button state via signal)
+        self.workspace.workspace_top.right.switch_to_panel('agent')
 
