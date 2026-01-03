@@ -98,14 +98,23 @@ class AgentPromptInputWidget(BaseWidget):
         
         # Track animation state
         self._animating_to_height = None
+        self._is_measuring = False  # Flag to prevent recursive calls
         
         # Debounce timer for height adjustment
         self._height_adjust_timer = QTimer()
         self._height_adjust_timer.setSingleShot(True)
         self._height_adjust_timer.timeout.connect(self._adjust_height)
         
-        # Connect text changed signal
+        # Track if we're currently adjusting to prevent loops
+        self._is_adjusting = False
+        
+        # Connect text changed signal - but don't adjust on initial setup
+        self._initialized = False
         self.input_text.textChanged.connect(self._on_text_changed)
+        
+        # Mark as initialized after widget is fully laid out
+        # Use a longer delay to ensure widget is ready
+        QTimer.singleShot(300, lambda: setattr(self, '_initialized', True))
         
         input_container_layout.addWidget(self.input_text)
         
@@ -157,104 +166,182 @@ class AgentPromptInputWidget(BaseWidget):
         return max(line_height, 18)  # Minimum 18px
     
     def _get_text_line_count(self) -> int:
-        """Get the number of lines in the text by measuring document height."""
-        doc = self.input_text.document()
+        """Get the number of lines in the text without modifying document state."""
+        if self._is_measuring:
+            return 2  # Return default to prevent recursion
         
-        # Temporarily set a large height to get accurate document height
-        old_height = self.input_text.height()
-        if old_height <= 0:
-            old_height = self._min_height
+        self._is_measuring = True
         
-        # Temporarily set a large height for measurement
-        # Use a valid large height value (not -1 or 0)
-        measurement_height = 10000
-        self.input_text.setFixedHeight(measurement_height)
-        self.input_text.setMaximumHeight(measurement_height)
-        
-        # Force document to update layout
-        doc.setTextWidth(self.input_text.viewport().width())
-        
-        # Get document height
-        doc_height = doc.size().height()
-        
-        # Restore original height constraints
-        self.input_text.setFixedHeight(old_height)
-        self.input_text.setMinimumHeight(self._min_height)
-        self.input_text.setMaximumHeight(self._max_height)
-        
-        if doc_height <= 0:
-            return 2  # Default to 2 lines for empty text
-        
-        # Calculate line count based on document height and line height
-        # Add small margin for rounding
-        line_count = int((doc_height + self._line_height / 2) / self._line_height)
-        
-        # Ensure minimum 2 lines (for empty or single line text)
-        return max(2, line_count)
+        try:
+            text = self.input_text.toPlainText()
+            
+            # If empty, return 2 lines (default)
+            if not text.strip():
+                return 2
+            
+            # Get viewport width for wrapping calculation
+            viewport_width = self.input_text.viewport().width()
+            if viewport_width <= 0:
+                # Widget not yet laid out, use a reasonable default
+                return 2
+            
+            # Use document's current state to get accurate line count
+            # Read-only access doesn't trigger layout updates
+            doc = self.input_text.document()
+            
+            # Get current text width (may be -1 if not set, which is fine)
+            current_text_width = doc.textWidth()
+            
+            # If text width is already set and matches viewport, use document height
+            # This is the most accurate method when document is already laid out
+            if current_text_width > 0 and abs(current_text_width - viewport_width) < 5:
+                doc_height = doc.size().height()
+                if doc_height > 0:
+                    import math
+                    line_count = math.ceil(doc_height / self._line_height)
+                    return max(2, line_count)
+            
+            # Fallback: Use font metrics to estimate line count
+            # This doesn't modify document state
+            font_metrics = self.input_text.fontMetrics()
+            lines = text.split('\n')
+            
+            total_lines = 0
+            for line in lines:
+                if not line.strip():
+                    # Empty line counts as 1 line
+                    total_lines += 1
+                else:
+                    # Calculate how many wrapped lines this line needs
+                    line_width = font_metrics.horizontalAdvance(line)
+                    if line_width <= 0:
+                        total_lines += 1
+                    else:
+                        # Calculate wrapped lines: ceil(line_width / viewport_width)
+                        # Add small margin for word wrapping
+                        import math
+                        wrapped_lines = math.ceil(line_width / max(viewport_width, 1))
+                        total_lines += max(1, wrapped_lines)
+            
+            # Ensure minimum 2 lines
+            return max(2, total_lines)
+            
+        except Exception as e:
+            # Fallback to default on any error
+            print(f"Error calculating line count: {e}")
+            return 2
+        finally:
+            self._is_measuring = False
     
     def _on_text_changed(self):
         """Handle text change to adjust height."""
+        # Don't adjust during initialization, measuring, or while already adjusting
+        if not self._initialized or self._is_measuring or self._is_adjusting:
+            return
+        
+        # Don't adjust if widget is not yet visible or laid out
+        if not self.input_text.isVisible() or self.input_text.width() <= 0:
+            return
+        
         # Use debounce timer to avoid too frequent updates
         self._height_adjust_timer.stop()
-        self._height_adjust_timer.start(50)  # 50ms debounce
+        self._height_adjust_timer.start(100)  # 100ms debounce for stability
     
     def _adjust_height(self):
         """Adjust input height based on text line count."""
-        line_count = self._get_text_line_count()
-        
-        # Clamp line count between 2 and 10
-        clamped_lines = max(2, min(10, line_count))
-        target_height = self._line_height * clamped_lines
-        
-        # Only animate if height actually changed
-        current_height = self.input_text.height()
-        if abs(current_height - target_height) < 1:
+        # Prevent recursive calls and ensure widget is ready
+        if self._is_measuring or not self._initialized or self._is_adjusting:
             return
         
-        # If already animating to this height, skip
-        if self._animating_to_height == target_height:
+        # Don't adjust if widget is not yet visible or laid out
+        if not self.input_text.isVisible() or self.input_text.width() <= 0:
             return
         
-        # Stop any ongoing animation and get current value
+        # Don't adjust if animation is running - let it finish first
         if self._height_animation.state() == QPropertyAnimation.State.Running:
-            self._height_animation.stop()
+            return
+        
+        # Set adjusting flag to prevent recursive calls
+        self._is_adjusting = True
+        
+        try:
+            line_count = self._get_text_line_count()
+            
+            # Clamp line count between 2 and 10
+            clamped_lines = max(2, min(10, line_count))
+            target_height = self._line_height * clamped_lines
+            
+            # Get current height
             current_height = self.input_text.height()
-        
-        self._animating_to_height = target_height
-        
-        # Set up and start animation
-        # We'll animate by directly updating fixedHeight during animation
-        self._height_animation.setStartValue(int(current_height))
-        self._height_animation.setEndValue(int(target_height))
-        
-        # Update height during animation
-        def on_animation_value_changed(value):
-            height_value = max(1, int(value))  # Ensure positive value
-            self.input_text.setFixedHeight(height_value)
-        
-        self._height_animation.valueChanged.connect(on_animation_value_changed)
-        
-        # Clean up after animation
-        def on_animation_finished():
-            final_height = int(target_height)
-            self.input_text.setFixedHeight(final_height)
-            self.input_text.setMinimumHeight(self._min_height)
-            self.input_text.setMaximumHeight(self._max_height)
-            self._current_height = final_height
-            self._animating_to_height = None
+            if current_height <= 0:
+                current_height = self._min_height
+            
+            # Only adjust if height actually changed significantly (threshold: 2px to avoid micro-adjustments)
+            height_diff = abs(current_height - target_height)
+            if height_diff < 2:
+                self._is_adjusting = False
+                return
+            
+            # If already animating to this height, skip
+            if self._animating_to_height == target_height:
+                self._is_adjusting = False
+                return
+            
+            self._animating_to_height = target_height
+            
+            # Set up and start animation
+            self._height_animation.setStartValue(int(current_height))
+            self._height_animation.setEndValue(int(target_height))
+            
+            # Store callback reference for cleanup
+            def on_animation_value_changed(value):
+                height_value = max(1, int(value))  # Ensure positive value
+                self.input_text.setFixedHeight(height_value)
+            
+            # Disconnect any previous handlers to avoid duplicates
             try:
-                self._height_animation.valueChanged.disconnect(on_animation_value_changed)
+                self._height_animation.valueChanged.disconnect()
             except:
-                pass  # Ignore if already disconnected
-        
-        self._height_animation.finished.connect(on_animation_finished, Qt.ConnectionType.SingleShotConnection)
-        self._height_animation.start()
+                pass
+            
+            self._height_animation.valueChanged.connect(on_animation_value_changed)
+            
+            # Clean up after animation
+            def on_animation_finished():
+                final_height = int(target_height)
+                self.input_text.setFixedHeight(final_height)
+                self.input_text.setMinimumHeight(self._min_height)
+                self.input_text.setMaximumHeight(self._max_height)
+                self._current_height = final_height
+                self._animating_to_height = None
+                self._is_adjusting = False
+                try:
+                    self._height_animation.valueChanged.disconnect()
+                except:
+                    pass
+            
+            # Disconnect any previous finished handlers
+            try:
+                self._height_animation.finished.disconnect()
+            except:
+                pass
+            
+            self._height_animation.finished.connect(on_animation_finished, Qt.ConnectionType.SingleShotConnection)
+            self._height_animation.start()
+            
+        except Exception as e:
+            # Log error but don't crash
+            print(f"Error in _adjust_height: {e}")
+            import traceback
+            traceback.print_exc()
+            self._is_adjusting = False
     
     def resizeEvent(self, event):
         """Handle widget resize to recalculate height."""
         super().resizeEvent(event)
-        # Recalculate height when widget is resized
-        QTimer.singleShot(100, self._adjust_height)
+        # Don't recalculate on resize - let text change events handle it
+        # Resize events can cause infinite loops if we adjust height here
+        pass
     
     def eventFilter(self, obj, event):
         """Handle keyboard events."""
