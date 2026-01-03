@@ -5,10 +5,10 @@ from app.ui.base_widget import BaseWidget
 from app.ui.play_control import PlayControlWidget
 
 
-class MainWindowBottomBar(BaseWidget):
+class MainWindowBottomSideBar(BaseWidget):
 
     def __init__(self, workspace, parent):
-        super(MainWindowBottomBar, self).__init__(workspace)
+        super(MainWindowBottomSideBar, self).__init__(workspace)
         self.setObjectName("main_window_bottom_bar")
         self.parent = parent
         self.setFixedHeight(28)

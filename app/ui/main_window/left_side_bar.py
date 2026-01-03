@@ -5,14 +5,14 @@ from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 
 
-class MainWindowLeftBar(BaseWidget):
+class MainWindowLeftSideBar(BaseWidget):
     """Left sidebar with buttons for panel switching."""
     
     # Signal emitted when button is clicked (panel_name)
     button_clicked = Signal(str)
 
     def __init__(self, workspace, parent):
-        super(MainWindowLeftBar, self).__init__(workspace)
+        super(MainWindowLeftSideBar, self).__init__(workspace)
         self.setObjectName("main_window_left_bar")
         self.parent = parent
         self.setFixedWidth(40)

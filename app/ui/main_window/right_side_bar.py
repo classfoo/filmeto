@@ -4,10 +4,10 @@ from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 
 
-class MainWindowRightBar(BaseWidget):
+class MainWindowRightSideBar(BaseWidget):
 
     def __init__(self, workspace: Workspace, parent):
-        super(MainWindowRightBar, self).__init__(workspace)
+        super(MainWindowRightSideBar, self).__init__(workspace)
         self.setObjectName("main_window_right_bar")
         self.parent = parent
         self.setFixedWidth(40)

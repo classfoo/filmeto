@@ -12,12 +12,12 @@ from app.ui.server_status import ServerStatusWidget, ServerListDialog
 from utils.i18n_utils import translation_manager, tr
 
 
-class MainWindowTopBar(BaseWidget):
+class MainWindowTopSideBar(BaseWidget):
     # Signal to notify when language changes
     language_changed = Signal(str)
 
     def __init__(self, window, workspace: Workspace):
-        super(MainWindowTopBar, self).__init__(workspace)
+        super(MainWindowTopSideBar, self).__init__(workspace)
         self.setObjectName("main_window_top_bar")
         self.window = window
         # central_widget = QWidget(self)

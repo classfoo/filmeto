@@ -5,8 +5,8 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
 from PySide6.QtCore import Qt
 
 from app.data.workspace import Workspace
-from .top_bar import MainWindowTopBar
-from .bottom_bar import MainWindowBottomBar
+from .top_side_bar import MainWindowTopSideBar
+from .bottom_side_bar import MainWindowBottomSideBar
 from .h_layout import MainWindowHLayout
 
 
@@ -29,12 +29,12 @@ class MainWindow(QMainWindow):
         layout.setObjectName("main_window_layout")
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        self.top_bar = MainWindowTopBar(self, self.workspace)
+        self.top_bar = MainWindowTopSideBar(self, self.workspace)
         self.top_bar.setObjectName("main_window_top_bar")
         layout.addWidget(self.top_bar)
         self.h_layout = MainWindowHLayout(self, workspace)
         layout.addWidget(self.h_layout, 1)
-        self.bottom_bar = MainWindowBottomBar(workspace, self)
+        self.bottom_bar = MainWindowBottomSideBar(workspace, self)
         self.bottom_bar.setObjectName("main_window_bottom_bar")
         layout.addWidget(self.bottom_bar)
         central_widget.setLayout(layout)
