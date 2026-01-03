@@ -2,8 +2,8 @@ from PySide6.QtWidgets import QHBoxLayout
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
-from .left_side_bar import MainWindowLeftSideBar
-from .right_side_bar import MainWindowRightSideBar
+from .left_bar import LeftBar
+from .right_bar import RightBar
 from .workspace import MainWindowWorkspace
 
 
@@ -17,17 +17,21 @@ class MainWindowHLayout(BaseWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        self.left_bar = MainWindowLeftSideBar(workspace, self)
-        layout.addWidget(self.left_bar)
+        
+        # Initialize left bar component
+        self.left_bar = LeftBar(workspace, self)
+        layout.addWidget(self.left_bar.get_widget())
+        
+        # Initialize workspace
         self.workspace = MainWindowWorkspace(self, workspace)
         layout.addWidget(self.workspace, 1)
-        self.right_bar = MainWindowRightSideBar(workspace, self)
-        layout.addWidget(self.right_bar)
+        
+        # Initialize right bar component
+        self.right_bar = RightBar(workspace, self)
+        layout.addWidget(self.right_bar.get_widget())
         
         # Connect left bar button clicks to panel switcher
-        self.left_bar.button_clicked.connect(
-            self.workspace.workspace_top.left.switch_to_panel
-        )
+        self.left_bar.connect_signals(self.workspace.workspace_top.left)
         
         # Switch to resource panel by default
         self.workspace.workspace_top.left.switch_to_panel('resource')
