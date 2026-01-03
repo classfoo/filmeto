@@ -1,6 +1,7 @@
 """Prompt input component for agent panel."""
 
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QFrame, QSizePolicy
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QFrame, QSizePolicy, \
+    QGridLayout, QWidget
 from PySide6.QtCore import Qt, Signal, QEvent, QPropertyAnimation, QEasingCurve, QTimer, Property
 from PySide6.QtGui import QKeyEvent, QFont, QCursor
 from app.ui.base_widget import BaseWidget
@@ -36,7 +37,7 @@ class AgentPromptInputWidget(BaseWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)  # Left/right/bottom: 5px, top: 12px
         layout.setSpacing(6)  # Compact spacing
-        
+
         # Input container
         self.input_container = QFrame(self)
         self.input_container.setObjectName("agent_input_container")
@@ -47,10 +48,11 @@ class AgentPromptInputWidget(BaseWidget):
                 border-radius: 10px;
             }
         """)
-        input_container_layout = QVBoxLayout(self.input_container)
+        # Use a grid layout for better control over spacing
+        input_container_layout = QGridLayout(self.input_container)
         input_container_layout.setContentsMargins(2, 6, 2, 6)  # Left/right: 2px margin, top: 12px, bottom: 6px
-        input_container_layout.setSpacing(6)  # Compact spacing between input and button
-        
+        input_container_layout.setSpacing(6)  # Fixed spacing between input and button
+
         # Text input field - dynamic height (2-10 lines)
         # Font size 13px, line height 1.4, single line ~18px
         self.input_text = QTextEdit(self.input_container)
@@ -72,11 +74,11 @@ class AgentPromptInputWidget(BaseWidget):
         """)
         self.input_text.setPlaceholderText(tr("输入消息..."))
         self.input_text.installEventFilter(self)
-        
+
         # Set scrollbar policy: hide scrollbar when less than 10 lines
         self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.input_text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        
+
         # Calculate single line height
         self._line_height = self._calculate_line_height()
         self._min_height = self._line_height * 2  # 2 lines default
@@ -104,17 +106,19 @@ class AgentPromptInputWidget(BaseWidget):
 
         # Connect text changed signal
         self.input_text.textChanged.connect(self._on_text_changed)
-        
-        input_container_layout.addWidget(self.input_text)
-        
-        # Button container - horizontal layout to align button to right
-        button_container = QHBoxLayout()
-        button_container.setContentsMargins(6, 0, 6, 0)
-        button_container.addStretch()  # Push button to the right
-        
+
+        # Add input text to grid at row 0, column 0, spanning 1 row and 2 columns (to make space for button)
+        input_container_layout.addWidget(self.input_text, 0, 0, 1, 2)
+
+        # Create a container for the button to position it properly
+        button_widget = QWidget(self.input_container)
+        button_layout = QHBoxLayout(button_widget)
+        button_layout.setContentsMargins(0, 0, 0, 0)  # No margins for the button container
+        button_layout.addStretch()  # Push button to the right
+
         # Send button - icon button (24x24) below input
         icon_font = QFont("iconfont", 14)  # Font size for 24x24 button
-        self.send_button = QPushButton("\ue83e", self.input_container)  # Play/send icon
+        self.send_button = QPushButton("\ue83e", button_widget)  # Play/send icon
         self.send_button.setObjectName("agent_send_button")
         self.send_button.setFont(icon_font)
         self.send_button.setFixedSize(24, 24)
@@ -140,9 +144,17 @@ class AgentPromptInputWidget(BaseWidget):
             }
         """)
         self.send_button.clicked.connect(self._on_send_message)
-        button_container.addWidget(self.send_button)
-        
-        input_container_layout.addLayout(button_container)
+        button_layout.addWidget(self.send_button)
+
+        # Add button container to grid at row 1, column 1 (right side)
+        input_container_layout.addWidget(button_widget, 1, 1)
+
+        # Set stretch factors: row 0 (text area) expands, row 1 (button row) stays fixed
+        input_container_layout.setRowStretch(0, 1)  # Text area gets all extra vertical space
+        input_container_layout.setRowStretch(1, 0)  # Button row gets no extra space
+        input_container_layout.setColumnStretch(0, 1)  # Column 0 (text area) expands horizontally
+        input_container_layout.setColumnStretch(1, 0)  # Column 1 (button area) stays fixed
+
         layout.addWidget(self.input_container)
     
     def _calculate_line_height(self) -> int:
