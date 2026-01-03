@@ -1,7 +1,7 @@
 """Prompt input component for agent panel."""
 
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QFrame
-from PySide6.QtCore import Qt, Signal, QEvent
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QFrame, QSizePolicy
+from PySide6.QtCore import Qt, Signal, QEvent, QPropertyAnimation, QEasingCurve, QTimer, Property
 from PySide6.QtGui import QKeyEvent, QFont, QCursor
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
@@ -51,11 +51,10 @@ class AgentPromptInputWidget(BaseWidget):
         input_container_layout.setContentsMargins(2, 6, 2, 6)  # Left/right: 2px margin, top: 12px, bottom: 6px
         input_container_layout.setSpacing(6)  # Compact spacing between input and button
         
-        # Text input field - fixed height for two lines of text
-        # Font size 13px, line height ~1.2-1.5x, two lines ~32-39px, plus padding 16px = ~48-55px
+        # Text input field - dynamic height (2-10 lines)
+        # Font size 13px, line height 1.4, single line ~18px
         self.input_text = QTextEdit(self.input_container)
         self.input_text.setObjectName("agent_input_text")
-        self.input_text.setFixedHeight(50)  # Fixed height for two lines
         self.input_text.setStyleSheet("""
             QTextEdit#agent_input_text {
                 background-color: transparent;
@@ -73,6 +72,41 @@ class AgentPromptInputWidget(BaseWidget):
         """)
         self.input_text.setPlaceholderText(tr("输入消息..."))
         self.input_text.installEventFilter(self)
+        
+        # Set scrollbar policy: hide scrollbar when less than 10 lines
+        self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.input_text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        
+        # Calculate single line height
+        self._line_height = self._calculate_line_height()
+        self._min_height = self._line_height * 2  # 2 lines default
+        self._max_height = self._line_height * 10  # 10 lines max
+        self._current_height = self._min_height
+        
+        # Set size policy to allow height changes
+        self.input_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.input_text.setMinimumHeight(self._min_height)
+        self.input_text.setMaximumHeight(self._max_height)
+        self.input_text.setFixedHeight(self._min_height)
+        
+        # Create a wrapper widget for height animation
+        # We'll animate the input_text's height by animating minimumHeight
+        # and synchronizing fixedHeight
+        self._height_animation = QPropertyAnimation(self.input_text, b"minimumHeight")
+        self._height_animation.setDuration(200)  # 200ms animation
+        self._height_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        
+        # Track animation state
+        self._animating_to_height = None
+        
+        # Debounce timer for height adjustment
+        self._height_adjust_timer = QTimer()
+        self._height_adjust_timer.setSingleShot(True)
+        self._height_adjust_timer.timeout.connect(self._adjust_height)
+        
+        # Connect text changed signal
+        self.input_text.textChanged.connect(self._on_text_changed)
+        
         input_container_layout.addWidget(self.input_text)
         
         # Button container - horizontal layout to align button to right
@@ -112,6 +146,115 @@ class AgentPromptInputWidget(BaseWidget):
         
         input_container_layout.addLayout(button_container)
         layout.addWidget(self.input_container)
+    
+    def _calculate_line_height(self) -> int:
+        """Calculate the height of a single line of text."""
+        # Get font metrics
+        font = self.input_text.font()
+        font_metrics = self.input_text.fontMetrics()
+        # Line height = font height * line-height factor (1.4)
+        line_height = int(font_metrics.height() * 1.4)
+        return max(line_height, 18)  # Minimum 18px
+    
+    def _get_text_line_count(self) -> int:
+        """Get the number of lines in the text by measuring document height."""
+        doc = self.input_text.document()
+        
+        # Temporarily set a large height to get accurate document height
+        old_height = self.input_text.height()
+        if old_height <= 0:
+            old_height = self._min_height
+        
+        # Temporarily set a large height for measurement
+        # Use a valid large height value (not -1 or 0)
+        measurement_height = 10000
+        self.input_text.setFixedHeight(measurement_height)
+        self.input_text.setMaximumHeight(measurement_height)
+        
+        # Force document to update layout
+        doc.setTextWidth(self.input_text.viewport().width())
+        
+        # Get document height
+        doc_height = doc.size().height()
+        
+        # Restore original height constraints
+        self.input_text.setFixedHeight(old_height)
+        self.input_text.setMinimumHeight(self._min_height)
+        self.input_text.setMaximumHeight(self._max_height)
+        
+        if doc_height <= 0:
+            return 2  # Default to 2 lines for empty text
+        
+        # Calculate line count based on document height and line height
+        # Add small margin for rounding
+        line_count = int((doc_height + self._line_height / 2) / self._line_height)
+        
+        # Ensure minimum 2 lines (for empty or single line text)
+        return max(2, line_count)
+    
+    def _on_text_changed(self):
+        """Handle text change to adjust height."""
+        # Use debounce timer to avoid too frequent updates
+        self._height_adjust_timer.stop()
+        self._height_adjust_timer.start(50)  # 50ms debounce
+    
+    def _adjust_height(self):
+        """Adjust input height based on text line count."""
+        line_count = self._get_text_line_count()
+        
+        # Clamp line count between 2 and 10
+        clamped_lines = max(2, min(10, line_count))
+        target_height = self._line_height * clamped_lines
+        
+        # Only animate if height actually changed
+        current_height = self.input_text.height()
+        if abs(current_height - target_height) < 1:
+            return
+        
+        # If already animating to this height, skip
+        if self._animating_to_height == target_height:
+            return
+        
+        # Stop any ongoing animation and get current value
+        if self._height_animation.state() == QPropertyAnimation.State.Running:
+            self._height_animation.stop()
+            current_height = self.input_text.height()
+        
+        self._animating_to_height = target_height
+        
+        # Set up and start animation
+        # We'll animate by directly updating fixedHeight during animation
+        self._height_animation.setStartValue(int(current_height))
+        self._height_animation.setEndValue(int(target_height))
+        
+        # Update height during animation
+        def on_animation_value_changed(value):
+            height_value = max(1, int(value))  # Ensure positive value
+            self.input_text.setFixedHeight(height_value)
+        
+        self._height_animation.valueChanged.connect(on_animation_value_changed)
+        
+        # Clean up after animation
+        def on_animation_finished():
+            final_height = int(target_height)
+            self.input_text.setFixedHeight(final_height)
+            self.input_text.setMinimumHeight(self._min_height)
+            self.input_text.setMaximumHeight(self._max_height)
+            self._current_height = final_height
+            self._animating_to_height = None
+            try:
+                self._height_animation.valueChanged.disconnect(on_animation_value_changed)
+            except:
+                pass  # Ignore if already disconnected
+        
+        self._height_animation.finished.connect(on_animation_finished, Qt.ConnectionType.SingleShotConnection)
+        self._height_animation.start()
+    
+    def resizeEvent(self, event):
+        """Handle widget resize to recalculate height."""
+        super().resizeEvent(event)
+        # Recalculate height when widget is resized
+        QTimer.singleShot(100, self._adjust_height)
     
     def eventFilter(self, obj, event):
         """Handle keyboard events."""
