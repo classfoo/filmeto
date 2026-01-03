@@ -1,7 +1,7 @@
 """Camera panel for capture utilities."""
 
 from PySide6.QtWidgets import QVBoxLayout, QLabel
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 
 

@@ -1,15 +1,15 @@
-"""Video effects panel for video processing."""
+"""Messages panel for notifications and logs."""
 
 from PySide6.QtWidgets import QVBoxLayout, QLabel
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 
 
-class VideoEffectsPanel(BasePanel):
-    """Panel for video filters and effects."""
+class MessagesPanel(BasePanel):
+    """Panel for system notifications and messages."""
     
     def __init__(self, workspace: Workspace, parent=None):
-        """Initialize the video effects panel."""
+        """Initialize the messages panel."""
         super().__init__(workspace, parent)
     
     def setup_ui(self):
@@ -17,7 +17,7 @@ class VideoEffectsPanel(BasePanel):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
         
-        label = QLabel("Video Effects Panel\n(Coming soon)", self)
+        label = QLabel("Messages Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")
         label.setStyleSheet("""
             QLabel#panel_placeholder_label {

@@ -1,15 +1,15 @@
-"""Attachments panel for reference management."""
+"""Timeline tools panel for timeline utilities."""
 
 from PySide6.QtWidgets import QVBoxLayout, QLabel
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 
 
-class AttachmentsPanel(BasePanel):
-    """Panel for managing attachments and references."""
+class TimelineToolsPanel(BasePanel):
+    """Panel for timeline manipulation utilities."""
     
     def __init__(self, workspace: Workspace, parent=None):
-        """Initialize the attachments panel."""
+        """Initialize the timeline tools panel."""
         super().__init__(workspace, parent)
     
     def setup_ui(self):
@@ -17,7 +17,7 @@ class AttachmentsPanel(BasePanel):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
         
-        label = QLabel("Attachments Panel\n(Coming soon)", self)
+        label = QLabel("Timeline Tools Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")
         label.setStyleSheet("""
             QLabel#panel_placeholder_label {

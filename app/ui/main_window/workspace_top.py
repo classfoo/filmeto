@@ -22,7 +22,7 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.splitter.setChildrenCollapsible(False)
 
         # Left panel - switchable tool panels
-        from app.ui.workspace_panels import MainWindowWorkspaceTopLeftBar
+        from app.ui.panels import MainWindowWorkspaceTopLeftBar
         self.left = MainWindowWorkspaceTopLeftBar(workspace, self)
         self.left.setObjectName("main_window_workspace_top_left")
         self.left.setMinimumWidth(200)
@@ -34,7 +34,7 @@ class MainWindowWorkspaceTop(BaseWidget):
         self.splitter.addWidget(self.center)
 
         # Right panel - switchable tool panels
-        from app.ui.workspace_panels.workspace_top_right_bar import MainWindowWorkspaceTopRightBar
+        from app.ui.panels.workspace_top_right_bar import MainWindowWorkspaceTopRightBar
         self.right = MainWindowWorkspaceTopRightBar(workspace, self)
         self.right.setObjectName("main_window_workspace_top_right")
         self.right.setMinimumWidth(200)

@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QWidget, QProgressBar, QTabWidget
 )
 from PySide6.QtCore import Qt
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 
 

@@ -1,15 +1,15 @@
-"""Messages panel for notifications and logs."""
+"""Attachments panel for reference management."""
 
 from PySide6.QtWidgets import QVBoxLayout, QLabel
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 
 
-class MessagesPanel(BasePanel):
-    """Panel for system notifications and messages."""
+class AttachmentsPanel(BasePanel):
+    """Panel for managing attachments and references."""
     
     def __init__(self, workspace: Workspace, parent=None):
-        """Initialize the messages panel."""
+        """Initialize the attachments panel."""
         super().__init__(workspace, parent)
     
     def setup_ui(self):
@@ -17,7 +17,7 @@ class MessagesPanel(BasePanel):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
         
-        label = QLabel("Messages Panel\n(Coming soon)", self)
+        label = QLabel("Attachments Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")
         label.setStyleSheet("""
             QLabel#panel_placeholder_label {

@@ -1,7 +1,7 @@
 """Settings panel for application settings."""
 
 from PySide6.QtWidgets import QVBoxLayout
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from app.ui.settings import SettingsWidget
 

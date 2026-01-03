@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, QFileInfo
 from PySide6.QtGui import QIcon, QBrush, QColor
 
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from .resource_preview import ResourcePreview
 

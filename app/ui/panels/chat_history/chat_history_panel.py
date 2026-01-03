@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import QVBoxLayout, QLabel, QListWidget, QListWidgetItem, QHBoxLayout, QPushButton
 from PySide6.QtCore import Qt
-from app.ui.workspace_panels.base_panel import BasePanel
+from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from utils.i18n_utils import tr
 
