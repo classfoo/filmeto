@@ -1,9 +1,10 @@
 """Agent panel for AI Agent interactions."""
 
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QTextEdit, QPushButton, QHBoxLayout
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QVBoxLayout, QLabel
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
+from app.ui.panels.agent.chat_history_widget import ChatHistoryWidget
+from app.ui.panels.agent.prompt_input_widget import AgentPromptInputWidget
 from utils.i18n_utils import tr
 
 
@@ -15,7 +16,8 @@ class AgentPanel(BasePanel):
         super().__init__(workspace, parent)
     
     def setup_ui(self):
-        """Set up the UI components."""
+        """Set up the UI components with vertical layout."""
+        # Main vertical layout
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
@@ -33,81 +35,28 @@ class AgentPanel(BasePanel):
         """)
         layout.addWidget(header_label)
         
-        # Chat area
-        self.chat_history = QTextEdit(self)
-        self.chat_history.setObjectName("agent_chat_history")
-        self.chat_history.setReadOnly(True)
-        self.chat_history.setStyleSheet("""
-            QTextEdit#agent_chat_history {
-                background-color: #1e1f22;
-                color: #e1e1e1;
-                border: 1px solid #505254;
-                border-radius: 5px;
-                padding: 10px;
-                font-size: 13px;
-            }
-        """)
-        self.chat_history.setPlaceholderText(tr("对话历史将显示在这里..."))
-        layout.addWidget(self.chat_history, 1)
+        # Chat history component (top, takes most space)
+        self.chat_history_widget = ChatHistoryWidget(self.workspace, self)
+        layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
         
-        # Input area
-        input_layout = QHBoxLayout()
-        input_layout.setSpacing(5)
+        # Prompt input component (bottom, fixed height)
+        self.prompt_input_widget = AgentPromptInputWidget(self.workspace, self)
+        layout.addWidget(self.prompt_input_widget, 0)  # No stretch
         
-        self.input_text = QTextEdit(self)
-        self.input_text.setObjectName("agent_input_text")
-        self.input_text.setMaximumHeight(80)
-        self.input_text.setStyleSheet("""
-            QTextEdit#agent_input_text {
-                background-color: #2b2d30;
-                color: #e1e1e1;
-                border: 1px solid #505254;
-                border-radius: 5px;
-                padding: 5px;
-                font-size: 13px;
-            }
-            QTextEdit#agent_input_text:focus {
-                border: 1px solid #005a9e;
-            }
-        """)
-        self.input_text.setPlaceholderText(tr("输入消息..."))
-        input_layout.addWidget(self.input_text, 1)
-        
-        self.send_button = QPushButton(tr("发送"), self)
-        self.send_button.setFixedWidth(60)
-        self.send_button.setStyleSheet("""
-            QPushButton {
-                background-color: #005a9e;
-                color: #ffffff;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #0066b3;
-            }
-            QPushButton:pressed {
-                background-color: #004d85;
-            }
-        """)
-        self.send_button.clicked.connect(self._on_send_message)
-        input_layout.addWidget(self.send_button)
-        
-        layout.addLayout(input_layout)
+        # Connect signals
+        self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
     
-    def _on_send_message(self):
-        """Handle send message button click."""
-        message = self.input_text.toPlainText().strip()
+    def _on_message_submitted(self, message: str):
+        """Handle message submission from prompt input widget."""
         if not message:
             return
         
-        # Add message to chat history
-        self.chat_history.append(f"<b>{tr('用户')}:</b> {message}")
-        self.input_text.clear()
+        # Add user message to chat history
+        self.chat_history_widget.append_message(tr("用户"), message)
         
         # TODO: Send to agent and get response
         # For now, just echo back
-        self.chat_history.append(f"<b>{tr('Agent')}:</b> {tr('收到消息: {}').format(message)}")
+        self.chat_history_widget.append_message(tr("Agent"), tr("收到消息: {}").format(message))
     
     def on_activated(self):
         """Called when panel becomes visible."""
