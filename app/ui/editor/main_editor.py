@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFrame, QSplitter, QSizePolicy
 )
 from app.ui.layers import LayersWidget
+from app.ui.task_list import TaskListWidget
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QCursor
 from qasync import asyncSlot
@@ -126,43 +127,38 @@ class MainEditorWidget(BaseTaskWidget):
         preview_layout.setContentsMargins(8, 8, 8, 8)
         preview_layout.setSpacing(0)
         
-        # Create left panel with vertical splitter for tool panel and layers (fixed 200px width)
+        # Create left panel with layers widget (fixed 200px width)
         left_panel = QWidget()
         left_panel.setFixedWidth(200)
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(0)
         
-        # Create vertical splitter for tool config and layers
-        self.left_splitter = QSplitter(Qt.Orientation.Vertical)
-        self.left_splitter.setHandleWidth(4)
-        self.left_splitter.setChildrenCollapsible(False)
-        
-        # Tool panel container at top
-        # Placeholder label when no tool is selected
-
-        # Layers widget at bottom (moved from right sidebar)
+        # Layers widget in left panel
         self.layers_widget = LayersWidget(None, self.workspace)
         self.layers_widget.setObjectName("main_editor_layers_widget")
-        
-        # Add both to the vertical splitter
-        self.left_splitter.addWidget(self.layers_widget)
-        
-        # Set initial sizes: tool panel gets more space
-        self.left_splitter.setSizes([300, 400])
-        self.left_splitter.setStretchFactor(0, 1)
-        self.left_splitter.setStretchFactor(1, 1)
-        
-        # Add splitter to left panel layout
-        left_layout.addWidget(self.left_splitter)
+        left_layout.addWidget(self.layers_widget)
         
         # Preview widget - 使用CanvasEditor替换MediaPreviewWidget 
         self.canvas_editor = CanvasEditor(self.workspace)
         self.canvas_editor.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
-        # Add left panel and canvas editor to preview layout
+        # Create right panel with task list widget (fixed 200px width)
+        right_panel = QWidget()
+        right_panel.setFixedWidth(200)
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+        
+        # Task list widget in right panel
+        self.task_list_widget = TaskListWidget(None, self.workspace)
+        self.task_list_widget.setObjectName("main_editor_task_list_widget")
+        right_layout.addWidget(self.task_list_widget)
+        
+        # Add left panel, canvas editor, and right panel to preview layout
         preview_layout.addWidget(left_panel)
         preview_layout.addWidget(self.canvas_editor, 1)
+        preview_layout.addWidget(right_panel)
         
         # ========== Bottom: Control Area ==========
         self.control_container = QFrame()
@@ -444,20 +440,12 @@ class MainEditorWidget(BaseTaskWidget):
         return self.canvas_editor.canvas_widget  # 返回CanvasWidget而不是MediaPreviewWidget
     
     def set_tool_panel(self, widget: QWidget):
-        """Replace tool config panel content in the left panel."""
-        # Clear previous widgets
-        while self.tool_panel_layout.count():
-            item = self.tool_panel_layout.takeAt(0)
-            w = item.widget()
-            if w:
-                w.setParent(None)
-                w.deleteLater()
-        if widget:
-            self.tool_panel_layout.addWidget(widget)
-        else:
-            # Show default message when no tool config
-            from PySide6.QtWidgets import QLabel
-            self.tool_panel_layout.addWidget(QLabel("No Tool Config"))
+        """Replace tool config panel content in the left panel.
+        Note: Tool panel is no longer displayed in the left panel layout.
+        This method is kept for compatibility but does nothing."""
+        # Tool panel functionality has been removed from the left panel
+        # Left panel now only contains task list and layers widget
+        pass
     
     def on_project_switched(self, project_name):
         """处理项目切换"""
@@ -467,6 +455,10 @@ class MainEditorWidget(BaseTaskWidget):
         # 重新初始化提示输入组件
         if hasattr(self, 'prompt_input') and self.prompt_input:
             self.prompt_input.on_project_switched(project_name)
+
+        # 更新任务列表组件
+        if hasattr(self, 'task_list_widget') and self.task_list_widget:
+            self.task_list_widget.on_project_switched(project_name)
 
         # Reuse the shared plugins instance from workspace, don't recreate
         # Just update the tools registry from the shared instance
