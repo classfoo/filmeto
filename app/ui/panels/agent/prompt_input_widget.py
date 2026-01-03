@@ -27,14 +27,14 @@ class AgentPromptInputWidget(BaseWidget):
         self.setStyleSheet("""
             QWidget#agent_prompt_input_widget {
                 background-color: #2b2d30;
-                border-radius: 12px;
+                border-radius: 6px;
             }
         """)
         self.setObjectName("agent_prompt_input_widget")
         
         # Main layout - 5px margins on left, right, and bottom
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 12, 5, 5)  # Left/right/bottom: 5px, top: 12px
+        layout.setContentsMargins(5, 5, 5, 5)  # Left/right/bottom: 5px, top: 12px
         layout.setSpacing(6)  # Compact spacing
         
         # Input container
@@ -48,7 +48,7 @@ class AgentPromptInputWidget(BaseWidget):
             }
         """)
         input_container_layout = QVBoxLayout(self.input_container)
-        input_container_layout.setContentsMargins(12, 12, 12, 6)  # Compact padding
+        input_container_layout.setContentsMargins(2, 6, 2, 6)  # Left/right: 2px margin, top: 12px, bottom: 6px
         input_container_layout.setSpacing(6)  # Compact spacing between input and button
         
         # Text input field - fixed height for two lines of text
@@ -62,7 +62,7 @@ class AgentPromptInputWidget(BaseWidget):
                 color: #e1e1e1;
                 border: none;
                 border-radius: 8px;
-                padding: 8px;
+                padding: 0px;
                 font-size: 13px;
                 line-height: 1.4;
                 selection-background-color: #4080ff;
@@ -77,7 +77,7 @@ class AgentPromptInputWidget(BaseWidget):
         
         # Button container - horizontal layout to align button to right
         button_container = QHBoxLayout()
-        button_container.setContentsMargins(0, 0, 0, 0)
+        button_container.setContentsMargins(6, 0, 6, 0)
         button_container.addStretch()  # Push button to the right
         
         # Send button - icon button (24x24) below input
