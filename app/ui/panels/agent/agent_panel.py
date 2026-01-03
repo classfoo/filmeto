@@ -1,6 +1,6 @@
 """Agent panel for AI Agent interactions."""
 
-from PySide6.QtWidgets import QVBoxLayout, QLabel
+from PySide6.QtWidgets import QVBoxLayout
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from app.ui.panels.agent.chat_history_widget import ChatHistoryWidget
@@ -17,23 +17,10 @@ class AgentPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components with vertical layout."""
-        # Main vertical layout
+        # Main vertical layout - no margins
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
-        
-        # Header
-        header_label = QLabel(tr("Agent"), self)
-        header_label.setObjectName("panel_header_label")
-        header_label.setStyleSheet("""
-            QLabel#panel_header_label {
-                color: #ffffff;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 5px;
-            }
-        """)
-        layout.addWidget(header_label)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
         # Chat history component (top, takes most space)
         self.chat_history_widget = ChatHistoryWidget(self.workspace, self)

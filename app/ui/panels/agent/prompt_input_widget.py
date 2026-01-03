@@ -32,9 +32,9 @@ class AgentPromptInputWidget(BaseWidget):
         """)
         self.setObjectName("agent_prompt_input_widget")
         
-        # Main layout - compact, no margins on left, right, and bottom
+        # Main layout - 5px margins on left, right, and bottom
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 0, 0)  # Top margin only, no left/right/bottom
+        layout.setContentsMargins(5, 12, 5, 5)  # Left/right/bottom: 5px, top: 12px
         layout.setSpacing(6)  # Compact spacing
         
         # Input container
@@ -51,11 +51,11 @@ class AgentPromptInputWidget(BaseWidget):
         input_container_layout.setContentsMargins(12, 12, 12, 6)  # Compact padding
         input_container_layout.setSpacing(6)  # Compact spacing between input and button
         
-        # Text input field
+        # Text input field - fixed height for two lines of text
+        # Font size 13px, line height ~1.2-1.5x, two lines ~32-39px, plus padding 16px = ~48-55px
         self.input_text = QTextEdit(self.input_container)
         self.input_text.setObjectName("agent_input_text")
-        self.input_text.setMinimumHeight(60)
-        self.input_text.setMaximumHeight(120)
+        self.input_text.setFixedHeight(50)  # Fixed height for two lines
         self.input_text.setStyleSheet("""
             QTextEdit#agent_input_text {
                 background-color: transparent;
@@ -64,6 +64,7 @@ class AgentPromptInputWidget(BaseWidget):
                 border-radius: 8px;
                 padding: 8px;
                 font-size: 13px;
+                line-height: 1.4;
                 selection-background-color: #4080ff;
             }
             QTextEdit#agent_input_text:focus {
