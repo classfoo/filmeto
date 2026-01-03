@@ -1,12 +1,10 @@
+from PySide6.QtWidgets import QWidget, QHBoxLayout
 from qasync import asyncSlot
 
-from app.data.task import TaskResult, TaskProgress
-from app.plugins.models.comfy_ui.comfy_ui_model import ComfyUiModel
 from app.spi.tool import BaseTool
 from app.ui.base_widget import BaseTaskWidget
 from app.ui.media_selector.media_selector import MediaSelector
 from utils.i18n_utils import tr
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 
 
 class ImageEdit(BaseTool, BaseTaskWidget):

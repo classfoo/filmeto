@@ -433,7 +433,7 @@ class ComfyUIConfigWidget(QWidget):
                 empty_workflow = {
                     "prompt": {},
                     "extra": {},
-                    "_filmeto": {
+                    "filmeto": {
                         "name": workflow_name.replace('_', ' ').title(),
                         "type": workflow_name,
                         "description": f"Workflow for {workflow_name}",
@@ -486,8 +486,8 @@ class ComfyUIConfigWidget(QWidget):
                 with open(workflow_file, 'r', encoding='utf-8') as f:
                     workflow_data = json.load(f)
                 
-                # Extract filmeto configuration from _filmeto key
-                filmeto_config = workflow_data.get('_filmeto', {})
+                # Extract filmeto configuration from filmeto key
+                filmeto_config = workflow_data.get('filmeto', {})
                 
                 if filmeto_config:
                     # Has filmeto config - use it
@@ -545,8 +545,8 @@ class ComfyUIConfigWidget(QWidget):
                     workflow_data = json.load(f)
                 
                 if isinstance(workflow_data, dict):
-                    # Check for _filmeto key first
-                    filmeto_config = workflow_data.get('_filmeto', {})
+                    # Check for filmeto key first
+                    filmeto_config = workflow_data.get('filmeto', {})
                     if filmeto_config:
                         workflow_entry = {
                             'name': filmeto_config.get('name', workflow_name.replace('_', ' ').title()),
@@ -774,7 +774,7 @@ class ComfyUIConfigWidget(QWidget):
             empty_workflow = {
                 "prompt": {},
                 "extra": {},
-                "_filmeto": {
+                "filmeto": {
                     "name": workflow.get('name', workflow_type.replace('_', ' ').title()),
                     "type": workflow_type,
                     "description": workflow.get('description', ''),
@@ -851,7 +851,7 @@ class ComfyUIConfigWidget(QWidget):
             empty_workflow = {
                 "prompt": {},
                 "extra": {},
-                "_filmeto": {
+                "filmeto": {
                     "name": workflow.get('name', workflow_type.replace('_', ' ').title()),
                     "type": workflow_type,
                     "description": workflow.get('description', ''),
@@ -876,8 +876,8 @@ class ComfyUIConfigWidget(QWidget):
             with open(source_workflow_file, 'r', encoding='utf-8') as f:
                 workflow_data = json.load(f)
             
-            # Extract _filmeto config for existing_config parameter
-            existing_config = workflow_data.get('_filmeto', workflow)
+            # Extract filmeto config for existing_config parameter
+            existing_config = workflow_data.get('filmeto', workflow)
         except Exception as e:
             existing_config = workflow
         

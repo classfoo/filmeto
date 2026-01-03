@@ -110,11 +110,11 @@ class WorkflowJsonEditorDialog(CustomDialog):
                         self.status_label.setText("⚠ Invalid JSON format - please fix")
                         self.status_label.setStyleSheet("color: #e74c3c; font-size: 10px; border: none;")
             else:
-                # Create empty workflow with _filmeto structure
+                # Create empty workflow with filmeto structure
                 empty_workflow = {
                     "prompt": {},
                     "extra": {},
-                    "_filmeto": {
+                    "filmeto": {
                         "name": self.workflow_path.stem.replace('_', ' ').title(),
                         "type": "custom",
                         "description": "",

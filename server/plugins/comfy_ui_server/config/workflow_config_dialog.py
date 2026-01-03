@@ -34,7 +34,7 @@ class WorkflowConfigDialog(CustomDialog):
         self._load_workflow()
         self._init_ui()
         
-        # Load existing config (from _filmeto or existing_config parameter)
+        # Load existing config (from filmeto or existing_config parameter)
         self._load_existing_config()
     
     def _load_workflow(self):
@@ -414,11 +414,11 @@ class WorkflowConfigDialog(CustomDialog):
     
     
     def _load_existing_config(self):
-        """Load existing workflow configuration from _filmeto key"""
-        # Try to load from workflow file's _filmeto key first
+        """Load existing workflow configuration from filmeto key"""
+        # Try to load from workflow file's filmeto key first
         filmeto_config = None
         if self.workflow_data and isinstance(self.workflow_data, dict):
-            filmeto_config = self.workflow_data.get('_filmeto', {})
+            filmeto_config = self.workflow_data.get('filmeto', {})
         
         # Fallback to existing_config parameter (for backward compatibility)
         if not filmeto_config and self.existing_config:
@@ -472,7 +472,7 @@ class WorkflowConfigDialog(CustomDialog):
         return None
     
     def _on_save(self):
-        """Handle save button click - saves configuration to _filmeto key in workflow JSON"""
+        """Handle save button click - saves configuration to filmeto key in workflow JSON"""
         # Validate required fields
         name = self.name_input.text().strip()
         if not name:
@@ -510,7 +510,7 @@ class WorkflowConfigDialog(CustomDialog):
         if seed_node:
             filmeto_config['node_mapping']['seed_node'] = seed_node
         
-        # Save workflow file with _filmeto key
+        # Save workflow file with filmeto key
         try:
             # Always save to workflows_dir (workspace directory)
             # Determine target file path based on workflow type
@@ -550,8 +550,8 @@ class WorkflowConfigDialog(CustomDialog):
                         if isinstance(v, dict) and 'class_type' in v
                     }
             
-            # Add/update _filmeto configuration
-            workflow_data['_filmeto'] = filmeto_config
+            # Add/update filmeto configuration
+            workflow_data['filmeto'] = filmeto_config
             
             # Save updated workflow file
             with open(target_file, 'w', encoding='utf-8') as f:

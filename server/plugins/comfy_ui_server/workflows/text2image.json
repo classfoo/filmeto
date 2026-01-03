@@ -808,14 +808,14 @@
       }
     }
   },
-  "_filmeto": {
+  "filmeto": {
     "name": "Text2Image",
     "description": "Workflow for text2image (needs configuration)",
     "type": "text2image",
     "node_mapping": {
       "prompt_node": "6",
       "output_node": "60",
-      "seed_node": "60"
+      "seed_node": "3"
     }
   }
 }

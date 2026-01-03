@@ -1,16 +1,11 @@
 import os
-import traceback
 
-from PySide6.QtWidgets import QVBoxLayout, QPushButton, QTextEdit
 from qasync import asyncSlot
 
-from app.data.task import TaskResult, TaskProgress
-from app.data.timeline import TimelineItem
-from app.plugins.models.comfy_ui.comfy_ui_model import ComfyUiModel
 from app.spi.tool import BaseTool
 from app.ui.base_widget import BaseTaskWidget
-from utils.opencv_utils import extract_last_frame_opencv
 from utils.i18n_utils import tr
+from utils.opencv_utils import extract_last_frame_opencv
 
 
 class Image2Video(BaseTool,BaseTaskWidget):
@@ -41,7 +36,7 @@ class Image2Video(BaseTool,BaseTaskWidget):
         }
 
     def init_ui(self, main_editor):
-        from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSpacerItem, QSizePolicy
+        from PySide6.QtWidgets import QWidget, QHBoxLayout, QSpacerItem, QSizePolicy
         from app.ui.media_selector.media_selector import MediaSelector
         
         panel = QWidget()

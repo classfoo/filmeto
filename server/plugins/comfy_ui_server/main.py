@@ -226,7 +226,7 @@ class ComfyUiServerPlugin(BaseServerPlugin):
             workflow = json.load(f)
         
         # Extract filmeto configuration (if exists)
-        filmeto_config = workflow.get("_filmeto", {})
+        filmeto_config = workflow.get("filmeto", {})
         
         # Extract prompt graph (ComfyUI workflow)
         prompt_graph = workflow.get("prompt", workflow)

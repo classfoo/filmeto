@@ -1319,5 +1319,16 @@
         }
       }
     }
+  },
+  "filmeto": {
+    "name": "Image2Image",
+    "description": "Workflow for image2image (needs configuration)",
+    "type": "image2image",
+    "node_mapping": {
+      "prompt_node": "187:6",
+      "output_node": "187:5",
+      "input_node": "133",
+      "seed_node": "187:3"
+    }
   }
 }

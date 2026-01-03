@@ -102,10 +102,10 @@ class ComfyUIClient:
         """Submit workflow, returns prompt_id
         
         Args:
-            workflow: Standard ComfyUI workflow JSON (may include prompt, extra_data, _filmeto, etc.)
+            workflow: Standard ComfyUI workflow JSON (may include prompt, extra_data, filmeto, etc.)
         
         The workflow can be:
-        - A full workflow JSON with prompt, extra_data, and _filmeto sections
+        - A full workflow JSON with prompt, extra_data, and filmeto sections
         - Just the prompt graph (nodes dictionary)
         - A workflow with client_id field (will be replaced with current client_id)
         """
