@@ -234,11 +234,9 @@ class AgentPromptInputWidget(BaseWidget):
         self._scroll_to_bottom()
 
     def _scroll_to_bottom(self):
-        """Scroll the text area to the bottom to keep cursor visible."""
-        # Move cursor to the end and ensure it's visible
-        cursor = self.input_text.textCursor()
-        cursor.movePosition(cursor.End)
-        self.input_text.setTextCursor(cursor)
+        """Scroll the text area to keep cursor visible without changing cursor position."""
+        # Simply ensure the current cursor position is visible
+        # Don't move the cursor - just make sure it's visible in the viewport
         self.input_text.ensureCursorVisible()
     
     def _adjust_height(self):
