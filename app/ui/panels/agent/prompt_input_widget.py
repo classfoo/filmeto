@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QFrame, QSizePolicy, \
     QGridLayout, QWidget
-from PySide6.QtCore import Qt, Signal, QEvent, QPropertyAnimation, QEasingCurve, QTimer, Property
+from PySide6.QtCore import Qt, Signal, QEvent, QEasingCurve, QTimer, Property
 from PySide6.QtGui import QKeyEvent, QFont, QCursor
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
@@ -95,14 +95,13 @@ class AgentPromptInputWidget(BaseWidget):
         self._debounce_timer.setSingleShot(True)
         self._debounce_timer.timeout.connect(self._adjust_height)
 
-        # Animation for smooth height transitions
-        self._height_animation = QPropertyAnimation(self.input_text, b"minimumHeight")
-        self._height_animation.setDuration(150)  # 150ms for smooth but quick animation
-        self._height_animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        # No animation for height transitions to ensure proper functionality
+        # Animation will be handled differently if needed
 
         # Track if we're currently adjusting to prevent loops
         self._is_adjusting = False
-        self._last_line_count = 1  # Track the last calculated line count (default to 1 line)
+        self._last_line_count = 1  # Start with 1 line for empty text
+        self._first_change = True  # Flag to ignore the first text change (initialization)
 
         # Connect text changed signal
         self.input_text.textChanged.connect(self._on_text_changed)
@@ -171,13 +170,26 @@ class AgentPromptInputWidget(BaseWidget):
         # Get the document
         doc = self.input_text.document()
 
+        # Get the current viewport width to determine how text is wrapped
+        viewport_width = self.input_text.viewport().width()
+        if viewport_width <= 0:
+            # If viewport isn't ready yet, use a reasonable default
+            text = self.input_text.toPlainText()
+            if not text.strip():
+                return 1
+            else:
+                # Fallback: count actual newlines + 1
+                return max(1, text.count('\n') + 1)
+
         # Temporarily set the text width to match the viewport width
         # This ensures the document layout is up-to-date
-        viewport_width = self.input_text.viewport().width() - 10  # Account for margins/padding
-        if viewport_width > 0:
-            doc.setTextWidth(viewport_width)
+        original_text_width = doc.textWidth()
+        doc.setTextWidth(viewport_width)
 
-        # Get the document size
+        # Force document layout update
+        doc.adjustSize()
+
+        # Get the document size after layout update
         doc_size = doc.size()
         doc_height = doc_size.height()
 
@@ -186,18 +198,34 @@ class AgentPromptInputWidget(BaseWidget):
             import math
             line_count = math.ceil(doc_height / self._line_height)
             # Ensure minimum 1 line
-            return max(1, line_count)
+            result = max(1, line_count)
         else:
             # If document height is 0, return 1 for empty text
             text = self.input_text.toPlainText()
             if not text.strip():
-                return 1
+                result = 1
             else:
                 # Fallback: count actual newlines + 1
-                return max(1, text.count('\n') + 1)
+                result = max(1, text.count('\n') + 1)
+
+        # Restore original text width if it was set
+        if original_text_width >= 0:
+            doc.setTextWidth(original_text_width)
+        else:
+            # If original was not set, clear the width we set so it auto-adjusts
+            doc.setTextWidth(-1)
+
+        return result
     
     def _on_text_changed(self):
         """Handle text change with debouncing to prevent flickering."""
+        # Handle the first change specially (initialization)
+        if self._first_change:
+            self._first_change = False
+            # Update the initial line count to match the current state
+            self._last_line_count = self._get_text_line_count()
+            return
+
         # Use a short debounce timer to prevent rapid adjustments during typing
         self._debounce_timer.stop()
         self._debounce_timer.start(100)  # 100ms debounce
@@ -221,12 +249,12 @@ class AgentPromptInputWidget(BaseWidget):
             # Calculate target height
             target_height = self._line_height * clamped_lines
 
-            # Only adjust if the line count actually changed significantly
-            if abs(clamped_lines - self._last_line_count) >= 1:
+            # Only adjust if the line count actually changed
+            if clamped_lines != self._last_line_count:
                 # Update the last line count
                 self._last_line_count = clamped_lines
 
-                # Set the new height with animation
+                # Set the new height directly
                 self.input_text.setMinimumHeight(target_height)
                 self.input_text.setMaximumHeight(target_height)
                 self.input_text.setFixedHeight(target_height)
