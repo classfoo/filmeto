@@ -23,6 +23,11 @@ QPushButton:pressed {
     background-color: #005a9e;
 }
 
+QPushButton:checked {
+    background-color: #005a9e;
+    color: #FFFFFF;
+}
+
 QToolBar{
     background: background;
 }

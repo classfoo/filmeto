@@ -16,6 +16,7 @@ class LeftBar:
         self.workspace = workspace
         self.parent = parent
         self.bar = MainWindowLeftSideBar(workspace, parent)
+        self.workspace_top_left = None
     
     def connect_signals(self, workspace_top_left):
         """
@@ -24,7 +25,11 @@ class LeftBar:
         Args:
             workspace_top_left: The workspace top left panel switcher instance
         """
+        self.workspace_top_left = workspace_top_left
+        # Connect button click to panel switching
         self.bar.button_clicked.connect(workspace_top_left.switch_to_panel)
+        # Connect panel switched signal to update button state
+        workspace_top_left.panel_switched.connect(self.bar.set_selected_button)
     
     def get_widget(self):
         """Get the actual widget instance."""
