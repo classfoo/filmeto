@@ -81,40 +81,29 @@ class AgentPromptInputWidget(BaseWidget):
         self._line_height = self._calculate_line_height()
         self._min_height = self._line_height * 2  # 2 lines default
         self._max_height = self._line_height * 10  # 10 lines max
-        self._current_height = self._min_height
-        
+
         # Set size policy to allow height changes
-        self.input_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.input_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.input_text.setMinimumHeight(self._min_height)
         self.input_text.setMaximumHeight(self._max_height)
         self.input_text.setFixedHeight(self._min_height)
-        
-        # Create a wrapper widget for height animation
-        # We'll animate the input_text's height by animating minimumHeight
-        # and synchronizing fixedHeight
+
+        # Debounce timer to prevent rapid height adjustments
+        self._debounce_timer = QTimer()
+        self._debounce_timer.setSingleShot(True)
+        self._debounce_timer.timeout.connect(self._adjust_height)
+
+        # Animation for smooth height transitions
         self._height_animation = QPropertyAnimation(self.input_text, b"minimumHeight")
-        self._height_animation.setDuration(200)  # 200ms animation
-        self._height_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        
-        # Track animation state
-        self._animating_to_height = None
-        self._is_measuring = False  # Flag to prevent recursive calls
-        
-        # Debounce timer for height adjustment
-        self._height_adjust_timer = QTimer()
-        self._height_adjust_timer.setSingleShot(True)
-        self._height_adjust_timer.timeout.connect(self._adjust_height)
-        
+        self._height_animation.setDuration(150)  # 150ms for smooth but quick animation
+        self._height_animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
         # Track if we're currently adjusting to prevent loops
         self._is_adjusting = False
-        
-        # Connect text changed signal - but don't adjust on initial setup
-        self._initialized = False
+        self._last_line_count = 2  # Track the last calculated line count
+
+        # Connect text changed signal
         self.input_text.textChanged.connect(self._on_text_changed)
-        
-        # Mark as initialized after widget is fully laid out
-        # Use a longer delay to ensure widget is ready
-        QTimer.singleShot(300, lambda: setattr(self, '_initialized', True))
         
         input_container_layout.addWidget(self.input_text)
         
@@ -166,174 +155,72 @@ class AgentPromptInputWidget(BaseWidget):
         return max(line_height, 18)  # Minimum 18px
     
     def _get_text_line_count(self) -> int:
-        """Get the number of lines in the text without modifying document state."""
-        if self._is_measuring:
-            return 2  # Return default to prevent recursion
-        
-        self._is_measuring = True
-        
-        try:
+        """Get the number of lines in the text using document layout."""
+        # Get the document
+        doc = self.input_text.document()
+
+        # Temporarily set the text width to match the viewport width
+        # This ensures the document layout is up-to-date
+        viewport_width = self.input_text.viewport().width() - 10  # Account for margins/padding
+        if viewport_width > 0:
+            doc.setTextWidth(viewport_width)
+
+        # Get the document size
+        doc_size = doc.size()
+        doc_height = doc_size.height()
+
+        # Calculate line count based on document height
+        if doc_height > 0:
+            import math
+            line_count = math.ceil(doc_height / self._line_height)
+            # Ensure minimum 2 lines
+            return max(2, line_count)
+        else:
+            # If document height is 0, return 2 for empty text
             text = self.input_text.toPlainText()
-            
-            # If empty, return 2 lines (default)
             if not text.strip():
                 return 2
-            
-            # Get viewport width for wrapping calculation
-            viewport_width = self.input_text.viewport().width()
-            if viewport_width <= 0:
-                # Widget not yet laid out, use a reasonable default
-                return 2
-            
-            # Use document's current state to get accurate line count
-            # Read-only access doesn't trigger layout updates
-            doc = self.input_text.document()
-            
-            # Get current text width (may be -1 if not set, which is fine)
-            current_text_width = doc.textWidth()
-            
-            # If text width is already set and matches viewport, use document height
-            # This is the most accurate method when document is already laid out
-            if current_text_width > 0 and abs(current_text_width - viewport_width) < 5:
-                doc_height = doc.size().height()
-                if doc_height > 0:
-                    import math
-                    line_count = math.ceil(doc_height / self._line_height)
-                    return max(2, line_count)
-            
-            # Fallback: Use font metrics to estimate line count
-            # This doesn't modify document state
-            font_metrics = self.input_text.fontMetrics()
-            lines = text.split('\n')
-            
-            total_lines = 0
-            for line in lines:
-                if not line.strip():
-                    # Empty line counts as 1 line
-                    total_lines += 1
-                else:
-                    # Calculate how many wrapped lines this line needs
-                    line_width = font_metrics.horizontalAdvance(line)
-                    if line_width <= 0:
-                        total_lines += 1
-                    else:
-                        # Calculate wrapped lines: ceil(line_width / viewport_width)
-                        # Add small margin for word wrapping
-                        import math
-                        wrapped_lines = math.ceil(line_width / max(viewport_width, 1))
-                        total_lines += max(1, wrapped_lines)
-            
-            # Ensure minimum 2 lines
-            return max(2, total_lines)
-            
-        except Exception as e:
-            # Fallback to default on any error
-            print(f"Error calculating line count: {e}")
-            return 2
-        finally:
-            self._is_measuring = False
+            else:
+                # Fallback: count actual newlines + 1
+                return max(2, text.count('\n') + 1)
     
     def _on_text_changed(self):
-        """Handle text change to adjust height."""
-        # Don't adjust during initialization, measuring, or while already adjusting
-        if not self._initialized or self._is_measuring or self._is_adjusting:
-            return
-        
-        # Don't adjust if widget is not yet visible or laid out
-        if not self.input_text.isVisible() or self.input_text.width() <= 0:
-            return
-        
-        # Use debounce timer to avoid too frequent updates
-        self._height_adjust_timer.stop()
-        self._height_adjust_timer.start(100)  # 100ms debounce for stability
+        """Handle text change with debouncing to prevent flickering."""
+        # Use a short debounce timer to prevent rapid adjustments during typing
+        self._debounce_timer.stop()
+        self._debounce_timer.start(100)  # 100ms debounce
     
     def _adjust_height(self):
         """Adjust input height based on text line count."""
-        # Prevent recursive calls and ensure widget is ready
-        if self._is_measuring or not self._initialized or self._is_adjusting:
+        # Prevent recursive calls
+        if self._is_adjusting:
             return
-        
-        # Don't adjust if widget is not yet visible or laid out
-        if not self.input_text.isVisible() or self.input_text.width() <= 0:
-            return
-        
-        # Don't adjust if animation is running - let it finish first
-        if self._height_animation.state() == QPropertyAnimation.State.Running:
-            return
-        
+
         # Set adjusting flag to prevent recursive calls
         self._is_adjusting = True
-        
+
         try:
+            # Get the current line count
             line_count = self._get_text_line_count()
-            
+
             # Clamp line count between 2 and 10
             clamped_lines = max(2, min(10, line_count))
+
+            # Calculate target height
             target_height = self._line_height * clamped_lines
-            
-            # Get current height
-            current_height = self.input_text.height()
-            if current_height <= 0:
-                current_height = self._min_height
-            
-            # Only adjust if height actually changed significantly (threshold: 2px to avoid micro-adjustments)
-            height_diff = abs(current_height - target_height)
-            if height_diff < 2:
-                self._is_adjusting = False
-                return
-            
-            # If already animating to this height, skip
-            if self._animating_to_height == target_height:
-                self._is_adjusting = False
-                return
-            
-            self._animating_to_height = target_height
-            
-            # Set up and start animation
-            self._height_animation.setStartValue(int(current_height))
-            self._height_animation.setEndValue(int(target_height))
-            
-            # Store callback reference for cleanup
-            def on_animation_value_changed(value):
-                height_value = max(1, int(value))  # Ensure positive value
-                self.input_text.setFixedHeight(height_value)
-            
-            # Disconnect any previous handlers to avoid duplicates
-            try:
-                self._height_animation.valueChanged.disconnect()
-            except:
-                pass
-            
-            self._height_animation.valueChanged.connect(on_animation_value_changed)
-            
-            # Clean up after animation
-            def on_animation_finished():
-                final_height = int(target_height)
-                self.input_text.setFixedHeight(final_height)
-                self.input_text.setMinimumHeight(self._min_height)
-                self.input_text.setMaximumHeight(self._max_height)
-                self._current_height = final_height
-                self._animating_to_height = None
-                self._is_adjusting = False
-                try:
-                    self._height_animation.valueChanged.disconnect()
-                except:
-                    pass
-            
-            # Disconnect any previous finished handlers
-            try:
-                self._height_animation.finished.disconnect()
-            except:
-                pass
-            
-            self._height_animation.finished.connect(on_animation_finished, Qt.ConnectionType.SingleShotConnection)
-            self._height_animation.start()
-            
-        except Exception as e:
-            # Log error but don't crash
-            print(f"Error in _adjust_height: {e}")
-            import traceback
-            traceback.print_exc()
+
+            # Only adjust if the line count actually changed significantly
+            if abs(clamped_lines - self._last_line_count) >= 1:
+                # Update the last line count
+                self._last_line_count = clamped_lines
+
+                # Set the new height with animation
+                self.input_text.setMinimumHeight(target_height)
+                self.input_text.setMaximumHeight(target_height)
+                self.input_text.setFixedHeight(target_height)
+
+        finally:
+            # Always reset the adjusting flag
             self._is_adjusting = False
     
     def resizeEvent(self, event):
@@ -374,11 +261,22 @@ class AgentPromptInputWidget(BaseWidget):
     
     def set_text(self, text: str):
         """Set the input text."""
+        # Store the current line count before changing text
+        old_line_count = self._get_text_line_count()
+
         self.input_text.setPlainText(text)
+
+        # Adjust height after text is set
+        self._adjust_height()
     
     def clear(self):
         """Clear the input field."""
         self.input_text.clear()
+        # Reset to minimum height
+        self.input_text.setMinimumHeight(self._min_height)
+        self.input_text.setMaximumHeight(self._min_height)
+        self.input_text.setFixedHeight(self._min_height)
+        self._last_line_count = 2
     
     def set_enabled(self, enabled: bool):
         """Enable or disable the input widget."""
