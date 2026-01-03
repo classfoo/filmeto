@@ -229,6 +229,17 @@ class AgentPromptInputWidget(BaseWidget):
         # Use a short debounce timer to prevent rapid adjustments during typing
         self._debounce_timer.stop()
         self._debounce_timer.start(100)  # 100ms debounce
+
+        # Scroll to the bottom to keep the cursor visible
+        self._scroll_to_bottom()
+
+    def _scroll_to_bottom(self):
+        """Scroll the text area to the bottom to keep cursor visible."""
+        # Move cursor to the end and ensure it's visible
+        cursor = self.input_text.textCursor()
+        cursor.movePosition(cursor.End)
+        self.input_text.setTextCursor(cursor)
+        self.input_text.ensureCursorVisible()
     
     def _adjust_height(self):
         """Adjust input height based on text line count."""
@@ -308,6 +319,9 @@ class AgentPromptInputWidget(BaseWidget):
 
         # Adjust height after text is set
         self._adjust_height()
+
+        # Scroll to the bottom to keep the cursor visible
+        self._scroll_to_bottom()
     
     def clear(self):
         """Clear the input field."""
@@ -317,6 +331,9 @@ class AgentPromptInputWidget(BaseWidget):
         self.input_text.setMaximumHeight(self._min_height)
         self.input_text.setFixedHeight(self._min_height)
         self._last_line_count = 1
+
+        # Scroll to the bottom (which is top when empty) to keep the cursor visible
+        self._scroll_to_bottom()
     
     def set_enabled(self, enabled: bool):
         """Enable or disable the input widget."""
