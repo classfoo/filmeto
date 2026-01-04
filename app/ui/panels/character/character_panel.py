@@ -3,7 +3,7 @@
 from typing import List, Optional
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QFrame, QLabel,
-    QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy, QCheckBox
+    QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor, QPixmap
@@ -52,26 +52,23 @@ class CharacterCard(QFrame):
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.addStretch()
 
-        # Checkbox for selection
-        self.checkbox = QCheckBox()
-        self.checkbox.setFixedSize(18, 18)
-        self.checkbox.setStyleSheet("""
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-            }
-            QCheckBox::indicator:unchecked {
-                border: 1px solid #aaa;
-                background: #2d2d2d;
-            }
-            QCheckBox::indicator:checked {
-                border: 1px solid #3498db;
-                background: #3498db;
-            }
-        """)
-        self.checkbox.stateChanged.connect(self._on_checkbox_state_changed)
+        # Icon for selection indicator
+        self.selection_icon = QLabel()
+        self.selection_icon.setFixedSize(18, 18)
+        self.selection_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        top_layout.addWidget(self.checkbox)
+        # Set font for icon
+        icon_font = QFont("iconfont", 10)
+        self.selection_icon.setFont(icon_font)
+
+        # Initially show unselected icon
+        self._update_selection_icon()
+
+        # Make the icon clickable
+        self.selection_icon.mousePressEvent = self._on_selection_icon_clicked
+        self.selection_icon.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        top_layout.addWidget(self.selection_icon)
         layout.addLayout(top_layout)
         
         # Character image or icon
@@ -113,19 +110,28 @@ class CharacterCard(QFrame):
         # Apply card style
         self._apply_style()
 
-    def _on_checkbox_state_changed(self, state):
-        """Handle checkbox state change"""
-        is_checked = state == Qt.CheckState.Checked.value
-        self._is_selected = is_checked
-        self.selection_changed.emit(self.character.name, is_checked)
+    def _on_selection_icon_clicked(self, event):
+        """Handle selection icon click"""
+        self._is_selected = not self._is_selected
+        self._update_selection_icon()
+        self.selection_changed.emit(self.character.name, self._is_selected)
         # Update card style based on selection
         self._update_selection_style()
 
     def set_selected(self, selected: bool):
         """Set the selection state of the card"""
         self._is_selected = selected
-        self.checkbox.setChecked(selected)
+        self._update_selection_icon()
         self._update_selection_style()
+
+    def _update_selection_icon(self):
+        """Update the selection icon based on selection state"""
+        if self._is_selected:
+            self.selection_icon.setText("\ue675")  # Selected icon
+            self.selection_icon.setStyleSheet("color: #3498db;")  # Blue color for selected
+        else:
+            self.selection_icon.setText("\ue673")  # Unselected icon
+            self.selection_icon.setStyleSheet("color: #9e9e9e;")  # Gray color for unselected
 
     def _update_selection_style(self):
         """Update the card style based on selection state"""
@@ -172,8 +178,11 @@ class CharacterCard(QFrame):
     def mousePressEvent(self, event):
         """Handle mouse press - single click for selection"""
         if event.button() == Qt.MouseButton.LeftButton:
-            # Toggle checkbox when card is clicked
-            self.checkbox.setChecked(not self.checkbox.isChecked())
+            # Toggle selection when card is clicked
+            self._is_selected = not self._is_selected
+            self._update_selection_icon()
+            self.selection_changed.emit(self.character.name, self._is_selected)
+            self._update_selection_style()
             self.clicked.emit(self.character.name)
         super().mousePressEvent(event)
 
