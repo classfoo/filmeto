@@ -1,19 +1,39 @@
 """Agent panel for AI Agent interactions."""
 
+import asyncio
+from typing import Optional
 from PySide6.QtWidgets import QVBoxLayout
+from PySide6.QtCore import QObject, Signal, Slot
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from app.ui.panels.agent.chat_history_widget import ChatHistoryWidget
 from app.ui.panels.agent.prompt_input_widget import AgentPromptInputWidget
+from agent.filmeto_agent import FilmetoAgent
 from utils.i18n_utils import tr
 
 
 class AgentPanel(BasePanel):
     """Panel for AI Agent interactions."""
     
+    # Signals for async operations
+    response_token_received = Signal(str)
+    response_complete = Signal(str)
+    error_occurred = Signal(str)
+    
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the agent panel."""
         super().__init__(workspace, parent)
+        
+        # Initialize agent (will be set when project is available)
+        self.agent: Optional[FilmetoAgent] = None
+        self._current_response = ""
+        self._current_message_id = None
+        self._is_processing = False
+        
+        # Connect internal signals
+        self.response_token_received.connect(self._on_token_received)
+        self.response_complete.connect(self._on_response_complete)
+        self.error_occurred.connect(self._on_error)
     
     def setup_ui(self):
         """Set up the UI components with vertical layout."""
@@ -35,20 +55,129 @@ class AgentPanel(BasePanel):
     
     def _on_message_submitted(self, message: str):
         """Handle message submission from prompt input widget."""
-        if not message:
+        if not message or self._is_processing:
+            return
+        
+        # Check if agent is initialized
+        if not self.agent:
+            self._initialize_agent()
+        
+        if not self.agent:
+            self.chat_history_widget.append_message(
+                tr("系统"),
+                tr("错误: Agent未初始化。请确保项目已加载。")
+            )
             return
         
         # Add user message to chat history
         self.chat_history_widget.append_message(tr("用户"), message)
         
-        # TODO: Send to agent and get response
-        # For now, just echo back
-        self.chat_history_widget.append_message(tr("Agent"), tr("收到消息: {}").format(message))
+        # Disable input while processing
+        self._is_processing = True
+        self.prompt_input_widget.set_enabled(False)
+        
+        # Reset current response and start streaming message
+        self._current_response = ""
+        self._current_message_id = self.chat_history_widget.start_streaming_message(tr("Agent"))
+        
+        # Start streaming response in background
+        asyncio.create_task(self._stream_response(message))
+    
+    async def _stream_response(self, message: str):
+        """Stream response from agent."""
+        try:
+            # Stream tokens from agent
+            async for token in self.agent.chat_stream(
+                message=message,
+                on_token=lambda t: self.response_token_received.emit(t),
+                on_complete=lambda r: self.response_complete.emit(r)
+            ):
+                # Tokens are handled by signal callbacks
+                pass
+        except Exception as e:
+            error_msg = f"Error: {str(e)}"
+            self.error_occurred.emit(error_msg)
+    
+    @Slot(str)
+    def _on_token_received(self, token: str):
+        """Handle received token from agent."""
+        self._current_response += token
+        # Update the streaming message in chat history
+        if self._current_message_id:
+            self.chat_history_widget.update_streaming_message(
+                self._current_message_id,
+                self._current_response
+            )
+    
+    @Slot(str)
+    def _on_response_complete(self, response: str):
+        """Handle complete response from agent."""
+        # Update the final message (already displayed via streaming)
+        if self._current_message_id:
+            self.chat_history_widget.update_streaming_message(
+                self._current_message_id,
+                response
+            )
+        
+        # Clear message ID
+        self._current_message_id = None
+        
+        # Re-enable input
+        self._is_processing = False
+        self.prompt_input_widget.set_enabled(True)
+    
+    @Slot(str)
+    def _on_error(self, error_message: str):
+        """Handle error during agent processing."""
+        self.chat_history_widget.append_message(tr("系统"), error_message)
+        
+        # Re-enable input
+        self._is_processing = False
+        self.prompt_input_widget.set_enabled(True)
+    
+    def _initialize_agent(self):
+        """Initialize the agent with current workspace and project."""
+        try:
+            # Get current project from workspace
+            project = self.workspace.get_current_project()
+            if not project:
+                return
+            
+            # Get API key from settings (if available)
+            settings = self.workspace.get_settings()
+            api_key = settings.get('openai_api_key') if settings else None
+            
+            # Create agent instance
+            self.agent = FilmetoAgent(
+                workspace=self.workspace,
+                project=project,
+                api_key=api_key,
+                model="gpt-4o-mini",
+                temperature=0.7,
+                streaming=True
+            )
+            
+            print("✅ Agent initialized successfully")
+        except Exception as e:
+            print(f"❌ Error initializing agent: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def update_project(self, project):
+        """Update agent with new project context."""
+        if self.agent:
+            self.agent.update_context(project=project)
+        else:
+            self._initialize_agent()
     
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
         print("✅ Agent panel activated")
+        
+        # Initialize agent if not already done
+        if not self.agent:
+            self._initialize_agent()
     
     def on_deactivated(self):
         """Called when panel is hidden."""

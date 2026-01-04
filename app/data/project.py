@@ -11,6 +11,7 @@ from app.data.timeline import Timeline
 from app.data.drawing import Drawing
 from app.data.resource import ResourceManager
 from app.data.character import CharacterManager
+from app.data.conversation import ConversationManager
 from utils.yaml_utils import load_yaml, save_yaml
 
 
@@ -29,6 +30,7 @@ class Project():
         self.drawing = Drawing(self.workspace, self)
         self.resource_manager = ResourceManager(self.project_path)
         self.character_manager = CharacterManager(self.project_path)
+        self.conversation_manager = ConversationManager(self.project_path)
         
         # Debounced save mechanism for high-frequency updates (like timeline_position)
         self._pending_save = False
@@ -202,6 +204,10 @@ class Project():
     def get_character_manager(self):
         """Get the character manager instance"""
         return self.character_manager
+    
+    def get_conversation_manager(self):
+        """Get the conversation manager instance"""
+        return self.conversation_manager
 
     def submit_task(self,params):
         print(params)
@@ -390,6 +396,11 @@ class ProjectManager:
         # 创建characters目录
         characters_path = os.path.join(project_path, "characters")
         os.makedirs(characters_path, exist_ok=True)
+        
+        # 创建agent目录及其子目录
+        agent_path = os.path.join(project_path, "agent")
+        os.makedirs(agent_path, exist_ok=True)
+        os.makedirs(os.path.join(agent_path, "conversations"), exist_ok=True)
         
         # 创建项目实例
         project = Project(self.workspace_root_path, project_path, project_name)

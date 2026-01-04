@@ -65,8 +65,15 @@ class ChatHistoryWidget(BaseWidget):
         self.scroll_area.setWidget(self.messages_container)
         layout.addWidget(self.scroll_area)
 
-    def append_message(self, sender: str, message: str):
-        """Append a message to the chat history."""
+    def append_message(self, sender: str, message: str, message_id: str = None):
+        """
+        Append a message to the chat history.
+        
+        Args:
+            sender: Sender name
+            message: Message content
+            message_id: Optional message ID for updating streaming messages
+        """
         if not message:
             return
 
@@ -77,6 +84,10 @@ class ChatHistoryWidget(BaseWidget):
                 background-color: transparent;
             }
         """)
+        
+        # Store message_id as property if provided
+        if message_id:
+            message_widget.setProperty("message_id", message_id)
 
         message_layout = QVBoxLayout(message_widget)
         message_layout.setContentsMargins(0, 0, 0, 0)
@@ -116,6 +127,67 @@ class ChatHistoryWidget(BaseWidget):
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, message_widget)
         self.messages.append(message_widget)
 
+        # Scroll to bottom
+        self.scroll_area.verticalScrollBar().setValue(
+            self.scroll_area.verticalScrollBar().maximum()
+        )
+        
+        return message_widget
+    
+    def update_last_message(self, message: str):
+        """
+        Update the content of the last message (for streaming).
+        
+        Args:
+            message: New message content
+        """
+        if not self.messages:
+            return
+        
+        last_widget = self.messages[-1]
+        # Find the content label
+        for child in last_widget.findChildren(QLabel):
+            if child.objectName() == "chat_content_label":
+                child.setText(message)
+                break
+        
+        # Scroll to bottom
+        self.scroll_area.verticalScrollBar().setValue(
+            self.scroll_area.verticalScrollBar().maximum()
+        )
+    
+    def start_streaming_message(self, sender: str) -> str:
+        """
+        Start a new streaming message with empty content.
+        
+        Args:
+            sender: Sender name
+            
+        Returns:
+            Message ID for updating
+        """
+        import uuid
+        message_id = str(uuid.uuid4())
+        self.append_message(sender, "...", message_id)
+        return message_id
+    
+    def update_streaming_message(self, message_id: str, content: str):
+        """
+        Update a streaming message by ID.
+        
+        Args:
+            message_id: Message ID
+            content: New content
+        """
+        for widget in self.messages:
+            if widget.property("message_id") == message_id:
+                # Find the content label
+                for child in widget.findChildren(QLabel):
+                    if child.objectName() == "chat_content_label":
+                        child.setText(content)
+                        break
+                break
+        
         # Scroll to bottom
         self.scroll_area.verticalScrollBar().setValue(
             self.scroll_area.verticalScrollBar().maximum()
