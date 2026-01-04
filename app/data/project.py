@@ -10,6 +10,7 @@ from app.data.task import TaskManager, TaskResult
 from app.data.timeline import Timeline
 from app.data.drawing import Drawing
 from app.data.resource import ResourceManager
+from app.data.character import CharacterManager
 from utils.yaml_utils import load_yaml, save_yaml
 
 
@@ -27,6 +28,7 @@ class Project():
         self.timeline =  Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
         self.drawing = Drawing(self.workspace, self)
         self.resource_manager = ResourceManager(self.project_path)
+        self.character_manager = CharacterManager(self.project_path)
         
         # Debounced save mechanism for high-frequency updates (like timeline_position)
         self._pending_save = False
@@ -196,6 +198,10 @@ class Project():
     def get_resource_manager(self) -> 'ResourceManager':
         """Get the resource manager instance"""
         return self.resource_manager
+    
+    def get_character_manager(self):
+        """Get the character manager instance"""
+        return self.character_manager
 
     def submit_task(self,params):
         print(params)
@@ -380,6 +386,10 @@ class ProjectManager:
         os.makedirs(os.path.join(resources_path, "videos"), exist_ok=True)
         os.makedirs(os.path.join(resources_path, "audio"), exist_ok=True)
         os.makedirs(os.path.join(resources_path, "others"), exist_ok=True)
+        
+        # 创建characters目录
+        characters_path = os.path.join(project_path, "characters")
+        os.makedirs(characters_path, exist_ok=True)
         
         # 创建项目实例
         project = Project(self.workspace_root_path, project_path, project_name)
