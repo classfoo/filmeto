@@ -276,13 +276,18 @@ class AgentPromptInputWidget(BaseWidget):
     def eventFilter(self, obj, event):
         """Handle keyboard events."""
         if obj == self.input_text and event.type() == QEvent.KeyPress:
-            # Ctrl+Enter or Cmd+Enter to send message
+            # Enter to send message, Shift+Enter for new line
             if isinstance(event, QKeyEvent):
                 if (event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter):
                     modifiers = event.modifiers()
-                    if modifiers & Qt.ControlModifier or modifiers & Qt.MetaModifier:
+                    if not (modifiers & Qt.ShiftModifier):  # Only Enter (without Shift) sends message
                         self._on_send_message()
-                        return True
+                        return True  # Consume the event to prevent default behavior (new line)
+                    else:  # Shift+Enter creates new line
+                        # Insert a new line character manually
+                        cursor = self.input_text.textCursor()
+                        cursor.insertText('\n')
+                        return True  # Consume the event to prevent default behavior
         
         return super().eventFilter(obj, event)
     
