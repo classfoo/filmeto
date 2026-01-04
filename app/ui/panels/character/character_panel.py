@@ -150,10 +150,16 @@ class CharacterCard(QFrame):
         """)
     
     def mousePressEvent(self, event):
-        """Handle mouse press"""
+        """Handle mouse press - single click for selection"""
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.character.name)
         super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        """Handle mouse double click - open edit dialog"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.edit_requested.emit(self.character.name)
+        super().mouseDoubleClickEvent(event)
     
     def contextMenuEvent(self, event):
         """Handle context menu"""
@@ -413,10 +419,8 @@ class CharacterPanel(BasePanel):
         QMessageBox.information(self, tr("提示"), tr("提取功能开发中..."))
     
     def _on_character_clicked(self, character_name: str):
-        """Handle character card click"""
+        """Handle character card click - for selection only"""
         self.character_selected.emit(character_name)
-        # Open edit dialog on click
-        self._on_edit_character(character_name)
     
     def _on_edit_character(self, character_name: str):
         """Handle edit character request"""
