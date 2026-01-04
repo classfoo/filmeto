@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, Signal, QEvent, QEasingCurve, QTimer, Property
 from PySide6.QtGui import QKeyEvent, QFont, QCursor
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
+from app.ui.layout.flow_layout import FlowLayout
 from utils.i18n_utils import tr
 from .context_item_widget import ContextItemWidget
 
@@ -15,6 +16,7 @@ class AgentPromptInputWidget(BaseWidget):
     
     # Signals
     message_submitted = Signal(str)  # Emitted when message is submitted
+    add_context_requested = Signal()  # Emitted when add context button is clicked
     
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the prompt input widget."""
@@ -122,11 +124,48 @@ class AgentPromptInputWidget(BaseWidget):
 
     def _init_context_ui(self, input_container_layout):
         """Initialize the context UI components using context_item_widget."""
-        # Create a container for context items
+        # Create a container for context items with horizontal layout
         self.context_widget = QWidget(self.input_container)
-        self.context_layout = QHBoxLayout(self.context_widget)
+        context_main_layout = QHBoxLayout(self.context_widget)
+        context_main_layout.setContentsMargins(0, 0, 0, 0)
+        context_main_layout.setSpacing(6)
+        
+        # Add button (16x16) on the left
+        icon_font = QFont("iconfont", 10)  # Font size for 16x16 button
+        self.add_context_button = QPushButton("\ue835", self.context_widget)  # Add icon
+        self.add_context_button.setObjectName("add_context_button")
+        self.add_context_button.setFont(icon_font)
+        self.add_context_button.setFixedSize(16, 16)
+        self.add_context_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.add_context_button.setToolTip(tr("Add context"))
+        self.add_context_button.setStyleSheet("""
+            QPushButton#add_context_button {
+                background-color: transparent;
+                border: none;
+                border-radius: 8px;
+                color: #888888;
+                font-size: 10px;
+            }
+            QPushButton#add_context_button:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                color: #e1e1e1;
+            }
+            QPushButton#add_context_button:pressed {
+                background-color: rgba(255, 255, 255, 0.15);
+            }
+        """)
+        self.add_context_button.clicked.connect(self.add_context_requested.emit)
+        context_main_layout.addWidget(self.add_context_button, 0)
+        
+        # Create a container widget for flow layout (context items)
+        self.context_items_container = QWidget(self.context_widget)
+        # Set size policy to allow vertical expansion
+        self.context_items_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.context_layout = FlowLayout(self.context_items_container)
         self.context_layout.setContentsMargins(0, 0, 0, 0)
         self.context_layout.setSpacing(6)
+        
+        context_main_layout.addWidget(self.context_items_container, 1)
         
         # Initialize context items list
         self.context_items = []
@@ -369,23 +408,30 @@ class AgentPromptInputWidget(BaseWidget):
     def add_context_item(self, context_id: str, context_name: str):
         """Add a context item to the context UI."""
         # Create a new context item widget
-        context_item = ContextItemWidget(context_id, context_name)
+        context_item = ContextItemWidget(context_id, context_name, self.context_items_container)
         
         # Connect the removed signal to handle removal
         context_item.removed.connect(self._on_context_item_removed)
         
-        # Add to the layout and internal list
+        # Add to the flow layout and internal list
         self.context_layout.addWidget(context_item)
         self.context_items.append(context_item)
         
         # Show the context widget if it was hidden
         self.context_widget.show()
+        
+        # Update the container size to ensure proper layout
+        self.context_items_container.updateGeometry()
+        self.context_items_container.update()
+        # Force layout update
+        self.context_layout.invalidate()
+        self.context_layout.update()
     
     def remove_context_item(self, context_id: str):
         """Remove a context item by its ID."""
         for i, context_item in enumerate(self.context_items):
             if context_item.get_context_id() == context_id:
-                # Remove from layout
+                # Remove from flow layout
                 self.context_layout.removeWidget(context_item)
                 
                 # Remove from internal list
@@ -397,6 +443,13 @@ class AgentPromptInputWidget(BaseWidget):
                 
                 # Delete the widget
                 context_item.deleteLater()
+                
+                # Update the container size to ensure proper layout
+                self.context_items_container.updateGeometry()
+                self.context_items_container.update()
+                # Force layout update
+                self.context_layout.invalidate()
+                self.context_layout.update()
                 return True
         
         return False
@@ -409,6 +462,13 @@ class AgentPromptInputWidget(BaseWidget):
         
         self.context_items.clear()
         self.context_widget.hide()
+        
+        # Update the container size to ensure proper layout
+        self.context_items_container.updateGeometry()
+        self.context_items_container.update()
+        # Force layout update
+        self.context_layout.invalidate()
+        self.context_layout.update()
     
     def get_context_items(self):
         """Get all context item IDs."""

@@ -1,7 +1,7 @@
 """Context item widget for displaying and managing context entries."""
 
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QSizePolicy
+from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QCursor
 from utils.i18n_utils import tr
 
@@ -24,6 +24,9 @@ class ContextItemWidget(QWidget):
         self._context_id = context_id
         self._context_name = context_name
         self._is_hovered = False
+        
+        # Set size policy to allow widget to shrink but prefer its content size
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         
         self._setup_ui()
         self._apply_style()
@@ -97,4 +100,12 @@ class ContextItemWidget(QWidget):
     def get_context_name(self) -> str:
         """Get the context name."""
         return self._context_name
+    
+    def sizeHint(self) -> QSize:
+        """Return the preferred size of the widget."""
+        # Calculate size based on content
+        hint = super().sizeHint()
+        # Ensure minimum width for readability
+        hint.setWidth(max(hint.width(), 60))
+        return hint
 
