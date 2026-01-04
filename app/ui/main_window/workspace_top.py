@@ -37,8 +37,8 @@ class MainWindowWorkspaceTop(BaseWidget):
         from app.ui.panels.workspace_top_right_bar import MainWindowWorkspaceTopRightBar
         self.right = MainWindowWorkspaceTopRightBar(workspace, self)
         self.right.setObjectName("main_window_workspace_top_right")
-        self.right.setMinimumWidth(200)
-        self.right.setMaximumWidth(200)
+        self.right.setMinimumWidth(300)
+        self.right.setMaximumWidth(300)
         self.splitter.addWidget(self.right)
 
         # Set initial sizes and stretch factors
