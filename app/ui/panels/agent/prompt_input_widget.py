@@ -1,6 +1,6 @@
 """Prompt input component for agent panel."""
 
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QFrame, QSizePolicy, \
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPlainTextEdit, QPushButton, QLabel, QFrame, QSizePolicy, \
     QGridLayout, QWidget
 from PySide6.QtCore import Qt, Signal, QEvent, QEasingCurve, QTimer, Property
 from PySide6.QtGui import QKeyEvent, QFont, QCursor
@@ -136,12 +136,12 @@ class AgentPromptInputWidget(BaseWidget):
 
     def _init_input_ui(self, input_container_layout):
         """Initialize the input UI components."""
-        # Text input field - dynamic height (2-10 lines)
+        # Text input field - dynamic height (1-10 lines)
         # Font size 13px, line height 1.4, single line ~18px
-        self.input_text = QTextEdit(self.input_container)
+        self.input_text = QPlainTextEdit(self.input_container)
         self.input_text.setObjectName("agent_input_text")
         self.input_text.setStyleSheet("""
-            QTextEdit#agent_input_text {
+            QPlainTextEdit#agent_input_text {
                 background-color: transparent;
                 color: #e1e1e1;
                 border: none;
@@ -151,15 +151,15 @@ class AgentPromptInputWidget(BaseWidget):
                 line-height: 1.4;
                 selection-background-color: #4080ff;
             }
-            QTextEdit#agent_input_text:focus {
+            QPlainTextEdit#agent_input_text:focus {
                 border: none;
             }
         """)
         self.input_text.setPlaceholderText(tr("输入消息..."))
         self.input_text.installEventFilter(self)
 
-        # Set scrollbar policy: hide scrollbar when less than 10 lines
-        self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # Set scrollbar policy: show scrollbar only when content exceeds 10 lines
+        self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.input_text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         # Calculate single line height
@@ -173,18 +173,8 @@ class AgentPromptInputWidget(BaseWidget):
         self.input_text.setMaximumHeight(self._max_height)
         self.input_text.setFixedHeight(self._min_height)
 
-        # Debounce timer to prevent rapid height adjustments
-        self._debounce_timer = QTimer()
-        self._debounce_timer.setSingleShot(True)
-        self._debounce_timer.timeout.connect(self._adjust_height)
-
-        # Track if we're currently adjusting to prevent loops
-        self._is_adjusting = False
-        self._last_line_count = 1  # Start with 1 line for empty text
-        self._first_change = True  # Flag to ignore the first text change (initialization)
-
-        # Connect text changed signal
-        self.input_text.textChanged.connect(self._on_text_changed)
+        # Connect document contents changed signal to adjust height automatically
+        self.input_text.document().contentsChanged.connect(self._adjust_height_auto)
 
         # Add input text to grid at row 1, column 0, spanning 1 row and 2 columns (to make space for button)
         input_container_layout.addWidget(self.input_text, 1, 0, 1, 2)
@@ -240,118 +230,40 @@ class AgentPromptInputWidget(BaseWidget):
     def _calculate_line_height(self) -> int:
         """Calculate the height of a single line of text."""
         # Get font metrics
-        font = self.input_text.font()
         font_metrics = self.input_text.fontMetrics()
         # Line height = font height * line-height factor (1.4)
         line_height = int(font_metrics.height() * 1.4)
         return max(line_height, 18)  # Minimum 18px
     
-    def _get_text_line_count(self) -> int:
-        """Get the number of lines in the text using document layout."""
+    def _adjust_height_auto(self):
+        """Automatically adjust input height based on content using QPlainTextEdit's built-in capabilities."""
         # Get the document
         doc = self.input_text.document()
-
-        # Get the current viewport width to determine how text is wrapped
-        viewport_width = self.input_text.viewport().width()
-        if viewport_width <= 0:
-            # If viewport isn't ready yet, use a reasonable default
-            text = self.input_text.toPlainText()
-            if not text.strip():
-                return 1
-            else:
-                # Fallback: count actual newlines + 1
-                return max(1, text.count('\n') + 1)
-
-        # Temporarily set the text width to match the viewport width
-        # This ensures the document layout is up-to-date
-        original_text_width = doc.textWidth()
-        doc.setTextWidth(viewport_width)
-
-        # Force document layout update
-        doc.adjustSize()
-
-        # Get the document size after layout update
-        doc_size = doc.size()
-        doc_height = doc_size.height()
-
-        # Calculate line count based on document height
-        if doc_height > 0:
-            import math
-            line_count = math.ceil(doc_height / self._line_height)
-            # Ensure minimum 1 line
-            result = max(1, line_count)
+        
+        # Get the block count (number of lines)
+        # QPlainTextEdit always has at least 1 block (even when empty)
+        block_count = doc.blockCount()
+        
+        # Ensure at least 1 line for empty content
+        if block_count == 0:
+            block_count = 1
+        
+        # Clamp line count between 1 and 10
+        clamped_lines = max(1, min(10, block_count))
+        
+        # Calculate target height based on clamped lines
+        target_height = self._line_height * clamped_lines
+        
+        # Set the height
+        self.input_text.setMinimumHeight(target_height)
+        self.input_text.setMaximumHeight(target_height)
+        self.input_text.setFixedHeight(target_height)
+        
+        # If content exceeds 10 lines, enable vertical scrollbar
+        if block_count > 10:
+            self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         else:
-            # If document height is 0, return 1 for empty text
-            text = self.input_text.toPlainText()
-            if not text.strip():
-                result = 1
-            else:
-                # Fallback: count actual newlines + 1
-                result = max(1, text.count('\n') + 1)
-
-        # Restore original text width if it was set
-        if original_text_width >= 0:
-            doc.setTextWidth(original_text_width)
-        else:
-            # If original was not set, clear the width we set so it auto-adjusts
-            doc.setTextWidth(-1)
-
-        return result
-    
-    def _on_text_changed(self):
-        """Handle text change with debouncing to prevent flickering."""
-        # Handle the first change specially (initialization)
-        if self._first_change:
-            self._first_change = False
-            # Update the initial line count to match the current state
-            self._last_line_count = self._get_text_line_count()
-            return
-
-        # Use a short debounce timer to prevent rapid adjustments during typing
-        self._debounce_timer.stop()
-        self._debounce_timer.start(100)  # 100ms debounce
-
-        # Scroll to the bottom to keep the cursor visible
-        self._scroll_to_bottom()
-
-    def _scroll_to_bottom(self):
-        """Scroll the text area to keep cursor visible without changing cursor position."""
-        # Simply ensure the current cursor position is visible
-        # Don't move the cursor - just make sure it's visible in the viewport
-        self.input_text.ensureCursorVisible()
-    
-    def _adjust_height(self):
-        """Adjust input height based on text line count."""
-        # Prevent recursive calls
-        if self._is_adjusting:
-            return
-
-        # Set adjusting flag to prevent recursive calls
-        self._is_adjusting = True
-
-        try:
-            # Get the current line count
-            line_count = self._get_text_line_count()
-
-            # Clamp line count between 1 and 10
-            clamped_lines = max(1, min(10, line_count))
-
-            # Calculate target height
-            target_height = self._line_height * clamped_lines
-
-            # Only adjust if the line count actually changed
-            if clamped_lines != self._last_line_count:
-                # Update the last line count
-                self._last_line_count = clamped_lines
-
-                # Set the new height directly
-                self.input_text.setMinimumHeight(target_height)
-                self.input_text.setMaximumHeight(target_height)
-                self.input_text.setFixedHeight(target_height)
-
-        finally:
-            # Always reset the adjusting flag
-            self._is_adjusting = False
+            self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     
     def resizeEvent(self, event):
         """Handle widget resize to recalculate height."""
@@ -391,28 +303,13 @@ class AgentPromptInputWidget(BaseWidget):
     
     def set_text(self, text: str):
         """Set the input text."""
-        # Store the current line count before changing text
-        old_line_count = self._get_text_line_count()
-
         self.input_text.setPlainText(text)
-
-        # Adjust height after text is set
-        self._adjust_height()
-
-        # Scroll to the bottom to keep the cursor visible
-        self._scroll_to_bottom()
+        # Height adjustment is handled automatically by _adjust_height_auto via contentsChanged signal
     
     def clear(self):
         """Clear the input field."""
         self.input_text.clear()
-        # Reset to minimum height
-        self.input_text.setMinimumHeight(self._min_height)
-        self.input_text.setMaximumHeight(self._min_height)
-        self.input_text.setFixedHeight(self._min_height)
-        self._last_line_count = 1
-
-        # Scroll to the bottom (which is top when empty) to keep the cursor visible
-        self._scroll_to_bottom()
+        # Height adjustment is handled automatically by _adjust_height_auto via contentsChanged signal
     
     def set_enabled(self, enabled: bool):
         """Enable or disable the input widget."""
