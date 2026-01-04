@@ -159,7 +159,7 @@ class AgentPromptInputWidget(BaseWidget):
         self.input_text.installEventFilter(self)
 
         # Set scrollbar policy: show scrollbar only when content exceeds 10 lines
-        self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.input_text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         # Calculate single line height
@@ -261,7 +261,7 @@ class AgentPromptInputWidget(BaseWidget):
         
         # If content exceeds 10 lines, enable vertical scrollbar
         if block_count > 10:
-            self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         else:
             self.input_text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     
