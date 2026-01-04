@@ -3,7 +3,7 @@
 from typing import List, Optional
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QFrame, QLabel,
-    QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy, QToolButton
+    QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy, QCheckBox
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor, QPixmap
@@ -16,16 +16,17 @@ from utils.i18n_utils import tr
 
 class CharacterCard(QFrame):
     """Individual character card in the grid"""
-    
-    delete_requested = Signal(str)  # character_name
+
     edit_requested = Signal(str)  # character_name
     clicked = Signal(str)  # character_name
-    
+    selection_changed = Signal(str, bool)  # character_name, is_selected
+
     def __init__(self, character: Character, parent=None):
         super().__init__(parent)
         self.character = character
+        self._is_selected = False
         self._init_ui()
-    
+
     def _init_ui(self):
         """Initialize the card UI"""
         # Fixed card size: 9:16 aspect ratio
@@ -40,49 +41,37 @@ class CharacterCard(QFrame):
         self.setFixedSize(card_width, card_height)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        
+
         # Main layout
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(4)
-        
-        # Top layout for menu button (spacer + menu button)
+
+        # Top layout for checkbox
         top_layout = QHBoxLayout()
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.addStretch()
-        
-        # Menu button with dropdown (replaces delete button)
-        self.menu_btn = QToolButton()
-        self.menu_btn.setFixedSize(18, 18)
-        self.menu_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.menu_btn.setStyleSheet("""
-            QToolButton {
-                background-color: transparent;
-                color: #9e9e9e;
-                border: none;
-                font-size: 14px;
-                font-weight: bold;
+
+        # Checkbox for selection
+        self.checkbox = QCheckBox()
+        self.checkbox.setFixedSize(18, 18)
+        self.checkbox.setStyleSheet("""
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
             }
-            QToolButton:hover {
-                color: #ffffff;
-                background-color: rgba(255, 255, 255, 0.1);
-                border-radius: 3px;
+            QCheckBox::indicator:unchecked {
+                border: 1px solid #aaa;
+                background: #2d2d2d;
             }
-            QToolButton::menu-indicator {
-                image: none;
+            QCheckBox::indicator:checked {
+                border: 1px solid #3498db;
+                background: #3498db;
             }
         """)
-        # Set menu icon (three dots)
-        self.menu_btn.setText("⋮")  # Three dots (vertical ellipsis)
-        
-        # Create dropdown menu
-        menu = QMenu(self.menu_btn)
-        delete_action = menu.addAction(tr("删除"))
-        delete_action.triggered.connect(lambda: self.delete_requested.emit(self.character.name))
-        self.menu_btn.setMenu(menu)
-        
-        top_layout.addWidget(self.menu_btn)
+        self.checkbox.stateChanged.connect(self._on_checkbox_state_changed)
+
+        top_layout.addWidget(self.checkbox)
         layout.addLayout(top_layout)
         
         # Character image or icon
@@ -109,7 +98,7 @@ class CharacterCard(QFrame):
             self._set_icon_label(icon_label)
         
         layout.addWidget(icon_label, 1)  # Stretch factor 1
-        
+
         # Name label
         name_label = QLabel(self.character.name)
         name_font = QFont()
@@ -120,10 +109,51 @@ class CharacterCard(QFrame):
         name_label.setWordWrap(True)
         name_label.setMaximumHeight(20)
         layout.addWidget(name_label)
-        
+
         # Apply card style
         self._apply_style()
-    
+
+    def _on_checkbox_state_changed(self, state):
+        """Handle checkbox state change"""
+        is_checked = state == Qt.CheckState.Checked.value
+        self._is_selected = is_checked
+        self.selection_changed.emit(self.character.name, is_checked)
+        # Update card style based on selection
+        self._update_selection_style()
+
+    def set_selected(self, selected: bool):
+        """Set the selection state of the card"""
+        self._is_selected = selected
+        self.checkbox.setChecked(selected)
+        self._update_selection_style()
+
+    def _update_selection_style(self):
+        """Update the card style based on selection state"""
+        if self._is_selected:
+            self.setStyleSheet("""
+                CharacterCard {
+                    background-color: #3a3a3a;
+                    border: 2px solid #3498db;
+                    border-radius: 8px;
+                }
+                CharacterCard:hover {
+                    background-color: #4a4a4a;
+                    border: 2px solid #3498db;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                CharacterCard {
+                    background-color: #2d2d2d;
+                    border: 2px solid #3a3a3a;
+                    border-radius: 8px;
+                }
+                CharacterCard:hover {
+                    background-color: #3a3a3a;
+                    border: 2px solid #3498db;
+                }
+            """)
+
     def _set_icon_label(self, icon_label: QLabel):
         """Set icon label with character icon"""
         icon_label.setText("\ue60c")  # Character icon
@@ -134,24 +164,16 @@ class CharacterCard(QFrame):
         icon_label.setFont(icon_font)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_label.setStyleSheet("color: #3498db; border: none;")
-    
+
     def _apply_style(self):
         """Apply styling to the card"""
-        self.setStyleSheet("""
-            CharacterCard {
-                background-color: #2d2d2d;
-                border: 2px solid #3a3a3a;
-                border-radius: 8px;
-            }
-            CharacterCard:hover {
-                background-color: #3a3a3a;
-                border: 2px solid #3498db;
-            }
-        """)
+        self._update_selection_style()
     
     def mousePressEvent(self, event):
         """Handle mouse press - single click for selection"""
         if event.button() == Qt.MouseButton.LeftButton:
+            # Toggle checkbox when card is clicked
+            self.checkbox.setChecked(not self.checkbox.isChecked())
             self.clicked.emit(self.character.name)
         super().mousePressEvent(event)
 
@@ -160,17 +182,14 @@ class CharacterCard(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.edit_requested.emit(self.character.name)
         super().mouseDoubleClickEvent(event)
-    
+
     def contextMenuEvent(self, event):
         """Handle context menu"""
         menu = QMenu(self)
-        
+
         edit_action = menu.addAction(tr("编辑"))
         edit_action.triggered.connect(lambda: self.edit_requested.emit(self.character.name))
-        
-        delete_action = menu.addAction(tr("删除"))
-        delete_action.triggered.connect(lambda: self.delete_requested.emit(self.character.name))
-        
+
         menu.exec(event.globalPos())
 
 
@@ -257,7 +276,7 @@ class CharacterPanel(BasePanel):
         
         # Load initial characters first
         self._load_characters()
-        
+
         # Connect signals after UI is fully initialized
         self._connect_signals()
     
@@ -421,6 +440,13 @@ class CharacterPanel(BasePanel):
     def _on_character_clicked(self, character_name: str):
         """Handle character card click - for selection only"""
         self.character_selected.emit(character_name)
+
+    def _on_character_selection_changed(self, character_name: str, is_selected: bool):
+        """Handle character selection state change"""
+        # This can be used to maintain selection state or perform other actions
+        # For now, we just emit the selection signal
+        if is_selected:
+            self.character_selected.emit(character_name)
     
     def _on_edit_character(self, character_name: str):
         """Handle edit character request"""
@@ -431,25 +457,6 @@ class CharacterPanel(BasePanel):
         dialog.character_saved.connect(self._on_character_saved)
         dialog.exec()
     
-    def _on_delete_character(self, character_name: str):
-        """Handle delete character request"""
-        if not self.character_manager:
-            return
-        
-        reply = QMessageBox.question(
-            self,
-            tr("确认删除"),
-            tr(f"确定要删除角色 '{character_name}' 吗？此操作不可撤销。"),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            if self.character_manager.delete_character(character_name):
-                # Card will be removed by signal handler
-                pass
-            else:
-                QMessageBox.warning(self, tr("错误"), tr("删除角色失败"))
     
     def _load_characters(self):
         """Load characters from CharacterManager"""
@@ -481,15 +488,15 @@ class CharacterPanel(BasePanel):
         col = 0
         for character in characters:
             card = CharacterCard(character, self)
-            card.delete_requested.connect(self._on_delete_character)
             card.edit_requested.connect(self._on_edit_character)
             card.clicked.connect(self._on_character_clicked)
-            
+            card.selection_changed.connect(self._on_character_selection_changed)
+
             # Add widget to grid with top-left alignment (like file manager icons)
             # No stretch, fixed size widgets
             self.grid_layout.addWidget(
-                card, 
-                row, 
+                card,
+                row,
                 col,
                 Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
             )
@@ -497,10 +504,10 @@ class CharacterPanel(BasePanel):
             self.grid_layout.setRowStretch(row, 0)
             # Ensure column doesn't stretch horizontally
             self.grid_layout.setColumnMinimumWidth(col, 0)
-            
+
             self._character_cards.append(card)
             self._character_dict[character.name] = card
-            
+
             # Move to next position (2 columns, auto-wrap)
             col += 1
             if col >= 2:

@@ -6,6 +6,69 @@
   "description": "filmeto",
   "glyphs": [
     {
+      "icon_id": "46534029",
+      "name": "未选中",
+      "font_class": "a-xuanzhongweixuanzhong3",
+      "unicode": "e673",
+      "unicode_decimal": 58995
+    },
+    {
+      "icon_id": "46534142",
+      "name": "选中",
+      "font_class": "a-xuanzhongweixuanzhong",
+      "unicode": "e675",
+      "unicode_decimal": 58997
+    },
+    {
+      "icon_id": "2380988",
+      "name": "骰子3",
+      "font_class": "touzi",
+      "unicode": "e669",
+      "unicode_decimal": 58985
+    },
+    {
+      "icon_id": "7952570",
+      "name": "实验器材-烧杯",
+      "font_class": "shiyanqicai-shaobei",
+      "unicode": "e66a",
+      "unicode_decimal": 58986
+    },
+    {
+      "icon_id": "10878118",
+      "name": "骰子备份 5",
+      "font_class": "touzibeifen",
+      "unicode": "e66b",
+      "unicode_decimal": 58987
+    },
+    {
+      "icon_id": "14342624",
+      "name": "猫头鹰",
+      "font_class": "maotouying-copy",
+      "unicode": "e66c",
+      "unicode_decimal": 58988
+    },
+    {
+      "icon_id": "23768636",
+      "name": "加工制造",
+      "font_class": "a-guihuatubiaoyuanwenjianFarlim_huaban1fuben30",
+      "unicode": "e66d",
+      "unicode_decimal": 58989
+    },
+    {
+      "icon_id": "26237094",
+      "name": "实验 烧杯 2",
+      "font_class": "a-shiyanshaobei2",
+      "unicode": "e670",
+      "unicode_decimal": 58992
+    },
+    {
+      "icon_id": "29374320",
+      "name": "骰子",
+      "font_class": "touzi1",
+      "unicode": "e6f9",
+      "unicode_decimal": 59129
+    },
+    {
       "icon_id": "1206324",
       "name": "play",
       "font_class": "play1",
