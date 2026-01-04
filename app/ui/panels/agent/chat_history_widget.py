@@ -82,8 +82,8 @@ class ChatHistoryWidget(BaseWidget):
         if is_user:
             # User icon: use iconfont user icon
             icon_char = "\ue6b3"  # user icon from iconfont
-            bg_color = QColor("#4080ff")  # Blue background
-            alignment = Qt.AlignRight
+            bg_color = QColor("#35373a")  # Light gray background (slightly lighter than agent)
+            alignment = Qt.AlignLeft  # Left align for consistency
             use_iconfont = True
         else:
             # Agent icon: use letter "A" with regular font
@@ -217,20 +217,22 @@ class ChatHistoryWidget(BaseWidget):
         content_label.setWordWrap(True)
         content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
         
-        # Adjust content alignment based on sender
+        # Adjust content alignment and style based on sender
         if is_user:
-            content_label.setAlignment(Qt.AlignRight | Qt.AlignTop)
+            # User message: left aligned with slightly lighter gray background
+            content_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
             content_label.setStyleSheet("""
                 QLabel#chat_content_label {
                     color: #e1e1e1;
                     font-size: 13px;
                     padding: 8px;
-                    background-color: #4080ff;
-                    border: 1px solid #4080ff;
+                    background-color: #35373a;
+                    border: 1px solid #505254;
                     border-radius: 5px;
                 }
             """)
         else:
+            # Agent message: left aligned with darker gray background
             content_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
             content_label.setStyleSheet("""
                 QLabel#chat_content_label {
