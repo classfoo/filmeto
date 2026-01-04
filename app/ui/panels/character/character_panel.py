@@ -29,9 +29,13 @@ class CharacterCard(QFrame):
     def _init_ui(self):
         """Initialize the card UI"""
         # Fixed card size: 9:16 aspect ratio
-        # Width: 85px (calculated for 2 cards in 200px width)
-        # Height: 85 * 16 / 9 ≈ 151px
-        card_width = 85
+        # Total panel width: 240px
+        # Left/right margins: 10px each = 20px
+        # Card spacing: 10px
+        # Available width: 240 - 20 - 10 = 210px
+        # Card width: 210 / 2 = 105px
+        # Card height: 105 * 16 / 9 ≈ 187px
+        card_width = 105
         card_height = int(card_width * 16 / 9)
         self.setFixedSize(card_width, card_height)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -125,8 +129,8 @@ class CharacterCard(QFrame):
         icon_label.setText("\ue60c")  # Character icon
         icon_font = QFont()
         icon_font.setFamily("iconfont")
-        # Adjust icon size for taller card (9:16 ratio, height ~151px)
-        icon_font.setPointSize(32)
+        # Adjust icon size for taller card (9:16 ratio, height ~187px)
+        icon_font.setPointSize(40)
         icon_label.setFont(icon_font)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_label.setStyleSheet("color: #3498db; border: none;")
