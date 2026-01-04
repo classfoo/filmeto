@@ -7,6 +7,7 @@ from PySide6.QtGui import QKeyEvent, QFont, QCursor
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 from utils.i18n_utils import tr
+from .context_item_widget import ContextItemWidget
 
 
 class AgentPromptInputWidget(BaseWidget):
@@ -20,9 +21,9 @@ class AgentPromptInputWidget(BaseWidget):
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
-        self._setup_ui()
+        self._init_ui()
     
-    def _setup_ui(self):
+    def _init_ui(self):
         """Set up the UI components."""
         # Set widget style - dark rounded theme
         self.setStyleSheet("""
@@ -51,8 +52,21 @@ class AgentPromptInputWidget(BaseWidget):
         # Use a grid layout for better control over spacing
         input_container_layout = QGridLayout(self.input_container)
         input_container_layout.setContentsMargins(2, 6, 2, 6)  # Left/right: 2px margin, top: 12px, bottom: 6px
-        input_container_layout.setSpacing(6)  # Fixed spacing between input and button
+        input_container_layout.setSpacing(2)  # Fixed spacing between input and button
 
+        # Initialize input UI components
+        self._init_input_ui(input_container_layout)
+        
+        # Initialize context UI components
+        self._init_context_ui(input_container_layout)
+        
+        # Initialize tool UI components
+        self._init_tool_ui(input_container_layout)
+
+        layout.addWidget(self.input_container)
+    
+    def _init_input_ui(self, input_container_layout):
+        """Initialize the input UI components."""
         # Text input field - dynamic height (2-10 lines)
         # Font size 13px, line height 1.4, single line ~18px
         self.input_text = QTextEdit(self.input_container)
@@ -62,7 +76,7 @@ class AgentPromptInputWidget(BaseWidget):
                 background-color: transparent;
                 color: #e1e1e1;
                 border: none;
-                border-radius: 8px;
+                border-radius: 4px;
                 padding: 0px;
                 font-size: 13px;
                 line-height: 1.4;
@@ -95,9 +109,6 @@ class AgentPromptInputWidget(BaseWidget):
         self._debounce_timer.setSingleShot(True)
         self._debounce_timer.timeout.connect(self._adjust_height)
 
-        # No animation for height transitions to ensure proper functionality
-        # Animation will be handled differently if needed
-
         # Track if we're currently adjusting to prevent loops
         self._is_adjusting = False
         self._last_line_count = 1  # Start with 1 line for empty text
@@ -109,6 +120,23 @@ class AgentPromptInputWidget(BaseWidget):
         # Add input text to grid at row 0, column 0, spanning 1 row and 2 columns (to make space for button)
         input_container_layout.addWidget(self.input_text, 0, 0, 1, 2)
 
+    def _init_context_ui(self, input_container_layout):
+        """Initialize the context UI components using context_item_widget."""
+        # Create a container for context items
+        self.context_widget = QWidget(self.input_container)
+        self.context_layout = QHBoxLayout(self.context_widget)
+        self.context_layout.setContentsMargins(0, 0, 0, 0)
+        self.context_layout.setSpacing(6)
+        
+        # Initialize context items list
+        self.context_items = []
+        
+        # Add context widget to the grid at row 1, spanning both columns
+        # This places it between the input text and the send button
+        input_container_layout.addWidget(self.context_widget, 1, 0, 1, 2)
+
+    def _init_tool_ui(self, input_container_layout):
+        """Initialize the tool UI components."""
         # Create a container for the button to position it properly
         button_widget = QWidget(self.input_container)
         button_layout = QHBoxLayout(button_widget)
@@ -145,16 +173,16 @@ class AgentPromptInputWidget(BaseWidget):
         self.send_button.clicked.connect(self._on_send_message)
         button_layout.addWidget(self.send_button)
 
-        # Add button container to grid at row 1, column 1 (right side)
-        input_container_layout.addWidget(button_widget, 1, 1)
+        # Add button container to grid at row 2, column 1 (right side)
+        # Since row 1 is now used by the context widget
+        input_container_layout.addWidget(button_widget, 2, 1)
 
-        # Set stretch factors: row 0 (text area) expands, row 1 (button row) stays fixed
+        # Set stretch factors: row 0 (text area) expands, row 1 (context) and row 2 (button row) stay fixed
         input_container_layout.setRowStretch(0, 1)  # Text area gets all extra vertical space
-        input_container_layout.setRowStretch(1, 0)  # Button row gets no extra space
+        input_container_layout.setRowStretch(1, 0)  # Context row gets no extra space
+        input_container_layout.setRowStretch(2, 0)  # Button row gets no extra space
         input_container_layout.setColumnStretch(0, 1)  # Column 0 (text area) expands horizontally
         input_container_layout.setColumnStretch(1, 0)  # Column 1 (button area) stays fixed
-
-        layout.addWidget(self.input_container)
     
     def _calculate_line_height(self) -> int:
         """Calculate the height of a single line of text."""
@@ -337,4 +365,55 @@ class AgentPromptInputWidget(BaseWidget):
         """Enable or disable the input widget."""
         self.input_text.setEnabled(enabled)
         self.send_button.setEnabled(enabled)
-
+    
+    def add_context_item(self, context_id: str, context_name: str):
+        """Add a context item to the context UI."""
+        # Create a new context item widget
+        context_item = ContextItemWidget(context_id, context_name)
+        
+        # Connect the removed signal to handle removal
+        context_item.removed.connect(self._on_context_item_removed)
+        
+        # Add to the layout and internal list
+        self.context_layout.addWidget(context_item)
+        self.context_items.append(context_item)
+        
+        # Show the context widget if it was hidden
+        self.context_widget.show()
+    
+    def remove_context_item(self, context_id: str):
+        """Remove a context item by its ID."""
+        for i, context_item in enumerate(self.context_items):
+            if context_item.get_context_id() == context_id:
+                # Remove from layout
+                self.context_layout.removeWidget(context_item)
+                
+                # Remove from internal list
+                self.context_items.pop(i)
+                
+                # Hide the context widget if no items remain
+                if len(self.context_items) == 0:
+                    self.context_widget.hide()
+                
+                # Delete the widget
+                context_item.deleteLater()
+                return True
+        
+        return False
+    
+    def clear_context_items(self):
+        """Clear all context items."""
+        for context_item in self.context_items:
+            self.context_layout.removeWidget(context_item)
+            context_item.deleteLater()
+        
+        self.context_items.clear()
+        self.context_widget.hide()
+    
+    def get_context_items(self):
+        """Get all context item IDs."""
+        return [item.get_context_id() for item in self.context_items]
+    
+    def _on_context_item_removed(self, context_id: str):
+        """Handle when a context item is removed by the user."""
+        self.remove_context_item(context_id)
