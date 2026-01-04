@@ -235,7 +235,7 @@ class CharacterPanel(BasePanel):
         self._connect_signals()
     
     def _create_toolbar(self) -> QFrame:
-        """Create top toolbar with icon action buttons"""
+        """Create top toolbar with title and icon action buttons"""
         toolbar = QFrame()
         toolbar.setFixedHeight(50)
         toolbar.setStyleSheet("""
@@ -249,13 +249,25 @@ class CharacterPanel(BasePanel):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(8)
         
-        # Icon font for buttons
-        icon_font = QFont("iconfont", 14)
+        # Title label on the left
+        title_label = QLabel("character")
+        title_font = QFont()
+        title_font.setPointSize(12)
+        title_font.setBold(True)
+        title_label.setFont(title_font)
+        title_label.setStyleSheet("color: #ffffff;")
+        layout.addWidget(title_label)
+        
+        # Spacer to push buttons to the right
+        layout.addStretch()
+        
+        # Icon font for buttons (smaller for 16x16 buttons)
+        icon_font = QFont("iconfont", 10)
         
         # New button (新建) - add-role icon
         new_btn = QPushButton("\ue610", self)  # add-role icon
         new_btn.setFont(icon_font)
-        new_btn.setFixedSize(32, 32)
+        new_btn.setFixedSize(16, 16)
         new_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         new_btn.setToolTip(tr("新建角色"))
         new_btn.setStyleSheet("""
@@ -263,7 +275,7 @@ class CharacterPanel(BasePanel):
                 background-color: #4080ff;
                 color: white;
                 border: none;
-                border-radius: 4px;
+                border-radius: 2px;
             }
             QPushButton:hover {
                 background-color: #5090ff;
@@ -278,7 +290,7 @@ class CharacterPanel(BasePanel):
         # Draw button (抽卡) - coupon icon (card-like)
         draw_btn = QPushButton("\ue6a7", self)  # coupon icon
         draw_btn.setFont(icon_font)
-        draw_btn.setFixedSize(32, 32)
+        draw_btn.setFixedSize(16, 16)
         draw_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         draw_btn.setToolTip(tr("抽卡"))
         draw_btn.setStyleSheet("""
@@ -286,7 +298,7 @@ class CharacterPanel(BasePanel):
                 background-color: #4c5052;
                 color: white;
                 border: none;
-                border-radius: 4px;
+                border-radius: 2px;
             }
             QPushButton:hover {
                 background-color: #5c6062;
@@ -301,7 +313,7 @@ class CharacterPanel(BasePanel):
         # Extract button (提取) - export icon
         extract_btn = QPushButton("\ue653", self)  # icexport icon
         extract_btn.setFont(icon_font)
-        extract_btn.setFixedSize(32, 32)
+        extract_btn.setFixedSize(16, 16)
         extract_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         extract_btn.setToolTip(tr("提取"))
         extract_btn.setStyleSheet("""
@@ -309,7 +321,7 @@ class CharacterPanel(BasePanel):
                 background-color: #4c5052;
                 color: white;
                 border: none;
-                border-radius: 4px;
+                border-radius: 2px;
             }
             QPushButton:hover {
                 background-color: #5c6062;
@@ -320,8 +332,6 @@ class CharacterPanel(BasePanel):
         """)
         extract_btn.clicked.connect(self._on_extract_character)
         layout.addWidget(extract_btn)
-        
-        layout.addStretch()
         
         return toolbar
     
