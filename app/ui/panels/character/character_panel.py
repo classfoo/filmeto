@@ -200,23 +200,38 @@ class CharacterPanel(BasePanel):
         scroll_area.setWidget(self.grid_container)
         layout.addWidget(scroll_area, 1)
         
-        # Load character manager
-        self._load_character_manager()
-        
-        # Load initial characters
-        self._load_characters()
-    
-    def _load_character_manager(self):
-        """Load character manager from project"""
+        # Load character manager (without connecting signals yet)
         project = self.workspace.get_project()
         if project:
             self.character_manager = project.get_character_manager()
+        
+        # Load initial characters first
+        self._load_characters()
+        
+        # Connect signals after UI is fully initialized
+        self._connect_signals()
+    
+    def _connect_signals(self):
+        """Connect character manager signals"""
+        if self.character_manager:
+            # Disconnect first to avoid duplicate connections
+            try:
+                self.character_manager.character_added.disconnect(self._on_character_added)
+                self.character_manager.character_updated.disconnect(self._on_character_updated)
+                self.character_manager.character_deleted.disconnect(self._on_character_deleted)
+            except:
+                pass  # Ignore if not connected
             
             # Connect signals
-            if self.character_manager:
-                self.character_manager.character_added.connect(self._on_character_added)
-                self.character_manager.character_updated.connect(self._on_character_updated)
-                self.character_manager.character_deleted.connect(self._on_character_deleted)
+            self.character_manager.character_added.connect(self._on_character_added)
+            self.character_manager.character_updated.connect(self._on_character_updated)
+            self.character_manager.character_deleted.connect(self._on_character_deleted)
+    
+    def _load_character_manager(self):
+        """Load character manager from project (for use in on_activated)"""
+        project = self.workspace.get_project()
+        if project:
+            self.character_manager = project.get_character_manager()
     
     def _create_add_card(self) -> QFrame:
         """Create the add character card"""
@@ -310,6 +325,16 @@ class CharacterPanel(BasePanel):
         if not self.character_manager:
             return
         
+        # Ensure UI components are initialized
+        if not hasattr(self, 'flow_layout') or not hasattr(self, 'add_card'):
+            return
+        
+        # Ensure _character_cards is initialized
+        if not hasattr(self, '_character_cards'):
+            self._character_cards = []
+        if not hasattr(self, '_character_dict'):
+            self._character_dict = {}
+        
         characters = self.character_manager.list_characters()
         
         # Remove add card temporarily
@@ -346,13 +371,24 @@ class CharacterPanel(BasePanel):
     
     def _on_character_updated(self, character: Character):
         """Handle character updated signal"""
+        # Ensure UI components are initialized
+        if not hasattr(self, 'flow_layout') or not hasattr(self, 'add_card'):
+            return
+        
+        # Ensure _character_cards is initialized
+        if not hasattr(self, '_character_cards'):
+            self._character_cards = []
+        if not hasattr(self, '_character_dict'):
+            self._character_dict = {}
+        
         # Update existing card or reload all
         if character.name in self._character_dict:
             # Remove old card
             old_card = self._character_dict[character.name]
             self.flow_layout.removeWidget(old_card)
             old_card.deleteLater()
-            self._character_cards.remove(old_card)
+            if old_card in self._character_cards:
+                self._character_cards.remove(old_card)
             del self._character_dict[character.name]
         
         # Add updated card
@@ -371,11 +407,22 @@ class CharacterPanel(BasePanel):
     
     def _on_character_deleted(self, character_name: str):
         """Handle character deleted signal"""
+        # Ensure UI components are initialized
+        if not hasattr(self, 'flow_layout'):
+            return
+        
+        # Ensure _character_cards is initialized
+        if not hasattr(self, '_character_cards'):
+            self._character_cards = []
+        if not hasattr(self, '_character_dict'):
+            self._character_dict = {}
+        
         if character_name in self._character_dict:
             card = self._character_dict[character_name]
             self.flow_layout.removeWidget(card)
             card.deleteLater()
-            self._character_cards.remove(card)
+            if card in self._character_cards:
+                self._character_cards.remove(card)
             del self._character_dict[character_name]
     
     def on_activated(self):
@@ -383,6 +430,7 @@ class CharacterPanel(BasePanel):
         super().on_activated()
         # Reload characters when panel is activated
         self._load_character_manager()
+        self._connect_signals()
         self._load_characters()
         print("✅ Character panel activated")
     
@@ -395,4 +443,5 @@ class CharacterPanel(BasePanel):
         """Handle project switch"""
         super().on_project_switched(project_name)
         self._load_character_manager()
+        self._connect_signals()
         self._load_characters()
