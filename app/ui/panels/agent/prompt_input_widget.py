@@ -56,17 +56,69 @@ class AgentPromptInputWidget(BaseWidget):
         input_container_layout.setContentsMargins(2, 6, 2, 6)  # Left/right: 2px margin, top: 12px, bottom: 6px
         input_container_layout.setSpacing(2)  # Fixed spacing between input and button
 
+        # Initialize context UI components (above input)
+        self._init_context_ui(input_container_layout)
+        
         # Initialize input UI components
         self._init_input_ui(input_container_layout)
-        
-        # Initialize context UI components
-        self._init_context_ui(input_container_layout)
         
         # Initialize tool UI components
         self._init_tool_ui(input_container_layout)
 
         layout.addWidget(self.input_container)
     
+    def _init_context_ui(self, input_container_layout):
+        """Initialize the context UI components using context_item_widget."""
+        # Create a container for context items with horizontal layout
+        self.context_widget = QWidget(self.input_container)
+        context_main_layout = QHBoxLayout(self.context_widget)
+        context_main_layout.setContentsMargins(0, 0, 0, 0)
+        context_main_layout.setSpacing(6)
+        
+        # Add button (16x16) on the left
+        icon_font = QFont("iconfont", 14)  # Font size for 16x16 button
+        self.add_context_button = QPushButton("\ue835", self.context_widget)  # Add icon
+        self.add_context_button.setObjectName("add_context_button")
+        self.add_context_button.setFont(icon_font)
+        self.add_context_button.setFixedSize(24, 24)
+        self.add_context_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.add_context_button.setToolTip(tr("Add context"))
+        self.add_context_button.setStyleSheet("""
+            QPushButton#add_context_button {
+                background-color: transparent;
+                border: none;
+                border-radius: 8px;
+                color: #888888;
+                font-size: 10px;
+            }
+            QPushButton#add_context_button:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                color: #e1e1e1;
+            }
+            QPushButton#add_context_button:pressed {
+                background-color: rgba(255, 255, 255, 0.15);
+            }
+        """)
+        self.add_context_button.clicked.connect(self.add_context_requested.emit)
+        context_main_layout.addWidget(self.add_context_button, 0)
+        
+        # Create a container widget for flow layout (context items)
+        self.context_items_container = QWidget(self.context_widget)
+        # Set size policy to allow vertical expansion
+        self.context_items_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.context_layout = FlowLayout(self.context_items_container)
+        self.context_layout.setContentsMargins(0, 0, 0, 0)
+        self.context_layout.setSpacing(6)
+        
+        context_main_layout.addWidget(self.context_items_container, 1)
+        
+        # Initialize context items list
+        self.context_items = []
+        
+        # Add context widget to the grid at row 0, spanning both columns
+        # This places it above the input text
+        input_container_layout.addWidget(self.context_widget, 0, 0, 1, 2)
+
     def _init_input_ui(self, input_container_layout):
         """Initialize the input UI components."""
         # Text input field - dynamic height (2-10 lines)
@@ -119,60 +171,8 @@ class AgentPromptInputWidget(BaseWidget):
         # Connect text changed signal
         self.input_text.textChanged.connect(self._on_text_changed)
 
-        # Add input text to grid at row 0, column 0, spanning 1 row and 2 columns (to make space for button)
-        input_container_layout.addWidget(self.input_text, 0, 0, 1, 2)
-
-    def _init_context_ui(self, input_container_layout):
-        """Initialize the context UI components using context_item_widget."""
-        # Create a container for context items with horizontal layout
-        self.context_widget = QWidget(self.input_container)
-        context_main_layout = QHBoxLayout(self.context_widget)
-        context_main_layout.setContentsMargins(0, 0, 0, 0)
-        context_main_layout.setSpacing(6)
-        
-        # Add button (16x16) on the left
-        icon_font = QFont("iconfont", 10)  # Font size for 16x16 button
-        self.add_context_button = QPushButton("\ue835", self.context_widget)  # Add icon
-        self.add_context_button.setObjectName("add_context_button")
-        self.add_context_button.setFont(icon_font)
-        self.add_context_button.setFixedSize(16, 16)
-        self.add_context_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.add_context_button.setToolTip(tr("Add context"))
-        self.add_context_button.setStyleSheet("""
-            QPushButton#add_context_button {
-                background-color: transparent;
-                border: none;
-                border-radius: 8px;
-                color: #888888;
-                font-size: 10px;
-            }
-            QPushButton#add_context_button:hover {
-                background-color: rgba(255, 255, 255, 0.1);
-                color: #e1e1e1;
-            }
-            QPushButton#add_context_button:pressed {
-                background-color: rgba(255, 255, 255, 0.15);
-            }
-        """)
-        self.add_context_button.clicked.connect(self.add_context_requested.emit)
-        context_main_layout.addWidget(self.add_context_button, 0)
-        
-        # Create a container widget for flow layout (context items)
-        self.context_items_container = QWidget(self.context_widget)
-        # Set size policy to allow vertical expansion
-        self.context_items_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.context_layout = FlowLayout(self.context_items_container)
-        self.context_layout.setContentsMargins(0, 0, 0, 0)
-        self.context_layout.setSpacing(6)
-        
-        context_main_layout.addWidget(self.context_items_container, 1)
-        
-        # Initialize context items list
-        self.context_items = []
-        
-        # Add context widget to the grid at row 1, spanning both columns
-        # This places it between the input text and the send button
-        input_container_layout.addWidget(self.context_widget, 1, 0, 1, 2)
+        # Add input text to grid at row 1, column 0, spanning 1 row and 2 columns (to make space for button)
+        input_container_layout.addWidget(self.input_text, 1, 0, 1, 2)
 
     def _init_tool_ui(self, input_container_layout):
         """Initialize the tool UI components."""
@@ -213,12 +213,11 @@ class AgentPromptInputWidget(BaseWidget):
         button_layout.addWidget(self.send_button)
 
         # Add button container to grid at row 2, column 1 (right side)
-        # Since row 1 is now used by the context widget
         input_container_layout.addWidget(button_widget, 2, 1)
 
-        # Set stretch factors: row 0 (text area) expands, row 1 (context) and row 2 (button row) stay fixed
-        input_container_layout.setRowStretch(0, 1)  # Text area gets all extra vertical space
-        input_container_layout.setRowStretch(1, 0)  # Context row gets no extra space
+        # Set stretch factors: row 0 (context), row 1 (text area) expands, row 2 (button row) stays fixed
+        input_container_layout.setRowStretch(0, 0)  # Context row gets no extra space
+        input_container_layout.setRowStretch(1, 1)  # Text area gets all extra vertical space
         input_container_layout.setRowStretch(2, 0)  # Button row gets no extra space
         input_container_layout.setColumnStretch(0, 1)  # Column 0 (text area) expands horizontally
         input_container_layout.setColumnStretch(1, 0)  # Column 1 (button area) stays fixed
