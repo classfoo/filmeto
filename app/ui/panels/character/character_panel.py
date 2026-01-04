@@ -3,7 +3,7 @@
 from typing import List, Optional
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QFrame, QLabel,
-    QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy
+    QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy, QToolButton
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor, QPixmap
@@ -28,10 +28,12 @@ class CharacterCard(QFrame):
     
     def _init_ui(self):
         """Initialize the card UI"""
-        # Fixed card size: 85x85px (like file manager icons)
-        # Calculation for 2 cards in 200px width:
-        # 200px - 20px (margins) - 10px (spacing) = 170px / 2 = 85px per card
-        self.setFixedSize(85, 85)
+        # Fixed card size: 9:16 aspect ratio
+        # Width: 85px (calculated for 2 cards in 200px width)
+        # Height: 85 * 16 / 9 ≈ 151px
+        card_width = 85
+        card_height = int(card_width * 16 / 9)
+        self.setFixedSize(card_width, card_height)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
@@ -40,29 +42,43 @@ class CharacterCard(QFrame):
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(4)
         
-        # Top layout for delete button (spacer + delete button)
+        # Top layout for menu button (spacer + menu button)
         top_layout = QHBoxLayout()
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.addStretch()
         
-        # Delete button
-        self.delete_btn = QPushButton("×")
-        self.delete_btn.setFixedSize(18, 18)
-        self.delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: #ffffff;
+        # Menu button with dropdown (replaces delete button)
+        self.menu_btn = QToolButton()
+        self.menu_btn.setFixedSize(18, 18)
+        self.menu_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.menu_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.menu_btn.setStyleSheet("""
+            QToolButton {
+                background-color: transparent;
+                color: #9e9e9e;
                 border: none;
-                border-radius: 10px;
                 font-size: 14px;
                 font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: #c0392b;
+            QToolButton:hover {
+                color: #ffffff;
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 3px;
+            }
+            QToolButton::menu-indicator {
+                image: none;
             }
         """)
-        self.delete_btn.clicked.connect(lambda: self.delete_requested.emit(self.character.name))
-        top_layout.addWidget(self.delete_btn)
+        # Set menu icon (three dots)
+        self.menu_btn.setText("⋮")  # Three dots (vertical ellipsis)
+        
+        # Create dropdown menu
+        menu = QMenu(self.menu_btn)
+        delete_action = menu.addAction(tr("删除"))
+        delete_action.triggered.connect(lambda: self.delete_requested.emit(self.character.name))
+        self.menu_btn.setMenu(menu)
+        
+        top_layout.addWidget(self.menu_btn)
         layout.addLayout(top_layout)
         
         # Character image or icon
@@ -109,7 +125,8 @@ class CharacterCard(QFrame):
         icon_label.setText("\ue60c")  # Character icon
         icon_font = QFont()
         icon_font.setFamily("iconfont")
-        icon_font.setPointSize(28)  # Reduced for 85x85px card
+        # Adjust icon size for taller card (9:16 ratio, height ~151px)
+        icon_font.setPointSize(32)
         icon_label.setFont(icon_font)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_label.setStyleSheet("color: #3498db; border: none;")
