@@ -28,16 +28,17 @@ class CharacterCard(QFrame):
     
     def _init_ui(self):
         """Initialize the card UI"""
-        # Card will be sized by grid layout, but we set a preferred aspect ratio
-        self.setMinimumSize(100, 120)
-        self.setMaximumSize(200, 240)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # Fixed card size: 85x85px (like file manager icons)
+        # Calculation for 2 cards in 200px width:
+        # 200px - 20px (margins) - 10px (spacing) = 170px / 2 = 85px per card
+        self.setFixedSize(85, 85)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
         # Main layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
         
         # Top layout for delete button (spacer + delete button)
         top_layout = QHBoxLayout()
@@ -46,7 +47,7 @@ class CharacterCard(QFrame):
         
         # Delete button
         self.delete_btn = QPushButton("×")
-        self.delete_btn.setFixedSize(20, 20)
+        self.delete_btn.setFixedSize(18, 18)
         self.delete_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
@@ -92,12 +93,12 @@ class CharacterCard(QFrame):
         # Name label
         name_label = QLabel(self.character.name)
         name_font = QFont()
-        name_font.setPointSize(11)
+        name_font.setPointSize(10)
         name_label.setFont(name_font)
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_label.setStyleSheet("color: #ffffff; border: none;")
         name_label.setWordWrap(True)
-        name_label.setMaximumHeight(30)
+        name_label.setMaximumHeight(20)
         layout.addWidget(name_label)
         
         # Apply card style
@@ -108,7 +109,7 @@ class CharacterCard(QFrame):
         icon_label.setText("\ue60c")  # Character icon
         icon_font = QFont()
         icon_font.setFamily("iconfont")
-        icon_font.setPointSize(36)
+        icon_font.setPointSize(28)  # Reduced for 85x85px card
         icon_label.setFont(icon_font)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_label.setStyleSheet("color: #3498db; border: none;")
@@ -169,10 +170,13 @@ class CharacterPanel(BasePanel):
         toolbar = self._create_toolbar()
         layout.addWidget(toolbar)
         
-        # Scroll area for character grid
+        # Scroll area for character grid (like file manager)
         scroll_area = QScrollArea(self)
-        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidgetResizable(True)  # Allow container to resize based on content
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # Ensure content aligns to top-left
+        scroll_area.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         scroll_area.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -194,14 +198,27 @@ class CharacterPanel(BasePanel):
         """)
         
         # Container for grid layout (2 columns)
+        # Similar to file manager icon view: fixed icon size, uniform spacing, auto-wrap
         self.grid_container = QWidget()
         self.grid_container.setStyleSheet("background-color: #1e1e1e;")
+        # Size policy: preferred horizontally (fit content), minimum vertically (content-based height)
+        # This ensures container doesn't stretch unnecessarily
+        self.grid_container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+        
         self.grid_layout = QGridLayout(self.grid_container)
-        self.grid_layout.setContentsMargins(15, 15, 15, 15)
-        self.grid_layout.setSpacing(12)
-        # Set equal column stretch to ensure 2 columns
-        self.grid_layout.setColumnStretch(0, 1)
-        self.grid_layout.setColumnStretch(1, 1)
+        # Margins: 10px on all sides for consistent spacing (like file manager)
+        self.grid_layout.setContentsMargins(10, 10, 10, 10)
+        # Spacing: 10px between cards (both horizontal and vertical, uniform like file manager)
+        self.grid_layout.setSpacing(10)
+        # Don't stretch columns - columns size based on fixed card width (85px + spacing)
+        self.grid_layout.setColumnStretch(0, 0)
+        self.grid_layout.setColumnStretch(1, 0)
+        # Set column minimum width to ensure proper spacing
+        self.grid_layout.setColumnMinimumWidth(0, 0)
+        self.grid_layout.setColumnMinimumWidth(1, 0)
+        # Don't stretch rows - rows size based on fixed card height (85px + spacing)
+        # Alignment: top-left, like file manager icon view
+        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         
         scroll_area.setWidget(self.grid_container)
         layout.addWidget(scroll_area, 1)
@@ -309,33 +326,11 @@ class CharacterPanel(BasePanel):
         return toolbar
     
     def resizeEvent(self, event):
-        """Handle resize event to adjust card sizes"""
+        """Handle resize event - update layout like file manager"""
         super().resizeEvent(event)
-        # Update card sizes when panel is resized
-        self._update_card_sizes()
-    
-    def _update_card_sizes(self):
-        """Update card sizes to ensure 2 columns fit"""
-        if not hasattr(self, 'grid_container'):
-            return
-        
-        # Get available width
-        container_width = self.grid_container.width()
-        if container_width <= 0:
-            return
-        
-        # Calculate card width: (container_width - margins - spacing) / 2
-        margins = self.grid_layout.contentsMargins()
-        spacing = self.grid_layout.spacing()
-        available_width = container_width - margins.left() - margins.right() - spacing
-        card_width = available_width // 2
-        
-        # Set card height to maintain aspect ratio (approximately square)
-        card_height = int(card_width * 1.0)  # 1:1 aspect ratio
-        
-        # Update all cards
-        for card in self._character_cards:
-            card.setFixedSize(card_width, card_height)
+        # Cards are fixed size, container adjusts naturally
+        if hasattr(self, 'grid_container'):
+            self.grid_container.adjustSize()
     
     def _connect_signals(self):
         """Connect character manager signals"""
@@ -439,7 +434,7 @@ class CharacterPanel(BasePanel):
         self._character_cards.clear()
         self._character_dict.clear()
         
-        # Add character cards in 2-column grid
+        # Add character cards in 2-column grid (like file manager icon view)
         row = 0
         col = 0
         for character in characters:
@@ -448,18 +443,30 @@ class CharacterPanel(BasePanel):
             card.edit_requested.connect(self._on_edit_character)
             card.clicked.connect(self._on_character_clicked)
             
-            self.grid_layout.addWidget(card, row, col)
+            # Add widget to grid with top-left alignment (like file manager icons)
+            # No stretch, fixed size widgets
+            self.grid_layout.addWidget(
+                card, 
+                row, 
+                col,
+                Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+            )
+            # Ensure row doesn't stretch vertically
+            self.grid_layout.setRowStretch(row, 0)
+            # Ensure column doesn't stretch horizontally
+            self.grid_layout.setColumnMinimumWidth(col, 0)
+            
             self._character_cards.append(card)
             self._character_dict[character.name] = card
             
-            # Move to next position (2 columns)
+            # Move to next position (2 columns, auto-wrap)
             col += 1
             if col >= 2:
                 col = 0
                 row += 1
         
-        # Update card sizes after adding
-        self._update_card_sizes()
+        # Update container size to fit content (like file manager)
+        self.grid_container.adjustSize()
     
     def _on_character_saved(self, character_name: str):
         """Handle character saved signal"""
