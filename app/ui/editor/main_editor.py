@@ -309,10 +309,16 @@ class MainEditorWidget(BaseTaskWidget):
             self.left_panel.hide()
             self.left_toggle_btn.setText("☰")
             self.left_toggle_btn.setToolTip("Show left panel")
+            # Change object name to reflect hidden state for styling
+            self.left_toggle_btn.setObjectName("left_panel_toggle_button_hidden")
+            self._apply_styles()
         else:
             self.left_panel.show()
             self.left_toggle_btn.setText("✕")
             self.left_toggle_btn.setToolTip("Hide left panel")
+            # Change object name to reflect visible state for styling
+            self.left_toggle_btn.setObjectName("left_panel_toggle_button")
+            self._apply_styles()
 
         # Reposition panels after showing/hiding
         self._position_floating_panels()
@@ -323,10 +329,16 @@ class MainEditorWidget(BaseTaskWidget):
             self.right_panel.hide()
             self.right_toggle_btn.setText("☰")
             self.right_toggle_btn.setToolTip("Show right panel")
+            # Change object name to reflect hidden state for styling
+            self.right_toggle_btn.setObjectName("right_panel_toggle_button_hidden")
+            self._apply_styles()
         else:
             self.right_panel.show()
             self.right_toggle_btn.setText("✕")
             self.right_toggle_btn.setToolTip("Hide right panel")
+            # Change object name to reflect visible state for styling
+            self.right_toggle_btn.setObjectName("right_panel_toggle_button")
+            self._apply_styles()
 
         # Reposition panels after showing/hiding
         self._position_floating_panels()
@@ -344,27 +356,29 @@ class MainEditorWidget(BaseTaskWidget):
         # Floating panels styling
         self.left_panel.setStyleSheet("""
             QWidget#floating_left_panel {
-                background-color: rgba(30, 31, 34, 0.9);
-                border: 1px solid #505254;
-                border-radius: 8px;
-                padding: 8px;
+                background-color: rgba(30, 31, 34, 1);
+                border: none;
+                border-radius: 4px;
+                padding: 0px;
             }
         """)
 
         self.right_panel.setStyleSheet("""
             QWidget#floating_right_panel {
-                background-color: rgba(30, 31, 34, 0.9);
-                border: 1px solid #505254;
-                border-radius: 8px;
-                padding: 8px;
+                background-color: rgba(30, 31, 34, 1);
+                border: none;
+                border-radius: 4px;
+                padding: 0px;
             }
         """)
 
         # Toggle button styling - match panel background and remove hover effect
+        # When panel is visible (button shows ✕), keep border
+        # When panel is hidden (button shows ☰), remove border
         self.left_toggle_btn.setStyleSheet("""
             QPushButton#left_panel_toggle_button {
-                background-color: rgba(30, 31, 34, 0.9);  /* Match panel background */
-                border: 1px solid #505254;
+                background-color: rgba(30, 31, 34, 1);
+                border: none;
                 border-radius: 4px;
                 color: #E1E1E1;
                 font-size: 14px;
@@ -373,19 +387,41 @@ class MainEditorWidget(BaseTaskWidget):
             QPushButton#left_panel_toggle_button:hover {
                 background-color: rgba(30, 31, 34, 0.9);  /* No hover effect, same as normal state */
             }
-        """)
-
-        self.right_toggle_btn.setStyleSheet("""
-            QPushButton#right_panel_toggle_button {
-                background-color: rgba(30, 31, 34, 0.9);  /* Match panel background */
+            QPushButton#left_panel_toggle_button_hidden {
+                background-color: rgba(30, 31, 34, 1);
                 border: 1px solid #505254;
                 border-radius: 4px;
                 color: #E1E1E1;
                 font-size: 14px;
                 font-weight: bold;
             }
+            QPushButton#left_panel_toggle_button_hidden:hover {
+                background-color: rgba(30, 31, 34, 1);
+            }
+        """)
+
+        self.right_toggle_btn.setStyleSheet("""
+            QPushButton#right_panel_toggle_button {
+                background-color: rgba(30, 31, 34, 1);
+                border: none;
+                border-radius: 4px;
+                color: #E1E1E1;
+                font-size: 14px;
+                font-weight: bold;
+            }
             QPushButton#right_panel_toggle_button:hover {
-                background-color: rgba(30, 31, 34, 0.9);  /* No hover effect, same as normal state */
+                background-color: rgba(30, 31, 34, 1);
+            }
+            QPushButton#right_panel_toggle_button_hidden {
+                background-color: rgba(30, 31, 34, 1);
+                border: 1px solid #505254;
+                border-radius: 4px;
+                color: #E1E1E1;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton#right_panel_toggle_button_hidden:hover {
+                background-color: rgba(30, 31, 34, 1);
             }
         """)
 
