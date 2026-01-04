@@ -139,7 +139,7 @@ class AgentPanel(BasePanel):
         """Initialize the agent with current workspace and project."""
         try:
             # Get current project from workspace
-            project = self.workspace.get_current_project()
+            project = self.workspace.get_project()
             if not project:
                 return
             

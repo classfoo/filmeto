@@ -18,8 +18,8 @@ async def example_basic_chat():
     print("="*60)
     
     # Initialize workspace and get project
-    workspace = Workspace("/path/to/workspace")
-    project = workspace.get_current_project()
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
     
     if not project:
         print("No project found. Please create a project first.")
@@ -44,8 +44,8 @@ async def example_streaming_chat():
     print("Example 2: Streaming Chat")
     print("="*60)
     
-    workspace = Workspace("/path/to/workspace")
-    project = workspace.get_current_project()
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
     
     if not project:
         print("No project found.")
@@ -75,8 +75,8 @@ async def example_tool_usage():
     print("Example 3: Tool Usage")
     print("="*60)
     
-    workspace = Workspace("/path/to/workspace")
-    project = workspace.get_current_project()
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
     
     if not project:
         print("No project found.")
@@ -103,8 +103,8 @@ async def example_complex_task():
     print("Example 4: Complex Task")
     print("="*60)
     
-    workspace = Workspace("/path/to/workspace")
-    project = workspace.get_current_project()
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
     
     if not project:
         print("No project found.")
@@ -131,8 +131,8 @@ async def example_conversation_management():
     print("Example 5: Conversation Management")
     print("="*60)
     
-    workspace = Workspace("/path/to/workspace")
-    project = workspace.get_current_project()
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
     
     if not project:
         print("No project found.")
@@ -185,8 +185,8 @@ async def example_custom_tool():
             # Mock weather data
             return f"Weather in {location}: Sunny, 72°F"
     
-    workspace = Workspace("/path/to/workspace")
-    project = workspace.get_current_project()
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
     
     if not project:
         print("No project found.")
@@ -217,8 +217,8 @@ async def example_error_handling():
     print("Example 7: Error Handling")
     print("="*60)
     
-    workspace = Workspace("/path/to/workspace")
-    project = workspace.get_current_project()
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
     
     if not project:
         print("No project found.")
