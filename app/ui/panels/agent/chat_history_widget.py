@@ -1,7 +1,8 @@
 """Chat history component for agent panel."""
 
-from PySide6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QLabel
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QScrollArea, QWidget, QLabel
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QIcon, QFont, QPen
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 from utils.i18n_utils import tr
@@ -17,6 +18,81 @@ class ChatHistoryWidget(BaseWidget):
             self.setParent(parent)
         self.messages = []
         self._setup_ui()
+    
+    def _create_circular_icon(self, icon_char: str, size: int = 24, bg_color: QColor = None, icon_color: QColor = None, use_iconfont: bool = True) -> QIcon:
+        """
+        Create a circular icon with an icon character.
+        
+        Args:
+            icon_char: Icon character (unicode string or letter)
+            size: Icon size in pixels
+            bg_color: Background color (default: #4080ff for user, #3d3f4e for agent)
+            icon_color: Icon color (default: white)
+            use_iconfont: Whether to use iconfont (True) or regular font (False)
+            
+        Returns:
+            QIcon object
+        """
+        if bg_color is None:
+            bg_color = QColor("#4080ff")
+        if icon_color is None:
+            icon_color = QColor("#ffffff")
+        
+        # Create pixmap
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+        
+        # Create painter
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Draw circular background
+        rect = QPainterPath()
+        rect.addEllipse(0, 0, size, size)
+        painter.fillPath(rect, bg_color)
+        
+        # Draw icon character
+        if use_iconfont:
+            font = QFont("iconfont", size // 2)
+        else:
+            font = QFont()
+            font.setPointSize(size // 2)
+            font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QPen(icon_color))
+        painter.drawText(0, 0, size, size, Qt.AlignCenter, icon_char)
+        
+        painter.end()
+        
+        return QIcon(pixmap)
+    
+    def _get_sender_info(self, sender: str):
+        """
+        Get sender information including icon and alignment.
+        
+        Args:
+            sender: Sender name
+            
+        Returns:
+            Tuple of (is_user, icon_char, bg_color, alignment, use_iconfont)
+        """
+        # Check if sender is user (支持中文和英文)
+        is_user = sender in [tr("用户"), "用户", "User", "user"]
+        
+        if is_user:
+            # User icon: use iconfont user icon
+            icon_char = "\ue6b3"  # user icon from iconfont
+            bg_color = QColor("#4080ff")  # Blue background
+            alignment = Qt.AlignRight
+            use_iconfont = True
+        else:
+            # Agent icon: use letter "A" with regular font
+            icon_char = "A"  # Agent initial
+            bg_color = QColor("#3d3f4e")  # Dark gray background
+            alignment = Qt.AlignLeft
+            use_iconfont = False
+        
+        return is_user, icon_char, bg_color, alignment, use_iconfont
 
     def _setup_ui(self):
         """Set up the UI components."""
@@ -77,6 +153,9 @@ class ChatHistoryWidget(BaseWidget):
         if not message:
             return
 
+        # Get sender information
+        is_user, icon_char, bg_color, alignment, use_iconfont = self._get_sender_info(sender)
+
         # Create message widget
         message_widget = QWidget(self.messages_container)
         message_widget.setStyleSheet("""
@@ -93,8 +172,21 @@ class ChatHistoryWidget(BaseWidget):
         message_layout.setContentsMargins(0, 0, 0, 0)
         message_layout.setSpacing(5)
 
-        # Sender label
-        sender_label = QLabel(sender, message_widget)
+        # Sender row with icon and name
+        sender_row = QWidget(message_widget)
+        sender_row_layout = QHBoxLayout(sender_row)
+        sender_row_layout.setContentsMargins(0, 0, 0, 0)
+        sender_row_layout.setSpacing(6)
+        
+        # Create circular icon
+        icon = self._create_circular_icon(icon_char, size=24, bg_color=bg_color, use_iconfont=use_iconfont)
+        icon_label = QLabel(sender_row)
+        icon_label.setPixmap(icon.pixmap(24, 24))
+        icon_label.setFixedSize(24, 24)
+        icon_label.setScaledContents(True)
+        
+        # Sender name label
+        sender_label = QLabel(sender, sender_row)
         sender_label.setObjectName("chat_sender_label")
         sender_label.setStyleSheet("""
             QLabel#chat_sender_label {
@@ -104,23 +196,53 @@ class ChatHistoryWidget(BaseWidget):
                 padding: 2px 0px;
             }
         """)
-        message_layout.addWidget(sender_label)
+        
+        # Add icon and label based on alignment
+        if is_user:
+            # User: icon on right, name on right
+            sender_row_layout.addStretch()
+            sender_row_layout.addWidget(sender_label)
+            sender_row_layout.addWidget(icon_label)
+        else:
+            # Agent: icon on left, name on left
+            sender_row_layout.addWidget(icon_label)
+            sender_row_layout.addWidget(sender_label)
+            sender_row_layout.addStretch()
+        
+        message_layout.addWidget(sender_row)
 
         # Message content label
         content_label = QLabel(message, message_widget)
         content_label.setObjectName("chat_content_label")
         content_label.setWordWrap(True)
         content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
-        content_label.setStyleSheet("""
-            QLabel#chat_content_label {
-                color: #e1e1e1;
-                font-size: 13px;
-                padding: 8px;
-                background-color: #2b2d30;
-                border: 1px solid #505254;
-                border-radius: 5px;
-            }
-        """)
+        
+        # Adjust content alignment based on sender
+        if is_user:
+            content_label.setAlignment(Qt.AlignRight | Qt.AlignTop)
+            content_label.setStyleSheet("""
+                QLabel#chat_content_label {
+                    color: #e1e1e1;
+                    font-size: 13px;
+                    padding: 8px;
+                    background-color: #4080ff;
+                    border: 1px solid #4080ff;
+                    border-radius: 5px;
+                }
+            """)
+        else:
+            content_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            content_label.setStyleSheet("""
+                QLabel#chat_content_label {
+                    color: #e1e1e1;
+                    font-size: 13px;
+                    padding: 8px;
+                    background-color: #2b2d30;
+                    border: 1px solid #505254;
+                    border-radius: 5px;
+                }
+            """)
+        
         message_layout.addWidget(content_label)
 
         # Insert before the stretch spacer
