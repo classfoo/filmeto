@@ -231,8 +231,9 @@ class AgentPromptInputWidget(BaseWidget):
         """Calculate the height of a single line of text."""
         # Get font metrics
         font_metrics = self.input_text.fontMetrics()
-        # Line height = font height * line-height factor (1.4)
-        line_height = int(font_metrics.height() * 1.4)
+        # Calculate line height based on font height and line spacing
+        # fontMetrics.lineSpacing() gives us the full line height including line spacing
+        line_height = font_metrics.lineSpacing()
         return max(line_height, 18)  # Minimum 18px
     
     def _adjust_height_auto(self):
