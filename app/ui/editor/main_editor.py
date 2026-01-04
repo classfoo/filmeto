@@ -120,45 +120,79 @@ class MainEditorWidget(BaseTaskWidget):
         # self.splitter = QSplitter(Qt.Orientation.Vertical)
         # self.splitter.setHandleWidth(0)
 
-        # ========== Top: Preview Area with Left-Right Layout ==========
+        # ========== Top: Preview Area with Canvas taking full space ==========
         self.preview_container = QFrame()
         self.preview_container.setObjectName("editor_preview_container")
-        preview_layout = QHBoxLayout(self.preview_container)
-        preview_layout.setContentsMargins(8, 8, 8, 8)
+        preview_layout = QVBoxLayout(self.preview_container)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
         preview_layout.setSpacing(0)
-        
-        # Create left panel with layers widget (fixed 200px width)
-        left_panel = QWidget()
-        left_panel.setFixedWidth(200)
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Preview widget - 使用CanvasEditor替换MediaPreviewWidget
+        self.canvas_editor = CanvasEditor(self.workspace)
+        self.canvas_editor.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Add canvas editor to preview layout
+        preview_layout.addWidget(self.canvas_editor)
+
+        # Create left panel with layers widget (fixed 200px width) - will be positioned as floating
+        self.left_panel = QWidget()
+        self.left_panel.setFixedWidth(200)
+        self.left_panel.setObjectName("floating_left_panel")
+        left_layout = QVBoxLayout(self.left_panel)
+        left_layout.setContentsMargins(8, 8, 8, 8)
         left_layout.setSpacing(0)
-        
+
+        # Add toggle button for left panel at the top-left
+        self.left_toggle_btn = QPushButton("✕")
+        self.left_toggle_btn.setObjectName("left_panel_toggle_button")
+        self.left_toggle_btn.setFixedSize(30, 30)
+        self.left_toggle_btn.setToolTip("Hide left panel")
+        self.left_toggle_btn.clicked.connect(self._toggle_left_panel)
+
         # Layers widget in left panel
         self.layers_widget = LayersWidget(None, self.workspace)
         self.layers_widget.setObjectName("main_editor_layers_widget")
+
+        # Create left panel layout
         left_layout.addWidget(self.layers_widget)
-        
-        # Preview widget - 使用CanvasEditor替换MediaPreviewWidget 
-        self.canvas_editor = CanvasEditor(self.workspace)
-        self.canvas_editor.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
-        # Create right panel with task list widget (fixed 200px width)
-        right_panel = QWidget()
-        right_panel.setFixedWidth(200)
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create right panel with task list widget (fixed 200px width) - will be positioned as floating
+        self.right_panel = QWidget()
+        self.right_panel.setFixedWidth(200)
+        self.right_panel.setObjectName("floating_right_panel")
+        right_layout = QVBoxLayout(self.right_panel)
+        right_layout.setContentsMargins(8, 8, 8, 8)
         right_layout.setSpacing(0)
-        
+
+        # Add toggle button for right panel at the top-left
+        self.right_toggle_btn = QPushButton("✕")
+        self.right_toggle_btn.setObjectName("right_panel_toggle_button")
+        self.right_toggle_btn.setFixedSize(30, 30)
+        self.right_toggle_btn.setToolTip("Hide right panel")
+        self.right_toggle_btn.clicked.connect(self._toggle_right_panel)
+
         # Task list widget in right panel
         self.task_list_widget = TaskListWidget(None, self.workspace)
         self.task_list_widget.setObjectName("main_editor_task_list_widget")
         right_layout.addWidget(self.task_list_widget)
-        
-        # Add left panel, canvas editor, and right panel to preview layout
-        preview_layout.addWidget(left_panel)
-        preview_layout.addWidget(self.canvas_editor, 1)
-        preview_layout.addWidget(right_panel)
+
+        # Add floating panels to preview container but position them over the canvas
+        self.preview_container.layout().setContentsMargins(0, 0, 0, 0)
+        self.preview_container.layout().setSpacing(0)
+
+        # Add floating panels as children of preview_container to position them absolutely
+        self.left_panel.setParent(self.preview_container)
+        self.right_panel.setParent(self.preview_container)
+
+        # Add toggle buttons as children of preview_container to position them independently
+        self.left_toggle_btn.setParent(self.preview_container)
+        self.right_toggle_btn.setParent(self.preview_container)
+
+        # Initially show the floating panels and toggle buttons
+        self.left_panel.show()
+        self.right_panel.show()
+        self.left_toggle_btn.show()
+        self.right_toggle_btn.show()
         
         # ========== Bottom: Control Area ==========
         self.control_container = QFrame()
@@ -240,6 +274,59 @@ class MainEditorWidget(BaseTaskWidget):
         """Connect signals and slots"""
         # Prompt submission
         self.prompt_input.prompt_submitted.connect(self._on_prompt_submitted)
+
+    def resizeEvent(self, event):
+        """Handle resize events to reposition floating panels"""
+        super().resizeEvent(event)
+        self._position_floating_panels()
+
+    def _position_floating_panels(self):
+        """Position the floating panels over the canvas"""
+        # Get canvas dimensions (which is the preview container size minus margins)
+        container_width = self.preview_container.width()
+        container_height = self.preview_container.height()
+
+        # Position the left panel at the top-left of the preview container with full height
+        if hasattr(self, 'left_panel'):
+            self.left_panel.setGeometry(8, 8, 200, container_height - 16)  # 8px margin on all sides
+            # Position the left toggle button at the top-left corner of the left panel
+            if hasattr(self, 'left_toggle_btn'):
+                self.left_toggle_btn.move(8, 8)  # 8px from top and left edge of preview container (where left panel starts)
+
+        # Position the right panel at the top-right of the preview container with full height
+        if hasattr(self, 'right_panel'):
+            self.right_panel.setGeometry(container_width - 200 - 8, 8, 200, container_height - 16)  # 200px panel width, 8px margin from right and all sides
+            # Position the right toggle button at the top-left corner of the right panel area
+            if hasattr(self, 'right_toggle_btn'):
+                self.right_toggle_btn.move(container_width - 200 - 8 + 8, 8)  # panel x position + 8px margin to align with panel content
+
+    def _toggle_left_panel(self):
+        """Toggle visibility of left panel"""
+        if self.left_panel.isVisible():
+            self.left_panel.hide()
+            self.left_toggle_btn.setText("☰")
+            self.left_toggle_btn.setToolTip("Show left panel")
+        else:
+            self.left_panel.show()
+            self.left_toggle_btn.setText("✕")
+            self.left_toggle_btn.setToolTip("Hide left panel")
+
+        # Reposition panels after showing/hiding
+        self._position_floating_panels()
+
+    def _toggle_right_panel(self):
+        """Toggle visibility of right panel"""
+        if self.right_panel.isVisible():
+            self.right_panel.hide()
+            self.right_toggle_btn.setText("☰")
+            self.right_toggle_btn.setToolTip("Show right panel")
+        else:
+            self.right_panel.show()
+            self.right_toggle_btn.setText("✕")
+            self.right_toggle_btn.setToolTip("Hide right panel")
+
+        # Reposition panels after showing/hiding
+        self._position_floating_panels()
     
     def _apply_styles(self):
         """Apply component styling"""
@@ -250,7 +337,55 @@ class MainEditorWidget(BaseTaskWidget):
                 border: none;
             }
         """)
-        
+
+        # Floating panels styling
+        self.left_panel.setStyleSheet("""
+            QWidget#floating_left_panel {
+                background-color: rgba(30, 31, 34, 0.9);
+                border: 1px solid #505254;
+                border-radius: 8px;
+                padding: 8px;
+            }
+        """)
+
+        self.right_panel.setStyleSheet("""
+            QWidget#floating_right_panel {
+                background-color: rgba(30, 31, 34, 0.9);
+                border: 1px solid #505254;
+                border-radius: 8px;
+                padding: 8px;
+            }
+        """)
+
+        # Toggle button styling
+        self.left_toggle_btn.setStyleSheet("""
+            QPushButton#left_panel_toggle_button {
+                background-color: #4a4c5e;
+                border: 1px solid #505254;
+                border-radius: 4px;
+                color: #E1E1E1;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton#left_panel_toggle_button:hover {
+                background-color: #5a5c6e;
+            }
+        """)
+
+        self.right_toggle_btn.setStyleSheet("""
+            QPushButton#right_panel_toggle_button {
+                background-color: #4a4c5e;
+                border: 1px solid #505254;
+                border-radius: 4px;
+                color: #E1E1E1;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton#right_panel_toggle_button:hover {
+                background-color: #5a5c6e;
+            }
+        """)
+
         # Control container
         self.control_container.setStyleSheet("""
             QFrame#editor_control_container {
@@ -258,7 +393,7 @@ class MainEditorWidget(BaseTaskWidget):
                 border-top: 1px solid #505254;
             }
         """)
-        
+
         # Tool buttons
         tool_button_style = """
             QPushButton#editor_tool_button {
@@ -284,7 +419,7 @@ class MainEditorWidget(BaseTaskWidget):
                 border: 2px solid #5090ff;
             }
         """
-        
+
         for btn in self._tool_buttons.values():
             btn.setStyleSheet(tool_button_style)
 
