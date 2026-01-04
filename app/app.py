@@ -153,7 +153,7 @@ class App():
             
             logger.info("Creating main window...")
             self.window = MainWindow(self.workspace)
-            self.window.show()
+            self.window.showMaximized()
             
             logger.info("Starting workspace...")
             asyncio.ensure_future(self.workspace.start())

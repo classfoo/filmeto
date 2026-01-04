@@ -66,9 +66,11 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
         from .messages import MessagesPanel
         from .video_effects import VideoEffectsPanel
         from .camera import CameraPanel
+        from .character import CharacterPanel
         
         # Map button names to panel classes
         self.panel_registry = {
+            'character': CharacterPanel,
             'resource': ResourcesPanel,
             'model': ModelsPanel,
             'attach': AttachmentsPanel,
