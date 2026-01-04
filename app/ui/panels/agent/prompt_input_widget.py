@@ -38,8 +38,8 @@ class AgentPromptInputWidget(BaseWidget):
         
         # Main layout - 5px margins on left, right, and bottom
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 10, 5, 10)
-        layout.setSpacing(6)  # Compact spacing
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(2)
 
         # Input container
         self.input_container = QFrame(self)
@@ -48,12 +48,12 @@ class AgentPromptInputWidget(BaseWidget):
             QFrame#agent_input_container {
                 background-color: #1e1f22;
                 border: none;
-                border-radius: 10px;
+                border-radius: 8px;
             }
         """)
         # Use a grid layout for better control over spacing
         input_container_layout = QGridLayout(self.input_container)
-        input_container_layout.setContentsMargins(2, 6, 2, 6)  # Left/right: 2px margin, top: 12px, bottom: 6px
+        input_container_layout.setContentsMargins(2, 2, 2, 2)
         input_container_layout.setSpacing(2)  # Fixed spacing between input and button
 
         # Initialize context UI components (above input)
@@ -89,7 +89,7 @@ class AgentPromptInputWidget(BaseWidget):
                 border: none;
                 border-radius: 8px;
                 color: #888888;
-                font-size: 10px;
+                font-size: 14px;
             }
             QPushButton#add_context_button:hover {
                 background-color: rgba(255, 255, 255, 0.1);
@@ -101,6 +101,18 @@ class AgentPromptInputWidget(BaseWidget):
         """)
         self.add_context_button.clicked.connect(self.add_context_requested.emit)
         context_main_layout.addWidget(self.add_context_button, 0)
+        
+        # Add placeholder text "add context" that appears when no context items exist
+        self.context_placeholder = QLabel(tr("add context"), self.context_widget)
+        self.context_placeholder.setObjectName("context_placeholder")
+        self.context_placeholder.setStyleSheet("""
+            QLabel#context_placeholder {
+                color: #888888;
+                font-size: 12px;
+                background-color: transparent;
+            }
+        """)
+        context_main_layout.addWidget(self.context_placeholder, 0)
         
         # Create a container widget for flow layout (context items)
         self.context_items_container = QWidget(self.context_widget)
@@ -114,6 +126,9 @@ class AgentPromptInputWidget(BaseWidget):
         
         # Initialize context items list
         self.context_items = []
+        
+        # Initially show the context widget and placeholder since there are no items
+        self.context_widget.show()
         
         # Add context widget to the grid at row 0, spanning both columns
         # This places it above the input text
@@ -419,6 +434,9 @@ class AgentPromptInputWidget(BaseWidget):
         # Show the context widget if it was hidden
         self.context_widget.show()
         
+        # Hide the placeholder when we have context items
+        self.context_placeholder.hide()
+        
         # Update the container size to ensure proper layout
         self.context_items_container.updateGeometry()
         self.context_items_container.update()
@@ -436,9 +454,12 @@ class AgentPromptInputWidget(BaseWidget):
                 # Remove from internal list
                 self.context_items.pop(i)
                 
-                # Hide the context widget if no items remain
+                # Show the placeholder if no context items remain
                 if len(self.context_items) == 0:
-                    self.context_widget.hide()
+                    self.context_placeholder.show()
+                
+                # Always keep the context widget visible to show either context items or placeholder
+                self.context_widget.show()
                 
                 # Delete the widget
                 context_item.deleteLater()
@@ -460,7 +481,12 @@ class AgentPromptInputWidget(BaseWidget):
             context_item.deleteLater()
         
         self.context_items.clear()
-        self.context_widget.hide()
+        
+        # Show the placeholder since no context items remain
+        self.context_placeholder.show()
+        
+        # Still show the context widget to display the placeholder
+        self.context_widget.show()
         
         # Update the container size to ensure proper layout
         self.context_items_container.updateGeometry()
