@@ -126,8 +126,8 @@ Full documentation: `docs/AGENT_MODULE_IMPLEMENTATION.md`
 
 ## Dependencies
 
-- langgraph>=0.2.0
-- langchain>=0.3.0
-- langchain-core>=0.3.0
-- langchain-openai>=0.2.0
+- langgraph==1.0.5
+- langchain>=1.0.0,<2.0.0
+- langchain-core>=1.0.0,<2.0.0
+- langchain-openai>=1.0.0,<2.0.0
 
