@@ -265,6 +265,7 @@ class CharacterPanel(BasePanel):
         icon_font = QFont("iconfont", 10)
         
         # New button (新建) - add-role icon
+        # Icon-only button style: transparent background, icon color changes on hover
         new_btn = QPushButton("\ue610", self)  # add-role icon
         new_btn.setFont(icon_font)
         new_btn.setFixedSize(16, 16)
@@ -272,16 +273,18 @@ class CharacterPanel(BasePanel):
         new_btn.setToolTip(tr("新建角色"))
         new_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4080ff;
-                color: white;
+                background-color: transparent;
+                color: #4080ff;
                 border: none;
-                border-radius: 2px;
+                padding: 0px;
             }
             QPushButton:hover {
-                background-color: #5090ff;
+                background-color: transparent;
+                color: #5090ff;
             }
             QPushButton:pressed {
-                background-color: #3070cc;
+                background-color: transparent;
+                color: #3070cc;
             }
         """)
         new_btn.clicked.connect(self._on_add_character)
@@ -295,16 +298,18 @@ class CharacterPanel(BasePanel):
         draw_btn.setToolTip(tr("抽卡"))
         draw_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4c5052;
-                color: white;
+                background-color: transparent;
+                color: #9e9e9e;
                 border: none;
-                border-radius: 2px;
+                padding: 0px;
             }
             QPushButton:hover {
-                background-color: #5c6062;
+                background-color: transparent;
+                color: #ffffff;
             }
             QPushButton:pressed {
-                background-color: #3c4042;
+                background-color: transparent;
+                color: #757575;
             }
         """)
         draw_btn.clicked.connect(self._on_draw_character)
@@ -318,16 +323,18 @@ class CharacterPanel(BasePanel):
         extract_btn.setToolTip(tr("提取"))
         extract_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4c5052;
-                color: white;
+                background-color: transparent;
+                color: #9e9e9e;
                 border: none;
-                border-radius: 2px;
+                padding: 0px;
             }
             QPushButton:hover {
-                background-color: #5c6062;
+                background-color: transparent;
+                color: #ffffff;
             }
             QPushButton:pressed {
-                background-color: #3c4042;
+                background-color: transparent;
+                color: #757575;
             }
         """)
         extract_btn.clicked.connect(self._on_extract_character)
