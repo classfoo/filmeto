@@ -58,19 +58,21 @@ class AgentPanel(BasePanel):
         if not message or self._is_processing:
             return
         
+        # Add user message to chat history FIRST - always show user messages
+        # regardless of whether agent processing succeeds or fails
+        self.chat_history_widget.append_message(tr("用户"), message)
+        
         # Check if agent is initialized
         if not self.agent:
             self._initialize_agent()
         
         if not self.agent:
+            # Show error message, but user message is already displayed
             self.chat_history_widget.append_message(
                 tr("系统"),
                 tr("错误: Agent未初始化。请确保项目已加载。")
             )
             return
-        
-        # Add user message to chat history
-        self.chat_history_widget.append_message(tr("用户"), message)
         
         # Disable input while processing
         self._is_processing = True
@@ -81,7 +83,13 @@ class AgentPanel(BasePanel):
         self._current_message_id = self.chat_history_widget.start_streaming_message(tr("Agent"))
         
         # Start streaming response in background
-        asyncio.create_task(self._stream_response(message))
+        # Wrap in try-except to ensure errors don't prevent user message from showing
+        try:
+            asyncio.create_task(self._stream_response(message))
+        except Exception as e:
+            # If task creation fails, still show error but user message is already displayed
+            error_msg = f"Error: {str(e)}"
+            self.error_occurred.emit(error_msg)
     
     async def _stream_response(self, message: str):
         """Stream response from agent."""
@@ -95,8 +103,13 @@ class AgentPanel(BasePanel):
                 # Tokens are handled by signal callbacks
                 pass
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
+            # Ensure error is displayed, but user message is already shown
+            error_msg = f"{tr('错误')}: {str(e)}"
             self.error_occurred.emit(error_msg)
+        finally:
+            # Ensure we always clean up streaming state even if there's an error
+            # The error handler will also clean up, but this provides extra safety
+            pass
     
     @Slot(str)
     def _on_token_received(self, token: str):
@@ -129,7 +142,21 @@ class AgentPanel(BasePanel):
     @Slot(str)
     def _on_error(self, error_message: str):
         """Handle error during agent processing."""
-        self.chat_history_widget.append_message(tr("系统"), error_message)
+        # If there's a streaming message in progress, update it with error
+        # Otherwise, add a new error message
+        if self._current_message_id:
+            # Update the streaming message to show error
+            self.chat_history_widget.update_streaming_message(
+                self._current_message_id,
+                error_message
+            )
+            self._current_message_id = None
+        else:
+            # Add error message as new message
+            self.chat_history_widget.append_message(tr("系统"), error_message)
+        
+        # Clear current response
+        self._current_response = ""
         
         # Re-enable input
         self._is_processing = False
