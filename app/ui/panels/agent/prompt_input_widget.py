@@ -35,7 +35,7 @@ class AgentPromptInputWidget(BaseWidget):
         
         # Main layout - 5px margins on left, right, and bottom
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)  # Left/right/bottom: 5px, top: 12px
+        layout.setContentsMargins(5, 10, 5, 10)
         layout.setSpacing(6)  # Compact spacing
 
         # Input container
@@ -122,7 +122,7 @@ class AgentPromptInputWidget(BaseWidget):
         self.send_button.setFont(icon_font)
         self.send_button.setFixedSize(24, 24)
         self.send_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.send_button.setToolTip(tr("发送"))
+        self.send_button.setToolTip(tr("Send"))
         self.send_button.setStyleSheet("""
             QPushButton#agent_send_button {
                 background-color: #3d3f4e;
