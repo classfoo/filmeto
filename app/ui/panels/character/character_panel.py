@@ -191,7 +191,7 @@ class CharacterPanel(BasePanel):
         scroll_area = QScrollArea(self)
         scroll_area.setWidgetResizable(True)  # Allow container to resize based on content
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         # Ensure content aligns to top-left
         scroll_area.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         scroll_area.setStyleSheet("""

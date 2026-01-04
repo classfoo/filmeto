@@ -25,8 +25,8 @@ class MainWindowWorkspaceTop(BaseWidget):
         from app.ui.panels import MainWindowWorkspaceTopLeftBar
         self.left = MainWindowWorkspaceTopLeftBar(workspace, self)
         self.left.setObjectName("main_window_workspace_top_left")
-        self.left.setMinimumWidth(200)
-        self.left.setMaximumWidth(200)
+        self.left.setMinimumWidth(240)
+        self.left.setMaximumWidth(240)
         self.splitter.addWidget(self.left)
 
         # Center panel - preview (this should expand)
@@ -37,8 +37,8 @@ class MainWindowWorkspaceTop(BaseWidget):
         from app.ui.panels.workspace_top_right_bar import MainWindowWorkspaceTopRightBar
         self.right = MainWindowWorkspaceTopRightBar(workspace, self)
         self.right.setObjectName("main_window_workspace_top_right")
-        self.right.setMinimumWidth(300)
-        self.right.setMaximumWidth(300)
+        self.right.setMinimumWidth(240)
+        self.right.setMaximumWidth(240)
         self.splitter.addWidget(self.right)
 
         # Set initial sizes and stretch factors
