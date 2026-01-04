@@ -215,9 +215,15 @@ class CharacterPanel(BasePanel):
         card.delete_requested.connect(self._on_delete_character)
         card.clicked.connect(self._on_character_clicked)
         
-        # Insert before add card
-        self.flow_layout.insertWidget(len(self._character_cards), card)
+        # Remove add card temporarily
+        self.flow_layout.removeWidget(self.add_card)
+        
+        # Add new character card
+        self.flow_layout.addWidget(card)
         self._character_cards.append(card)
+        
+        # Re-add add card at the end
+        self.flow_layout.addWidget(self.add_card)
     
     def _on_delete_character(self, character_id: str):
         """Handle delete character request"""
