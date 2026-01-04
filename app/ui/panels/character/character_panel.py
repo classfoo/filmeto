@@ -3,12 +3,11 @@
 from typing import List, Optional
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QFrame, QLabel,
-    QPushButton, QMessageBox, QMenu
+    QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor, QPixmap
 from app.ui.panels.base_panel import BasePanel
-from app.ui.layout.flow_layout import FlowLayout
 from app.ui.panels.character.character_edit_dialog import CharacterEditDialog
 from app.data.character import Character, CharacterManager
 from app.data.workspace import Workspace
@@ -29,7 +28,10 @@ class CharacterCard(QFrame):
     
     def _init_ui(self):
         """Initialize the card UI"""
-        self.setFixedSize(120, 120)
+        # Card will be sized by grid layout, but we set a preferred aspect ratio
+        self.setMinimumSize(100, 120)
+        self.setMaximumSize(200, 240)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
         # Main layout
@@ -65,15 +67,16 @@ class CharacterCard(QFrame):
         # Character image or icon
         # Try to load main_view image if available
         icon_label = QLabel()
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_label.setScaledContents(False)
         main_view_path = self.character.get_absolute_resource_path('main_view')
         if main_view_path and self.character.resource_exists('main_view'):
             try:
                 pixmap = QPixmap(main_view_path)
                 if not pixmap.isNull():
-                    # Scale pixmap to fit (80x80 max)
-                    scaled_pixmap = pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    icon_label.setPixmap(scaled_pixmap)
-                    icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    # Scale pixmap to fit (will be adjusted based on card width)
+                    icon_label.setPixmap(pixmap)
+                    icon_label.setScaledContents(True)
                 else:
                     # Fallback to icon if image load failed
                     self._set_icon_label(icon_label)
@@ -84,7 +87,7 @@ class CharacterCard(QFrame):
             # Use icon if no image
             self._set_icon_label(icon_label)
         
-        layout.addWidget(icon_label)
+        layout.addWidget(icon_label, 1)  # Stretch factor 1
         
         # Name label
         name_label = QLabel(self.character.name)
@@ -157,10 +160,14 @@ class CharacterPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components with grid layout."""
-        # Main vertical layout - no margins
+        # Main vertical layout
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        
+        # Top toolbar
+        toolbar = self._create_toolbar()
+        layout.addWidget(toolbar)
         
         # Scroll area for character grid
         scroll_area = QScrollArea(self)
@@ -186,16 +193,15 @@ class CharacterPanel(BasePanel):
             }
         """)
         
-        # Container for flow layout
+        # Container for grid layout (2 columns)
         self.grid_container = QWidget()
         self.grid_container.setStyleSheet("background-color: #1e1e1e;")
-        self.flow_layout = FlowLayout(self.grid_container)
-        self.flow_layout.setContentsMargins(15, 15, 15, 15)
-        self.flow_layout.setSpacing(12)
-        
-        # Add button card (first card)
-        self.add_card = self._create_add_card()
-        self.flow_layout.addWidget(self.add_card)
+        self.grid_layout = QGridLayout(self.grid_container)
+        self.grid_layout.setContentsMargins(15, 15, 15, 15)
+        self.grid_layout.setSpacing(12)
+        # Set equal column stretch to ensure 2 columns
+        self.grid_layout.setColumnStretch(0, 1)
+        self.grid_layout.setColumnStretch(1, 1)
         
         scroll_area.setWidget(self.grid_container)
         layout.addWidget(scroll_area, 1)
@@ -210,6 +216,126 @@ class CharacterPanel(BasePanel):
         
         # Connect signals after UI is fully initialized
         self._connect_signals()
+    
+    def _create_toolbar(self) -> QFrame:
+        """Create top toolbar with icon action buttons"""
+        toolbar = QFrame()
+        toolbar.setFixedHeight(50)
+        toolbar.setStyleSheet("""
+            QFrame {
+                background-color: #252525;
+                border-bottom: 1px solid #3a3a3a;
+            }
+        """)
+        
+        layout = QHBoxLayout(toolbar)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(8)
+        
+        # Icon font for buttons
+        icon_font = QFont("iconfont", 14)
+        
+        # New button (新建) - add-role icon
+        new_btn = QPushButton("\ue610", self)  # add-role icon
+        new_btn.setFont(icon_font)
+        new_btn.setFixedSize(32, 32)
+        new_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        new_btn.setToolTip(tr("新建角色"))
+        new_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4080ff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #5090ff;
+            }
+            QPushButton:pressed {
+                background-color: #3070cc;
+            }
+        """)
+        new_btn.clicked.connect(self._on_add_character)
+        layout.addWidget(new_btn)
+        
+        # Draw button (抽卡) - coupon icon (card-like)
+        draw_btn = QPushButton("\ue6a7", self)  # coupon icon
+        draw_btn.setFont(icon_font)
+        draw_btn.setFixedSize(32, 32)
+        draw_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        draw_btn.setToolTip(tr("抽卡"))
+        draw_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4c5052;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #5c6062;
+            }
+            QPushButton:pressed {
+                background-color: #3c4042;
+            }
+        """)
+        draw_btn.clicked.connect(self._on_draw_character)
+        layout.addWidget(draw_btn)
+        
+        # Extract button (提取) - export icon
+        extract_btn = QPushButton("\ue653", self)  # icexport icon
+        extract_btn.setFont(icon_font)
+        extract_btn.setFixedSize(32, 32)
+        extract_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        extract_btn.setToolTip(tr("提取"))
+        extract_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4c5052;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #5c6062;
+            }
+            QPushButton:pressed {
+                background-color: #3c4042;
+            }
+        """)
+        extract_btn.clicked.connect(self._on_extract_character)
+        layout.addWidget(extract_btn)
+        
+        layout.addStretch()
+        
+        return toolbar
+    
+    def resizeEvent(self, event):
+        """Handle resize event to adjust card sizes"""
+        super().resizeEvent(event)
+        # Update card sizes when panel is resized
+        self._update_card_sizes()
+    
+    def _update_card_sizes(self):
+        """Update card sizes to ensure 2 columns fit"""
+        if not hasattr(self, 'grid_container'):
+            return
+        
+        # Get available width
+        container_width = self.grid_container.width()
+        if container_width <= 0:
+            return
+        
+        # Calculate card width: (container_width - margins - spacing) / 2
+        margins = self.grid_layout.contentsMargins()
+        spacing = self.grid_layout.spacing()
+        available_width = container_width - margins.left() - margins.right() - spacing
+        card_width = available_width // 2
+        
+        # Set card height to maintain aspect ratio (approximately square)
+        card_height = int(card_width * 1.0)  # 1:1 aspect ratio
+        
+        # Update all cards
+        for card in self._character_cards:
+            card.setFixedSize(card_width, card_height)
     
     def _connect_signals(self):
         """Connect character manager signals"""
@@ -233,48 +359,6 @@ class CharacterPanel(BasePanel):
         if project:
             self.character_manager = project.get_character_manager()
     
-    def _create_add_card(self) -> QFrame:
-        """Create the add character card"""
-        add_card = QFrame()
-        add_card.setFixedSize(120, 120)
-        add_card.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        
-        layout = QVBoxLayout(add_card)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Plus icon
-        plus_label = QLabel("+")
-        plus_font = QFont()
-        plus_font.setPointSize(48)
-        plus_font.setBold(True)
-        plus_label.setFont(plus_font)
-        plus_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        plus_label.setStyleSheet("color: #7f8c8d; border: none;")
-        layout.addWidget(plus_label)
-        
-        # Add text
-        add_label = QLabel(tr("添加角色"))
-        add_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        add_label.setStyleSheet("color: #7f8c8d; border: none; font-size: 11px;")
-        layout.addWidget(add_label)
-        
-        add_card.setStyleSheet("""
-            QFrame {
-                background-color: #2d2d2d;
-                border: 2px dashed #3a3a3a;
-                border-radius: 8px;
-            }
-            QFrame:hover {
-                background-color: #3a3a3a;
-                border: 2px dashed #3498db;
-            }
-        """)
-        
-        add_card.mousePressEvent = lambda e: self._on_add_character() if e.button() == Qt.MouseButton.LeftButton else None
-        
-        return add_card
-    
     def _on_add_character(self):
         """Handle add character button click"""
         if not self.character_manager:
@@ -284,6 +368,16 @@ class CharacterPanel(BasePanel):
         dialog = CharacterEditDialog(self.character_manager, parent=self)
         dialog.character_saved.connect(self._on_character_saved)
         dialog.exec()
+    
+    def _on_draw_character(self):
+        """Handle draw character button click (抽卡)"""
+        # TODO: Implement character drawing feature
+        QMessageBox.information(self, tr("提示"), tr("抽卡功能开发中..."))
+    
+    def _on_extract_character(self):
+        """Handle extract character button click (提取)"""
+        # TODO: Implement character extraction feature
+        QMessageBox.information(self, tr("提示"), tr("提取功能开发中..."))
     
     def _on_character_clicked(self, character_name: str):
         """Handle character card click"""
@@ -326,7 +420,7 @@ class CharacterPanel(BasePanel):
             return
         
         # Ensure UI components are initialized
-        if not hasattr(self, 'flow_layout') or not hasattr(self, 'add_card'):
+        if not hasattr(self, 'grid_layout'):
             return
         
         # Ensure _character_cards is initialized
@@ -335,31 +429,37 @@ class CharacterPanel(BasePanel):
         if not hasattr(self, '_character_dict'):
             self._character_dict = {}
         
+        # Load all characters
         characters = self.character_manager.list_characters()
-        
-        # Remove add card temporarily
-        self.flow_layout.removeWidget(self.add_card)
         
         # Clear existing cards
         for card in self._character_cards:
-            self.flow_layout.removeWidget(card)
+            self.grid_layout.removeWidget(card)
             card.deleteLater()
         self._character_cards.clear()
         self._character_dict.clear()
         
-        # Add character cards
+        # Add character cards in 2-column grid
+        row = 0
+        col = 0
         for character in characters:
             card = CharacterCard(character, self)
             card.delete_requested.connect(self._on_delete_character)
             card.edit_requested.connect(self._on_edit_character)
             card.clicked.connect(self._on_character_clicked)
             
-            self.flow_layout.addWidget(card)
+            self.grid_layout.addWidget(card, row, col)
             self._character_cards.append(card)
             self._character_dict[character.name] = card
+            
+            # Move to next position (2 columns)
+            col += 1
+            if col >= 2:
+                col = 0
+                row += 1
         
-        # Re-add add card at the end
-        self.flow_layout.addWidget(self.add_card)
+        # Update card sizes after adding
+        self._update_card_sizes()
     
     def _on_character_saved(self, character_name: str):
         """Handle character saved signal"""
@@ -371,59 +471,13 @@ class CharacterPanel(BasePanel):
     
     def _on_character_updated(self, character: Character):
         """Handle character updated signal"""
-        # Ensure UI components are initialized
-        if not hasattr(self, 'flow_layout') or not hasattr(self, 'add_card'):
-            return
-        
-        # Ensure _character_cards is initialized
-        if not hasattr(self, '_character_cards'):
-            self._character_cards = []
-        if not hasattr(self, '_character_dict'):
-            self._character_dict = {}
-        
-        # Update existing card or reload all
-        if character.name in self._character_dict:
-            # Remove old card
-            old_card = self._character_dict[character.name]
-            self.flow_layout.removeWidget(old_card)
-            old_card.deleteLater()
-            if old_card in self._character_cards:
-                self._character_cards.remove(old_card)
-            del self._character_dict[character.name]
-        
-        # Add updated card
-        card = CharacterCard(character, self)
-        card.delete_requested.connect(self._on_delete_character)
-        card.edit_requested.connect(self._on_edit_character)
-        card.clicked.connect(self._on_character_clicked)
-        
-        # Insert before add card
-        self.flow_layout.removeWidget(self.add_card)
-        self.flow_layout.addWidget(card)
-        self.flow_layout.addWidget(self.add_card)
-        
-        self._character_cards.append(card)
-        self._character_dict[character.name] = card
+        # Reload all characters to ensure consistency
+        self._load_characters()
     
     def _on_character_deleted(self, character_name: str):
         """Handle character deleted signal"""
-        # Ensure UI components are initialized
-        if not hasattr(self, 'flow_layout'):
-            return
-        
-        # Ensure _character_cards is initialized
-        if not hasattr(self, '_character_cards'):
-            self._character_cards = []
-        if not hasattr(self, '_character_dict'):
-            self._character_dict = {}
-        
-        if character_name in self._character_dict:
-            card = self._character_dict[character_name]
-            self.flow_layout.removeWidget(card)
-            card.deleteLater()
-            if card in self._character_cards:
-                self._character_cards.remove(card)
-            del self._character_dict[character_name]
+        # Reload all characters
+        self._load_characters()
     
     def on_activated(self):
         """Called when panel becomes visible."""
