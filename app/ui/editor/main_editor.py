@@ -153,7 +153,8 @@ class MainEditorWidget(BaseTaskWidget):
         self.layers_widget = LayersWidget(None, self.workspace)
         self.layers_widget.setObjectName("main_editor_layers_widget")
 
-        # Create left panel layout
+        # Create left panel layout with top margin for the toggle button
+        left_layout.setContentsMargins(8, 8+30, 8, 8)  # Add 30px to top margin for button height
         left_layout.addWidget(self.layers_widget)
 
         # Create right panel with task list widget (fixed 200px width) - will be positioned as floating
@@ -161,7 +162,7 @@ class MainEditorWidget(BaseTaskWidget):
         self.right_panel.setFixedWidth(200)
         self.right_panel.setObjectName("floating_right_panel")
         right_layout = QVBoxLayout(self.right_panel)
-        right_layout.setContentsMargins(8, 8, 8, 8)
+        right_layout.setContentsMargins(8, 8+30, 8, 8)  # Add 30px to top margin for button height
         right_layout.setSpacing(0)
 
         # Add toggle button for right panel at the top-left
@@ -296,9 +297,11 @@ class MainEditorWidget(BaseTaskWidget):
         # Position the right panel at the top-right of the preview container with full height
         if hasattr(self, 'right_panel'):
             self.right_panel.setGeometry(container_width - 200 - 8, 8, 200, container_height - 16)  # 200px panel width, 8px margin from right and all sides
-            # Position the right toggle button at the top-left corner of the right panel area
+            # Position the right toggle button at the top-right corner of the right panel area
             if hasattr(self, 'right_toggle_btn'):
-                self.right_toggle_btn.move(container_width - 200 - 8 + 8, 8)  # panel x position + 8px margin to align with panel content
+                # Position button at the right panel's right edge minus button width and margin
+                button_x = container_width - 8 - 30  # panel right edge - 8px margin - 30px button width
+                self.right_toggle_btn.move(button_x, 8)  # 8px from top
 
     def _toggle_left_panel(self):
         """Toggle visibility of left panel"""
@@ -357,10 +360,10 @@ class MainEditorWidget(BaseTaskWidget):
             }
         """)
 
-        # Toggle button styling
+        # Toggle button styling - match panel background and remove hover effect
         self.left_toggle_btn.setStyleSheet("""
             QPushButton#left_panel_toggle_button {
-                background-color: #4a4c5e;
+                background-color: rgba(30, 31, 34, 0.9);  /* Match panel background */
                 border: 1px solid #505254;
                 border-radius: 4px;
                 color: #E1E1E1;
@@ -368,13 +371,13 @@ class MainEditorWidget(BaseTaskWidget):
                 font-weight: bold;
             }
             QPushButton#left_panel_toggle_button:hover {
-                background-color: #5a5c6e;
+                background-color: rgba(30, 31, 34, 0.9);  /* No hover effect, same as normal state */
             }
         """)
 
         self.right_toggle_btn.setStyleSheet("""
             QPushButton#right_panel_toggle_button {
-                background-color: #4a4c5e;
+                background-color: rgba(30, 31, 34, 0.9);  /* Match panel background */
                 border: 1px solid #505254;
                 border-radius: 4px;
                 color: #E1E1E1;
@@ -382,7 +385,7 @@ class MainEditorWidget(BaseTaskWidget):
                 font-weight: bold;
             }
             QPushButton#right_panel_toggle_button:hover {
-                background-color: #5a5c6e;
+                background-color: rgba(30, 31, 34, 0.9);  /* No hover effect, same as normal state */
             }
         """)
 
