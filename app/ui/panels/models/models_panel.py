@@ -112,7 +112,7 @@ class ModelsPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title("模型管理")
+        self.set_panel_title("Models")
         
         # Container for content
         content_container = QWidget()

@@ -14,7 +14,7 @@ class AttachmentsPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title("附件管理")
+        self.set_panel_title("Attachments")
         
         label = QLabel("Attachments Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")

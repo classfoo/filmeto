@@ -14,7 +14,7 @@ class VideoEffectsPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title("视频效果")
+        self.set_panel_title("Effect")
         
         label = QLabel("Video Effects Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")

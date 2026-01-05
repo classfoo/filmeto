@@ -14,7 +14,7 @@ class MessagesPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title("消息中心")
+        self.set_panel_title("Message")
         
         label = QLabel("Messages Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")

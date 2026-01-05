@@ -19,7 +19,7 @@ class ChatHistoryPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title(tr("对话历史"))
+        self.set_panel_title(tr("History"))
         self.add_toolbar_button("↻", self._on_refresh, tr("刷新"))
         
         # Container for content

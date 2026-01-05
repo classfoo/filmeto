@@ -190,7 +190,7 @@ class ResourcesPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title(tr("资源库"))
+        self.set_panel_title(tr("Resource"))
         
         # Add refresh button to toolbar instead of search layout if we want it unified
         self.add_toolbar_button("↻", self._on_refresh_clicked, tr("刷新"))

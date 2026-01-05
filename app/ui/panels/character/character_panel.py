@@ -216,7 +216,7 @@ class CharacterPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components with grid layout."""
-        self.set_panel_title(tr("角色库"))
+        self.set_panel_title(tr("Roles"))
         
         # Add buttons to unified toolbar
         self.add_toolbar_button("\ue610", self._on_add_character, tr("新建角色"))

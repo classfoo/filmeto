@@ -14,7 +14,7 @@ class CameraPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title("相机管理")
+        self.set_panel_title("Camera")
         
         label = QLabel("Camera Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")

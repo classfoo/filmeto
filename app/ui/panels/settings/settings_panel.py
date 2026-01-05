@@ -15,7 +15,7 @@ class SettingsPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title("设置")
+        self.set_panel_title("Settings")
         
         # Use existing SettingsWidget
         self.settings_widget = SettingsWidget(self.workspace, self)

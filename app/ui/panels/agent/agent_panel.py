@@ -37,7 +37,7 @@ class AgentPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components with vertical layout."""
-        self.set_panel_title(tr("AI 助手"))
+        self.set_panel_title(tr("Agent"))
         
         # Chat history component (top, takes most space)
         self.chat_history_widget = ChatHistoryWidget(self.workspace, self)

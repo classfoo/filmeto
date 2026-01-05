@@ -14,7 +14,7 @@ class TimelineToolsPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        self.set_panel_title("时间轴工具")
+        self.set_panel_title("Timeline")
         
         label = QLabel("Timeline Tools Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")
