@@ -272,11 +272,14 @@ class ServerManager:
     _instance = None
     _initialized = False  # Flag to track if the instance has been initialized
     _workspace_path = None
+    _defer_plugin_discovery = False  # Temporary storage for defer flag
 
-    def __new__(cls, workspace_path: str, plugin_manager: Optional[PluginManager] = None):
+    def __new__(cls, workspace_path: str, plugin_manager: Optional[PluginManager] = None, defer_plugin_discovery: bool = False):
         """
         Create or return the singleton instance of ServerManager.
         """
+        # Store defer flag as class variable for __init__ to use
+        cls._defer_plugin_discovery = defer_plugin_discovery
         if cls._instance is None:
             cls._instance = super(ServerManager, cls).__new__(cls)
         return cls._instance
@@ -284,7 +287,8 @@ class ServerManager:
     def __init__(
         self,
         workspace_path: str,
-        plugin_manager: Optional[PluginManager] = None
+        plugin_manager: Optional[PluginManager] = None,
+        defer_plugin_discovery: bool = False
     ):
         """
         Initialize server manager (only once).
@@ -292,7 +296,11 @@ class ServerManager:
         Args:
             workspace_path: Path to workspace root
             plugin_manager: Plugin manager instance (creates new if None)
+            defer_plugin_discovery: If True, skip plugin discovery during init (do it later)
         """
+        # Get defer flag from class variable (set by __new__)
+        defer_plugin_discovery = self.__class__._defer_plugin_discovery
+        
         # Check if we need to reinitialize because workspace path has changed
         if self._initialized and str(self._workspace_path) != str(workspace_path):
             print(f"⚠️ ServerManager workspace path changed from {self._workspace_path} to {workspace_path}")
@@ -312,12 +320,18 @@ class ServerManager:
         # Initialize plugin manager (for subprocess execution)
         if plugin_manager is None:
             self.plugin_manager = PluginManager()
-            self.plugin_manager.discover_plugins()
+            if not defer_plugin_discovery:
+                self.plugin_manager.discover_plugins()
         else:
             self.plugin_manager = plugin_manager
 
         # Initialize plugin UI loader (for UI component loading)
-        self.plugin_ui_loader = PluginUILoader(self.plugin_manager.plugins_dir)
+        # Note: plugins_dir might not exist if discovery is deferred
+        if hasattr(self.plugin_manager, 'plugins_dir') and self.plugin_manager.plugins_dir:
+            self.plugin_ui_loader = PluginUILoader(self.plugin_manager.plugins_dir)
+        else:
+            # Will be initialized after plugin discovery
+            self.plugin_ui_loader = None
 
         # Server instances
         self.servers: Dict[str, Server] = {}
@@ -332,9 +346,21 @@ class ServerManager:
         self._load_servers()
         self._load_routing_rules()
 
+        # Store flag for deferred discovery
+        self._plugin_discovery_deferred = defer_plugin_discovery
+
         # Mark as initialized
         self._initialized = True
 
+    def _complete_plugin_discovery(self):
+        """Complete plugin discovery if it was deferred during initialization"""
+        if self._plugin_discovery_deferred:
+            self.plugin_manager.discover_plugins()
+            # Initialize plugin UI loader now that plugins are discovered
+            if hasattr(self.plugin_manager, 'plugins_dir') and self.plugin_manager.plugins_dir:
+                self.plugin_ui_loader = PluginUILoader(self.plugin_manager.plugins_dir)
+            self._plugin_discovery_deferred = False
+    
     @classmethod
     def get_instance(cls) -> Optional['ServerManager']:
         """
