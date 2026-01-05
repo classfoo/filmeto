@@ -3,6 +3,7 @@ import os
 import sys
 import logging
 import traceback
+import time
 
 from qasync import QEventLoop
 from PySide6.QtGui import QFontDatabase, QIcon
@@ -15,6 +16,20 @@ from server.server import Server, ServerManager
 from utils.i18n_utils import translation_manager
 
 logger = logging.getLogger(__name__)
+
+# Performance timing helper
+class TimingContext:
+    def __init__(self, name: str):
+        self.name = name
+        self.start_time = None
+    
+    def __enter__(self):
+        self.start_time = time.time()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        elapsed = (time.time() - self.start_time) * 1000
+        logger.info(f"⏱️  {self.name}: {elapsed:.2f}ms")
 
 def load_stylesheet(main_path):
     """loading QSS style files"""
@@ -36,23 +51,14 @@ def load_custom_font(main_path):
     success_msg = ""
     font_path = os.path.join(main_path, "textures","iconfont.ttf")
     if not os.path.exists(font_path):
-        error_msg += f"错误：在脚本目录下找不到字体文件  (路径: {font_path})\n"
-        # 可选：回退到当前工作目录查找
-        # font_path = font_file_name
-        # print(f"[调试] 回退到当前工作目录查找: {font_path}")
-        # if not os.path.exists(font_path):
-        #     error_msg += f"错误：在当前工作目录下也找不到字体文件 '{font_file_name}'\n"
-        #     return None, success_msg, error_msg
-        # else:
-        #     success_msg += f"注意：在当前工作目录找到字体文件，建议将字体文件放在脚本同目录。\n"
-    else:
-        success_msg += f"找到字体文件: {font_path}\n"
+        # Don't log error if font doesn't exist - it's optional
+        return None, success_msg, error_msg
 
     # 检查文件扩展名
     _, ext = os.path.splitext(font_path)
     if ext.lower() not in ['.ttf', '.otf']:
         error_msg += f"警告：字体文件 '{font_path}' 的扩展名 '{ext}' 可能不受支持。请使用 .ttf 或 .otf 格式。\n"
-
+        return None, success_msg, error_msg
 
     # 尝试加载字体
     font_id = QFontDatabase.addApplicationFont(font_path)
@@ -112,55 +118,67 @@ class App():
 
     def start(self):
         try:
-            logger.info("Creating QApplication...")
-            app = QApplication(sys.argv)
+            startup_start = time.time()
             
-            # Set application icon for all platforms
-            icon_path = os.path.join(self.main_path, "textures", "filmeto.png")
-            if os.path.exists(icon_path):
-                app.setWindowIcon(QIcon(icon_path))
-                logger.info(f"Application icon set from {icon_path}")
-            else:
-                logger.warning(f"Application icon not found at {icon_path}")
+            with TimingContext("QApplication creation"):
+                logger.info("Creating QApplication...")
+                app = QApplication(sys.argv)
             
-            # Initialize translation system
-            logger.info("Initializing translation system...")
-            translation_manager.set_app(app)
-            # Set default language (can be loaded from config later)
-            translation_manager.switch_language("zh_CN")
+            with TimingContext("Application icon"):
+                icon_path = os.path.join(self.main_path, "textures", "filmeto.png")
+                if os.path.exists(icon_path):
+                    app.setWindowIcon(QIcon(icon_path))
+                    logger.info(f"Application icon set from {icon_path}")
+                else:
+                    logger.warning(f"Application icon not found at {icon_path}")
             
-            # 启动消费者
-            logger.info("Setting up event loop...")
-            loop = QEventLoop(app)
-            asyncio.set_event_loop(loop)
+            with TimingContext("Translation system"):
+                logger.info("Initializing translation system...")
+                translation_manager.set_app(app)
+                translation_manager.switch_language("zh_CN")
             
-            logger.info("Loading custom font...")
-            load_custom_font(self.main_path)
+            with TimingContext("Event loop setup"):
+                logger.info("Setting up event loop...")
+                loop = QEventLoop(app)
+                asyncio.set_event_loop(loop)
             
-            logger.info("Loading stylesheet...")
-            app.setStyleSheet(load_stylesheet(self.main_path))
+            with TimingContext("Custom font loading"):
+                logger.info("Loading custom font...")
+                load_custom_font(self.main_path)
             
-            # load main window
-            logger.info("Initializing workspace...")
-            workspacePath = os.path.join(self.main_path, "workspace")
-            self.workspace = Workspace(workspacePath,"demo")
+            with TimingContext("Stylesheet loading"):
+                logger.info("Loading stylesheet...")
+                app.setStyleSheet(load_stylesheet(self.main_path))
             
-            logger.info("Initializing server...")
-            # Use ServerManager instead of trying to instantiate Server directly
-            self.server_manager = ServerManager(workspacePath)
-            # Get the default/local server from the manager
-            self.server = self.server_manager.get_server("local")
+            # Initialize workspace (critical path - keep synchronous but optimized)
+            with TimingContext("Workspace initialization"):
+                logger.info("Initializing workspace...")
+                workspacePath = os.path.join(self.main_path, "workspace")
+                self.workspace = Workspace(workspacePath, "demo", load_data=False)
             
-            logger.info("Creating main window...")
-            self.window = MainWindow(self.workspace)
-            self.window.showMaximized()
+            # Initialize server manager (defer plugin discovery)
+            with TimingContext("Server manager initialization"):
+                logger.info("Initializing server manager...")
+                workspacePath = os.path.join(self.main_path, "workspace")
+                self.server_manager = ServerManager(workspacePath, defer_plugin_discovery=True)
+                self.server = self.server_manager.get_server("local")
             
-            logger.info("Starting workspace...")
-            asyncio.ensure_future(self.workspace.start())
+            # Create main window (critical path)
+            with TimingContext("Main window creation"):
+                logger.info("Creating main window...")
+                self.window = MainWindow(self.workspace)
+                self.window.showMaximized()
+            
+            # Defer non-critical initialization to background
+            logger.info("Starting background initialization...")
+            asyncio.ensure_future(self._background_init(loop))
             
             # Register cleanup on application exit
             logger.info("Registering cleanup handlers...")
             app.aboutToQuit.connect(self._cleanup_on_exit)
+            
+            total_startup_time = (time.time() - startup_start) * 1000
+            logger.info(f"🚀 Startup complete in {total_startup_time:.2f}ms")
             
             # 运行主循环
             logger.info("Starting main event loop...")
@@ -175,6 +193,29 @@ class App():
             logger.critical("Full stack trace:", exc_info=True)
             logger.critical("="*80)
             raise
+    
+    async def _background_init(self, loop):
+        """Initialize non-critical components in background after UI is shown"""
+        try:
+            # Load project data asynchronously
+            with TimingContext("Project data loading (background)"):
+                logger.info("Loading project data in background...")
+                self.workspace.project.load_all_tasks()
+            
+            # Start workspace async operations
+            with TimingContext("Workspace start (background)"):
+                logger.info("Starting workspace...")
+                await self.workspace.start()
+            
+            # Complete server plugin discovery in background
+            with TimingContext("Server plugin discovery (background)"):
+                logger.info("Completing server plugin discovery...")
+                if hasattr(self.server_manager, '_complete_plugin_discovery'):
+                    self.server_manager._complete_plugin_discovery()
+            
+            logger.info("✅ Background initialization complete")
+        except Exception as e:
+            logger.error(f"Error in background initialization: {e}", exc_info=True)
     
     def _cleanup_on_exit(self):
         """Clean up resources when application is about to quit."""

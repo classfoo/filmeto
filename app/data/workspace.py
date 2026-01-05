@@ -14,11 +14,11 @@ from utils.yaml_utils import load_yaml, save_yaml
 
 class Workspace():
 
-    def __init__(self, workspace_path: str, project_name: str):
+    def __init__(self, workspace_path:str, project_name:str, load_data:bool = True):
         self.workspace_path = workspace_path
         self.project_name = project_name
         self.project_path = os.path.join(self.workspace_path, self.project_name)
-        self.project = Project(self, self.project_path, self.project_name, load_data=True)
+        self.project = Project(self, self.project_path, self.project_name, load_data=load_data)
 
         # 初始化ProjectManager
         self.project_manager = ProjectManager(workspace_path)
@@ -30,7 +30,7 @@ class Workspace():
         # Initialize Settings
         self.settings = Settings(workspace_path)
 
-        # Initialize Plugins once for the entire workspace
+        # Initialize Plugins once for the entire workspace (can be deferred)
         from app.plugins.plugins import Plugins
         self.plugins = Plugins(self)
         return
@@ -79,7 +79,7 @@ class Workspace():
     def submit_task(self, params: dict, timeline_item_id: int = None):
         """
         Submit a task for execution.
-        
+
         Args:
             params: Task configuration parameters
             timeline_item_id: The timeline item ID to associate with this task.
