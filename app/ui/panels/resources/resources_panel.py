@@ -5,13 +5,14 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTreeWidget, QTreeWidgetItem, QSplitter, QFileIconProvider,
-    QHeaderView, QMenu
+    QHeaderView, QMenu, QTreeWidgetItemIterator, QWidget
 )
 from PySide6.QtCore import Qt, QSize, QFileInfo
 from PySide6.QtGui import QIcon, QBrush, QColor
 
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
+from utils.i18n_utils import tr
 from .resource_preview import ResourcePreview
 
 
