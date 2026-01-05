@@ -29,6 +29,7 @@ class AgentPanel(BasePanel):
         self._current_response = ""
         self._current_message_id = None
         self._is_processing = False
+        self._initialization_in_progress = False
         
         # Connect internal signals
         self.response_token_received.connect(self._on_token_received)
@@ -59,17 +60,47 @@ class AgentPanel(BasePanel):
         # regardless of whether agent processing succeeds or fails
         self.chat_history_widget.append_message(tr("用户"), message)
         
-        # Check if agent is initialized
+        # Start async processing which will initialize agent if needed
+        asyncio.create_task(self._process_message_async(message))
+    
+    async def _process_message_async(self, message: str):
+        """Process message asynchronously, initializing agent if needed."""
+        # Check if agent is initialized, if not, initialize it first
         if not self.agent:
-            self._initialize_agent()
-        
-        if not self.agent:
-            # Show error message, but user message is already displayed
-            self.chat_history_widget.append_message(
-                tr("系统"),
-                tr("错误: Agent未初始化。请确保项目已加载。")
-            )
-            return
+            if not self._initialization_in_progress:
+                # Show message that agent is initializing
+                init_message_id = self.chat_history_widget.start_streaming_message(tr("系统"))
+                self.chat_history_widget.update_streaming_message(
+                    init_message_id,
+                    tr("Agent正在初始化中，请稍候...")
+                )
+                
+                # Initialize agent asynchronously
+                await self._initialize_agent_async()
+                
+                # Update initialization message
+                if self.agent:
+                    self.chat_history_widget.update_streaming_message(
+                        init_message_id,
+                        tr("Agent初始化完成")
+                    )
+                else:
+                    self.chat_history_widget.update_streaming_message(
+                        init_message_id,
+                        tr("错误: Agent初始化失败。请确保项目已加载。")
+                    )
+                    return
+            else:
+                # Wait for ongoing initialization to complete
+                while self._initialization_in_progress:
+                    await asyncio.sleep(0.1)
+                
+                if not self.agent:
+                    self.chat_history_widget.append_message(
+                        tr("系统"),
+                        tr("错误: Agent初始化失败。请确保项目已加载。")
+                    )
+                    return
         
         # Disable input while processing
         self._is_processing = True
@@ -79,13 +110,12 @@ class AgentPanel(BasePanel):
         self._current_response = ""
         self._current_message_id = self.chat_history_widget.start_streaming_message(tr("Agent"))
         
-        # Start streaming response in background
-        # Wrap in try-except to ensure errors don't prevent user message from showing
+        # Start streaming response
         try:
-            asyncio.create_task(self._stream_response(message))
+            await self._stream_response(message)
         except Exception as e:
-            # If task creation fails, still show error but user message is already displayed
-            error_msg = f"Error: {str(e)}"
+            # If streaming fails, show error
+            error_msg = f"{tr('错误')}: {str(e)}"
             self.error_occurred.emit(error_msg)
     
     async def _stream_response(self, message: str):
@@ -159,8 +189,26 @@ class AgentPanel(BasePanel):
         self._is_processing = False
         self.prompt_input_widget.set_enabled(True)
     
-    def _initialize_agent(self):
-        """Initialize the agent with current workspace and project."""
+    async def _initialize_agent_async(self):
+        """Initialize the agent asynchronously with current workspace and project."""
+        if self._initialization_in_progress or self.agent:
+            return
+        
+        self._initialization_in_progress = True
+        
+        try:
+            # Run initialization in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self._initialize_agent_sync)
+        except Exception as e:
+            print(f"❌ Error initializing agent: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            self._initialization_in_progress = False
+    
+    def _initialize_agent_sync(self):
+        """Synchronously initialize the agent with current workspace and project."""
         try:
             # Get current project from workspace
             project = self.workspace.get_project()
@@ -198,16 +246,15 @@ class AgentPanel(BasePanel):
         if self.agent:
             self.agent.update_context(project=project)
         else:
-            self._initialize_agent()
+            # Initialize asynchronously to avoid blocking
+            if not self._initialization_in_progress:
+                asyncio.create_task(self._initialize_agent_async())
     
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
         print("✅ Agent panel activated")
-        
-        # Initialize agent if not already done
-        if not self.agent:
-            self._initialize_agent()
+        # Agent will be initialized lazily on first message submission
     
     def on_deactivated(self):
         """Called when panel is hidden."""
