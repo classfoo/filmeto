@@ -88,3 +88,29 @@ groups:
         type: boolean
         default: false
         description: Automatically overwrite files with the same name
+
+  - name: ai_services
+    label: AI Services
+    icon: ""
+    fields:
+      - name: openai_api_key
+        label: OpenAI API Key
+        type: text
+        default: ""
+        description: Your OpenAI API key for AI services
+        validation:
+          max_length: 200
+          pattern: "^sk-[a-zA-Z0-9]+$"
+        
+      - name: default_model
+        label: Default AI Model
+        type: select
+        default: gpt-4o-mini
+        description: Default model for AI services
+        options:
+          - value: gpt-4o-mini
+            label: GPT-4o Mini
+          - value: gpt-4-turbo
+            label: GPT-4 Turbo
+          - value: gpt-3.5-turbo
+            label: GPT-3.5 Turbo

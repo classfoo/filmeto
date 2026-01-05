@@ -63,6 +63,21 @@ class FilmetoAgent:
         }
         if api_key:
             llm_kwargs["api_key"] = api_key
+        else:
+            # Use a default API key or handle missing key gracefully
+            # In a real implementation, you might want to provide a mock or fallback LLM
+            # For now, we'll check if the environment variable is set
+            import os
+            env_api_key = os.getenv("OPENAI_API_KEY")
+            if env_api_key:
+                llm_kwargs["api_key"] = env_api_key
+            else:
+                # If no API key is provided, we can't initialize the LLM
+                # This will cause an error when trying to use the agent
+                # So we'll set a flag to indicate the issue
+                self.llm = None
+                print("⚠️ Warning: No OpenAI API key provided. Agent will not function until API key is set.")
+                return
         
         self.llm = ChatOpenAI(**llm_kwargs)
         
@@ -82,6 +97,9 @@ class FilmetoAgent:
     
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow."""
+        if not self.llm:
+            raise ValueError("Cannot build graph: LLM not initialized. API key is required.")
+        
         # Create nodes
         coordinator = CoordinatorNode(self.llm, self.tools)
         planner = PlannerNode(self.llm, self.tools)
@@ -197,6 +215,14 @@ class FilmetoAgent:
         Yields:
             Response tokens as they are generated
         """
+        # Check if LLM is initialized
+        if not self.llm:
+            error_msg = "Error: OpenAI API key not configured. Please set your API key in settings."
+            if on_token:
+                on_token(error_msg)
+            yield error_msg
+            return
+        
         # Get or create conversation
         if conversation_id:
             self.set_conversation(conversation_id)
@@ -295,18 +321,22 @@ class FilmetoAgent:
         Returns:
             Complete response string
         """
+        if not self.llm:
+            return "Error: OpenAI API key not configured. Please set your API key in settings."
+        
         response = ""
         async for token in self.chat_stream(message, conversation_id):
             response += token
         return response
     
-    def update_context(self, workspace: Any = None, project: Any = None):
+    def update_context(self, workspace: Any = None, project: Any = None, api_key: Optional[str] = None):
         """
         Update workspace and project context.
         
         Args:
             workspace: New workspace instance
             project: New project instance
+            api_key: New API key (optional)
         """
         if workspace:
             self.workspace = workspace
@@ -314,12 +344,29 @@ class FilmetoAgent:
             self.project = project
             self.conversation_manager = project.get_conversation_manager()
         
+        # Update API key if provided
+        if api_key:
+            # Reinitialize LLM with new API key
+            llm_kwargs = {
+                "model": "gpt-4o-mini",  # Use default model or store model in instance
+                "temperature": 0.7,       # Use default temperature or store in instance
+                "streaming": self.streaming,
+                "api_key": api_key
+            }
+            
+            from langchain_openai import ChatOpenAI
+            self.llm = ChatOpenAI(**llm_kwargs)
+        
         # Update tool registry
         self.tool_registry.update_context(workspace, project)
         
         # Rebuild graph with updated tools
         self.tools = self.tool_registry.get_all_tools()
-        self.graph = self._build_graph()
+        try:
+            self.graph = self._build_graph()
+        except ValueError:
+            # LLM might still not be initialized
+            print("⚠️ Cannot build graph: LLM not initialized")
     
     def get_conversation_history(self, conversation_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """

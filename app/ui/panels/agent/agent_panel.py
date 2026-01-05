@@ -167,21 +167,27 @@ class AgentPanel(BasePanel):
             if not project:
                 return
             
-            # Get API key from settings (if available)
+            # Get settings
             settings = self.workspace.get_settings()
             api_key = settings.get('openai_api_key') if settings else None
+            model = settings.get('ai_services.default_model', 'gpt-4o-mini')
+            temperature = 0.7  # Could also make this configurable
             
             # Create agent instance
             self.agent = FilmetoAgent(
                 workspace=self.workspace,
                 project=project,
                 api_key=api_key,
-                model="gpt-4o-mini",
-                temperature=0.7,
+                model=model,
+                temperature=temperature,
                 streaming=True
             )
             
-            print("✅ Agent initialized successfully")
+            # Check if agent has a valid LLM initialized
+            if self.agent.llm is None:
+                print("⚠️ Agent initialized but LLM is not configured (missing API key)")
+            else:
+                print("✅ Agent initialized successfully")
         except Exception as e:
             print(f"❌ Error initializing agent: {e}")
             import traceback
