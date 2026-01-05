@@ -14,8 +14,7 @@ class MessagesPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        self.set_panel_title("消息中心")
         
         label = QLabel("Messages Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")
@@ -26,4 +25,4 @@ class MessagesPanel(BasePanel):
                 padding: 20px;
             }
         """)
-        layout.addWidget(label)
+        self.content_layout.addWidget(label)

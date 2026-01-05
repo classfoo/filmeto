@@ -15,13 +15,11 @@ class SettingsPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self.set_panel_title("设置")
         
         # Use existing SettingsWidget
         self.settings_widget = SettingsWidget(self.workspace, self)
-        layout.addWidget(self.settings_widget)
+        self.content_layout.addWidget(self.settings_widget)
     
     def on_activated(self):
         """Called when panel becomes visible."""

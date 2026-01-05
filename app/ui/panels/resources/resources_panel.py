@@ -190,7 +190,14 @@ class ResourcesPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        layout = QVBoxLayout(self)
+        self.set_panel_title(tr("资源库"))
+        
+        # Add refresh button to toolbar instead of search layout if we want it unified
+        self.add_toolbar_button("↻", self._on_refresh_clicked, tr("刷新"))
+        
+        # Container for content
+        content_container = QWidget()
+        layout = QVBoxLayout(content_container)
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
         
@@ -199,7 +206,7 @@ class ResourcesPanel(BasePanel):
         search_layout.setSpacing(5)
         
         self.search_box = QLineEdit(self)
-        self.search_box.setPlaceholderText("Search resources...")
+        self.search_box.setPlaceholderText(tr("搜索资源..."))
         self.search_box.setStyleSheet("""
             QLineEdit {
                 background-color: #3c3f41;
@@ -214,12 +221,6 @@ class ResourcesPanel(BasePanel):
         """)
         self.search_box.textChanged.connect(self._on_search_changed)
         search_layout.addWidget(self.search_box)
-        
-        self.refresh_button = QPushButton("\u21bb", self)  # Refresh icon
-        self.refresh_button.setFixedSize(28, 28)
-        self.refresh_button.setToolTip("Refresh")
-        self.refresh_button.clicked.connect(self._on_refresh_clicked)
-        search_layout.addWidget(self.refresh_button)
         
         layout.addLayout(search_layout)
         
@@ -252,6 +253,8 @@ class ResourcesPanel(BasePanel):
             }
         """)
         layout.addWidget(self.info_label)
+        
+        self.content_layout.addWidget(content_container)
     
     def on_activated(self):
         """Called when panel becomes visible."""

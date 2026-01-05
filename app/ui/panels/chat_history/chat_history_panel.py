@@ -16,49 +16,14 @@ class ChatHistoryPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        layout = QVBoxLayout(self)
+        self.set_panel_title(tr("对话历史"))
+        self.add_toolbar_button("↻", self._on_refresh, tr("刷新"))
+        
+        # Container for content
+        content_container = QWidget()
+        layout = QVBoxLayout(content_container)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
-        
-        # Header with actions
-        header_layout = QHBoxLayout()
-        header_layout.setSpacing(10)
-        
-        header_label = QLabel(tr("对话历史"), self)
-        header_label.setObjectName("panel_header_label")
-        header_label.setStyleSheet("""
-            QLabel#panel_header_label {
-                color: #ffffff;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 5px;
-            }
-        """)
-        header_layout.addWidget(header_label)
-        
-        header_layout.addStretch()
-        
-        self.refresh_button = QPushButton(tr("刷新"), self)
-        self.refresh_button.setFixedWidth(60)
-        self.refresh_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3d3f4e;
-                color: #e1e1e1;
-                border: 1px solid #505254;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #4d4f5e;
-            }
-            QPushButton:pressed {
-                background-color: #2d2f3e;
-            }
-        """)
-        self.refresh_button.clicked.connect(self._on_refresh)
-        header_layout.addWidget(self.refresh_button)
-        
-        layout.addLayout(header_layout)
         
         # Conversation list
         self.conversation_list = QListWidget(self)
@@ -83,6 +48,8 @@ class ChatHistoryPanel(BasePanel):
             }
         """)
         layout.addWidget(self.conversation_list, 1)
+        
+        self.content_layout.addWidget(content_container)
         
         # Load sample conversations
         self._load_conversations()

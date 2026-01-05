@@ -112,7 +112,11 @@ class ModelsPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        layout = QVBoxLayout(self)
+        self.set_panel_title("模型管理")
+        
+        # Container for content
+        content_container = QWidget()
+        layout = QVBoxLayout(content_container)
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
         
@@ -184,6 +188,8 @@ class ModelsPanel(BasePanel):
         storage_layout.addWidget(manage_storage_btn)
         
         layout.addLayout(storage_layout)
+        
+        self.content_layout.addWidget(content_container)
         
         # Load mock data
         self._load_models()

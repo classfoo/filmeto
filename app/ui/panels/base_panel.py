@@ -1,5 +1,7 @@
 """Base panel class for workspace tool panels."""
 
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton, QSpacerItem, QSizePolicy
+from PySide6.QtCore import Qt, QSize
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 
@@ -23,9 +25,94 @@ class BasePanel(BaseWidget):
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
+            
+        # Initialize UI structure
+        self._init_base_ui()
+        
         self._is_active = False
         self.setup_ui()
-    
+        
+    def _init_base_ui(self):
+        """Initialize the base layout with toolbar and content area."""
+        # Main vertical layout for the whole panel
+        self._main_layout = QVBoxLayout(self)
+        self._main_layout.setContentsMargins(0, 0, 0, 0)
+        self._main_layout.setSpacing(0)
+        
+        # Top toolbar
+        self.toolbar = QWidget()
+        self.toolbar.setObjectName("panelToolbar")
+        self.toolbar.setFixedHeight(36)
+        self.toolbar.setStyleSheet("""
+            QWidget#panelToolbar {
+                background-color: #333333;
+                border-bottom: 1px solid #222222;
+            }
+            QLabel#panelTitle {
+                color: #e0e0e0;
+                font-weight: bold;
+                font-size: 13px;
+                margin-left: 10px;
+            }
+            QPushButton.toolbarButton {
+                background-color: transparent;
+                border: none;
+                border-radius: 4px;
+                color: #bbbbbb;
+                padding: 4px;
+                font-size: 14px;
+            }
+            QPushButton.toolbarButton:hover {
+                background-color: #444444;
+                color: #ffffff;
+            }
+        """)
+        
+        self.toolbar_layout = QHBoxLayout(self.toolbar)
+        self.toolbar_layout.setContentsMargins(5, 0, 5, 0)
+        self.toolbar_layout.setSpacing(5)
+        
+        # Left side: Title
+        self.title_label = QLabel()
+        self.title_label.setObjectName("panelTitle")
+        self.toolbar_layout.addWidget(self.title_label)
+        
+        # Middle: Spacer
+        self.toolbar_layout.addStretch()
+        
+        # Right side: Actions
+        self.actions_layout = QHBoxLayout()
+        self.actions_layout.setContentsMargins(0, 0, 0, 0)
+        self.actions_layout.setSpacing(2)
+        self.toolbar_layout.addLayout(self.actions_layout)
+        
+        self._main_layout.addWidget(self.toolbar)
+        
+        # Content area
+        self.content_widget = QWidget()
+        self.content_widget.setObjectName("panelContent")
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(0)
+        
+        self._main_layout.addWidget(self.content_widget, 1)
+
+    def set_panel_title(self, title: str):
+        """Set the panel title in the toolbar."""
+        self.title_label.setText(title)
+        
+    def add_toolbar_button(self, icon_text: str, callback=None, tooltip: str = ""):
+        """Add an icon button to the toolbar's right side."""
+        button = QPushButton(icon_text)
+        button.setProperty("class", "toolbarButton")
+        button.setFixedSize(28, 28)
+        if tooltip:
+            button.setToolTip(tooltip)
+        if callback:
+            button.clicked.connect(callback)
+        self.actions_layout.addWidget(button)
+        return button
+
     def setup_ui(self):
         """
         Set up the panel UI components.

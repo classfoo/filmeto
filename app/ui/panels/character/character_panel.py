@@ -216,14 +216,12 @@ class CharacterPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components with grid layout."""
-        # Main vertical layout
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self.set_panel_title(tr("角色库"))
         
-        # Top toolbar
-        toolbar = self._create_toolbar()
-        layout.addWidget(toolbar)
+        # Add buttons to unified toolbar
+        self.add_toolbar_button("\ue610", self._on_add_character, tr("新建角色"))
+        self.add_toolbar_button("\ue6a7", self._on_draw_character, tr("抽卡"))
+        self.add_toolbar_button("\ue653", self._on_extract_character, tr("提取"))
         
         # Scroll area for character grid (like file manager)
         scroll_area = QScrollArea(self)
@@ -276,7 +274,7 @@ class CharacterPanel(BasePanel):
         self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         
         scroll_area.setWidget(self.grid_container)
-        layout.addWidget(scroll_area, 1)
+        self.content_layout.addWidget(scroll_area, 1)
         
         # Load character manager (without connecting signals yet)
         project = self.workspace.get_project()
@@ -288,114 +286,6 @@ class CharacterPanel(BasePanel):
 
         # Connect signals after UI is fully initialized
         self._connect_signals()
-    
-    def _create_toolbar(self) -> QFrame:
-        """Create top toolbar with title and icon action buttons"""
-        toolbar = QFrame()
-        toolbar.setFixedHeight(50)
-        toolbar.setStyleSheet("""
-            QFrame {
-                background-color: #252525;
-                border-bottom: 1px solid #3a3a3a;
-            }
-        """)
-        
-        layout = QHBoxLayout(toolbar)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(8)
-        
-        # Title label on the left
-        title_label = QLabel("character")
-        title_font = QFont()
-        title_font.setPointSize(12)
-        title_font.setBold(True)
-        title_label.setFont(title_font)
-        title_label.setStyleSheet("color: #ffffff;")
-        layout.addWidget(title_label)
-        
-        # Spacer to push buttons to the right
-        layout.addStretch()
-        
-        # Icon font for buttons (smaller for 16x16 buttons)
-        icon_font = QFont("iconfont", 10)
-        
-        # New button (新建) - add-role icon
-        # Icon-only button style: transparent background, icon color changes on hover
-        new_btn = QPushButton("\ue610", self)  # add-role icon
-        new_btn.setFont(icon_font)
-        new_btn.setFixedSize(16, 16)
-        new_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        new_btn.setToolTip(tr("新建角色"))
-        new_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #4080ff;
-                border: none;
-                padding: 0px;
-            }
-            QPushButton:hover {
-                background-color: transparent;
-                color: #5090ff;
-            }
-            QPushButton:pressed {
-                background-color: transparent;
-                color: #3070cc;
-            }
-        """)
-        new_btn.clicked.connect(self._on_add_character)
-        layout.addWidget(new_btn)
-        
-        # Draw button (抽卡) - coupon icon (card-like)
-        draw_btn = QPushButton("\ue6a7", self)  # coupon icon
-        draw_btn.setFont(icon_font)
-        draw_btn.setFixedSize(16, 16)
-        draw_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        draw_btn.setToolTip(tr("抽卡"))
-        draw_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #9e9e9e;
-                border: none;
-                padding: 0px;
-            }
-            QPushButton:hover {
-                background-color: transparent;
-                color: #ffffff;
-            }
-            QPushButton:pressed {
-                background-color: transparent;
-                color: #757575;
-            }
-        """)
-        draw_btn.clicked.connect(self._on_draw_character)
-        layout.addWidget(draw_btn)
-        
-        # Extract button (提取) - export icon
-        extract_btn = QPushButton("\ue653", self)  # icexport icon
-        extract_btn.setFont(icon_font)
-        extract_btn.setFixedSize(16, 16)
-        extract_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        extract_btn.setToolTip(tr("提取"))
-        extract_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #9e9e9e;
-                border: none;
-                padding: 0px;
-            }
-            QPushButton:hover {
-                background-color: transparent;
-                color: #ffffff;
-            }
-            QPushButton:pressed {
-                background-color: transparent;
-                color: #757575;
-            }
-        """)
-        extract_btn.clicked.connect(self._on_extract_character)
-        layout.addWidget(extract_btn)
-        
-        return toolbar
     
     def resizeEvent(self, event):
         """Handle resize event - update layout like file manager"""

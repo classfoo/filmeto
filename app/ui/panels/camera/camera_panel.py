@@ -14,8 +14,7 @@ class CameraPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        self.set_panel_title("相机管理")
         
         label = QLabel("Camera Panel\n(Coming soon)", self)
         label.setObjectName("panel_placeholder_label")
@@ -26,4 +25,4 @@ class CameraPanel(BasePanel):
                 padding: 20px;
             }
         """)
-        layout.addWidget(label)
+        self.content_layout.addWidget(label)

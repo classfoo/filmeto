@@ -37,18 +37,15 @@ class AgentPanel(BasePanel):
     
     def setup_ui(self):
         """Set up the UI components with vertical layout."""
-        # Main vertical layout - no margins
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self.set_panel_title(tr("AI 助手"))
         
         # Chat history component (top, takes most space)
         self.chat_history_widget = ChatHistoryWidget(self.workspace, self)
-        layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
+        self.content_layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
         
         # Prompt input component (bottom, fixed height)
         self.prompt_input_widget = AgentPromptInputWidget(self.workspace, self)
-        layout.addWidget(self.prompt_input_widget, 0)  # No stretch
+        self.content_layout.addWidget(self.prompt_input_widget, 0)  # No stretch
         
         # Connect signals
         self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
