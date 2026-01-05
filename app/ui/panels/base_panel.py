@@ -42,35 +42,41 @@ class BasePanel(BaseWidget):
         # Top toolbar
         self.toolbar = QWidget()
         self.toolbar.setObjectName("panelToolbar")
-        self.toolbar.setFixedHeight(36)
+        self.toolbar.setFixedHeight(40)
         self.toolbar.setStyleSheet("""
             QWidget#panelToolbar {
-                background-color: #333333;
-                border-bottom: 1px solid #222222;
+                background-color: #2D2D2D;
+                border-bottom: 1px solid #1E1E1E;
             }
             QLabel#panelTitle {
-                color: #e0e0e0;
+                color: #E0E0E0;
                 font-weight: bold;
-                font-size: 13px;
-                margin-left: 10px;
+                font-size: 12px;
+                margin-left: 8px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
             }
             QPushButton.toolbarButton {
                 background-color: transparent;
                 border: none;
                 border-radius: 4px;
-                color: #bbbbbb;
+                color: #A0A0A0;
                 padding: 4px;
-                font-size: 14px;
+                font-family: "iconfont";
+                font-size: 16px;
             }
             QPushButton.toolbarButton:hover {
-                background-color: #444444;
-                color: #ffffff;
+                background-color: #3D3D3D;
+                color: #FFFFFF;
+            }
+            QPushButton.toolbarButton:pressed {
+                background-color: #4D4D4D;
             }
         """)
         
         self.toolbar_layout = QHBoxLayout(self.toolbar)
-        self.toolbar_layout.setContentsMargins(5, 0, 5, 0)
-        self.toolbar_layout.setSpacing(5)
+        self.toolbar_layout.setContentsMargins(8, 0, 8, 0)
+        self.toolbar_layout.setSpacing(4)
         
         # Left side: Title
         self.title_label = QLabel()
@@ -81,10 +87,11 @@ class BasePanel(BaseWidget):
         self.toolbar_layout.addStretch()
         
         # Right side: Actions
-        self.actions_layout = QHBoxLayout()
+        self.actions_widget = QWidget()
+        self.actions_layout = QHBoxLayout(self.actions_widget)
         self.actions_layout.setContentsMargins(0, 0, 0, 0)
-        self.actions_layout.setSpacing(2)
-        self.toolbar_layout.addLayout(self.actions_layout)
+        self.actions_layout.setSpacing(4)
+        self.toolbar_layout.addWidget(self.actions_widget)
         
         self._main_layout.addWidget(self.toolbar)
         

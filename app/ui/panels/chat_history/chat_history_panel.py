@@ -1,6 +1,9 @@
 """Chat history panel for viewing conversation history."""
 
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QListWidget, QListWidgetItem, QHBoxLayout, QPushButton
+from PySide6.QtWidgets import (
+    QVBoxLayout, QLabel, QListWidget, QListWidgetItem, 
+    QHBoxLayout, QPushButton, QWidget
+)
 from PySide6.QtCore import Qt
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
