@@ -1,5 +1,7 @@
 import os.path
 import os
+import time
+import logging
 from typing import List, Dict, Any
 from datetime import datetime
 
@@ -14,23 +16,70 @@ from app.data.character import CharacterManager
 from app.data.conversation import ConversationManager
 from utils.yaml_utils import load_yaml, save_yaml
 
+logger = logging.getLogger(__name__)
+
 
 class Project():
 
     timeline_position=signal('timeline_position')
 
     def __init__(self, workspace, project_path:str, project_name:str, load_data:bool = True):
+        init_start = time.time()
+        logger.info(f"⏱️  [Project] Starting initialization (project={project_name}, load_data={load_data})...")
+        
         self.workspace = workspace
         self.project_path = project_path
         self.project_name = project_name
+        
+        # Load project config
+        config_start = time.time()
+        logger.info(f"⏱️  [Project] Loading project.yaml...")
         self.config = load_yaml(os.path.join(self.project_path, "project.yaml"))
+        config_time = (time.time() - config_start) * 1000
+        logger.info(f"⏱️  [Project] project.yaml loaded in {config_time:.2f}ms")
+        
+        # Initialize TaskManager
+        task_mgr_start = time.time()
+        logger.info(f"⏱️  [Project] Creating TaskManager...")
         self.tasks_path = os.path.join(self.project_path,"tasks")
         self.task_manager = TaskManager(self.workspace, self, self.tasks_path)
+        task_mgr_time = (time.time() - task_mgr_start) * 1000
+        logger.info(f"⏱️  [Project] TaskManager created in {task_mgr_time:.2f}ms")
+        
+        # Initialize Timeline
+        timeline_start = time.time()
+        logger.info(f"⏱️  [Project] Creating Timeline...")
         self.timeline =  Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
+        timeline_time = (time.time() - timeline_start) * 1000
+        logger.info(f"⏱️  [Project] Timeline created in {timeline_time:.2f}ms")
+        
+        # Initialize Drawing
+        drawing_start = time.time()
+        logger.info(f"⏱️  [Project] Creating Drawing...")
         self.drawing = Drawing(self.workspace, self)
+        drawing_time = (time.time() - drawing_start) * 1000
+        logger.info(f"⏱️  [Project] Drawing created in {drawing_time:.2f}ms")
+        
+        # Initialize ResourceManager
+        resource_mgr_start = time.time()
+        logger.info(f"⏱️  [Project] Creating ResourceManager...")
         self.resource_manager = ResourceManager(self.project_path)
+        resource_mgr_time = (time.time() - resource_mgr_start) * 1000
+        logger.info(f"⏱️  [Project] ResourceManager created in {resource_mgr_time:.2f}ms")
+        
+        # Initialize CharacterManager
+        char_mgr_start = time.time()
+        logger.info(f"⏱️  [Project] Creating CharacterManager...")
         self.character_manager = CharacterManager(self.project_path, self.resource_manager)
+        char_mgr_time = (time.time() - char_mgr_start) * 1000
+        logger.info(f"⏱️  [Project] CharacterManager created in {char_mgr_time:.2f}ms")
+        
+        # Initialize ConversationManager
+        conv_mgr_start = time.time()
+        logger.info(f"⏱️  [Project] Creating ConversationManager...")
         self.conversation_manager = ConversationManager(self.project_path)
+        conv_mgr_time = (time.time() - conv_mgr_start) * 1000
+        logger.info(f"⏱️  [Project] ConversationManager created in {conv_mgr_time:.2f}ms")
         
         # Debounced save mechanism for high-frequency updates (like timeline_position)
         self._pending_save = False
@@ -41,7 +90,14 @@ class Project():
         
         # 只有在load_data为True时才自动加载项目中的所有任务
         if load_data:
+            load_tasks_start = time.time()
+            logger.info(f"⏱️  [Project] Loading all tasks...")
             self.load_all_tasks()
+            load_tasks_time = (time.time() - load_tasks_start) * 1000
+            logger.info(f"⏱️  [Project] All tasks loaded in {load_tasks_time:.2f}ms")
+        
+        total_time = (time.time() - init_start) * 1000
+        logger.info(f"⏱️  [Project] Initialization complete in {total_time:.2f}ms")
 
 
     async def start(self):
@@ -337,25 +393,46 @@ class ProjectManager:
         """加载所有项目"""
         if not os.path.exists(self.workspace_root_path):
             os.makedirs(self.workspace_root_path, exist_ok=True)
+            logger.info(f"⏱️  [ProjectManager] Created workspace directory: {self.workspace_root_path}")
             return
         
-        for item in os.listdir(self.workspace_root_path):
+        scan_start = time.time()
+        logger.info(f"⏱️  [ProjectManager] Scanning workspace directory: {self.workspace_root_path}")
+        items = os.listdir(self.workspace_root_path)
+        scan_time = (time.time() - scan_start) * 1000
+        logger.info(f"⏱️  [ProjectManager] Directory scan completed in {scan_time:.2f}ms (found {len(items)} items)")
+        
+        loaded_count = 0
+        failed_count = 0
+        for item in items:
             project_path = os.path.join(self.workspace_root_path, item)
             if os.path.isdir(project_path):
                 project_config_path = os.path.join(project_path, "project.yaml")
                 if os.path.exists(project_config_path):
                     try:
+                        project_start = time.time()
                         # 这里我们假设项目目录名就是项目名
                         # 修改为不自动加载项目数据，只在需要时加载
                         project = Project(self.workspace_root_path, project_path, item, load_data=False)
                         self.projects[item] = project
+                        project_time = (time.time() - project_start) * 1000
+                        logger.info(f"⏱️  [ProjectManager] Loaded project '{item}' in {project_time:.2f}ms")
+                        loaded_count += 1
                     except Exception as e:
-                        print(f"加载项目 {item} 失败: {e}")
+                        logger.error(f"⏱️  [ProjectManager] Failed to load project '{item}': {e}")
+                        failed_count += 1
+        
+        logger.info(f"⏱️  [ProjectManager] Project loading summary: {loaded_count} loaded, {failed_count} failed")
     
     def ensure_projects_loaded(self):
         """Ensure projects are loaded (for deferred loading)"""
         if self._defer_scan and not self.projects:
+            load_start = time.time()
+            logger.info(f"⏱️  [ProjectManager] Starting deferred project scan...")
             self._load_projects()
+            load_time = (time.time() - load_start) * 1000
+            project_count = len(self.projects)
+            logger.info(f"⏱️  [ProjectManager] Deferred project scan completed in {load_time:.2f}ms (found {project_count} projects)")
     
     def create_project(self, project_name: str) -> Project:
         """创建新项目"""

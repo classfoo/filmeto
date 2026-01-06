@@ -199,50 +199,90 @@ class App():
     
     async def _background_init(self, loop):
         """Initialize non-critical components in background after UI is shown"""
+        bg_init_start = time.time()
+        logger.info(f"⏱️  [BackgroundInit] Starting background initialization...")
         try:
             # Complete deferred initializations
-            logger.info("Completing deferred workspace initializations...")
+            logger.info("⏱️  [BackgroundInit] Completing deferred workspace initializations...")
+            deferred_start = time.time()
             await loop.run_in_executor(None, self._complete_deferred_init)
+            deferred_time = (time.time() - deferred_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] Deferred initializations completed in {deferred_time:.2f}ms")
             
             # Load project data asynchronously
-            with TimingContext("Project data loading (background)"):
-                logger.info("Loading project data in background...")
-                # Use executor to avoid blocking the main thread
-                await loop.run_in_executor(None, self.workspace.project.load_all_tasks)
-                
-                # Pre-load character and resource managers to avoid blocking UI later
-                logger.info("Pre-loading managers...")
-                await loop.run_in_executor(None, self.workspace.project.character_manager.list_characters)
-                await loop.run_in_executor(None, self.workspace.project.resource_manager.get_all)
+            project_data_start = time.time()
+            logger.info("⏱️  [BackgroundInit] Loading project data...")
+            # Use executor to avoid blocking the main thread
+            await loop.run_in_executor(None, self.workspace.project.load_all_tasks)
+            project_data_time = (time.time() - project_data_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] Project data loaded in {project_data_time:.2f}ms")
+            
+            # Pre-load character and resource managers to avoid blocking UI later
+            preload_start = time.time()
+            logger.info("⏱️  [BackgroundInit] Pre-loading managers...")
+            char_start = time.time()
+            await loop.run_in_executor(None, self.workspace.project.character_manager.list_characters)
+            char_time = (time.time() - char_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] CharacterManager pre-loaded in {char_time:.2f}ms")
+            
+            resource_start = time.time()
+            await loop.run_in_executor(None, self.workspace.project.resource_manager.get_all)
+            resource_time = (time.time() - resource_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] ResourceManager pre-loaded in {resource_time:.2f}ms")
+            preload_time = (time.time() - preload_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] Managers pre-loading completed in {preload_time:.2f}ms")
             
             # Start workspace async operations
-            with TimingContext("Workspace start (background)"):
-                logger.info("Starting workspace...")
-                await self.workspace.start()
+            workspace_start_start = time.time()
+            logger.info("⏱️  [BackgroundInit] Starting workspace...")
+            await self.workspace.start()
+            workspace_start_time = (time.time() - workspace_start_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] Workspace started in {workspace_start_time:.2f}ms")
             
             # Complete server plugin discovery in background
-            with TimingContext("Server plugin discovery (background)"):
-                logger.info("Completing server plugin discovery...")
-                if hasattr(self.server_manager, '_complete_plugin_discovery'):
-                    self.server_manager._complete_plugin_discovery()
+            server_plugins_start = time.time()
+            logger.info("⏱️  [BackgroundInit] Completing server plugin discovery...")
+            if hasattr(self.server_manager, '_complete_plugin_discovery'):
+                self.server_manager._complete_plugin_discovery()
+            server_plugins_time = (time.time() - server_plugins_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] Server plugin discovery completed in {server_plugins_time:.2f}ms")
             
-            logger.info("✅ Background initialization complete")
+            total_bg_time = (time.time() - bg_init_start) * 1000
+            logger.info(f"⏱️  [BackgroundInit] Background initialization complete in {total_bg_time:.2f}ms")
         except Exception as e:
             logger.error(f"Error in background initialization: {e}", exc_info=True)
     
     def _complete_deferred_init(self):
         """Complete deferred initializations synchronously (runs in executor)"""
+        init_start = time.time()
+        logger.info(f"⏱️  [DeferredInit] Starting deferred workspace initializations...")
+        
         # Complete ProjectManager scan
         if hasattr(self.workspace.project_manager, 'ensure_projects_loaded'):
+            pm_start = time.time()
+            logger.info(f"⏱️  [DeferredInit] Completing ProjectManager scan...")
             self.workspace.project_manager.ensure_projects_loaded()
+            pm_time = (time.time() - pm_start) * 1000
+            logger.info(f"⏱️  [DeferredInit] ProjectManager scan completed in {pm_time:.2f}ms")
         
         # Complete Settings loading
         if hasattr(self.workspace.settings, '_ensure_loaded'):
+            settings_start = time.time()
+            logger.info(f"⏱️  [DeferredInit] Loading Settings...")
             self.workspace.settings._ensure_loaded()
+            settings_time = (time.time() - settings_start) * 1000
+            logger.info(f"⏱️  [DeferredInit] Settings loaded in {settings_time:.2f}ms")
         
         # Complete Plugins discovery
         if hasattr(self.workspace.plugins, 'ensure_discovery'):
+            plugins_start = time.time()
+            logger.info(f"⏱️  [DeferredInit] Discovering Plugins...")
             self.workspace.plugins.ensure_discovery()
+            plugins_time = (time.time() - plugins_start) * 1000
+            logger.info(f"⏱️  [DeferredInit] Plugins discovery completed in {plugins_time:.2f}ms")
+        
+        total_time = (time.time() - init_start) * 1000
+        logger.info(f"⏱️  [DeferredInit] All deferred initializations completed in {total_time:.2f}ms")
     
     def _cleanup_on_exit(self):
         """Clean up resources when application is about to quit."""
