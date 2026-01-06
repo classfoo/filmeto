@@ -37,16 +37,20 @@ class MainWindowHLayout(BaseWidget):
         # Connect right bar button clicks to panel switcher
         self.right_bar.connect_signals(self.workspace.workspace_top.right)
         
-        # Delay default panel switching to avoid blocking startup
-        # Use QTimer to switch panels after UI is fully rendered
-        # This ensures framework is loaded first, then panels are activated on demand
-        QTimer.singleShot(100, self._switch_to_default_panels)
+        # Immediately set default buttons as selected (before panel creation)
+        # This provides instant visual feedback while panels load in background
+        self.left_bar.bar.set_selected_button('character')
+        self.right_bar.bar.set_selected_button('agent')
+        
+        # Switch to default panels immediately (panels will be created lazily)
+        # Use minimal delay to ensure UI is ready but don't wait too long
+        QTimer.singleShot(10, self._switch_to_default_panels)
     
     def _switch_to_default_panels(self):
         """Switch to default panels after UI is rendered."""
-        # Switch to character panel by default (this will also update button state via signal)
+        # Switch to character panel by default (panel will be created lazily)
         self.workspace.workspace_top.left.switch_to_panel('character')
         
-        # Switch to agent panel by default for right side (this will also update button state via signal)
+        # Switch to agent panel by default for right side (panel will be created lazily)
         self.workspace.workspace_top.right.switch_to_panel('agent')
 

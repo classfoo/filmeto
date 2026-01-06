@@ -100,8 +100,9 @@ class Character:
         Returns:
             True if resource exists, False otherwise
         """
-        abs_path = self.get_absolute_resource_path(resource_type)
-        return abs_path is not None and os.path.exists(abs_path)
+        # Fast check: just verify resource path is set, don't check file system
+        # File existence check should be done lazily when actually loading the image
+        return resource_type in self.resources and self.resources[resource_type] is not None
     
     def set_resource(self, resource_type: str, resource_path: str):
         """Set resource file path

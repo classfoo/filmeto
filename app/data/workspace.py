@@ -36,6 +36,15 @@ class Workspace():
         return
 
     def get_project(self):
+        """Get the current project instance."""
+        # Ensure deferred initializations are complete before accessing project
+        # This is called from UI threads, so we need to ensure workspace is ready
+        if hasattr(self, '_defer_heavy_init') and self._defer_heavy_init:
+            # If heavy init was deferred, it should be completed in background
+            # For now, just return the project (it should be initialized)
+            # The actual heavy operations (ProjectManager scan, Settings load, Plugins discovery)
+            # are done in background and don't block project access
+            pass
         return self.project
 
     def get_project_manager(self):

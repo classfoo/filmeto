@@ -1,11 +1,12 @@
 """Character panel for role/character management."""
 
+import os
 from typing import List, Optional
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QFrame, QLabel,
     QPushButton, QMessageBox, QMenu, QGridLayout, QSizePolicy
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QFont, QCursor, QPixmap
 from app.ui.panels.base_panel import BasePanel
 from app.ui.panels.character.character_edit_dialog import CharacterEditDialog
@@ -26,6 +27,7 @@ class CharacterCard(QFrame):
         super().__init__(parent)
         self.character = character
         self._is_selected = False
+        self._image_loaded = False
         self._init_ui()
 
     def _init_ui(self):
@@ -72,30 +74,14 @@ class CharacterCard(QFrame):
         top_layout.addWidget(self.selection_icon)
         layout.addLayout(top_layout)
         
-        # Character image or icon
-        # Try to load main_view image if available
-        icon_label = QLabel()
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setScaledContents(False)
-        main_view_path = self.character.get_absolute_resource_path('main_view')
-        if main_view_path and self.character.resource_exists('main_view'):
-            try:
-                pixmap = QPixmap(main_view_path)
-                if not pixmap.isNull():
-                    # Scale pixmap to fit (will be adjusted based on card width)
-                    icon_label.setPixmap(pixmap)
-                    icon_label.setScaledContents(True)
-                else:
-                    # Fallback to icon if image load failed
-                    self._set_icon_label(icon_label)
-            except Exception:
-                # Fallback to icon if image load failed
-                self._set_icon_label(icon_label)
-        else:
-            # Use icon if no image
-            self._set_icon_label(icon_label)
+        # Character image or icon - use placeholder first, load image asynchronously
+        self.icon_label = QLabel()
+        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon_label.setScaledContents(False)
+        # Start with placeholder icon (fast - no file I/O)
+        self._set_icon_label(self.icon_label)
         
-        layout.addWidget(icon_label, 1)  # Stretch factor 1
+        layout.addWidget(self.icon_label, 1)  # Stretch factor 1
 
         # Name label
         name_label = QLabel(self.character.name)
@@ -110,6 +96,9 @@ class CharacterCard(QFrame):
 
         # Apply card style
         self._apply_style()
+        
+        # Load image asynchronously after UI is created
+        self._load_image_async()
 
     def _on_selection_icon_clicked(self, event):
         """Handle selection icon click"""
@@ -171,6 +160,53 @@ class CharacterCard(QFrame):
         icon_label.setFont(icon_font)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_label.setStyleSheet("color: #3498db; border: none;")
+
+    def _load_image_async(self):
+        """Load character image asynchronously to avoid blocking UI"""
+        if self._image_loaded:
+            return
+        
+        # Get resource path without checking existence (fast)
+        main_view_path = self.character.get_resource_path('main_view')
+        if not main_view_path:
+            return
+        
+        # Defer image loading to avoid blocking card creation
+        # Use a small delay to ensure card UI is fully rendered first
+        QTimer.singleShot(50, lambda: self._load_image_sync(main_view_path))
+    
+    def _load_image_sync(self, rel_path: str):
+        """Load image synchronously (called after card is created)"""
+        if self._image_loaded:
+            return
+        
+        try:
+            abs_path = self.character.get_absolute_resource_path('main_view')
+            if not abs_path:
+                return
+            
+            # Check file existence first (fast check)
+            if not os.path.exists(abs_path):
+                return
+            
+            # Load pixmap - this can be slow for large images
+            # Use QPixmap.load() which is more efficient than constructor
+            pixmap = QPixmap()
+            if pixmap.load(abs_path):
+                # Scale pixmap to fit card size before setting (reduces memory and rendering cost)
+                card_width = 105  # Match card width
+                card_height = int(card_width * 16 / 9)
+                scaled_pixmap = pixmap.scaled(
+                    card_width, card_height,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.icon_label.setPixmap(scaled_pixmap)
+                self.icon_label.setScaledContents(False)  # Already scaled
+                self._image_loaded = True
+        except Exception:
+            # Keep placeholder icon on error
+            pass
 
     def _apply_style(self):
         """Apply styling to the card"""
@@ -386,22 +422,28 @@ class CharacterPanel(BasePanel):
             self.hide_loading()
             return
             
-        # Clear existing cards
-        for card in self._character_cards:
-            self.grid_layout.removeWidget(card)
-            card.deleteLater()
-        self._character_cards.clear()
-        self._character_dict.clear()
+        # Clear existing cards asynchronously to avoid blocking
+        if self._character_cards:
+            for card in self._character_cards:
+                self.grid_layout.removeWidget(card)
+                card.deleteLater()
+            self._character_cards.clear()
+            self._character_dict.clear()
+            # Process events to allow deletion to complete before creating new cards
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
         
         if not characters:
             self.hide_loading()
             return
 
         # Start batch creation of cards to avoid blocking UI thread
+        # Process one card at a time with minimal delay between cards
         self._pending_characters = characters.copy()
         self._batch_row = 0
         self._batch_col = 0
-        self._process_next_batch()
+        # Start processing with a small delay to ensure UI is ready
+        QTimer.singleShot(10, self._process_next_batch)
 
     def _process_next_batch(self):
         """Process a batch of character cards to keep UI responsive"""
@@ -410,38 +452,38 @@ class CharacterPanel(BasePanel):
             self.hide_loading() # Hide loading once all cards are created
             return
 
-        # Process a small batch (e.g., 5 cards at a time)
-        batch_size = 5
-        batch = self._pending_characters[:batch_size]
-        self._pending_characters = self._pending_characters[batch_size:]
+        # Process only 1 card at a time to ensure UI stays responsive
+        # This prevents any blocking from card creation or layout operations
+        character = self._pending_characters.pop(0)
+        
+        # Create card (fast - no image loading in __init__)
+        card = CharacterCard(character, self)
+        card.edit_requested.connect(self._on_edit_character)
+        card.clicked.connect(self._on_character_clicked)
+        card.selection_changed.connect(self._on_character_selection_changed)
 
-        for character in batch:
-            card = CharacterCard(character, self)
-            card.edit_requested.connect(self._on_edit_character)
-            card.clicked.connect(self._on_character_clicked)
-            card.selection_changed.connect(self._on_character_selection_changed)
+        self.grid_layout.addWidget(
+            card,
+            self._batch_row,
+            self._batch_col,
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        self.grid_layout.setRowStretch(self._batch_row, 0)
+        self.grid_layout.setColumnMinimumWidth(self._batch_col, 0)
 
-            self.grid_layout.addWidget(
-                card,
-                self._batch_row,
-                self._batch_col,
-                Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
-            )
-            self.grid_layout.setRowStretch(self._batch_row, 0)
-            self.grid_layout.setColumnMinimumWidth(self._batch_col, 0)
+        self._character_cards.append(card)
+        self._character_dict[character.name] = card
 
-            self._character_cards.append(card)
-            self._character_dict[character.name] = card
+        # Move to next position (2 columns)
+        self._batch_col += 1
+        if self._batch_col >= 2:
+            self._batch_col = 0
+            self._batch_row += 1
 
-            # Move to next position (2 columns)
-            self._batch_col += 1
-            if self._batch_col >= 2:
-                self._batch_col = 0
-                self._batch_row += 1
-
-        # Schedule next batch
-        from PySide6.QtCore import QTimer
-        QTimer.singleShot(1, self._process_next_batch)
+        # Schedule next card with a small delay to allow UI event loop to process
+        # This ensures mouse/keyboard events are handled and UI stays responsive
+        # Using 10ms delay balances responsiveness with loading speed
+        QTimer.singleShot(10, self._process_next_batch)
 
     def _on_load_error(self, error_msg: str, exception: Exception):
         """Handle loading error"""
@@ -468,19 +510,33 @@ class CharacterPanel(BasePanel):
     def load_data(self):
         """Load character data when panel is first activated."""
         super().load_data()
-        # Load character manager
-        project = self.workspace.get_project()
-        if project:
-            self.character_manager = project.get_character_manager()
         
-        # Load characters
-        self._load_characters()
+        # Get project - this should be fast if workspace is already initialized
+        # But if workspace initialization is deferred, this might trigger it
+        # So we defer this to background thread
+        from app.ui.worker.worker import run_in_background
         
-        # Connect signals after data is loaded
-        self._connect_signals()
+        def _load_character_manager():
+            """Load character manager in background to avoid blocking"""
+            project = self.workspace.get_project()
+            if project:
+                return project.get_character_manager()
+            return None
         
-        # Connect signals after data is loaded
-        self._connect_signals()
+        run_in_background(
+            _load_character_manager,
+            on_finished=self._on_character_manager_loaded,
+            on_error=self._on_load_error
+        )
+    
+    def _on_character_manager_loaded(self, character_manager):
+        """Callback when character manager is loaded"""
+        if character_manager:
+            self.character_manager = character_manager
+            # Connect signals after manager is loaded
+            self._connect_signals()
+            # Load characters
+            self._load_characters()
     
     def on_activated(self):
         """Called when panel becomes visible."""
