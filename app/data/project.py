@@ -326,10 +326,12 @@ class ProjectManager:
     # 定义项目切换信号
     project_switched = signal('project_switched')
     
-    def __init__(self, workspace_root_path: str):
+    def __init__(self, workspace_root_path: str, defer_scan: bool = False):
         self.workspace_root_path = workspace_root_path
         self.projects: Dict[str, Project] = {}
-        self._load_projects()
+        self._defer_scan = defer_scan
+        if not defer_scan:
+            self._load_projects()
     
     def _load_projects(self):
         """加载所有项目"""
@@ -349,6 +351,11 @@ class ProjectManager:
                         self.projects[item] = project
                     except Exception as e:
                         print(f"加载项目 {item} 失败: {e}")
+    
+    def ensure_projects_loaded(self):
+        """Ensure projects are loaded (for deferred loading)"""
+        if self._defer_scan and not self.projects:
+            self._load_projects()
     
     def create_project(self, project_name: str) -> Project:
         """创建新项目"""

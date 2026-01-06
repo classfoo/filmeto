@@ -47,12 +47,13 @@ class Settings:
     Supports grouped settings with validation and type-safe access.
     """
     
-    def __init__(self, workspace_path: str):
+    def __init__(self, workspace_path: str, defer_load: bool = False):
         """
         Initialize Settings instance.
         
         Args:
             workspace_path: Path to the workspace directory
+            defer_load: If True, defer loading settings until first access
         """
         self.workspace_path = workspace_path
         self.settings_file = os.path.join(workspace_path, "settings.yaml")
@@ -66,9 +67,18 @@ class Settings:
         self.values: Dict[str, Dict[str, Any]] = {}
         self._groups: List[SettingGroup] = []
         self._dirty = False
+        self._loaded = False
+        self._defer_load = defer_load
         
-        # Load settings
-        self.load()
+        # Load settings unless deferred
+        if not defer_load:
+            self.load()
+    
+    def _ensure_loaded(self):
+        """Ensure settings are loaded (for deferred loading)"""
+        if not self._loaded:
+            self.load()
+            self._loaded = True
     
     def load(self):
         """Load settings from YAML file or create from template if not exists"""
@@ -177,6 +187,8 @@ class Settings:
         Returns:
             Setting value or default if not found
         """
+        if self._defer_load:
+            self._ensure_loaded()
         try:
             parts = key.split('.')
             if len(parts) != 2:
