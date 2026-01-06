@@ -46,7 +46,7 @@ class Character:
         self.description = data.get('description', '')
         self.story = data.get('story', '')
         self.relationships = data.get('relationships', {})  # Dict of character_name -> relationship_description
-        self.resources = data.get('resources', {})  # Dict of resource_type -> file_path (relative)
+        self.resources = data.get('resources', {})  # Dict of resource_type -> resource_path (relative to project root)
         self.metadata = data.get('metadata', {})  # Additional metadata
         self.created_at = data.get('created_at', datetime.now().isoformat())
         self.updated_at = data.get('updated_at', datetime.now().isoformat())
@@ -64,22 +64,6 @@ class Character:
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }
-    
-    def get_directory(self) -> str:
-        """Get character directory path (relative to project root)"""
-        return os.path.join('characters', self.name)
-    
-    def get_absolute_directory(self) -> str:
-        """Get absolute character directory path"""
-        return os.path.join(self.project_path, self.get_directory())
-    
-    def get_config_path(self) -> str:
-        """Get character config.yaml path (relative to project root)"""
-        return os.path.join(self.get_directory(), 'config.yaml')
-    
-    def get_absolute_config_path(self) -> str:
-        """Get absolute character config.yaml path"""
-        return os.path.join(self.project_path, self.get_config_path())
     
     def get_resource_path(self, resource_type: str) -> Optional[str]:
         """Get resource file path (relative to project root)
@@ -118,14 +102,14 @@ class Character:
         abs_path = self.get_absolute_resource_path(resource_type)
         return abs_path is not None and os.path.exists(abs_path)
     
-    def set_resource(self, resource_type: str, file_path: str):
+    def set_resource(self, resource_type: str, resource_path: str):
         """Set resource file path
         
         Args:
             resource_type: Type of resource
-            file_path: Relative file path from project root
+            resource_path: Relative file path from project root
         """
-        self.resources[resource_type] = file_path
+        self.resources[resource_type] = resource_path
         self.updated_at = datetime.now().isoformat()
     
     def remove_resource(self, resource_type: str):
@@ -140,76 +124,130 @@ class Character:
 
 
 class CharacterManager:
-    """Manages project characters with directory-based storage"""
+    """Manages project characters with centralized YAML storage"""
     
     # Signals for character events
     character_added = signal('character_added')
     character_updated = signal('character_updated')
     character_deleted = signal('character_deleted')
     
-    def __init__(self, project_path: str):
+    def __init__(self, project_path: str, resource_manager=None):
         """Initialize character manager for a project
         
         Args:
             project_path: Absolute path to the project directory
+            resource_manager: ResourceManager instance for handling character resources
         """
         self.project_path = project_path
+        self.resource_manager = resource_manager
         self.characters_dir = os.path.join(project_path, 'characters')
+        self.config_path = os.path.join(self.characters_dir, 'config.yaml')
         
         # In-memory index: character_name -> Character
         self._characters: Dict[str, Character] = {}
+        self._loaded = False
         
         # Initialize directory structure
         self._ensure_directories()
-        
-        # Load existing characters
-        self._load_characters()
     
+    def _ensure_loaded(self):
+        """Ensure characters are loaded from disk"""
+        if not self._loaded:
+            self._load_characters()
+            self._loaded = True
+
     def _ensure_directories(self):
         """Create characters directory if it doesn't exist"""
         os.makedirs(self.characters_dir, exist_ok=True)
     
     def _load_characters(self):
         """Load all characters from disk"""
-        if not os.path.exists(self.characters_dir):
-            return
-        
-        for item in os.listdir(self.characters_dir):
-            character_dir = os.path.join(self.characters_dir, item)
-            if os.path.isdir(character_dir):
-                config_path = os.path.join(character_dir, 'config.yaml')
-                if os.path.exists(config_path):
-                    try:
-                        data = load_yaml(config_path)
-                        if data:
-                            character = Character(data, self.project_path)
-                            self._characters[character.name] = character
-                            print(f"✅ Loaded character: {character.name}")
-                    except Exception as e:
-                        print(f"❌ Error loading character {item}: {e}")
-    
-    def _save_character(self, character: Character) -> bool:
-        """Save character to disk
-        
-        Args:
-            character: Character instance to save
+        # 1. Try loading from central config.yaml
+        if os.path.exists(self.config_path):
+            try:
+                data = load_yaml(self.config_path)
+                if data and 'characters' in data:
+                    for char_data in data['characters']:
+                        character = Character(char_data, self.project_path)
+                        self._characters[character.name] = character
+                    print(f"✅ Loaded {len(self._characters)} characters from central config")
+                    return
+            except Exception as e:
+                print(f"❌ Error loading central character config: {e}")
+
+        # 2. Fallback: Migration from old directory-based storage
+        if os.path.exists(self.characters_dir):
+            migrated_count = 0
+            for item in os.listdir(self.characters_dir):
+                if item == 'config.yaml': continue
+                character_dir = os.path.join(self.characters_dir, item)
+                if os.path.isdir(character_dir):
+                    config_path = os.path.join(character_dir, 'config.yaml')
+                    if os.path.exists(config_path):
+                        try:
+                            data = load_yaml(config_path)
+                            if data:
+                                character = Character(data, self.project_path)
+                                
+                                # Migrate resources to ResourceManager
+                                if self.resource_manager:
+                                    updated_resources = {}
+                                    for res_type, rel_path in character.resources.items():
+                                        abs_src = os.path.join(self.project_path, rel_path)
+                                        if os.path.exists(abs_src):
+                                            # Add to ResourceManager
+                                            resource = self.resource_manager.add_resource(
+                                                source_file_path=abs_src,
+                                                source_type='character_resource',
+                                                source_id=character.character_id,
+                                                original_name=os.path.basename(rel_path)
+                                            )
+                                            if resource:
+                                                updated_resources[res_type] = resource.file_path
+                                        else:
+                                            # Keep the old path if file not found, though it might be broken
+                                            updated_resources[res_type] = rel_path
+                                    character.resources = updated_resources
+                                
+                                self._characters[character.name] = character
+                                migrated_count += 1
+                                print(f"📦 Migrated character: {character.name}")
+                        except Exception as e:
+                            print(f"❌ Error loading character {item} for migration: {e}")
             
+            if migrated_count > 0:
+                print(f"✅ Migrated {migrated_count} characters to new structure")
+                self._save_all_characters()
+                
+                # Optionally clean up old directories (commented out for safety)
+                # Note: We should only do this if we are SURE all resources are migrated
+
+    def _save_all_characters(self) -> bool:
+        """Save all characters to the central config.yaml
+        
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Ensure character directory exists
-            char_dir = character.get_absolute_directory()
-            os.makedirs(char_dir, exist_ok=True)
-            
-            # Save config.yaml
-            config_path = character.get_absolute_config_path()
-            save_yaml(config_path, character.to_dict())
-            
+            data = {
+                'characters': [char.to_dict() for char in self._characters.values()]
+            }
+            save_yaml(self.config_path, data)
             return True
         except Exception as e:
-            print(f"❌ Error saving character {character.name}: {e}")
+            print(f"❌ Error saving characters config: {e}")
             return False
+
+    def _save_character(self, character: Character) -> bool:
+        """Save all characters to disk (since they are now in a single file)
+        
+        Args:
+            character: Character instance (unused, kept for API compatibility)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        return self._save_all_characters()
     
     def create_character(self, name: str, description: str = '', story: str = '') -> Optional[Character]:
         """Create a new character
@@ -222,6 +260,7 @@ class CharacterManager:
         Returns:
             Character instance if successful, None if name already exists
         """
+        self._ensure_loaded()
         # Validate name
         if not name or not name.strip():
             print("❌ Character name cannot be empty")
@@ -249,12 +288,13 @@ class CharacterManager:
         
         character = Character(character_data, self.project_path)
         
-        # Save to disk
-        if not self._save_character(character):
-            return None
-        
         # Add to index
         self._characters[name] = character
+        
+        # Save to disk
+        if not self._save_all_characters():
+            del self._characters[name]
+            return None
         
         # Send signal
         self.character_added.send(character)
@@ -271,6 +311,7 @@ class CharacterManager:
         Returns:
             Character instance or None if not found
         """
+        self._ensure_loaded()
         return self._characters.get(name)
     
     def list_characters(self) -> List[Character]:
@@ -279,6 +320,7 @@ class CharacterManager:
         Returns:
             List of Character instances
         """
+        self._ensure_loaded()
         return list(self._characters.values())
     
     def update_character(self, name: str, **kwargs) -> bool:
@@ -286,36 +328,51 @@ class CharacterManager:
         
         Args:
             name: Character name
-            **kwargs: Properties to update (description, story, relationships, etc.)
+            **kwargs: Properties to update (description, story, relationships, name, etc.)
             
         Returns:
             True if successful, False otherwise
         """
+        self._ensure_loaded()
         character = self.get_character(name)
         if not character:
             print(f"❌ Character '{name}' not found")
             return False
         
         # Update allowed fields
-        allowed_fields = ['description', 'story', 'relationships', 'metadata']
+        allowed_fields = ['name', 'description', 'story', 'relationships', 'metadata']
         updated = False
+        old_name = character.name
         
         for field, value in kwargs.items():
             if field in allowed_fields and hasattr(character, field):
-                setattr(character, field, value)
-                updated = True
+                if field == 'name':
+                    new_name = value.strip()
+                    if not new_name: continue
+                    if new_name != old_name:
+                        if new_name in self._characters:
+                            print(f"❌ Cannot rename to '{new_name}': already exists")
+                            continue
+                        # Handle name change in index
+                        del self._characters[old_name]
+                        character.name = new_name
+                        self._characters[new_name] = character
+                        updated = True
+                else:
+                    setattr(character, field, value)
+                    updated = True
         
         if updated:
             character.updated_at = datetime.now().isoformat()
             
             # Save to disk
-            if not self._save_character(character):
+            if not self._save_all_characters():
                 return False
             
             # Send signal
             self.character_updated.send(character)
             
-            print(f"✅ Updated character: {name}")
+            print(f"✅ Updated character: {character.name}")
             return True
         
         return False
@@ -325,25 +382,25 @@ class CharacterManager:
         
         Args:
             name: Character name
-            remove_files: Whether to remove character directory (default: True)
+            remove_files: Unused, kept for API compatibility
             
         Returns:
             True if successful, False otherwise
         """
+        self._ensure_loaded()
         character = self.get_character(name)
         if not character:
             print(f"❌ Character '{name}' not found")
             return False
         
         try:
-            # Remove character directory if requested
-            if remove_files:
-                char_dir = character.get_absolute_directory()
-                if os.path.exists(char_dir):
-                    shutil.rmtree(char_dir)
-            
             # Remove from index
             del self._characters[name]
+            
+            # Save to disk
+            if not self._save_all_characters():
+                self._characters[name] = character
+                return False
             
             # Send signal
             self.character_deleted.send(name)
@@ -355,7 +412,7 @@ class CharacterManager:
             return False
     
     def add_resource(self, character_name: str, resource_type: str, source_file_path: str) -> Optional[str]:
-        """Add a resource file to a character
+        """Add a resource file to a character via ResourceManager
         
         Args:
             character_name: Character name
@@ -365,96 +422,92 @@ class CharacterManager:
         Returns:
             Relative path to the resource file if successful, None otherwise
         """
+        self._ensure_loaded()
+        if not self.resource_manager:
+            print("❌ ResourceManager not available in CharacterManager")
+            return None
+
         character = self.get_character(character_name)
         if not character:
             print(f"❌ Character '{character_name}' not found")
             return None
         
-        # Validate source file exists
+        # Resolve source file path
         if not os.path.isabs(source_file_path):
-            source_file_path = os.path.join(self.project_path, source_file_path)
+            abs_source = os.path.join(self.project_path, source_file_path)
+        else:
+            abs_source = source_file_path
         
-        if not os.path.exists(source_file_path):
-            print(f"❌ Source file does not exist: {source_file_path}")
+        if not os.path.exists(abs_source):
+            print(f"❌ Source file does not exist: {abs_source}")
             return None
         
+        # Check if this resource is already managed by ResourceManager and belongs to this character
+        current_rel_path = character.get_resource_path(resource_type)
+        if current_rel_path:
+            abs_current = os.path.join(self.project_path, current_rel_path)
+            if os.path.normpath(abs_current) == os.path.normpath(abs_source):
+                # Path hasn't changed, no need to re-add
+                return current_rel_path
+
         try:
-            # Get file extension
-            _, ext = os.path.splitext(os.path.basename(source_file_path))
+            # Add to ResourceManager
+            resource = self.resource_manager.add_resource(
+                source_file_path=abs_source,
+                source_type='character_resource',
+                source_id=character.character_id,
+                original_name=f"{character_name}_{resource_type}{os.path.splitext(abs_source)[1]}"
+            )
             
-            # Generate resource filename
-            resource_filename = f"{resource_type}{ext}"
-            
-            # Determine destination path
-            char_dir = character.get_absolute_directory()
-            resources_dir = os.path.join(char_dir, 'resources')
-            os.makedirs(resources_dir, exist_ok=True)
-            
-            destination_path = os.path.join(resources_dir, resource_filename)
-            
-            # Handle filename conflicts
-            counter = 1
-            base_name, ext = os.path.splitext(resource_filename)
-            while os.path.exists(destination_path):
-                resource_filename = f"{base_name}_{counter}{ext}"
-                destination_path = os.path.join(resources_dir, resource_filename)
-                counter += 1
-            
-            # Copy file to character resources directory
-            shutil.copy2(source_file_path, destination_path)
-            
-            # Set resource path (relative to project root)
-            relative_path = os.path.join(character.get_directory(), 'resources', resource_filename)
-            character.set_resource(resource_type, relative_path)
+            if not resource:
+                return None
+                
+            # Set resource path in character (relative path from project root)
+            character.set_resource(resource_type, resource.file_path)
             
             # Save character config
-            if not self._save_character(character):
-                # Cleanup copied file if save failed
-                if os.path.exists(destination_path):
-                    os.remove(destination_path)
+            if not self._save_all_characters():
                 return None
             
             # Send signal
             self.character_updated.send(character)
             
-            print(f"✅ Added resource '{resource_type}' to character '{character_name}'")
-            return relative_path
+            print(f"✅ Added resource '{resource_type}' to character '{character_name}' via ResourceManager")
+            return resource.file_path
             
         except Exception as e:
             print(f"❌ Error adding resource to character {character_name}: {e}")
             return None
     
-    def remove_resource(self, character_name: str, resource_type: str, remove_file: bool = True) -> bool:
+    def remove_resource(self, character_name: str, resource_type: str, remove_file: bool = False) -> bool:
         """Remove a resource from a character
         
         Args:
             character_name: Character name
             resource_type: Type of resource
-            remove_file: Whether to delete the physical file (default: True)
+            remove_file: Whether to delete the physical file from ResourceManager (default: False)
             
         Returns:
             True if successful, False otherwise
         """
+        self._ensure_loaded()
         character = self.get_character(character_name)
         if not character:
             print(f"❌ Character '{character_name}' not found")
             return False
         
-        # Get resource path
-        abs_path = character.get_absolute_resource_path(resource_type)
-        
-        # Remove file if requested
-        if remove_file and abs_path and os.path.exists(abs_path):
-            try:
-                os.remove(abs_path)
-            except Exception as e:
-                print(f"⚠️ Warning: Could not remove resource file: {e}")
-        
+        # Optional: remove from ResourceManager if requested
+        if remove_file and self.resource_manager:
+            rel_path = character.get_resource_path(resource_type)
+            if rel_path:
+                resource_name = os.path.basename(rel_path)
+                self.resource_manager.delete_resource(resource_name)
+
         # Remove resource reference
         character.remove_resource(resource_type)
         
         # Save character config
-        if not self._save_character(character):
+        if not self._save_all_characters():
             return False
         
         # Send signal
@@ -473,60 +526,7 @@ class CharacterManager:
         Returns:
             True if successful, False otherwise
         """
-        character = self.get_character(old_name)
-        if not character:
-            print(f"❌ Character '{old_name}' not found")
-            return False
-        
-        new_name = new_name.strip()
-        if not new_name:
-            print("❌ New character name cannot be empty")
-            return False
-        
-        if new_name in self._characters:
-            print(f"❌ Character '{new_name}' already exists")
-            return False
-        
-        try:
-            # Update character name
-            old_dir = character.get_absolute_directory()
-            character.name = new_name
-            new_dir = character.get_absolute_directory()
-            
-            # Rename directory
-            if os.path.exists(old_dir):
-                os.rename(old_dir, new_dir)
-            
-            # Update resource paths in character data
-            updated_resources = {}
-            for resource_type, rel_path in character.resources.items():
-                # Update path to reflect new directory name
-                parts = rel_path.split(os.sep)
-                if len(parts) >= 2 and parts[0] == 'characters':
-                    parts[0] = 'characters'
-                    parts[1] = new_name
-                    updated_resources[resource_type] = os.sep.join(parts)
-                else:
-                    updated_resources[resource_type] = rel_path
-            character.resources = updated_resources
-            
-            # Save updated character
-            if not self._save_character(character):
-                return False
-            
-            # Update index
-            del self._characters[old_name]
-            self._characters[new_name] = character
-            
-            # Send signal
-            self.character_updated.send(character)
-            
-            print(f"✅ Renamed character '{old_name}' to '{new_name}'")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Error renaming character {old_name}: {e}")
-            return False
+        return self.update_character(old_name, name=new_name)
     
     def search_characters(self, query: str) -> List[Character]:
         """Search characters by name or description
@@ -537,6 +537,7 @@ class CharacterManager:
         Returns:
             List of matching Character instances
         """
+        self._ensure_loaded()
         query_lower = query.lower()
         results = []
         

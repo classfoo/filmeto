@@ -59,7 +59,7 @@ class Project:
         # Initialize other managers
         self.drawing = Drawing(self.workspace, self)
         self.resource_manager = ResourceManager(self.project_path)
-        self.character_manager = CharacterManager(self.project_path)
+        self.character_manager = CharacterManager(self.project_path, self.resource_manager)
         self.conversation_manager = ConversationManager(self.project_path)
         
         # Debounced save mechanism for high-frequency updates
