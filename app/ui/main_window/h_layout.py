@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import QHBoxLayout
+from PySide6.QtCore import QTimer
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
@@ -36,6 +37,13 @@ class MainWindowHLayout(BaseWidget):
         # Connect right bar button clicks to panel switcher
         self.right_bar.connect_signals(self.workspace.workspace_top.right)
         
+        # Delay default panel switching to avoid blocking startup
+        # Use QTimer to switch panels after UI is fully rendered
+        # This ensures framework is loaded first, then panels are activated on demand
+        QTimer.singleShot(100, self._switch_to_default_panels)
+    
+    def _switch_to_default_panels(self):
+        """Switch to default panels after UI is rendered."""
         # Switch to character panel by default (this will also update button state via signal)
         self.workspace.workspace_top.left.switch_to_panel('character')
         

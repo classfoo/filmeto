@@ -1,6 +1,6 @@
 """Main switcher component for workspace top right bar panels."""
 
-from typing import Dict, Type, Optional
+from typing import Dict, Optional, Tuple
 from PySide6.QtWidgets import QStackedWidget, QWidget
 from PySide6.QtCore import Signal, Slot
 
@@ -36,7 +36,8 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
         # State management
         self.current_panel: Optional[BasePanel] = None
         self.panel_instances: Dict[str, BasePanel] = {}
-        self.panel_registry: Dict[str, Type[BasePanel]] = {}
+        # Panel registry stores (module_path, class_name) tuples for lazy import
+        self.panel_registry: Dict[str, Tuple[str, str]] = {}
         
         # Setup UI
         self.stacked_widget = QStackedWidget(self)
@@ -57,15 +58,13 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
         Register panel classes in the registry.
         
         Panel instances are created lazily when first accessed.
+        Panel classes are imported lazily to avoid blocking startup.
         """
-        # Import panel classes
-        from .agent import AgentPanel
-        from .chat_history import ChatHistoryPanel
-        
-        # Map button names to panel classes
+        # Map button names to panel module paths (lazy import)
+        # Format: 'module_path.ClassName'
         self.panel_registry = {
-            'agent': AgentPanel,
-            'chat_history': ChatHistoryPanel,
+            'agent': ('app.ui.panels.agent.agent_panel', 'AgentPanel'),
+            'chat_history': ('app.ui.panels.chat_history.chat_history_panel', 'ChatHistoryPanel'),
         }
     
     @Slot(str)
@@ -88,9 +87,16 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
         
         # Check if panel instance exists in cache
         if panel_name not in self.panel_instances:
-            # Lazy instantiation
-            panel_class = self.panel_registry[panel_name]
+            # Lazy instantiation with lazy import
+            panel_info = self.panel_registry[panel_name]
             try:
+                # Import panel class dynamically
+                import importlib
+                module_path, class_name = panel_info
+                module = importlib.import_module(module_path)
+                panel_class = getattr(module, class_name)
+                
+                # Create panel instance
                 panel_instance = panel_class(self.workspace, self)
                 self.panel_instances[panel_name] = panel_instance
                 self.stacked_widget.addWidget(panel_instance)

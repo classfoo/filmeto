@@ -30,6 +30,9 @@ class BasePanel(BaseWidget):
         self._init_base_ui()
         
         self._is_active = False
+        self._data_loaded = False
+        
+        # Only setup UI framework, not data loading
         self.setup_ui()
         
     def _init_base_ui(self):
@@ -122,13 +125,26 @@ class BasePanel(BaseWidget):
 
     def setup_ui(self):
         """
-        Set up the panel UI components.
+        Set up the panel UI framework (widgets, layouts, etc.).
         
-        This method should create and configure all widgets for the panel.
+        This method should create and configure UI widgets and layouts.
+        Should NOT load business data - that should be done in load_data().
         Called during initialization.
         Subclasses must override this method.
         """
         raise NotImplementedError("Subclasses must implement setup_ui()")
+    
+    def load_data(self):
+        """
+        Load business data for the panel.
+        
+        This method should load data from managers, databases, etc.
+        Called when panel is first activated or when data needs refresh.
+        Override this method to load panel-specific data.
+        """
+        # Default implementation does nothing
+        # Subclasses should override to load their data
+        pass
     
     def on_activated(self):
         """
@@ -138,6 +154,11 @@ class BasePanel(BaseWidget):
         or perform any necessary updates when panel is shown.
         """
         self._is_active = True
+        
+        # Load data on first activation if not already loaded
+        if not self._data_loaded:
+            self.load_data()
+            self._data_loaded = True
     
     def on_deactivated(self):
         """

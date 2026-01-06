@@ -190,13 +190,18 @@ class ModelsPanel(BasePanel):
         layout.addLayout(storage_layout)
         
         self.content_layout.addWidget(content_container)
-        
-        # Load mock data
+    
+    def load_data(self):
+        """Load models data when panel is first activated."""
+        super().load_data()
         self._load_models()
     
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
+        # Refresh models when panel is activated (if data already loaded)
+        if self._data_loaded:
+            self._load_models()
         print("✅ Models panel activated")
     
     def on_deactivated(self):

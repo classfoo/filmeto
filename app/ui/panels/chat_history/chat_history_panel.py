@@ -53,8 +53,10 @@ class ChatHistoryPanel(BasePanel):
         layout.addWidget(self.conversation_list, 1)
         
         self.content_layout.addWidget(content_container)
-        
-        # Load sample conversations
+    
+    def load_data(self):
+        """Load conversation history when panel is first activated."""
+        super().load_data()
         self._load_conversations()
     
     def _load_conversations(self):
@@ -79,7 +81,9 @@ class ChatHistoryPanel(BasePanel):
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
-        self._load_conversations()
+        # Refresh conversations when panel is activated (if data already loaded)
+        if self._data_loaded:
+            self._load_conversations()
         print("✅ Chat history panel activated")
     
     def on_deactivated(self):

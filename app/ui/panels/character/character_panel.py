@@ -276,16 +276,8 @@ class CharacterPanel(BasePanel):
         scroll_area.setWidget(self.grid_container)
         self.content_layout.addWidget(scroll_area, 1)
         
-        # Load character manager (without connecting signals yet)
-        project = self.workspace.get_project()
-        if project:
-            self.character_manager = project.get_character_manager()
-        
-        # Load initial characters first
-        self._load_characters()
-
-        # Connect signals after UI is fully initialized
-        self._connect_signals()
+        # Character manager will be loaded in load_data()
+        # Data loading is deferred until panel activation
     
     def resizeEvent(self, event):
         """Handle resize event - update layout like file manager"""
@@ -434,13 +426,31 @@ class CharacterPanel(BasePanel):
         # Reload all characters
         self._load_characters()
     
+    def load_data(self):
+        """Load character data when panel is first activated."""
+        super().load_data()
+        # Load character manager
+        project = self.workspace.get_project()
+        if project:
+            self.character_manager = project.get_character_manager()
+        
+        # Load characters
+        self._load_characters()
+        
+        # Connect signals after data is loaded
+        self._connect_signals()
+        
+        # Connect signals after data is loaded
+        self._connect_signals()
+    
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
-        # Reload characters when panel is activated
-        self._load_character_manager()
-        self._connect_signals()
-        self._load_characters()
+        # Reload characters when panel is activated (refresh data)
+        if self._data_loaded:
+            self._load_character_manager()
+            self._connect_signals()
+            self._load_characters()
         print("✅ Character panel activated")
     
     def on_deactivated(self):
