@@ -1,15 +1,21 @@
 """Agent panel for AI Agent interactions."""
 
 import asyncio
-from typing import Optional
+import logging
+from typing import Optional, TYPE_CHECKING
 from PySide6.QtWidgets import QVBoxLayout
 from PySide6.QtCore import QObject, Signal, Slot
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from app.ui.panels.agent.chat_history_widget import ChatHistoryWidget
 from app.ui.panels.agent.prompt_input_widget import AgentPromptInputWidget
-from agent.filmeto_agent import FilmetoAgent
+# Removed heavy top-level import: from agent.filmeto_agent import FilmetoAgent
 from utils.i18n_utils import tr
+
+if TYPE_CHECKING:
+    from agent.filmeto_agent import FilmetoAgent
+
+logger = logging.getLogger(__name__)
 
 
 class AgentPanel(BasePanel):
@@ -22,10 +28,13 @@ class AgentPanel(BasePanel):
     
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the agent panel."""
+        import time
+        init_start = time.time()
         super().__init__(workspace, parent)
         
         # Initialize agent (will be set when project is available)
-        self.agent: Optional[FilmetoAgent] = None
+        # Use string type hint to avoid top-level import
+        self.agent: Optional['FilmetoAgent'] = None
         self._current_response = ""
         self._current_message_id = None
         self._is_processing = False
@@ -35,9 +44,13 @@ class AgentPanel(BasePanel):
         self.response_token_received.connect(self._on_token_received)
         self.response_complete.connect(self._on_response_complete)
         self.error_occurred.connect(self._on_error)
+        init_time = (time.time() - init_start) * 1000
+        print(f"⏱️  [AgentPanel] __init__ completed in {init_time:.2f}ms")
     
     def setup_ui(self):
         """Set up the UI components with vertical layout."""
+        import time
+        setup_start = time.time()
         self.set_panel_title(tr("Agent"))
         
         # Chat history component (top, takes most space)
@@ -50,6 +63,9 @@ class AgentPanel(BasePanel):
         
         # Connect signals
         self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
+        
+        setup_time = (time.time() - setup_start) * 1000
+        print(f"⏱️  [AgentPanel] setup_ui completed in {setup_time:.2f}ms")
     
     def _on_message_submitted(self, message: str):
         """Handle message submission from prompt input widget."""
@@ -209,10 +225,17 @@ class AgentPanel(BasePanel):
     
     def _initialize_agent_sync(self):
         """Synchronously initialize the agent with current workspace and project."""
+        import time
+        init_start = time.time()
+        logger.info("⏱️  [AgentPanel] Starting lazy agent initialization...")
         try:
+            # Lazy import heavy agent module only when needed
+            from agent.filmeto_agent import FilmetoAgent
+            
             # Get current project from workspace
             project = self.workspace.get_project()
             if not project:
+                logger.warning("⚠️ Cannot initialize agent: No project loaded")
                 return
             
             # Get settings
@@ -231,13 +254,14 @@ class AgentPanel(BasePanel):
                 streaming=True
             )
             
+            init_time = (time.time() - init_start) * 1000
             # Check if agent has a valid LLM initialized
             if self.agent.llm is None:
-                print("⚠️ Agent initialized but LLM is not configured (missing API key)")
+                logger.warning(f"⚠️ Agent initialized in {init_time:.2f}ms but LLM is not configured (missing API key)")
             else:
-                print("✅ Agent initialized successfully")
+                logger.info(f"✅ Agent initialized successfully in {init_time:.2f}ms")
         except Exception as e:
-            print(f"❌ Error initializing agent: {e}")
+            logger.error(f"❌ Error initializing agent: {e}")
             import traceback
             traceback.print_exc()
     
@@ -245,10 +269,7 @@ class AgentPanel(BasePanel):
         """Update agent with new project context."""
         if self.agent:
             self.agent.update_context(project=project)
-        else:
-            # Initialize asynchronously to avoid blocking
-            if not self._initialization_in_progress:
-                asyncio.create_task(self._initialize_agent_async())
+        # Removed proactive initialization to ensure strict lazy loading on send button click
     
     def load_data(self):
         """Load agent data when panel is first activated."""

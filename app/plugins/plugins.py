@@ -1,4 +1,6 @@
 import os
+import time
+import logging
 import importlib
 import inspect
 from pathlib import Path
@@ -8,6 +10,8 @@ from dataclasses import dataclass
 from app.spi.tool import BaseTool
 from app.plugins.service_registry import ServiceRegistry
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,9 +43,23 @@ class Plugins:
     def ensure_discovery(self):
         """Ensure plugins are discovered (for deferred discovery)"""
         if not self._discovery_done:
+            discovery_start = time.time()
+            logger.info(f"⏱️  [Plugins] Starting deferred plugin discovery...")
+            
+            tools_start = time.time()
             self._discover_tools()
+            tools_time = (time.time() - tools_start) * 1000
+            tools_count = len(self._tool_registry)
+            logger.info(f"⏱️  [Plugins] Tools discovery completed in {tools_time:.2f}ms (found {tools_count} tools)")
+            
+            services_start = time.time()
             self._discover_services()
+            services_time = (time.time() - services_start) * 1000
+            logger.info(f"⏱️  [Plugins] Services discovery completed in {services_time:.2f}ms")
+            
             self._discovery_done = True
+            total_time = (time.time() - discovery_start) * 1000
+            logger.info(f"⏱️  [Plugins] Deferred plugin discovery completed in {total_time:.2f}ms")
 
     def _discover_tools(self):
         """Discover and register tools from plugins/tools directory"""

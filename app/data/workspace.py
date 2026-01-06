@@ -1,6 +1,8 @@
 import asyncio
 import os
+import time
 import uuid
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Callable
 from pathlib import Path
@@ -11,28 +13,60 @@ from app.data.prompt import PromptManager, PromptTemplate
 from app.data.settings import Settings
 from utils.yaml_utils import load_yaml, save_yaml
 
+logger = logging.getLogger(__name__)
+
 
 class Workspace():
 
     def __init__(self, workspace_path:str, project_name:str, load_data:bool = True, defer_heavy_init:bool = False):
+        init_start = time.time()
+        logger.info(f"⏱️  [Workspace] Starting initialization (defer_heavy_init={defer_heavy_init})...")
+
         self.workspace_path = workspace_path
         self.project_name = project_name
         self.project_path = os.path.join(self.workspace_path, self.project_name)
+        self.project_path = os.path.join(self.workspace_path,self.project_name)
+        self._defer_heavy_init = defer_heavy_init
+
+        # Initialize Project (this may take time)
+        project_start = time.time()
+        logger.info(f"⏱️  [Workspace] Creating Project instance...")
         self.project = Project(self, self.project_path, self.project_name, load_data=load_data)
+        project_time = (time.time() - project_start) * 1000
+        logger.info(f"⏱️  [Workspace] Project created in {project_time:.2f}ms")
 
         # Initialize ProjectManager (lightweight - just sets up structure)
+        pm_start = time.time()
+        logger.info(f"⏱️  [Workspace] Creating ProjectManager (defer_scan={defer_heavy_init})...")
         self.project_manager = ProjectManager(workspace_path, defer_scan=defer_heavy_init)
+        pm_time = (time.time() - pm_start) * 1000
+        logger.info(f"⏱️  [Workspace] ProjectManager created in {pm_time:.2f}ms")
 
         # Initialize PromptManager (lightweight - just sets up directory)
+        prompt_start = time.time()
+        logger.info(f"⏱️  [Workspace] Creating PromptManager...")
         prompts_dir = os.path.join(self.project_path, 'prompts')
         self.prompt_manager = PromptManager(prompts_dir)
+        prompt_time = (time.time() - prompt_start) * 1000
+        logger.info(f"⏱️  [Workspace] PromptManager created in {prompt_time:.2f}ms")
 
         # Initialize Settings (defer heavy loading if requested)
+        settings_start = time.time()
+        logger.info(f"⏱️  [Workspace] Creating Settings (defer_load={defer_heavy_init})...")
         self.settings = Settings(workspace_path, defer_load=defer_heavy_init)
+        settings_time = (time.time() - settings_start) * 1000
+        logger.info(f"⏱️  [Workspace] Settings created in {settings_time:.2f}ms")
 
         # Initialize Plugins (defer discovery if requested)
+        plugins_start = time.time()
+        logger.info(f"⏱️  [Workspace] Creating Plugins (defer_discovery={defer_heavy_init})...")
         from app.plugins.plugins import Plugins
         self.plugins = Plugins(self, defer_discovery=defer_heavy_init)
+        plugins_time = (time.time() - plugins_start) * 1000
+        logger.info(f"⏱️  [Workspace] Plugins created in {plugins_time:.2f}ms")
+
+        total_time = (time.time() - init_start) * 1000
+        logger.info(f"⏱️  [Workspace] Initialization complete in {total_time:.2f}ms")
         return
 
     def get_project(self):

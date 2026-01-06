@@ -77,8 +77,15 @@ class Settings:
     def _ensure_loaded(self):
         """Ensure settings are loaded (for deferred loading)"""
         if not self._loaded:
+            import time
+            import logging
+            logger = logging.getLogger(__name__)
+            load_start = time.time()
+            logger.info(f"⏱️  [Settings] Starting deferred settings loading...")
             self.load()
             self._loaded = True
+            load_time = (time.time() - load_start) * 1000
+            logger.info(f"⏱️  [Settings] Deferred settings loading completed in {load_time:.2f}ms")
     
     def load(self):
         """Load settings from YAML file or create from template if not exists"""

@@ -8,6 +8,9 @@ Filmeto projects, including timeline, resources, characters, and tasks.
 import os.path
 import os
 from typing import List, Dict, Any, Callable, Optional
+import time
+import logging
+from typing import List, Dict, Any
 from datetime import datetime
 
 from blinker import signal
@@ -20,6 +23,8 @@ from app.data.resource import ResourceManager
 from app.data.character import CharacterManager
 from app.data.conversation import ConversationManager
 from utils.yaml_utils import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 
 class Project:
@@ -369,23 +374,48 @@ class ProjectManager:
         """Load all projects from the workspace directory"""
         if not os.path.exists(self.workspace_root_path):
             os.makedirs(self.workspace_root_path, exist_ok=True)
+            logger.info(f"⏱️  [ProjectManager] Created workspace directory: {self.workspace_root_path}")
             return
         
-        for item in os.listdir(self.workspace_root_path):
+        scan_start = time.time()
+        logger.info(f"⏱️  [ProjectManager] Scanning workspace directory: {self.workspace_root_path}")
+        items = os.listdir(self.workspace_root_path)
+        scan_time = (time.time() - scan_start) * 1000
+        logger.info(f"⏱️  [ProjectManager] Directory scan completed in {scan_time:.2f}ms (found {len(items)} items)")
+
+        loaded_count = 0
+        failed_count = 0
+        for item in items:
             project_path = os.path.join(self.workspace_root_path, item)
             if os.path.isdir(project_path):
                 project_config_path = os.path.join(project_path, "project.yaml")
                 if os.path.exists(project_config_path):
                     try:
+                        project_start = time.time()
+                        # 这里我们假设项目目录名就是项目名
+                        # 修改为不自动加载项目数据，只在需要时加载
                         project = Project(self.workspace_root_path, project_path, item, load_data=False)
                         self.projects[item] = project
+                        project_time = (time.time() - project_start) * 1000
+                        logger.info(f"⏱️  [ProjectManager] Loaded project '{item}' in {project_time:.2f}ms")
+                        loaded_count += 1
                     except Exception as e:
                         print(f"Failed to load project {item}: {e}")
-    
+                        logger.error(f"⏱️  [ProjectManager] Failed to load project '{item}': {e}")
+                        failed_count += 1
+
+        logger.info(f"⏱️  [ProjectManager] Project loading summary: {loaded_count} loaded, {failed_count} failed")
+
     def ensure_projects_loaded(self):
         """Ensure projects are loaded (for deferred loading)"""
         if self._defer_scan and not self.projects:
+            load_start = time.time()
+            logger.info(f"⏱️  [ProjectManager] Starting deferred project scan...")
             self._load_projects()
+
+            load_time = (time.time() - load_start) * 1000
+            project_count = len(self.projects)
+            logger.info(f"⏱️  [ProjectManager] Deferred project scan completed in {load_time:.2f}ms (found {project_count} projects)")
 
     def create_project(self, project_name: str) -> Project:
         """

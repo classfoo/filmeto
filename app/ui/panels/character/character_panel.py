@@ -246,13 +246,19 @@ class CharacterPanel(BasePanel):
     
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the character panel."""
+        import time
+        init_start = time.time()
         super().__init__(workspace, parent)
         self.character_manager: Optional[CharacterManager] = None
         self._character_cards: List[CharacterCard] = []
         self._character_dict: dict[str, CharacterCard] = {}  # character_name -> card
+        init_time = (time.time() - init_start) * 1000
+        print(f"⏱️  [CharacterPanel] __init__ completed in {init_time:.2f}ms")
     
     def setup_ui(self):
         """Set up the UI components with grid layout."""
+        import time
+        setup_start = time.time()
         self.set_panel_title(tr("Roles"))
         
         # Add buttons to unified toolbar
@@ -312,6 +318,9 @@ class CharacterPanel(BasePanel):
         
         scroll_area.setWidget(self.grid_container)
         self.content_layout.addWidget(scroll_area, 1)
+        
+        setup_time = (time.time() - setup_start) * 1000
+        print(f"⏱️  [CharacterPanel] setup_ui completed in {setup_time:.2f}ms")
         
         # Character manager will be loaded in load_data()
         # Data loading is deferred until panel activation
