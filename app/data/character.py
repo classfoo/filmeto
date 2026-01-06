@@ -10,6 +10,7 @@ Manages character data for projects with support for:
 import os
 import uuid
 import shutil
+import threading
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
@@ -146,6 +147,7 @@ class CharacterManager:
         # In-memory index: character_name -> Character
         self._characters: Dict[str, Character] = {}
         self._loaded = False
+        self._load_lock = threading.Lock()
         
         # Initialize directory structure
         self._ensure_directories()
@@ -153,8 +155,10 @@ class CharacterManager:
     def _ensure_loaded(self):
         """Ensure characters are loaded from disk"""
         if not self._loaded:
-            self._load_characters()
-            self._loaded = True
+            with self._load_lock:
+                if not self._loaded:
+                    self._load_characters()
+                    self._loaded = True
 
     def _ensure_directories(self):
         """Create characters directory if it doesn't exist"""

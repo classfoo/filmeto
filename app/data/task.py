@@ -16,6 +16,8 @@ This module provides a two-tier task management architecture:
 
 import os
 from typing import Any, Optional, Dict, List, TYPE_CHECKING
+import threading
+from typing import Any, List
 
 from blinker import signal
 
@@ -33,17 +35,17 @@ if TYPE_CHECKING:
 class Task:
     """
     Represents a single task with its configuration and state.
-    
+
     A Task belongs to a TimelineItemTaskManager for storage,
     but reports progress through the ProjectTaskManager.
     """
 
-    def __init__(self, timeline_item_task_manager: 'TimelineItemTaskManager', 
+    def __init__(self, timeline_item_task_manager: 'TimelineItemTaskManager',
                  project_task_manager: 'ProjectTaskManager',
                  path: str, options: Any):
         """
         Initialize a Task.
-        
+
         Args:
             timeline_item_task_manager: The TimelineItemTaskManager for storage
             project_task_manager: The ProjectTaskManager for progress callbacks
@@ -78,7 +80,7 @@ class Task:
         if os.path.exists(self.config_path):
             config = load_yaml(self.config_path) or {}
             self.options.update(config)
-            
+
             self.title = f'Task {self.task_id}'
             self.tool = config.get("task_type", config.get("tool", "txt2img"))
             self.model = self.options.get("model", "comfyui")
@@ -89,7 +91,7 @@ class Task:
 
 class TaskResult:
     """Represents the result of a completed task."""
-    
+
     def __init__(self, task: Task, result: BaseModelResult):
         self.task = task
         self.result = result
@@ -136,7 +138,7 @@ class TaskProgress(Progress):
 class ProjectTaskManager:
     """
     Project-level task manager for orchestrating task execution.
-    
+
     Responsibilities:
     - Manage project-wide task signals (create, progress, finished)
     - Handle task execution queue
@@ -152,16 +154,24 @@ class ProjectTaskManager:
     def __init__(self, project: 'Project'):
         """
         Initialize ProjectTaskManager.
-        
+
         Args:
             project: The Project instance this manager belongs to
         """
         self.project = project
-        
+
         # Task execution queue
         self.create_consumer = AsyncQueue()
         self.create_consumer.connect("create", self._on_create_task)
         self.execute_consumer = AsyncQueue()
+
+    def _ensure_loaded(self):
+        """Ensure tasks are loaded from disk"""
+        if not self._loaded:
+            with self._load_lock:
+                if not self._loaded:
+                    self.load_all_tasks()
+                    self._loaded = True
 
     async def start(self):
         """Start the task manager (called when project starts)"""
@@ -187,9 +197,9 @@ class ProjectTaskManager:
     def submit_task(self, options: dict, timeline_item_id: int = None):
         """
         Submit a new task for execution.
-        
+
         The task will be stored in the specified timeline item's task manager.
-        
+
         Args:
             options: Task configuration options
             timeline_item_id: The timeline item ID to associate with this task.
@@ -198,12 +208,12 @@ class ProjectTaskManager:
         # Use provided timeline_item_id or fall back to current timeline index
         if timeline_item_id is None:
             timeline_item_id = self.project.get_timeline_index()
-        
+
         # Store both timeline_index and timeline_item_id in options
         # timeline_index is kept for backward compatibility
         options['timeline_index'] = timeline_item_id
         options['timeline_item_id'] = timeline_item_id
-        
+
         self.create_consumer.add("create", options)
 
     async def _on_create_task(self, options: Any):
@@ -213,21 +223,21 @@ class ProjectTaskManager:
         if timeline_item_id is None:
             print("⚠️ No timeline_item_id in task options, cannot create task")
             return
-        
+
         # Get the specific timeline item by ID (not current item)
         timeline = self.project.get_timeline()
         timeline_item = timeline.get_item(timeline_item_id)
-        
+
         if timeline_item is None:
             print(f"⚠️ Timeline item {timeline_item_id} not found, cannot create task")
             return
-        
+
         # Get the timeline item's task manager
         item_task_manager = timeline_item.get_task_manager()
-        
+
         # Create the task through the timeline item's task manager
         task = await item_task_manager.create_task(options, self)
-        
+
         if task:
             # Emit task creation signal
             self.task_create.send(task)
@@ -246,7 +256,7 @@ class ProjectTaskManager:
 class TimelineItemTaskManager:
     """
     Timeline-item-level task manager for task storage.
-    
+
     Responsibilities:
     - Manage task storage for a specific timeline item
     - Handle task CRUD operations
@@ -256,7 +266,7 @@ class TimelineItemTaskManager:
     def __init__(self, timeline_item: 'TimelineItem', tasks_path: str):
         """
         Initialize TimelineItemTaskManager.
-        
+
         Args:
             timeline_item: The TimelineItem instance this manager belongs to
             tasks_path: Path to the tasks directory for this timeline item
@@ -264,7 +274,7 @@ class TimelineItemTaskManager:
         self.timeline_item = timeline_item
         self.tasks_path = tasks_path
         self.tasks: Dict[str, Task] = {}
-        
+
         # Create tasks directory if it doesn't exist
         os.makedirs(self.tasks_path, exist_ok=True)
 
@@ -291,25 +301,25 @@ class TimelineItemTaskManager:
     async def create_task(self, options: Any, project_task_manager: ProjectTaskManager) -> Optional[Task]:
         """
         Create a new task and store it.
-        
+
         Args:
             options: Task configuration options
             project_task_manager: The project-level task manager for callbacks
-            
+
         Returns:
             The created Task, or None if creation failed
         """
         try:
             num = self._get_next_task_index()
             self._increment_task_index()
-            
+
             task_fold_path = os.path.join(self.tasks_path, str(num))
             os.makedirs(task_fold_path, exist_ok=True)
             save_yaml(os.path.join(task_fold_path, "config.yaml"), options)
-            
+
             task = Task(self, project_task_manager, task_fold_path, options)
             self.tasks[str(num)] = task
-            
+
             return task
         except Exception as e:
             print(f"❌ Error creating task: {e}")
@@ -320,7 +330,7 @@ class TimelineItemTaskManager:
     def load_all_tasks(self) -> List[Task]:
         """
         Load all existing tasks from the tasks directory.
-        
+
         Returns:
             List of loaded Task objects
         """
@@ -342,7 +352,7 @@ class TimelineItemTaskManager:
             # Load each task
             loaded_tasks = []
             project_tm = self.project_task_manager
-            
+
             for task_dir_name in task_dirs:
                 task_dir_path = os.path.join(self.tasks_path, task_dir_name)
                 
@@ -368,6 +378,7 @@ class TimelineItemTaskManager:
 
     def get_task_by_id(self, task_id: str) -> Optional[Task]:
         """Get a task by its ID"""
+        self._ensure_loaded()
         return self.tasks.get(task_id)
 
     def get_all_tasks(self, start_index: int = 0, count: int = None) -> List[Task]:
@@ -377,16 +388,17 @@ class TimelineItemTaskManager:
         Args:
             start_index: Starting index for pagination
             count: Number of tasks to return (None for all)
-            
+
         Returns:
             List of Task objects
         """
+        self._ensure_loaded()
         all_task_ids = sorted(
             [task_id for task_id in self.tasks.keys() if task_id.isdigit()],
             key=lambda x: int(x),
             reverse=True
         )
-        
+
         if count is None:
             task_ids_to_load = all_task_ids[start_index:]
         else:

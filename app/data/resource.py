@@ -1,6 +1,7 @@
 import os
 import uuid
 import shutil
+import threading
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
@@ -90,12 +91,21 @@ class ResourceManager:
         # In-memory indexes
         self._resources_by_name: Dict[str, Resource] = {}
         self._resources_by_id: Dict[str, Resource] = {}
+        self._loaded = False
+        self._load_lock = threading.Lock()
         
         # Initialize directories and migrate old index file if needed
         self._ensure_directories()
-        self._migrate_index_if_needed()
-        self._load_index()
     
+    def _ensure_loaded(self):
+        """Ensure resource index is loaded from disk"""
+        if not self._loaded:
+            with self._load_lock:
+                if not self._loaded:
+                    self._migrate_index_if_needed()
+                    self._load_index()
+                    self._loaded = True
+
     def _ensure_directories(self):
         """Create resources directory structure if it doesn't exist"""
         os.makedirs(self.resources_dir, exist_ok=True)
@@ -253,6 +263,7 @@ class ResourceManager:
         Returns:
             Resource object if successful, None if failed
         """
+        self._ensure_loaded()
         # Validate source file exists
         if not os.path.exists(source_file_path):
             print(f"❌ Source file does not exist: {source_file_path}")
@@ -326,14 +337,17 @@ class ResourceManager:
     
     def get_by_name(self, name: str) -> Optional[Resource]:
         """Retrieve resource by filename"""
+        self._ensure_loaded()
         return self._resources_by_name.get(name)
     
     def get_by_id(self, resource_id: str) -> Optional[Resource]:
         """Retrieve resource by UUID"""
+        self._ensure_loaded()
         return self._resources_by_id.get(resource_id)
     
     def get_by_source(self, source_type: str, source_id: str) -> List[Resource]:
         """Get all resources from a specific source"""
+        self._ensure_loaded()
         return [
             resource for resource in self._resources_by_name.values()
             if resource.source_type == source_type and resource.source_id == source_id
@@ -341,6 +355,7 @@ class ResourceManager:
     
     def list_by_type(self, media_type: str) -> List[Resource]:
         """List all resources of a media type"""
+        self._ensure_loaded()
         return [
             resource for resource in self._resources_by_name.values()
             if resource.media_type == media_type
@@ -348,6 +363,7 @@ class ResourceManager:
     
     def get_all(self) -> List[Resource]:
         """Retrieve all project resources"""
+        self._ensure_loaded()
         return list(self._resources_by_name.values())
     
     def search(self, 
@@ -364,6 +380,7 @@ class ResourceManager:
         Returns:
             List of matching resources
         """
+        self._ensure_loaded()
         results = self.get_all()
         
         if media_type:
@@ -387,6 +404,7 @@ class ResourceManager:
         Returns:
             True if successful, False otherwise
         """
+        self._ensure_loaded()
         resource = self.get_by_name(resource_name)
         if not resource:
             print(f"❌ Resource not found: {resource_name}")
@@ -420,6 +438,7 @@ class ResourceManager:
         Returns:
             True if successful, False otherwise
         """
+        self._ensure_loaded()
         resource = self.get_by_name(resource_name)
         if not resource:
             print(f"❌ Resource not found: {resource_name}")
@@ -458,6 +477,7 @@ class ResourceManager:
         Returns:
             Absolute file path or None if resource not found
         """
+        self._ensure_loaded()
         resource = self.get_by_name(resource_name)
         if resource:
             return resource.get_absolute_path(self.project_path)
@@ -469,6 +489,7 @@ class ResourceManager:
         Returns:
             Dictionary with validation results
         """
+        self._ensure_loaded()
         report = {
             'total_resources': len(self._resources_by_name),
             'missing_files': [],

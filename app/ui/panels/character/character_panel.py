@@ -11,6 +11,7 @@ from app.ui.panels.base_panel import BasePanel
 from app.ui.panels.character.character_edit_dialog import CharacterEditDialog
 from app.data.character import Character, CharacterManager
 from app.data.workspace import Workspace
+from app.ui.worker.worker import run_in_background
 from utils.i18n_utils import tr
 
 
@@ -350,7 +351,7 @@ class CharacterPanel(BasePanel):
     
     
     def _load_characters(self):
-        """Load characters from CharacterManager"""
+        """Load characters from CharacterManager asynchronously"""
         if not self.character_manager:
             return
         
@@ -358,15 +359,33 @@ class CharacterPanel(BasePanel):
         if not hasattr(self, 'grid_layout'):
             return
         
+        # Stop any ongoing batch process
+        if hasattr(self, '_pending_characters'):
+            self._pending_characters = []
+        
         # Ensure _character_cards is initialized
         if not hasattr(self, '_character_cards'):
             self._character_cards = []
         if not hasattr(self, '_character_dict'):
             self._character_dict = {}
-        
-        # Load all characters
-        characters = self.character_manager.list_characters()
-        
+            
+        # Show loading state
+        self.show_loading(tr("正在加载角色..."))
+            
+        # Run loading in background thread to avoid blocking UI
+        run_in_background(
+            self.character_manager.list_characters,
+            on_finished=self._on_characters_loaded,
+            on_error=self._on_load_error
+        )
+
+    def _on_characters_loaded(self, characters: List[Character]):
+        """Callback when characters are loaded from background thread"""
+        # Ensure UI components are still valid (panel might have been closed/switched)
+        if not hasattr(self, 'grid_layout'):
+            self.hide_loading()
+            return
+            
         # Clear existing cards
         for card in self._character_cards:
             self.grid_layout.removeWidget(card)
@@ -374,40 +393,60 @@ class CharacterPanel(BasePanel):
         self._character_cards.clear()
         self._character_dict.clear()
         
-        # Add character cards in 2-column grid (like file manager icon view)
-        row = 0
-        col = 0
-        for character in characters:
+        if not characters:
+            self.hide_loading()
+            return
+
+        # Start batch creation of cards to avoid blocking UI thread
+        self._pending_characters = characters.copy()
+        self._batch_row = 0
+        self._batch_col = 0
+        self._process_next_batch()
+
+    def _process_next_batch(self):
+        """Process a batch of character cards to keep UI responsive"""
+        if not hasattr(self, '_pending_characters') or not self._pending_characters:
+            self.grid_container.adjustSize()
+            self.hide_loading() # Hide loading once all cards are created
+            return
+
+        # Process a small batch (e.g., 5 cards at a time)
+        batch_size = 5
+        batch = self._pending_characters[:batch_size]
+        self._pending_characters = self._pending_characters[batch_size:]
+
+        for character in batch:
             card = CharacterCard(character, self)
             card.edit_requested.connect(self._on_edit_character)
             card.clicked.connect(self._on_character_clicked)
             card.selection_changed.connect(self._on_character_selection_changed)
 
-            # Add widget to grid with top-left alignment (like file manager icons)
-            # No stretch, fixed size widgets
             self.grid_layout.addWidget(
                 card,
-                row,
-                col,
+                self._batch_row,
+                self._batch_col,
                 Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
             )
-            # Ensure row doesn't stretch vertically
-            self.grid_layout.setRowStretch(row, 0)
-            # Ensure column doesn't stretch horizontally
-            self.grid_layout.setColumnMinimumWidth(col, 0)
+            self.grid_layout.setRowStretch(self._batch_row, 0)
+            self.grid_layout.setColumnMinimumWidth(self._batch_col, 0)
 
             self._character_cards.append(card)
             self._character_dict[character.name] = card
 
-            # Move to next position (2 columns, auto-wrap)
-            col += 1
-            if col >= 2:
-                col = 0
-                row += 1
-        
-        # Update container size to fit content (like file manager)
-        self.grid_container.adjustSize()
-    
+            # Move to next position (2 columns)
+            self._batch_col += 1
+            if self._batch_col >= 2:
+                self._batch_col = 0
+                self._batch_row += 1
+
+        # Schedule next batch
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(1, self._process_next_batch)
+
+    def _on_load_error(self, error_msg: str, exception: Exception):
+        """Handle loading error"""
+        print(f"❌ Error loading characters: {error_msg}")
+
     def _on_character_saved(self, character_name: str):
         """Handle character saved signal"""
         self._load_characters()
