@@ -25,7 +25,7 @@ from utils.yaml_utils import load_yaml, save_yaml
 class Project:
     """
     Represents a Filmeto project.
-    
+
     A project contains:
     - Timeline with multiple timeline items
     - Resources (images, videos, audio)
@@ -38,7 +38,7 @@ class Project:
     def __init__(self, workspace, project_path: str, project_name: str, load_data: bool = True):
         """
         Initialize a Project.
-        
+
         Args:
             workspace: The Workspace instance this project belongs to
             project_path: Path to the project directory
@@ -49,13 +49,13 @@ class Project:
         self.project_path = project_path
         self.project_name = project_name
         self.config = load_yaml(os.path.join(self.project_path, "project.yaml")) or {}
-        
+
         # Initialize Timeline first (needed by task manager)
         self.timeline = Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
-        
+
         # Initialize ProjectTaskManager for project-level task orchestration
         self.task_manager = ProjectTaskManager(self)
-        
+
         # Initialize other managers
         self.drawing = Drawing(self.workspace, self)
         self.resource_manager = ResourceManager(self.project_path)
@@ -117,12 +117,12 @@ class Project:
         """Register AI-generated outputs as resources"""
         task = result.get_task()
         task_id = result.get_task_id()
-        
+
         task_options = task.options
         tool = task_options.get('tool', '')
         model = task_options.get('model', '')
         prompt = task_options.get('prompt', '')
-        
+
         registered_resources = []
         
         # Register image output if exists
@@ -183,7 +183,7 @@ class Project:
             task_config = load_yaml(task.config_path) or {}
             task_config['status'] = 'success'
             task_config['resources'] = registered_resources
-            
+
             for resource_info in registered_resources:
                 if resource_info['type'] == 'image':
                     task_config['image_resource_path'] = resource_info['resource_path']
@@ -191,10 +191,10 @@ class Project:
                 elif resource_info['type'] == 'video':
                     task_config['video_resource_path'] = resource_info['resource_path']
                     task_config['video_resource_name'] = resource_info['resource_name']
-            
+
             save_yaml(task.config_path, task_config)
             task.options.update(task_config)
-            
+
             print(f"✅ Updated task config.yaml with resource paths for task {task.task_id}")
         except Exception as e:
             print(f"❌ Error updating task config.yaml: {e}")
@@ -210,7 +210,7 @@ class Project:
     def connect_layer_changed(self, func: Callable):
         """Connect a handler to layer changed events"""
         self.timeline.connect_layer_changed(func)
-    
+
     def connect_timeline_changed(self, func: Callable):
         """Connect to timeline_changed signal"""
         self.timeline.connect_timeline_changed(func)
@@ -226,66 +226,66 @@ class Project:
     def get_timeline_index(self) -> int:
         """Get the current timeline index"""
         return self.config.get('timeline_index', 0)
-    
+
     def get_timeline_position(self) -> float:
         """Get the current timeline playback position (seconds)"""
         return self.config.get('timeline_position', 0.0)
-    
+
     def set_timeline_position(self, position: float, flush: bool = False) -> bool:
         """
         Set the timeline playback position.
-        
+
         Args:
             position: Position in seconds
             flush: Whether to immediately write to file
-            
+
         Returns:
             True if position was set successfully
         """
         if position < 0:
             return False
-        
+
         timeline_duration = self.calculate_timeline_duration()
         if position > timeline_duration:
             return False
-        
+
         position = round(position, 3)
         self.config['timeline_position'] = position
-        
+
         if flush:
             self._flush_config()
         else:
             self._pending_save = True
             self._save_timer.start()
-        
+
         self.timeline_position.send(position)
         return True
-    
+
     def get_timeline_duration(self) -> float:
         """Get the total timeline duration (seconds)"""
         return self.config.get('timeline_duration', 0.0)
-    
+
     def set_timeline_duration(self, duration: float):
         """Set the total timeline duration"""
         self.update_config('timeline_duration', duration)
-    
+
     def get_item_duration(self, item_index: int) -> float:
         """Get duration for a specific timeline item"""
         item_durations = self.config.get('timeline_item_durations', {})
         return item_durations.get(str(item_index), 1.0)
-    
+
     def set_item_duration(self, item_index: int, duration: float):
         """Set duration for a specific timeline item"""
         if 'timeline_item_durations' not in self.config:
             self.config['timeline_item_durations'] = {}
         self.config['timeline_item_durations'][str(item_index)] = duration
         save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
-    
+
     def has_item_duration(self, item_index: int) -> bool:
         """Check if duration is set for a specific timeline item"""
         item_durations = self.config.get('timeline_item_durations', {})
         return str(item_index) in item_durations
-    
+
     def calculate_timeline_duration(self) -> float:
         """Calculate total timeline duration by summing all item durations"""
         item_durations = self.config.get('timeline_item_durations', {})
@@ -302,11 +302,11 @@ class Project:
         if self._pending_save:
             save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
             self._pending_save = False
-    
+
     def update_config(self, key: str, value: Any, debounced: bool = False):
         """
         Update a configuration value.
-        
+
         Args:
             key: Configuration key
             value: Configuration value
@@ -320,19 +320,19 @@ class Project:
             save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
 
     # ==================== Resource accessors ====================
-    
+
     def get_drawing(self) -> Drawing:
         """Get the drawing instance"""
         return self.drawing
-    
+
     def get_resource_manager(self) -> ResourceManager:
         """Get the resource manager instance"""
         return self.resource_manager
-    
+
     def get_character_manager(self) -> CharacterManager:
         """Get the character manager instance"""
         return self.character_manager
-    
+
     def get_conversation_manager(self) -> ConversationManager:
         """Get the conversation manager instance"""
         return self.conversation_manager
@@ -349,19 +349,21 @@ class ProjectManager:
     """
     Manages multiple projects with CRUD operations.
     """
-    
+
     project_switched = signal('project_switched')
     
-    def __init__(self, workspace_root_path: str):
+    def __init__(self, workspace_root_path: str, defer_scan: bool = False):
         """
         Initialize ProjectManager.
-        
+
         Args:
             workspace_root_path: Path to the workspace root directory
         """
         self.workspace_root_path = workspace_root_path
         self.projects: Dict[str, Project] = {}
-        self._load_projects()
+        self._defer_scan = defer_scan
+        if not defer_scan:
+            self._load_projects()
     
     def _load_projects(self):
         """Load all projects from the workspace directory"""
@@ -380,21 +382,26 @@ class ProjectManager:
                     except Exception as e:
                         print(f"Failed to load project {item}: {e}")
     
+    def ensure_projects_loaded(self):
+        """Ensure projects are loaded (for deferred loading)"""
+        if self._defer_scan and not self.projects:
+            self._load_projects()
+
     def create_project(self, project_name: str) -> Project:
         """
         Create a new project.
-        
+
         Args:
             project_name: Name of the project
-            
+
         Returns:
             The created Project instance
-            
+
         Raises:
             ValueError: If project already exists
         """
         project_path = os.path.join(self.workspace_root_path, project_name)
-        
+
         if project_name in self.projects:
             raise ValueError(f"Project {project_name} already exists")
         
@@ -418,14 +425,14 @@ class ProjectManager:
         # Create directory structure
         os.makedirs(os.path.join(project_path, "timeline"), exist_ok=True)
         os.makedirs(os.path.join(project_path, "prompts"), exist_ok=True)
-        
+
         resources_path = os.path.join(project_path, "resources")
         os.makedirs(resources_path, exist_ok=True)
         for subdir in ["images", "videos", "audio", "others"]:
             os.makedirs(os.path.join(resources_path, subdir), exist_ok=True)
         
         os.makedirs(os.path.join(project_path, "characters"), exist_ok=True)
-        
+
         agent_path = os.path.join(project_path, "agent")
         os.makedirs(agent_path, exist_ok=True)
         os.makedirs(os.path.join(agent_path, "conversations"), exist_ok=True)
@@ -447,10 +454,10 @@ class ProjectManager:
     def delete_project(self, project_name: str) -> bool:
         """
         Delete a project.
-        
+
         Args:
             project_name: Name of the project to delete
-            
+
         Returns:
             True if deletion was successful
         """
@@ -459,9 +466,9 @@ class ProjectManager:
         
         project = self.projects[project_name]
         project_path = project.project_path
-        
+
         del self.projects[project_name]
-        
+
         try:
             import shutil
             shutil.rmtree(project_path)
@@ -484,10 +491,10 @@ class ProjectManager:
     def switch_project(self, project_name: str) -> Optional[Project]:
         """
         Switch to a project and emit signal.
-        
+
         Args:
             project_name: Name of the project to switch to
-            
+
         Returns:
             The switched Project instance, or None if not found
         """

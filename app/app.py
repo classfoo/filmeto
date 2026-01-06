@@ -150,11 +150,11 @@ class App():
                 logger.info("Loading stylesheet...")
                 app.setStyleSheet(load_stylesheet(self.main_path))
             
-            # Initialize workspace (critical path - keep synchronous but optimized)
+            # Initialize workspace (minimal - defer heavy operations)
             with TimingContext("Workspace initialization"):
                 logger.info("Initializing workspace...")
                 workspacePath = os.path.join(self.main_path, "workspace")
-                self.workspace = Workspace(workspacePath, "demo", load_data=False)
+                self.workspace = Workspace(workspacePath, "demo", load_data=False, defer_heavy_init=True)
             
             # Initialize server manager (defer plugin discovery)
             with TimingContext("Server manager initialization"):
@@ -163,11 +163,14 @@ class App():
                 self.server_manager = ServerManager(workspacePath, defer_plugin_discovery=True)
                 self.server = self.server_manager.get_server("local")
             
-            # Create main window (critical path)
+            # Create main window (critical path - show immediately)
             with TimingContext("Main window creation"):
                 logger.info("Creating main window...")
                 self.window = MainWindow(self.workspace)
                 self.window.showMaximized()
+            
+            # Process events to ensure window is rendered before heavy operations
+            app.processEvents()
             
             # Defer non-critical initialization to background
             logger.info("Starting background initialization...")
@@ -197,6 +200,10 @@ class App():
     async def _background_init(self, loop):
         """Initialize non-critical components in background after UI is shown"""
         try:
+            # Complete deferred initializations
+            logger.info("Completing deferred workspace initializations...")
+            await loop.run_in_executor(None, self._complete_deferred_init)
+            
             # Load project data asynchronously
             with TimingContext("Project data loading (background)"):
                 logger.info("Loading project data in background...")
@@ -222,6 +229,20 @@ class App():
             logger.info("✅ Background initialization complete")
         except Exception as e:
             logger.error(f"Error in background initialization: {e}", exc_info=True)
+    
+    def _complete_deferred_init(self):
+        """Complete deferred initializations synchronously (runs in executor)"""
+        # Complete ProjectManager scan
+        if hasattr(self.workspace.project_manager, 'ensure_projects_loaded'):
+            self.workspace.project_manager.ensure_projects_loaded()
+        
+        # Complete Settings loading
+        if hasattr(self.workspace.settings, '_ensure_loaded'):
+            self.workspace.settings._ensure_loaded()
+        
+        # Complete Plugins discovery
+        if hasattr(self.workspace.plugins, 'ensure_discovery'):
+            self.workspace.plugins.ensure_discovery()
     
     def _cleanup_on_exit(self):
         """Clean up resources when application is about to quit."""

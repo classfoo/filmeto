@@ -22,14 +22,26 @@ class ToolInfo:
 
 class Plugins:
 
-    def __init__(self, bot):
+    def __init__(self, bot, defer_discovery: bool = False):
         self.bot = bot
         self.tools = []
         self.models = []
         self._tool_registry: Dict[str, ToolInfo] = {}
         self._service_registry = ServiceRegistry(workspace=getattr(bot, 'workspace', None))
-        self._discover_tools()
-        self._discover_services()
+        self._discovery_done = False
+        self._defer_discovery = defer_discovery
+        
+        if not defer_discovery:
+            self._discover_tools()
+            self._discover_services()
+            self._discovery_done = True
+    
+    def ensure_discovery(self):
+        """Ensure plugins are discovered (for deferred discovery)"""
+        if not self._discovery_done:
+            self._discover_tools()
+            self._discover_services()
+            self._discovery_done = True
 
     def _discover_tools(self):
         """Discover and register tools from plugins/tools directory"""

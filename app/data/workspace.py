@@ -14,25 +14,25 @@ from utils.yaml_utils import load_yaml, save_yaml
 
 class Workspace():
 
-    def __init__(self, workspace_path:str, project_name:str, load_data:bool = True):
+    def __init__(self, workspace_path:str, project_name:str, load_data:bool = True, defer_heavy_init:bool = False):
         self.workspace_path = workspace_path
         self.project_name = project_name
         self.project_path = os.path.join(self.workspace_path, self.project_name)
         self.project = Project(self, self.project_path, self.project_name, load_data=load_data)
 
-        # 初始化ProjectManager
-        self.project_manager = ProjectManager(workspace_path)
+        # Initialize ProjectManager (lightweight - just sets up structure)
+        self.project_manager = ProjectManager(workspace_path, defer_scan=defer_heavy_init)
 
-        # Initialize PromptManager
+        # Initialize PromptManager (lightweight - just sets up directory)
         prompts_dir = os.path.join(self.project_path, 'prompts')
         self.prompt_manager = PromptManager(prompts_dir)
 
-        # Initialize Settings
-        self.settings = Settings(workspace_path)
+        # Initialize Settings (defer heavy loading if requested)
+        self.settings = Settings(workspace_path, defer_load=defer_heavy_init)
 
-        # Initialize Plugins once for the entire workspace (can be deferred)
+        # Initialize Plugins (defer discovery if requested)
         from app.plugins.plugins import Plugins
-        self.plugins = Plugins(self)
+        self.plugins = Plugins(self, defer_discovery=defer_heavy_init)
         return
 
     def get_project(self):
