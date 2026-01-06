@@ -257,11 +257,19 @@ class ResourcesPanel(BasePanel):
         
         self.content_layout.addWidget(content_container)
     
+    def load_data(self):
+        """Load resources data when panel is first activated."""
+        super().load_data()
+        self._load_resources()
+        self._connect_signals()
+    
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
-        self._load_resources()
-        self._connect_signals()
+        # Refresh resources when panel is activated (if data already loaded)
+        if self._data_loaded:
+            self._load_resources()
+            self._connect_signals()
         print("✅ Resources panel activated")
     
     def on_deactivated(self):

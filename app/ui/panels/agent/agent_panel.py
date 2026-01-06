@@ -250,6 +250,12 @@ class AgentPanel(BasePanel):
             if not self._initialization_in_progress:
                 asyncio.create_task(self._initialize_agent_async())
     
+    def load_data(self):
+        """Load agent data when panel is first activated."""
+        super().load_data()
+        # Agent will be initialized lazily on first message submission
+        # No data loading needed here
+    
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()

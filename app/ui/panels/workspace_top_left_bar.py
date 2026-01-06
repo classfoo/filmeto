@@ -1,6 +1,6 @@
 """Main switcher component for workspace top left bar panels."""
 
-from typing import Dict, Type, Optional
+from typing import Dict, Optional, Tuple
 from PySide6.QtWidgets import QStackedWidget, QWidget
 from PySide6.QtCore import Signal, Slot
 
@@ -36,7 +36,8 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
         # State management
         self.current_panel: Optional[BasePanel] = None
         self.panel_instances: Dict[str, BasePanel] = {}
-        self.panel_registry: Dict[str, Type[BasePanel]] = {}
+        # Panel registry stores (module_path, class_name) tuples for lazy import
+        self.panel_registry: Dict[str, Tuple[str, str]] = {}
         
         # Setup UI
         self.stacked_widget = QStackedWidget(self)
@@ -57,27 +58,19 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
         Register panel classes in the registry.
         
         Panel instances are created lazily when first accessed.
+        Panel classes are imported lazily to avoid blocking startup.
         """
-        # Import panel classes
-        from .resources import ResourcesPanel
-        from .models import ModelsPanel
-        from .attachments import AttachmentsPanel
-        from .timeline_tools import TimelineToolsPanel
-        from .messages import MessagesPanel
-        from .video_effects import VideoEffectsPanel
-        from .camera import CameraPanel
-        from .character import CharacterPanel
-        
-        # Map button names to panel classes
+        # Map button names to panel module paths (lazy import)
+        # Format: 'module_path.ClassName'
         self.panel_registry = {
-            'character': CharacterPanel,
-            'resource': ResourcesPanel,
-            'model': ModelsPanel,
-            'attach': AttachmentsPanel,
-            'timeline': TimelineToolsPanel,
-            'message': MessagesPanel,
-            'video': VideoEffectsPanel,
-            'camera': CameraPanel,
+            'character': ('app.ui.panels.character.character_panel', 'CharacterPanel'),
+            'resource': ('app.ui.panels.resources.resources_panel', 'ResourcesPanel'),
+            'model': ('app.ui.panels.models.models_panel', 'ModelsPanel'),
+            'attach': ('app.ui.panels.attachments.attachments_panel', 'AttachmentsPanel'),
+            'timeline': ('app.ui.panels.timeline_tools.timeline_tools_panel', 'TimelineToolsPanel'),
+            'message': ('app.ui.panels.messages.messages_panel', 'MessagesPanel'),
+            'video': ('app.ui.panels.video_effects.video_effects_panel', 'VideoEffectsPanel'),
+            'camera': ('app.ui.panels.camera.camera_panel', 'CameraPanel'),
         }
     
     @Slot(str)
@@ -100,15 +93,24 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
         
         # Check if panel instance exists in cache
         if panel_name not in self.panel_instances:
-            # Lazy instantiation
-            panel_class = self.panel_registry[panel_name]
+            # Lazy instantiation with lazy import
+            panel_info = self.panel_registry[panel_name]
             try:
+                # Import panel class dynamically
+                import importlib
+                module_path, class_name = panel_info
+                module = importlib.import_module(module_path)
+                panel_class = getattr(module, class_name)
+                
+                # Create panel instance
                 panel_instance = panel_class(self.workspace, self)
                 self.panel_instances[panel_name] = panel_instance
                 self.stacked_widget.addWidget(panel_instance)
                 print(f"✅ Created panel: {panel_name}")
             except Exception as e:
                 print(f"❌ Error creating panel {panel_name}: {e}")
+                import traceback
+                traceback.print_exc()
                 return
         
         # Switch to panel
