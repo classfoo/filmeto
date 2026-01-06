@@ -25,8 +25,9 @@ if app_path not in sys.path:
 
 try:
     from app.data.character import Character, CharacterManager
+    from app.data.resource import ResourceManager
 except ImportError as e:
-    print(f"Warning: Could not import CharacterManager: {e}")
+    print(f"Warning: Could not import CharacterManager or ResourceManager: {e}")
     print("This is expected if dependencies are not installed.")
     raise
 
@@ -43,7 +44,7 @@ class TestCharacter(unittest.TestCase):
             'description': 'A test character',
             'story': 'This is a test story',
             'relationships': {'Friend': 'Good friend'},
-            'resources': {'main_view': 'characters/TestCharacter/resources/main_view.png'},
+            'resources': {'main_view': 'resources/images/test_image.png'},
             'metadata': {},
             'created_at': '2024-01-01T00:00:00',
             'updated_at': '2024-01-01T00:00:00'
@@ -61,7 +62,7 @@ class TestCharacter(unittest.TestCase):
         self.assertEqual(character.description, 'A test character')
         self.assertEqual(character.story, 'This is a test story')
         self.assertEqual(character.relationships['Friend'], 'Good friend')
-        self.assertEqual(character.resources['main_view'], 'characters/TestCharacter/resources/main_view.png')
+        self.assertEqual(character.resources['main_view'], 'resources/images/test_image.png')
     
     def test_character_to_dict(self):
         """Test character serialization"""
@@ -73,25 +74,15 @@ class TestCharacter(unittest.TestCase):
         self.assertIn('created_at', data)
         self.assertIn('updated_at', data)
     
-    def test_character_directory_paths(self):
-        """Test character directory path methods"""
-        character = Character(self.character_data, self.test_dir)
-        
-        self.assertEqual(character.get_directory(), 'characters/TestCharacter')
-        self.assertEqual(character.get_absolute_directory(), 
-                        os.path.join(self.test_dir, 'characters/TestCharacter'))
-        self.assertEqual(character.get_config_path(), 
-                        'characters/TestCharacter/config.yaml')
-    
     def test_character_resource_paths(self):
         """Test character resource path methods"""
         character = Character(self.character_data, self.test_dir)
         
         rel_path = character.get_resource_path('main_view')
-        self.assertEqual(rel_path, 'characters/TestCharacter/resources/main_view.png')
+        self.assertEqual(rel_path, 'resources/images/test_image.png')
         
         abs_path = character.get_absolute_resource_path('main_view')
-        expected = os.path.join(self.test_dir, 'characters/TestCharacter/resources/main_view.png')
+        expected = os.path.join(self.test_dir, 'resources/images/test_image.png')
         self.assertEqual(abs_path, expected)
     
     def test_character_set_remove_resource(self):
@@ -99,10 +90,10 @@ class TestCharacter(unittest.TestCase):
         character = Character(self.character_data, self.test_dir)
         
         # Set new resource
-        character.set_resource('front_view', 'characters/TestCharacter/resources/front_view.png')
+        character.set_resource('front_view', 'resources/images/front_view.png')
         self.assertIn('front_view', character.resources)
         self.assertEqual(character.resources['front_view'], 
-                        'characters/TestCharacter/resources/front_view.png')
+                        'resources/images/front_view.png')
         
         # Remove resource
         character.remove_resource('front_view')
@@ -115,7 +106,8 @@ class TestCharacterManager(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures"""
         self.test_dir = tempfile.mkdtemp()
-        self.manager = CharacterManager(self.test_dir)
+        self.resource_manager = ResourceManager(self.test_dir)
+        self.manager = CharacterManager(self.test_dir, self.resource_manager)
     
     def tearDown(self):
         """Clean up test fixtures"""
@@ -134,13 +126,8 @@ class TestCharacterManager(unittest.TestCase):
         self.assertEqual(character.description, 'Test description')
         self.assertEqual(character.story, 'Test story')
         
-        # Verify character directory exists
-        char_dir = character.get_absolute_directory()
-        self.assertTrue(os.path.exists(char_dir))
-        
-        # Verify config file exists
-        config_path = character.get_absolute_config_path()
-        self.assertTrue(os.path.exists(config_path))
+        # Verify central config file exists
+        self.assertTrue(os.path.exists(self.manager.config_path))
     
     def test_create_character_duplicate_name(self):
         """Test creating character with duplicate name"""
@@ -226,36 +213,11 @@ class TestCharacterManager(unittest.TestCase):
         """Test deleting a character"""
         self.manager.create_character('TestChar')
         
-        # Create a resource file
-        char_dir = os.path.join(self.test_dir, 'characters', 'TestChar')
-        os.makedirs(char_dir, exist_ok=True)
-        test_file = os.path.join(char_dir, 'test.txt')
-        with open(test_file, 'w') as f:
-            f.write('test')
-        
-        success = self.manager.delete_character('TestChar', remove_files=True)
+        success = self.manager.delete_character('TestChar')
         self.assertTrue(success)
         
         character = self.manager.get_character('TestChar')
         self.assertIsNone(character)
-        
-        # Verify directory is removed
-        self.assertFalse(os.path.exists(char_dir))
-    
-    def test_delete_character_keep_files(self):
-        """Test deleting character but keeping files"""
-        self.manager.create_character('TestChar')
-        
-        char_dir = os.path.join(self.test_dir, 'characters', 'TestChar')
-        
-        success = self.manager.delete_character('TestChar', remove_files=False)
-        self.assertTrue(success)
-        
-        character = self.manager.get_character('TestChar')
-        self.assertIsNone(character)
-        
-        # Directory should still exist
-        self.assertTrue(os.path.exists(char_dir))
     
     def test_delete_nonexistent_character(self):
         """Test deleting non-existent character"""
@@ -278,8 +240,8 @@ class TestCharacterManager(unittest.TestCase):
         character = self.manager.get_character('TestChar')
         self.assertIn('main_view', character.resources)
         
-        # Verify file was copied
-        abs_path = character.get_absolute_resource_path('main_view')
+        # Verify file exists in ResourceManager's directory
+        abs_path = os.path.join(self.test_dir, rel_path)
         self.assertTrue(os.path.exists(abs_path))
     
     def test_add_resource_nonexistent_character(self):
@@ -306,7 +268,7 @@ class TestCharacterManager(unittest.TestCase):
         self.manager.add_resource('TestChar', 'main_view', test_image)
         
         # Remove resource
-        success = self.manager.remove_resource('TestChar', 'main_view', remove_file=True)
+        success = self.manager.remove_resource('TestChar', 'main_view')
         self.assertTrue(success)
         
         character = self.manager.get_character('TestChar')
@@ -336,13 +298,109 @@ class TestCharacterManager(unittest.TestCase):
         self.assertIsNotNone(new_char)
         self.assertEqual(new_char.name, 'NewName')
         
-        # Verify directory was renamed
-        new_dir = new_char.get_absolute_directory()
-        self.assertTrue(os.path.exists(new_dir))
-        
-        # Verify resource path was updated
+        # Verify resource path still exists
         self.assertIn('main_view', new_char.resources)
-        self.assertIn('NewName', new_char.resources['main_view'])
+    
+    def test_rename_character_duplicate_name(self):
+        """Test renaming to existing name"""
+        self.manager.create_character('Char1')
+        self.manager.create_character('Char2')
+        
+        success = self.manager.rename_character('Char1', 'Char2')
+        self.assertFalse(success)
+    
+    def test_search_characters(self):
+        """Test searching characters"""
+        self.manager.create_character('Alice', description='A friendly character')
+        self.manager.create_character('Bob', story='A brave hero')
+        self.manager.create_character('Charlie', description='A mysterious figure')
+        
+        # Search by name
+        results = self.manager.search_characters('Alice')
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].name, 'Alice')
+        
+        # Search by description
+        results = self.manager.search_characters('friendly')
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].name, 'Alice')
+        
+        # Search by story
+        results = self.manager.search_characters('brave')
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].name, 'Bob')
+        
+        # Case insensitive search
+        results = self.manager.search_characters('ALICE')
+        self.assertEqual(len(results), 1)
+    
+    def test_load_existing_characters(self):
+        """Test loading existing characters from disk"""
+        # Create character manually
+        self.manager.create_character('TestChar')
+        
+        # Create new manager instance (simulating restart)
+        new_resource_manager = ResourceManager(self.test_dir)
+        new_manager = CharacterManager(self.test_dir, new_resource_manager)
+        
+        # Verify character is loaded
+        character = new_manager.get_character('TestChar')
+        self.assertIsNotNone(character)
+        self.assertEqual(character.name, 'TestChar')
+
+
+class TestCharacterManagerIntegration(unittest.TestCase):
+    """Integration tests for CharacterManager"""
+    
+    def setUp(self):
+        """Set up test fixtures"""
+        self.test_dir = tempfile.mkdtemp()
+        self.resource_manager = ResourceManager(self.test_dir)
+        self.manager = CharacterManager(self.test_dir, self.resource_manager)
+    
+    def tearDown(self):
+        """Clean up test fixtures"""
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+    
+    def test_full_character_lifecycle(self):
+        """Test complete character lifecycle"""
+        # Create
+        character = self.manager.create_character('Hero', description='A hero')
+        self.assertIsNotNone(character)
+        
+        # Add resources
+        test_image1 = os.path.join(self.test_dir, 'front.png')
+        test_image2 = os.path.join(self.test_dir, 'back.png')
+        with open(test_image1, 'wb') as f:
+            f.write(b'front')
+        with open(test_image2, 'wb') as f:
+            f.write(b'back')
+        
+        self.manager.add_resource('Hero', 'front_view', test_image1)
+        self.manager.add_resource('Hero', 'back_view', test_image2)
+        
+        # Update
+        self.manager.update_character('Hero', story='Hero story')
+        
+        # Verify
+        character = self.manager.get_character('Hero')
+        self.assertEqual(character.story, 'Hero story')
+        self.assertIn('front_view', character.resources)
+        self.assertIn('back_view', character.resources)
+        
+        # Rename
+        self.manager.rename_character('Hero', 'SuperHero')
+        
+        # Verify rename
+        character = self.manager.get_character('SuperHero')
+        self.assertIsNotNone(character)
+        
+        # Delete
+        success = self.manager.delete_character('SuperHero')
+        self.assertTrue(success)
+        
+        character = self.manager.get_character('SuperHero')
+        self.assertIsNone(character)
     
     def test_rename_character_duplicate_name(self):
         """Test renaming to existing name"""
