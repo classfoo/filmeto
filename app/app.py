@@ -200,7 +200,13 @@ class App():
             # Load project data asynchronously
             with TimingContext("Project data loading (background)"):
                 logger.info("Loading project data in background...")
-                self.workspace.project.load_all_tasks()
+                # Use executor to avoid blocking the main thread
+                await loop.run_in_executor(None, self.workspace.project.load_all_tasks)
+                
+                # Pre-load character and resource managers to avoid blocking UI later
+                logger.info("Pre-loading managers...")
+                await loop.run_in_executor(None, self.workspace.project.character_manager.list_characters)
+                await loop.run_in_executor(None, self.workspace.project.resource_manager.get_all)
             
             # Start workspace async operations
             with TimingContext("Workspace start (background)"):

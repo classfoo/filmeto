@@ -1,7 +1,10 @@
 """Base panel class for workspace tool panels."""
 
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton, QSpacerItem, QSizePolicy
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtWidgets import (
+    QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton, 
+    QSpacerItem, QSizePolicy, QFrame, QStackedWidget
+)
+from PySide6.QtCore import Qt, QSize, QTimer
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 
@@ -12,6 +15,7 @@ class BasePanel(BaseWidget):
     
     All panels must inherit from this class and implement the required lifecycle methods.
     Provides consistent interface for panel switching and state management.
+    Includes built-in support for asynchronous data loading.
     """
     
     def __init__(self, workspace: Workspace, parent=None):
@@ -26,11 +30,12 @@ class BasePanel(BaseWidget):
         if parent:
             self.setParent(parent)
             
-        # Initialize UI structure
-        self._init_base_ui()
-        
         self._is_active = False
         self._data_loaded = False
+        self._is_loading = False
+        
+        # Initialize UI structure
+        self._init_base_ui()
         
         # Only setup UI framework, not data loading
         self.setup_ui()
@@ -98,14 +103,45 @@ class BasePanel(BaseWidget):
         
         self._main_layout.addWidget(self.toolbar)
         
-        # Content area
+        # Stacked widget for content and loading state
+        self.content_stack = QStackedWidget()
+        self.content_stack.setObjectName("panelContentStack")
+        
+        # Content area (Index 0)
         self.content_widget = QWidget()
         self.content_widget.setObjectName("panelContent")
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         self.content_layout.setSpacing(0)
+        self.content_stack.addWidget(self.content_widget)
         
-        self._main_layout.addWidget(self.content_widget, 1)
+        # Loading area (Index 1)
+        self.loading_widget = QWidget()
+        self.loading_widget.setObjectName("panelLoading")
+        self.loading_widget.setStyleSheet("background-color: #1E1E1E;")
+        loading_layout = QVBoxLayout(self.loading_widget)
+        loading_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        from utils.i18n_utils import tr
+        self.loading_label = QLabel(tr("正在加载..."))
+        self.loading_label.setStyleSheet("color: #888888; font-size: 12px;")
+        loading_layout.addWidget(self.loading_label)
+        
+        self.content_stack.addWidget(self.loading_widget)
+        
+        self._main_layout.addWidget(self.content_stack, 1)
+
+    def show_loading(self, message: str = None):
+        """Show the loading state."""
+        if message:
+            self.loading_label.setText(message)
+        self.content_stack.setCurrentIndex(1)
+        self._is_loading = True
+
+    def hide_loading(self):
+        """Hide the loading state and show content."""
+        self.content_stack.setCurrentIndex(0)
+        self._is_loading = False
 
     def set_panel_title(self, title: str):
         """Set the panel title in the toolbar."""
@@ -143,7 +179,6 @@ class BasePanel(BaseWidget):
         Override this method to load panel-specific data.
         """
         # Default implementation does nothing
-        # Subclasses should override to load their data
         pass
     
     def on_activated(self):
@@ -157,6 +192,12 @@ class BasePanel(BaseWidget):
         
         # Load data on first activation if not already loaded
         if not self._data_loaded:
+            # Defer load_data to next event loop iteration to avoid blocking startup
+            QTimer.singleShot(0, self._perform_initial_load)
+    
+    def _perform_initial_load(self):
+        """Internal helper to call load_data safely."""
+        if not self._data_loaded:
             self.load_data()
             self._data_loaded = True
     
@@ -168,6 +209,16 @@ class BasePanel(BaseWidget):
         or clean up resources when panel is hidden.
         """
         self._is_active = False
+    
+    def on_project_switched(self, project_name: str):
+        """
+        Called when the project is switched.
+        
+        Panels should reload their data for the new project.
+        """
+        self._data_loaded = False
+        if self._is_active:
+            QTimer.singleShot(0, self._perform_initial_load)
     
     def is_active(self) -> bool:
         """

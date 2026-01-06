@@ -70,7 +70,7 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
     @Slot(str)
     def switch_to_panel(self, panel_name: str):
         """
-        Switch to the specified panel.
+        Switch to the specified panel asynchronously to avoid blocking UI.
         
         Handles lazy instantiation, panel lifecycle, and visibility management.
         
@@ -87,27 +87,38 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
         
         # Check if panel instance exists in cache
         if panel_name not in self.panel_instances:
-            # Lazy instantiation with lazy import
-            panel_info = self.panel_registry[panel_name]
-            try:
-                # Import panel class dynamically
-                import importlib
-                module_path, class_name = panel_info
-                module = importlib.import_module(module_path)
-                panel_class = getattr(module, class_name)
-                
-                # Create panel instance
-                panel_instance = panel_class(self.workspace, self)
-                self.panel_instances[panel_name] = panel_instance
-                self.stacked_widget.addWidget(panel_instance)
-                print(f"✅ Created right panel: {panel_name}")
-            except Exception as e:
-                print(f"❌ Error creating right panel {panel_name}: {e}")
-                import traceback
-                traceback.print_exc()
-                return
-        
-        # Switch to panel
+            # Defer creation to avoid blocking
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self._deferred_create_panel(panel_name))
+            return
+
+        self._finalize_panel_switch(panel_name)
+
+    def _deferred_create_panel(self, panel_name: str):
+        """Internal helper to create panel instance without blocking the immediate event loop"""
+        panel_info = self.panel_registry[panel_name]
+        try:
+            # Import panel class dynamically
+            import importlib
+            module_path, class_name = panel_info
+            module = importlib.import_module(module_path)
+            panel_class = getattr(module, class_name)
+            
+            # Create panel instance
+            panel_instance = panel_class(self.workspace, self)
+            self.panel_instances[panel_name] = panel_instance
+            self.stacked_widget.addWidget(panel_instance)
+            print(f"✅ Created right panel: {panel_name}")
+            
+            self._finalize_panel_switch(panel_name)
+            
+        except Exception as e:
+            print(f"❌ Error creating right panel {panel_name}: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _finalize_panel_switch(self, panel_name: str):
+        """Complete the panel switch after instance is ready"""
         panel = self.panel_instances[panel_name]
         self.stacked_widget.setCurrentWidget(panel)
         panel.on_activated()

@@ -1,5 +1,6 @@
 import os
-from typing import Any
+import threading
+from typing import Any, List
 
 from blinker import signal
 
@@ -101,10 +102,20 @@ class TaskManager():
         self.project = project
         self.tasks_path = tasks_path
         self.tasks = {}  # task_id -> Task object
+        self._loaded = False
+        self._load_lock = threading.Lock()
         self.create_consumer = AsyncQueue()
         self.create_consumer.connect("create", self.create_task)
         self.execute_consumer = AsyncQueue()
         return
+
+    def _ensure_loaded(self):
+        """Ensure tasks are loaded from disk"""
+        if not self._loaded:
+            with self._load_lock:
+                if not self._loaded:
+                    self.load_all_tasks()
+                    self._loaded = True
 
     async def start(self):
         # Load all existing tasks from the tasks directory
@@ -184,10 +195,12 @@ class TaskManager():
 
     def get_task_by_id(self, task_id: str):
         """Get a task by its ID"""
+        self._ensure_loaded()
         return self.tasks.get(task_id)
 
     def load_tasks_paginated(self, start_index: int, count: int):
         """Load tasks in a paginated manner (similar to task_loader functionality)"""
+        self._ensure_loaded()
         all_task_ids = sorted([task_id for task_id in self.tasks.keys() if task_id.isdigit()], 
                              key=lambda x: int(x), reverse=True)
         
@@ -206,6 +219,7 @@ class TaskManager():
 
     def get_all_tasks(self, start_index: int = 0, count: int = None):
         """Get all tasks as Task objects for UI (replaces previous task_loader functionality)"""
+        self._ensure_loaded()
         if count is None:
             # Load all tasks without pagination
             all_task_ids = sorted([task_id for task_id in self.tasks.keys() if task_id.isdigit()], 

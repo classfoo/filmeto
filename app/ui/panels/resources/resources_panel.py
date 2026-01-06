@@ -12,6 +12,7 @@ from PySide6.QtGui import QIcon, QBrush, QColor
 
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
+from app.ui.worker.worker import run_in_background
 from utils.i18n_utils import tr
 from .resource_preview import ResourcePreview
 
@@ -72,20 +73,21 @@ class ResourceTreeView(QTreeWidget):
         # Icon provider
         self.icon_provider = QFileIconProvider()
         
-    def set_resource_manager(self, resource_manager):
-        """Set the resource manager and load resources."""
+    def set_resources(self, resources, resource_manager):
+        """Set the resources and update the tree view."""
         self.resource_manager = resource_manager
-        self.refresh()
+        self.refresh(resources)
         
-    def refresh(self):
-        """Refresh the tree view with current resources."""
+    def refresh(self, resources=None):
+        """Refresh the tree view with provided or current resources."""
         self.clear()
         
         if not self.resource_manager:
             return
             
-        # Get all resources
-        resources = self.resource_manager.get_all()
+        # Use provided resources or fetch all if not provided
+        if resources is None:
+            resources = self.resource_manager.get_all()
         
         if not resources:
             # Show empty state
@@ -279,7 +281,7 @@ class ResourcesPanel(BasePanel):
         print("⏸️ Resources panel deactivated")
     
     def _load_resources(self):
-        """Load resources from the resource manager."""
+        """Load resources from the resource manager asynchronously."""
         try:
             # Get resource manager from project
             project = self.workspace.get_project()
@@ -288,15 +290,42 @@ class ResourcesPanel(BasePanel):
                 return
             
             self.resource_manager = project.get_resource_manager()
-            self.tree_view.set_resource_manager(self.resource_manager)
             
-            # Update info
-            resource_count = len(self.resource_manager.get_all())
-            self.info_label.setText(f"{resource_count} resource(s)")
+            # Show loading state
+            self.show_loading(tr("正在加载资源..."))
+            self.info_label.setText(tr("正在加载资源..."))
+            
+            # Run background task to get resources
+            run_in_background(
+                self.resource_manager.get_all,
+                on_finished=self._on_resources_loaded,
+                on_error=self._on_load_error
+            )
             
         except Exception as e:
-            print(f"❌ Error loading resources: {e}")
+            print(f"❌ Error initiating resource load: {e}")
             self.info_label.setText(f"Error: {str(e)}")
+            self.hide_loading()
+
+    def _on_resources_loaded(self, resources):
+        """Callback when resources are loaded from background thread"""
+        if not self.resource_manager:
+            self.hide_loading()
+            return
+            
+        self.tree_view.set_resources(resources, self.resource_manager)
+        
+        # Update info
+        resource_count = len(resources)
+        self.info_label.setText(f"{resource_count} resource(s)")
+        print(f"✅ Resources panel UI updated with {resource_count} resources")
+        self.hide_loading()
+
+    def _on_load_error(self, error_msg: str, exception: Exception):
+        """Handle loading error"""
+        print(f"❌ Error loading resources: {error_msg}")
+        self.info_label.setText(f"Error: {error_msg}")
+        self.hide_loading()
     
     def _connect_signals(self):
         """Connect to ResourceManager signals for auto-refresh."""
