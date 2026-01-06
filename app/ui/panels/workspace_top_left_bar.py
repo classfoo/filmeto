@@ -105,20 +105,22 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
         """Internal helper to create panel instance without blocking the immediate event loop"""
         panel_info = self.panel_registry[panel_name]
         try:
-            # Import panel class dynamically
+            # Import panel class dynamically (may trigger module imports, but should be fast)
             import importlib
             module_path, class_name = panel_info
             module = importlib.import_module(module_path)
             panel_class = getattr(module, class_name)
             
             # Create panel instance (GUI creation MUST be on main thread)
+            # This should be fast - only creates UI structure, no data loading
             panel_instance = panel_class(self.workspace, self)
             self.panel_instances[panel_name] = panel_instance
             self.stacked_widget.addWidget(panel_instance)
             print(f"✅ Created panel: {panel_name}")
             
-            # Now finalize switch
-            self._finalize_panel_switch(panel_name)
+            # Defer panel activation to avoid blocking - let UI render first
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self._finalize_panel_switch(panel_name))
             
         except Exception as e:
             print(f"❌ Error creating panel {panel_name}: {e}")
