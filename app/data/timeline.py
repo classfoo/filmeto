@@ -1,5 +1,6 @@
 import os.path
 import shutil
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,8 @@ from blinker import signal
 
 from utils import dict_utils
 from utils.yaml_utils import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.data.project import Project
@@ -240,18 +243,18 @@ class Timeline:
         try:
             p = Path(self.time_line_path)
             if not p.exists():
-                print(f"路径 '{self.time_line_path}' 不存在。")
+                logger.warning(f"路径 '{self.time_line_path}' 不存在。")
                 return
             if not p.is_dir():
-                print(f"路径 '{self.time_line_path}' 不是一个目录。")
+                logger.warning(f"路径 '{self.time_line_path}' 不是一个目录。")
                 return
             directories = [item.name for item in p.iterdir() if item.is_dir()]
             self.item_count = len(directories)
         except PermissionError:
-            print(f"没有权限访问路径 '{self.time_line_path}'。")
+            logger.error(f"没有权限访问路径 '{self.time_line_path}'。")
             return
         except Exception as e:
-            print(f"发生错误: {e}")
+            logger.error(f"发生错误: {e}")
             return
     
     def _on_item_duration_changed(self):
@@ -323,7 +326,7 @@ class Timeline:
             directories = [item.name for item in p.iterdir() if item.is_dir()]
             self.item_count = len(directories)
         except Exception as e:
-            print(f"Error refreshing timeline count: {e}")
+            logger.error(f"Error refreshing timeline count: {e}")
     
     def add_item(self):
         """Add a new timeline item and return its index"""

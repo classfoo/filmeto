@@ -109,7 +109,7 @@ class Project:
         if timeline_item_id is None:
             timeline_item_id = self.get_timeline_index()
         
-        print(f"Submitting task for timeline_item {timeline_item_id}: {params}")
+        logger.info(f"Submitting task for timeline_item {timeline_item_id}: {params}")
         self.task_manager.submit_task(params, timeline_item_id)
 
     def on_task_finished(self, result: TaskResult):
@@ -146,7 +146,7 @@ class Project:
                 additional_metadata=additional_metadata
             )
             if resource:
-                print(f"✅ Registered image resource: {resource.name}")
+                logger.info(f"✅ Registered image resource: {resource.name}")
                 registered_resources.append({
                     'type': 'image',
                     'resource_path': resource.file_path,
@@ -170,7 +170,7 @@ class Project:
                 additional_metadata=additional_metadata
             )
             if resource:
-                print(f"✅ Registered video resource: {resource.name}")
+                logger.info(f"✅ Registered video resource: {resource.name}")
                 registered_resources.append({
                     'type': 'video',
                     'resource_path': resource.file_path,
@@ -200,9 +200,9 @@ class Project:
             save_yaml(task.config_path, task_config)
             task.options.update(task_config)
 
-            print(f"✅ Updated task config.yaml with resource paths for task {task.task_id}")
+            logger.info(f"✅ Updated task config.yaml with resource paths for task {task.task_id}")
         except Exception as e:
-            print(f"❌ Error updating task config.yaml: {e}")
+            logger.error(f"❌ Error updating task config.yaml: {e}")
             import traceback
             traceback.print_exc()
 
@@ -400,7 +400,7 @@ class ProjectManager:
                         logger.info(f"⏱️  [ProjectManager] Loaded project '{item}' in {project_time:.2f}ms")
                         loaded_count += 1
                     except Exception as e:
-                        print(f"Failed to load project {item}: {e}")
+                        logger.error(f"Failed to load project {item}: {e}")
                         logger.error(f"⏱️  [ProjectManager] Failed to load project '{item}': {e}")
                         failed_count += 1
 
@@ -504,7 +504,7 @@ class ProjectManager:
             shutil.rmtree(project_path)
             return True
         except Exception as e:
-            print(f"Failed to delete project {project_name}: {e}")
+            logger.error(f"Failed to delete project {project_name}: {e}")
             return False
     
     def update_project(self, project_name: str, new_config: Dict[str, Any]) -> bool:

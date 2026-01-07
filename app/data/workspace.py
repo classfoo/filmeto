@@ -128,7 +128,7 @@ class Workspace():
             timeline_item_id: The timeline item ID to associate with this task.
                              If None, uses the current timeline index.
         """
-        print(f"Workspace submitting task: {params}")
+        logger.info(f"Workspace submitting task: {params}")
         self.project.submit_task(params, timeline_item_id)
 
     def on_task_finished(self,result:TaskResult):
@@ -154,7 +154,7 @@ class Workspace():
         # 注意：必须在更新完所有状态后再发送信号，确保监听者能获取到正确的项目状态
         switched_project = self.project_manager.switch_project(project_name)
         
-        print(f"切换到项目: {project_name}")
+        logger.info(f"切换到项目: {project_name}")
         return self.project
 
     def get_current_timeline_item(self):

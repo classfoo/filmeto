@@ -6,11 +6,14 @@ Manages loading, validation, and persistence of service plugin configurations.
 
 import os
 import shutil
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from app.spi.service import ConfigSchema, ConfigGroup, ConfigField
 from utils.yaml_utils import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 
 class PluginConfigManager:
@@ -34,7 +37,7 @@ class PluginConfigManager:
             schema: Configuration schema definition
         """
         self._schemas[service_id] = schema
-        print(f"✅ Registered config schema for service: {service_id}")
+        logger.info(f"✅ Registered config schema for service: {service_id}")
 
     def load_config(self, service_id: str, config_path: str) -> Dict[str, Any]:
         """
@@ -50,7 +53,7 @@ class PluginConfigManager:
         try:
             # Ensure config file exists
             if not os.path.exists(config_path):
-                print(f"⚠️ Config file not found: {config_path}")
+                logger.warning(f"⚠️ Config file not found: {config_path}")
                 # Create from schema defaults
                 config_data = self._create_default_config(service_id)
                 self._save_config_file(config_path, config_data)
@@ -61,11 +64,11 @@ class PluginConfigManager:
             parsed_config = self._parse_config(service_id, config_data)
             self._configs[service_id] = parsed_config
 
-            print(f"✅ Loaded config for service: {service_id}")
+            logger.info(f"✅ Loaded config for service: {service_id}")
             return parsed_config
 
         except Exception as e:
-            print(f"❌ Error loading config for {service_id}: {e}")
+            logger.error(f"❌ Error loading config for {service_id}: {e}")
             # Return default config on error
             return self._create_default_config(service_id)
 
@@ -84,7 +87,7 @@ class PluginConfigManager:
         try:
             # Validate configuration
             if not self.validate_config(service_id, config_data):
-                print(f"⚠️ Config validation failed for {service_id}")
+                logger.warning(f"⚠️ Config validation failed for {service_id}")
                 return False
 
             # Build YAML structure from config data
@@ -96,11 +99,11 @@ class PluginConfigManager:
             # Update cached config
             self._configs[service_id] = config_data
 
-            print(f"✅ Saved config for service: {service_id}")
+            logger.info(f"✅ Saved config for service: {service_id}")
             return True
 
         except Exception as e:
-            print(f"❌ Error saving config for {service_id}: {e}")
+            logger.error(f"❌ Error saving config for {service_id}: {e}")
             return False
 
     def get_config(self, service_id: str) -> Optional[Dict[str, Any]]:
@@ -129,19 +132,19 @@ class PluginConfigManager:
         """
         try:
             if service_id not in self._configs:
-                print(f"⚠️ No config loaded for service: {service_id}")
+                logger.warning(f"⚠️ No config loaded for service: {service_id}")
                 return False
 
             parts = key.split('.')
             if len(parts) != 2:
-                print(f"⚠️ Invalid config key format: {key}")
+                logger.warning(f"⚠️ Invalid config key format: {key}")
                 return False
 
             group_name, field_name = parts
 
             # Validate value against schema
             if not self._validate_field_value(service_id, group_name, field_name, value):
-                print(f"⚠️ Validation failed for {key} = {value}")
+                logger.warning(f"⚠️ Validation failed for {key} = {value}")
                 return False
 
             # Update config
@@ -152,7 +155,7 @@ class PluginConfigManager:
             return True
 
         except Exception as e:
-            print(f"❌ Error updating config {key}: {e}")
+            logger.error(f"❌ Error updating config {key}: {e}")
             return False
 
     def validate_config(self, service_id: str, config_data: Dict[str, Any]) -> bool:

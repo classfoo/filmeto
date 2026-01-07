@@ -6,9 +6,12 @@ Handles workflow storage, retrieval, and metadata management.
 """
 
 import json
+import logging
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from dataclasses import dataclass, asdict
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -130,7 +133,7 @@ class WorkflowManager:
                         metadata = WorkflowMetadata.from_dict(data)
                         workflows.append(metadata)
             except Exception as e:
-                print(f"Failed to load workflow metadata {metadata_file}: {e}")
+                logger.error(f"Failed to load workflow metadata {metadata_file}: {e}")
         
         return workflows
     
@@ -227,7 +230,7 @@ class WorkflowManager:
             return True
             
         except Exception as e:
-            print(f"Failed to save workflow: {e}")
+            logger.error(f"Failed to save workflow: {e}")
             return False
     
     def delete_workflow(self, workflow_name: str) -> bool:
@@ -256,7 +259,7 @@ class WorkflowManager:
             return True
             
         except Exception as e:
-            print(f"Failed to delete workflow: {e}")
+            logger.error(f"Failed to delete workflow: {e}")
             return False
     
     def load_workflow_metadata(self, workflow_name: str) -> Optional[WorkflowMetadata]:
@@ -289,7 +292,7 @@ class WorkflowManager:
             return None
                 
         except Exception as e:
-            print(f"Failed to load workflow metadata: {e}")
+            logger.error(f"Failed to load workflow metadata: {e}")
             return None
     
     def load_workflow_content(self, workflow_name: str) -> Optional[Dict[str, Any]]:
@@ -306,19 +309,19 @@ class WorkflowManager:
             # Use get_workflow for better name matching
             metadata = self.get_workflow(workflow_name)
             if not metadata:
-                print(f"Metadata not found for workflow: {workflow_name}")
+                logger.warning(f"Metadata not found for workflow: {workflow_name}")
                 return None
             
             workflow_file = self.workflows_dir / metadata.file
             if not workflow_file.exists():
-                print(f"Workflow file not found: {workflow_file}")
+                logger.warning(f"Workflow file not found: {workflow_file}")
                 return None
             
             with open(workflow_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
                 
         except Exception as e:
-            print(f"Failed to load workflow content: {e}")
+            logger.error(f"Failed to load workflow content: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -372,7 +375,7 @@ class WorkflowManager:
             return json.loads(workflow_str)
             
         except Exception as e:
-            print(f"Failed to prepare workflow: {e}")
+            logger.error(f"Failed to prepare workflow: {e}")
             return None
     
     def get_workflow_path(self, workflow_name: str) -> Optional[Path]:
@@ -425,7 +428,7 @@ class WorkflowManager:
             return True
             
         except Exception as e:
-            print(f"Failed to import workflow: {e}")
+            logger.error(f"Failed to import workflow: {e}")
             return False
     
     def export_workflow(self, workflow_name: str, target_path: str) -> bool:
@@ -451,6 +454,6 @@ class WorkflowManager:
             return True
             
         except Exception as e:
-            print(f"Failed to export workflow: {e}")
+            logger.error(f"Failed to export workflow: {e}")
             return False
 

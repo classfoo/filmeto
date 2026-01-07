@@ -10,9 +10,12 @@ Manages character data for projects with support for:
 import os
 import uuid
 import shutil
+import logging
 import threading
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from blinker import signal
 
@@ -175,10 +178,10 @@ class CharacterManager:
                     for char_data in data['characters']:
                         character = Character(char_data, self.project_path)
                         self._characters[character.name] = character
-                    print(f"✅ Loaded {len(self._characters)} characters from central config")
+                    logger.info(f"✅ Loaded {len(self._characters)} characters from central config")
                     return
             except Exception as e:
-                print(f"❌ Error loading central character config: {e}")
+                logger.error(f"❌ Error loading central character config: {e}")
 
         # 2. Fallback: Migration from old directory-based storage
         if os.path.exists(self.characters_dir):
@@ -216,12 +219,12 @@ class CharacterManager:
                                 
                                 self._characters[character.name] = character
                                 migrated_count += 1
-                                print(f"📦 Migrated character: {character.name}")
+                                logger.info(f"📦 Migrated character: {character.name}")
                         except Exception as e:
-                            print(f"❌ Error loading character {item} for migration: {e}")
+                            logger.error(f"❌ Error loading character {item} for migration: {e}")
             
             if migrated_count > 0:
-                print(f"✅ Migrated {migrated_count} characters to new structure")
+                logger.info(f"✅ Migrated {migrated_count} characters to new structure")
                 self._save_all_characters()
                 
                 # Optionally clean up old directories (commented out for safety)
@@ -240,7 +243,7 @@ class CharacterManager:
             save_yaml(self.config_path, data)
             return True
         except Exception as e:
-            print(f"❌ Error saving characters config: {e}")
+            logger.error(f"❌ Error saving characters config: {e}")
             return False
 
     def _save_character(self, character: Character) -> bool:
@@ -268,14 +271,14 @@ class CharacterManager:
         self._ensure_loaded()
         # Validate name
         if not name or not name.strip():
-            print("❌ Character name cannot be empty")
+            logger.error("❌ Character name cannot be empty")
             return None
         
         name = name.strip()
         
         # Check if character already exists
         if name in self._characters:
-            print(f"❌ Character '{name}' already exists")
+            logger.error(f"❌ Character '{name}' already exists")
             return None
         
         # Create character instance
@@ -304,7 +307,7 @@ class CharacterManager:
         # Send signal
         self.character_added.send(character)
         
-        print(f"✅ Created character: {name}")
+        logger.info(f"✅ Created character: {name}")
         return character
     
     def get_character(self, name: str) -> Optional[Character]:
@@ -341,14 +344,14 @@ class CharacterManager:
         self._ensure_loaded()
         character = self.get_character(name)
         if not character:
-            print(f"❌ Character '{name}' not found")
+            logger.error(f"❌ Character '{name}' not found")
             return False
-        
+
         # Update allowed fields
         allowed_fields = ['name', 'description', 'story', 'relationships', 'metadata']
         updated = False
         old_name = character.name
-        
+
         for field, value in kwargs.items():
             if field in allowed_fields and hasattr(character, field):
                 if field == 'name':
@@ -356,7 +359,7 @@ class CharacterManager:
                     if not new_name: continue
                     if new_name != old_name:
                         if new_name in self._characters:
-                            print(f"❌ Cannot rename to '{new_name}': already exists")
+                            logger.error(f"❌ Cannot rename to '{new_name}': already exists")
                             continue
                         # Handle name change in index
                         del self._characters[old_name]
@@ -366,20 +369,20 @@ class CharacterManager:
                 else:
                     setattr(character, field, value)
                     updated = True
-        
+
         if updated:
             character.updated_at = datetime.now().isoformat()
-            
+
             # Save to disk
             if not self._save_all_characters():
                 return False
-            
+
             # Send signal
             self.character_updated.send(character)
-            
-            print(f"✅ Updated character: {character.name}")
+
+            logger.info(f"✅ Updated character: {character.name}")
             return True
-        
+
         return False
     
     def delete_character(self, name: str, remove_files: bool = True) -> bool:
@@ -395,25 +398,25 @@ class CharacterManager:
         self._ensure_loaded()
         character = self.get_character(name)
         if not character:
-            print(f"❌ Character '{name}' not found")
+            logger.error(f"❌ Character '{name}' not found")
             return False
-        
+
         try:
             # Remove from index
             del self._characters[name]
-            
+
             # Save to disk
             if not self._save_all_characters():
                 self._characters[name] = character
                 return False
-            
+
             # Send signal
             self.character_deleted.send(name)
-            
-            print(f"✅ Deleted character: {name}")
+
+            logger.info(f"✅ Deleted character: {name}")
             return True
         except Exception as e:
-            print(f"❌ Error deleting character {name}: {e}")
+            logger.error(f"❌ Error deleting character {name}: {e}")
             return False
     
     def add_resource(self, character_name: str, resource_type: str, source_file_path: str) -> Optional[str]:
@@ -429,24 +432,24 @@ class CharacterManager:
         """
         self._ensure_loaded()
         if not self.resource_manager:
-            print("❌ ResourceManager not available in CharacterManager")
+            logger.error("❌ ResourceManager not available in CharacterManager")
             return None
 
         character = self.get_character(character_name)
         if not character:
-            print(f"❌ Character '{character_name}' not found")
+            logger.error(f"❌ Character '{character_name}' not found")
             return None
-        
+
         # Resolve source file path
         if not os.path.isabs(source_file_path):
             abs_source = os.path.join(self.project_path, source_file_path)
         else:
             abs_source = source_file_path
-        
+
         if not os.path.exists(abs_source):
-            print(f"❌ Source file does not exist: {abs_source}")
+            logger.error(f"❌ Source file does not exist: {abs_source}")
             return None
-        
+
         # Check if this resource is already managed by ResourceManager and belongs to this character
         current_rel_path = character.get_resource_path(resource_type)
         if current_rel_path:
@@ -463,25 +466,25 @@ class CharacterManager:
                 source_id=character.character_id,
                 original_name=f"{character_name}_{resource_type}{os.path.splitext(abs_source)[1]}"
             )
-            
+
             if not resource:
                 return None
-                
+
             # Set resource path in character (relative path from project root)
             character.set_resource(resource_type, resource.file_path)
-            
+
             # Save character config
             if not self._save_all_characters():
                 return None
-            
+
             # Send signal
             self.character_updated.send(character)
-            
-            print(f"✅ Added resource '{resource_type}' to character '{character_name}' via ResourceManager")
+
+            logger.info(f"✅ Added resource '{resource_type}' to character '{character_name}' via ResourceManager")
             return resource.file_path
-            
+
         except Exception as e:
-            print(f"❌ Error adding resource to character {character_name}: {e}")
+            logger.error(f"❌ Error adding resource to character {character_name}: {e}")
             return None
     
     def remove_resource(self, character_name: str, resource_type: str, remove_file: bool = False) -> bool:
@@ -498,9 +501,9 @@ class CharacterManager:
         self._ensure_loaded()
         character = self.get_character(character_name)
         if not character:
-            print(f"❌ Character '{character_name}' not found")
+            logger.error(f"❌ Character '{character_name}' not found")
             return False
-        
+
         # Optional: remove from ResourceManager if requested
         if remove_file and self.resource_manager:
             rel_path = character.get_resource_path(resource_type)
@@ -510,15 +513,15 @@ class CharacterManager:
 
         # Remove resource reference
         character.remove_resource(resource_type)
-        
+
         # Save character config
         if not self._save_all_characters():
             return False
-        
+
         # Send signal
         self.character_updated.send(character)
-        
-        print(f"✅ Removed resource '{resource_type}' from character '{character_name}'")
+
+        logger.info(f"✅ Removed resource '{resource_type}' from character '{character_name}'")
         return True
     
     def rename_character(self, old_name: str, new_name: str) -> bool:

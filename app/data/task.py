@@ -15,6 +15,7 @@ This module provides a two-tier task management architecture:
 """
 
 import os
+import logging
 from typing import Any, Optional, Dict, List, TYPE_CHECKING
 import threading
 from typing import Any, List
@@ -26,6 +27,8 @@ from utils import dict_utils
 from utils.async_queue_utils import AsyncQueue
 from utils.progress_utils import Progress
 from utils.yaml_utils import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.data.timeline import TimelineItem
@@ -221,7 +224,7 @@ class ProjectTaskManager:
         # Get timeline_item_id from options (set at submission time)
         timeline_item_id = options.get('timeline_item_id')
         if timeline_item_id is None:
-            print("⚠️ No timeline_item_id in task options, cannot create task")
+            logger.warning("⚠️ No timeline_item_id in task options, cannot create task")
             return
 
         # Get the specific timeline item by ID (not current item)
@@ -229,7 +232,7 @@ class ProjectTaskManager:
         timeline_item = timeline.get_item(timeline_item_id)
 
         if timeline_item is None:
-            print(f"⚠️ Timeline item {timeline_item_id} not found, cannot create task")
+            logger.warning(f"⚠️ Timeline item {timeline_item_id} not found, cannot create task")
             return
 
         # Get the timeline item's task manager
@@ -322,7 +325,7 @@ class TimelineItemTaskManager:
 
             return task
         except Exception as e:
-            print(f"❌ Error creating task: {e}")
+            logger.error(f"❌ Error creating task: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -335,7 +338,7 @@ class TimelineItemTaskManager:
             List of loaded Task objects
         """
         if not os.path.exists(self.tasks_path):
-            print(f"⚠️ Tasks directory does not exist: {self.tasks_path}")
+            logger.warning(f"⚠️ Tasks directory does not exist: {self.tasks_path}")
             return []
 
         try:
@@ -367,11 +370,11 @@ class TimelineItemTaskManager:
                 self.tasks[task_dir_name] = task
                 loaded_tasks.append(task)
             
-            print(f"✅ Loaded {len(loaded_tasks)} tasks from {self.tasks_path}")
+            logger.info(f"✅ Loaded {len(loaded_tasks)} tasks from {self.tasks_path}")
             return loaded_tasks
 
         except Exception as e:
-            print(f"❌ Error loading tasks: {e}")
+            logger.error(f"❌ Error loading tasks: {e}")
             import traceback
             traceback.print_exc()
             return []

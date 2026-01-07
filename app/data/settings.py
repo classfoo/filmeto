@@ -7,11 +7,14 @@ Provides global configuration management with YAML-based storage.
 import os
 import re
 import shutil
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
 from utils.yaml_utils import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -100,20 +103,20 @@ class Settings:
         try:
             data = load_yaml(self.settings_file)
             if not data or 'groups' not in data:
-                print(f"⚠️ Invalid settings file, creating from template")
+                logger.warning(f"⚠️ Invalid settings file, creating from template")
                 self._create_from_template()
                 data = load_yaml(self.settings_file)
             
             self._parse_settings(data)
-            print(f"✅ Settings loaded from {self.settings_file}")
+            logger.info(f"✅ Settings loaded from {self.settings_file}")
             
         except Exception as e:
-            print(f"❌ Error loading settings: {e}")
+            logger.error(f"❌ Error loading settings: {e}")
             # Backup corrupted file and create from template
             if os.path.exists(self.settings_file):
                 backup_file = f"{self.settings_file}.backup"
                 shutil.copy(self.settings_file, backup_file)
-                print(f"⚠️ Backed up corrupted settings to {backup_file}")
+                logger.warning(f"⚠️ Backed up corrupted settings to {backup_file}")
             
             self._create_from_template()
             data = load_yaml(self.settings_file)
@@ -123,9 +126,9 @@ class Settings:
         """Create settings file from template"""
         if os.path.exists(self.template_file):
             shutil.copy(self.template_file, self.settings_file)
-            print(f"✅ Created settings from template: {self.settings_file}")
+            logger.info(f"✅ Created settings from template: {self.settings_file}")
         else:
-            print(f"❌ Template file not found: {self.template_file}")
+            logger.error(f"❌ Template file not found: {self.template_file}")
             raise FileNotFoundError(f"Settings template not found: {self.template_file}")
     
     def _parse_settings(self, data: Dict):
@@ -186,11 +189,11 @@ class Settings:
     def get(self, key: str, default: Any = None) -> Any:
         """
         Get setting value by key path.
-        
+
         Args:
             key: Dot-notation key path (e.g., "general.language")
             default: Default value to return if key not found
-            
+
         Returns:
             Setting value or default if not found
         """
@@ -199,23 +202,23 @@ class Settings:
         try:
             parts = key.split('.')
             if len(parts) != 2:
-                print(f"⚠️ Invalid key format: {key} (expected 'group.field')")
+                logger.warning(f"⚠️ Invalid key format: {key} (expected 'group.field')")
                 return default
-            
+
             group_name, field_name = parts
-            
+
             if group_name not in self.values:
-                print(f"⚠️ Group not found: {group_name}")
+                logger.warning(f"⚠️ Group not found: {group_name}")
                 return default
-            
+
             if field_name not in self.values[group_name]:
-                print(f"⚠️ Field not found: {field_name} in group {group_name}")
+                logger.warning(f"⚠️ Field not found: {field_name} in group {group_name}")
                 return default
-            
+
             return self.values[group_name][field_name]
-            
+
         except Exception as e:
-            print(f"❌ Error getting setting {key}: {e}")
+            logger.error(f"❌ Error getting setting {key}: {e}")
             return default
     
     def set(self, key: str, value: Any) -> bool:
@@ -232,32 +235,32 @@ class Settings:
         try:
             parts = key.split('.')
             if len(parts) != 2:
-                print(f"⚠️ Invalid key format: {key} (expected 'group.field')")
+                logger.warning(f"⚠️ Invalid key format: {key} (expected 'group.field')")
                 return False
-            
+
             group_name, field_name = parts
-            
+
             if group_name not in self.schema:
-                print(f"⚠️ Group not found: {group_name}")
+                logger.warning(f"⚠️ Group not found: {group_name}")
                 return False
-            
+
             if field_name not in self.schema[group_name]:
-                print(f"⚠️ Field not found: {field_name} in group {group_name}")
+                logger.warning(f"⚠️ Field not found: {field_name} in group {group_name}")
                 return False
-            
+
             # Validate value
             if not self.validate(key, value):
-                print(f"⚠️ Validation failed for {key} = {value}")
+                logger.warning(f"⚠️ Validation failed for {key} = {value}")
                 return False
-            
+
             # Update value
             self.values[group_name][field_name] = value
             self._dirty = True
-            
+
             return True
-            
+
         except Exception as e:
-            print(f"❌ Error setting {key} = {value}: {e}")
+            logger.error(f"❌ Error setting {key} = {value}: {e}")
             return False
     
     def validate(self, key: str, value: Any) -> bool:
@@ -300,11 +303,11 @@ class Settings:
             elif field.type == 'slider':
                 return self._validate_slider(value, field.validation or {})
             else:
-                print(f"⚠️ Unknown field type: {field.type}")
+                logger.warning(f"⚠️ Unknown field type: {field.type}")
                 return True  # Allow unknown types for extensibility
-                
+
         except Exception as e:
-            print(f"❌ Validation error for {key}: {e}")
+            logger.error(f"❌ Validation error for {key}: {e}")
             return False
     
     def _validate_text(self, value: Any, validation: Dict) -> bool:
@@ -404,27 +407,27 @@ class Settings:
             # Save to file
             save_yaml(self.settings_file, data)
             self._dirty = False
-            
-            print(f"✅ Settings saved to {self.settings_file}")
+
+            logger.info(f"✅ Settings saved to {self.settings_file}")
             return True
-            
+
         except Exception as e:
-            print(f"❌ Error saving settings: {e}")
+            logger.error(f"❌ Error saving settings: {e}")
             return False
     
     def reload(self):
         """Reload settings from file, discarding unsaved changes"""
         self.load()
-        print("✅ Settings reloaded from file")
-    
+        logger.info("✅ Settings reloaded from file")
+
     def reset_to_defaults(self):
         """Reset all settings to their default values"""
         for group_name, fields in self.schema.items():
             for field_name, field in fields.items():
                 self.values[group_name][field_name] = field.default
-        
+
         self._dirty = True
-        print("✅ Settings reset to defaults")
+        logger.info("✅ Settings reset to defaults")
     
     def get_groups(self) -> List[SettingGroup]:
         """

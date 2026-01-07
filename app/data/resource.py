@@ -1,6 +1,7 @@
 import os
 import uuid
 import shutil
+import logging
 import threading
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -8,6 +9,8 @@ from pathlib import Path
 from blinker import signal
 
 from utils.yaml_utils import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 try:
     from PIL import Image
@@ -123,22 +126,22 @@ class ResourceManager:
             try:
                 # Move the file to new location
                 shutil.move(old_index_file, self.index_file)
-                print(f"✅ Migrated resource_index.yaml from project root to resources directory")
+                logger.info(f"✅ Migrated resource_index.yaml from project root to resources directory")
             except Exception as e:
-                print(f"⚠️ Warning: Could not migrate resource_index.yaml: {e}")
+                logger.warning(f"⚠️ Warning: Could not migrate resource_index.yaml: {e}")
                 # If move fails, try copying instead
                 try:
                     shutil.copy2(old_index_file, self.index_file)
-                    print(f"✅ Copied resource_index.yaml to resources directory")
+                    logger.info(f"✅ Copied resource_index.yaml to resources directory")
                 except Exception as e2:
-                    print(f"❌ Error copying resource_index.yaml: {e2}")
+                    logger.error(f"❌ Error copying resource_index.yaml: {e2}")
         elif os.path.exists(old_index_file) and os.path.exists(self.index_file):
             # Both exist - keep the new one, remove the old one
             try:
                 os.remove(old_index_file)
-                print(f"✅ Removed old resource_index.yaml from project root (new one already exists)")
+                logger.info(f"✅ Removed old resource_index.yaml from project root (new one already exists)")
             except Exception as e:
-                print(f"⚠️ Warning: Could not remove old resource_index.yaml: {e}")
+                logger.warning(f"⚠️ Warning: Could not remove old resource_index.yaml: {e}")
     
     def _load_index(self):
         """Load resource index from YAML file"""
@@ -150,15 +153,15 @@ class ResourceManager:
                         resource = Resource(resource_data)
                         self._resources_by_name[resource.name] = resource
                         self._resources_by_id[resource.resource_id] = resource
-                    print(f"✅ Loaded {len(self._resources_by_name)} resources from index")
+                    logger.info(f"✅ Loaded {len(self._resources_by_name)} resources from index")
                     self.index_loaded.send(len(self._resources_by_name))
                 else:
-                    print("⚠️ Empty or invalid index file, starting fresh")
+                    logger.warning("⚠️ Empty or invalid index file, starting fresh")
             except Exception as e:
-                print(f"❌ Error loading resource index: {e}")
-                print("⚠️ Starting with empty index")
+                logger.error(f"❌ Error loading resource index: {e}")
+                logger.warning("⚠️ Starting with empty index")
         else:
-            print("📝 No existing index found, creating new one")
+            logger.info("📝 No existing index found, creating new one")
             self._save_index()
     
     def _save_index(self):
@@ -169,7 +172,7 @@ class ResourceManager:
             }
             save_yaml(self.index_file, data)
         except Exception as e:
-            print(f"❌ Error saving resource index: {e}")
+            logger.error(f"❌ Error saving resource index: {e}")
             raise
     
     def _get_media_type(self, filename: str) -> str:
@@ -241,7 +244,7 @@ class ResourceManager:
                     cap.release()
         
         except Exception as e:
-            print(f"⚠️ Warning: Could not extract metadata from {file_path}: {e}")
+            logger.warning(f"⚠️ Warning: Could not extract metadata from {file_path}: {e}")
         
         return metadata
     
@@ -266,7 +269,7 @@ class ResourceManager:
         self._ensure_loaded()
         # Validate source file exists
         if not os.path.exists(source_file_path):
-            print(f"❌ Source file does not exist: {source_file_path}")
+            logger.error(f"❌ Source file does not exist: {source_file_path}")
             return None
         
         try:
@@ -322,11 +325,11 @@ class ResourceManager:
             # Send signal
             self.resource_added.send(resource)
             
-            print(f"✅ Added resource: {unique_name} (type: {media_type})")
+            logger.info(f"✅ Added resource: {unique_name} (type: {media_type})")
             return resource
         
         except Exception as e:
-            print(f"❌ Error adding resource: {e}")
+            logger.error(f"❌ Error adding resource: {e}")
             # Cleanup if file was copied but registration failed
             if 'destination_path' in locals() and os.path.exists(destination_path):
                 try:
@@ -396,76 +399,76 @@ class ResourceManager:
     
     def update_metadata(self, resource_name: str, metadata: Dict[str, Any]) -> bool:
         """Update resource metadata
-        
+
         Args:
             resource_name: Name of the resource
             metadata: New metadata to merge with existing
-            
+
         Returns:
             True if successful, False otherwise
         """
         self._ensure_loaded()
         resource = self.get_by_name(resource_name)
         if not resource:
-            print(f"❌ Resource not found: {resource_name}")
+            logger.error(f"❌ Resource not found: {resource_name}")
             return False
-        
+
         try:
             # Update metadata
             resource.metadata.update(metadata)
             resource.updated_at = datetime.now().isoformat()
-            
+
             # Persist changes
             self._save_index()
-            
+
             # Send signal
             self.resource_updated.send(resource)
-            
-            print(f"✅ Updated metadata for resource: {resource_name}")
+
+            logger.info(f"✅ Updated metadata for resource: {resource_name}")
             return True
-        
+
         except Exception as e:
-            print(f"❌ Error updating resource metadata: {e}")
+            logger.error(f"❌ Error updating resource metadata: {e}")
             return False
     
     def delete_resource(self, resource_name: str, remove_file: bool = True) -> bool:
         """Delete a resource
-        
+
         Args:
             resource_name: Name of the resource to delete
             remove_file: Whether to delete the physical file (default: True)
-            
+
         Returns:
             True if successful, False otherwise
         """
         self._ensure_loaded()
         resource = self.get_by_name(resource_name)
         if not resource:
-            print(f"❌ Resource not found: {resource_name}")
+            logger.error(f"❌ Resource not found: {resource_name}")
             return False
-        
+
         try:
             # Remove physical file if requested
             if remove_file:
                 file_path = resource.get_absolute_path(self.project_path)
                 if os.path.exists(file_path):
                     os.remove(file_path)
-            
+
             # Remove from indexes
             del self._resources_by_name[resource.name]
             del self._resources_by_id[resource.resource_id]
-            
+
             # Persist changes
             self._save_index()
-            
+
             # Send signal
             self.resource_deleted.send(resource_name)
-            
-            print(f"✅ Deleted resource: {resource_name}")
+
+            logger.info(f"✅ Deleted resource: {resource_name}")
             return True
-        
+
         except Exception as e:
-            print(f"❌ Error deleting resource: {e}")
+            logger.error(f"❌ Error deleting resource: {e}")
             return False
     
     def get_resource_path(self, resource_name: str) -> Optional[str]:

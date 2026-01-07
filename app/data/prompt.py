@@ -1,10 +1,13 @@
 import os
 import uuid
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
 from utils.yaml_utils import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 
 class PromptTemplate:
@@ -64,7 +67,7 @@ class PromptManager:
                     template = PromptTemplate.from_dict(data)
                     templates.append(template)
             except Exception as e:
-                print(f"Error loading template {yaml_file}: {e}")
+                logger.error(f"Error loading template {yaml_file}: {e}")
         
         # Sort by usage_count (descending) then created_at (descending)
         templates.sort(key=lambda t: (-t.usage_count, t.created_at), reverse=False)
@@ -86,7 +89,7 @@ class PromptManager:
         # Check for duplicates (exact text match)
         for template in self._templates_cache:
             if template.text == text:
-                print(f"Template with text '{text}' already exists")
+                logger.warning(f"Template with text '{text}' already exists")
                 return False
         
         # Generate new template
@@ -124,7 +127,7 @@ class PromptManager:
                 
                 return True
         except Exception as e:
-            print(f"Error deleting template {template_id}: {e}")
+            logger.error(f"Error deleting template {template_id}: {e}")
         
         return False
     
@@ -157,4 +160,4 @@ class PromptManager:
                                 template.usage_count += 1
                                 break
         except Exception as e:
-            print(f"Error incrementing usage for template {template_id}: {e}")
+            logger.error(f"Error incrementing usage for template {template_id}: {e}")

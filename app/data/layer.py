@@ -105,11 +105,11 @@ class LayerManager:
 
     def load_layers(self, timeline_item):
         self.timeline_item = timeline_item
-        print(f"Loading layers for timeline item: {timeline_item.index if timeline_item else 'None'}")
+        logger.info(f"Loading layers for timeline item: {timeline_item.index if timeline_item else 'None'}")
         layers_data = timeline_item.get_config_value("layers") or []
         # 使用字典存储图层，以图层ID为键
         self.layers = {layer_data["id"]: Layer.from_dict(layer_data, timeline_item, self) for layer_data in layers_data}
-        print(f"Loaded {len(self.layers)} layers")
+        logger.info(f"Loaded {len(self.layers)} layers")
 
     def connect_layer_changed(self, func):
         if self.layer_changed is not None:
@@ -264,7 +264,7 @@ class LayerManager:
                 else:
                     layer.width, layer.height = 720, 1280  # 默认尺寸
             except Exception as e:
-                print(f"Error reading image dimensions: {e}")
+                logger.error(f"Error reading image dimensions: {e}")
                 layer.width, layer.height = 720, 1280  # 默认尺寸
         elif layer_type == LayerType.VIDEO:
             # 获取视频尺寸
@@ -279,7 +279,7 @@ class LayerManager:
                 else:
                     layer.width, layer.height = 720, 1280  # 默认尺寸
             except Exception as e:
-                print(f"Error reading video dimensions: {e}")
+                logger.error(f"Error reading video dimensions: {e}")
                 layer.width, layer.height = 720, 1280  # 默认尺寸
         else:
             # 对于非图片/视频类型，使用默认尺寸
@@ -318,9 +318,9 @@ class LayerManager:
             for file_path in layer_files:
                 try:
                     os.remove(file_path)
-                    print(f"Deleted layer file: {file_path}")
+                    logger.info(f"Deleted layer file: {file_path}")
                 except OSError as e:
-                    print(f"Error deleting layer file {file_path}: {e}")
+                    logger.error(f"Error deleting layer file {file_path}: {e}")
             
             # 从内存和配置中删除图层
             del self.layers[layer_id]

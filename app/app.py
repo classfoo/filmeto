@@ -38,7 +38,7 @@ def load_stylesheet(main_path):
         with open(style_file, "r", encoding="utf-8") as f:
             return f.read()
     else:
-        print(f"Warning: style file '{style_file}' not found, use default.")
+        logger.warning(f"Warning: style file '{style_file}' not found, use default.")
         return ""
 
 def load_custom_font(main_path):
