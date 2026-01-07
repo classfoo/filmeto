@@ -1,10 +1,11 @@
 import os.path
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtGui import QPixmap, Qt
 
-from app.data.task import TaskResult, TaskManager
+from app.data.task import TaskResult, TimelineItemTaskManager
 from app.data.layer import LayerManager, LayerType
 
 from blinker import signal
@@ -12,10 +13,22 @@ from blinker import signal
 from utils import dict_utils
 from utils.yaml_utils import load_yaml, save_yaml
 
+if TYPE_CHECKING:
+    from app.data.project import Project
+
 
 class TimelineItem:
+    """
+    Represents a single item in the timeline.
+    
+    Each timeline item has its own:
+    - Image/video content
+    - Layer manager
+    - Task manager (for task storage)
+    - Configuration
+    """
 
-    def __init__(self, timeline, timelinePath: str, index: int, layer_changed_signal=None):
+    def __init__(self, timeline: 'Timeline', timelinePath: str, index: int, layer_changed_signal=None):
         self.timeline = timeline
         self.time_line_path = timelinePath
         self.index = index
@@ -28,7 +41,7 @@ class TimelineItem:
         self.config = load_yaml(self.config_path) or {}
         self._layer_changed_signal = layer_changed_signal
         self.layer_manager = None
-        self._task_manager = None  # Lazy-loaded TaskManager
+        self._task_manager: TimelineItemTaskManager = None  # Lazy-loaded
         
         # Create directories if they don't exist
         os.makedirs(self.layers_path, exist_ok=True)
@@ -174,10 +187,10 @@ class TimelineItem:
             self.layer_manager.load_layers(self)
         return self.layer_manager
 
-    def get_task_manager(self) -> TaskManager:
-        """Get the TaskManager for this timeline item (lazy-loaded)"""
+    def get_task_manager(self) -> TimelineItemTaskManager:
+        """Get the TimelineItemTaskManager for this timeline item (lazy-loaded)"""
         if self._task_manager is None:
-            self._task_manager = TaskManager(self, self.tasks_path)
+            self._task_manager = TimelineItemTaskManager(self, self.tasks_path)
             self._task_manager.load_all_tasks()
         return self._task_manager
 
@@ -349,6 +362,4 @@ class Timeline:
         item = self.get_item(index)
         # Ensure the item's own LayerManager is loaded (lazy-load will handle first-time creation)
         item.get_layer_manager()
-        # Notify project about timeline item switch to reconnect task signal handlers
-        self.project.on_timeline_item_switched(item)
         self.timeline_switch.send(item)

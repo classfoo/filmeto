@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any, Callable
 from pathlib import Path
 
 from app.data.project import Project, ProjectManager
-from app.data.task import TaskManager, TaskResult
+from app.data.task import TaskResult
 from app.data.prompt import PromptManager, PromptTemplate
 from app.data.settings import Settings
 from utils.yaml_utils import load_yaml, save_yaml
