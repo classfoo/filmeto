@@ -76,9 +76,17 @@ class Workspace():
     def connect_timeline_position(self, func: Callable):
         self.project.connect_timeline_position(func)
 
-    def submit_task(self,params):
-        print(params)
-        self.project.submit_task(params)
+    def submit_task(self, params: dict, timeline_item_id: int = None):
+        """
+        Submit a task for execution.
+        
+        Args:
+            params: Task configuration parameters
+            timeline_item_id: The timeline item ID to associate with this task.
+                             If None, uses the current timeline index.
+        """
+        print(f"Workspace submitting task: {params}")
+        self.project.submit_task(params, timeline_item_id)
 
     def on_task_finished(self,result:TaskResult):
         self.project.on_task_finished(result)

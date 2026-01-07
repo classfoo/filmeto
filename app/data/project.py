@@ -91,10 +91,21 @@ class Project:
         """Connect a handler to task completion events"""
         self.task_manager.connect_task_finished(func)
 
-    def submit_task(self, params: dict):
-        """Submit a task for execution"""
-        print(f"Submitting task: {params}")
-        self.task_manager.submit_task(params)
+    def submit_task(self, params: dict, timeline_item_id: int = None):
+        """
+        Submit a task for execution.
+        
+        Args:
+            params: Task configuration parameters
+            timeline_item_id: The timeline item ID to associate with this task.
+                             If None, uses the current timeline index.
+        """
+        # Use provided timeline_item_id or fall back to current timeline index
+        if timeline_item_id is None:
+            timeline_item_id = self.get_timeline_index()
+        
+        print(f"Submitting task for timeline_item {timeline_item_id}: {params}")
+        self.task_manager.submit_task(params, timeline_item_id)
 
     def on_task_finished(self, result: TaskResult):
         """Handle task completion - register resources and update timeline"""
