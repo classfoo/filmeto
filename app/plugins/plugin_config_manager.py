@@ -170,7 +170,7 @@ class PluginConfigManager:
             True if valid, False otherwise
         """
         if service_id not in self._schemas:
-            print(f"⚠️ No schema registered for service: {service_id}")
+            logger.warning(f"⚠️ No schema registered for service: {service_id}")
             return False
 
         schema = self._schemas[service_id]
@@ -183,7 +183,7 @@ class PluginConfigManager:
                 for field in group.fields:
                     # Check required fields
                     if field.required and field.name not in group_data:
-                        print(f"⚠️ Required field missing: {group.name}.{field.name}")
+                        logger.warning(f"⚠️ Required field missing: {group.name}.{field.name}")
                         return False
 
                     # Validate field value if present
@@ -195,7 +195,7 @@ class PluginConfigManager:
             return True
 
         except Exception as e:
-            print(f"❌ Validation error for {service_id}: {e}")
+            logger.error(f"❌ Validation error for {service_id}: {e}")
             return False
 
     def reset_to_defaults(self, service_id: str) -> Dict[str, Any]:
@@ -317,7 +317,7 @@ class PluginConfigManager:
                 break
 
         if not field:
-            print(f"⚠️ Field not found in schema: {group_name}.{field_name}")
+            logger.warning(f"⚠️ Field not found in schema: {group_name}.{field_name}")
             return False
 
         # Type-specific validation

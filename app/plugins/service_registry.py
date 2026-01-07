@@ -7,12 +7,15 @@ Manages service plugin discovery, registration, and lifecycle.
 import os
 import importlib
 import inspect
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Type
 from dataclasses import dataclass
 
 from app.spi.service import BaseService, ServiceCapability
 from app.plugins.plugin_config_manager import PluginConfigManager
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -60,12 +63,12 @@ class ServiceRegistry:
         services_dir = current_dir / "services"
 
         if not services_dir.exists():
-            print(f"⚠️ Services directory not found: {services_dir}")
-            print(f"Creating services directory...")
+            logger.warning(f"⚠️ Services directory not found: {services_dir}")
+            logger.info(f"Creating services directory...")
             services_dir.mkdir(parents=True, exist_ok=True)
             return
 
-        print(f"🔍 Discovering service plugins in: {services_dir}")
+        logger.info(f"🔍 Discovering service plugins in: {services_dir}")
 
         # Scan each subdirectory in services/
         for service_dir in services_dir.iterdir():
@@ -93,13 +96,13 @@ class ServiceRegistry:
                             # Load configuration
                             self._config_manager.load_config(service_info.service_id, service_info.config_path)
                             
-                            print(f"✅ Registered service: {service_info.service_id} ({service_info.name})")
+                            logger.info(f"✅ Registered service: {service_info.service_id} ({service_info.name})")
                         break
 
             except ModuleNotFoundError:
-                print(f"⚠️ Service module not found: {service_module_path}")
+                logger.warning(f"⚠️ Service module not found: {service_module_path}")
             except Exception as e:
-                print(f"❌ Failed to load service from {service_module_path}: {e}")
+                logger.error(f"❌ Failed to load service from {service_module_path}: {e}")
 
     def get_service_by_id(self, service_id: str) -> Optional[BaseService]:
         """
@@ -112,7 +115,7 @@ class ServiceRegistry:
             Service instance or None if not found
         """
         if service_id not in self._registry:
-            print(f"⚠️ Service not found: {service_id}")
+            logger.warning(f"⚠️ Service not found: {service_id}")
             return None
 
         # Return cached instance if exists
@@ -126,7 +129,7 @@ class ServiceRegistry:
             self._instances[service_id] = instance
             return instance
         except Exception as e:
-            print(f"❌ Failed to instantiate service {service_id}: {e}")
+            logger.error(f"❌ Failed to instantiate service {service_id}: {e}")
             return None
 
     def get_all_services(self) -> List[ServiceInfo]:
@@ -172,7 +175,7 @@ class ServiceRegistry:
             True if successful, False otherwise
         """
         if service_id not in self._registry:
-            print(f"⚠️ Service not found: {service_id}")
+            logger.warning(f"⚠️ Service not found: {service_id}")
             return False
 
         try:
@@ -185,11 +188,11 @@ class ServiceRegistry:
             if service_id in self._instances:
                 del self._instances[service_id]
             
-            print(f"✅ Reloaded service: {service_id}")
+            logger.info(f"✅ Reloaded service: {service_id}")
             return True
 
         except Exception as e:
-            print(f"❌ Failed to reload service {service_id}: {e}")
+            logger.error(f"❌ Failed to reload service {service_id}: {e}")
             return False
 
     def enable_service(self, service_id: str) -> bool:
@@ -203,11 +206,11 @@ class ServiceRegistry:
             True if successful, False otherwise
         """
         if service_id not in self._registry:
-            print(f"⚠️ Service not found: {service_id}")
+            logger.warning(f"⚠️ Service not found: {service_id}")
             return False
 
         self._registry[service_id].enabled = True
-        print(f"✅ Enabled service: {service_id}")
+        logger.info(f"✅ Enabled service: {service_id}")
         return True
 
     def disable_service(self, service_id: str) -> bool:
@@ -221,7 +224,7 @@ class ServiceRegistry:
             True if successful, False otherwise
         """
         if service_id not in self._registry:
-            print(f"⚠️ Service not found: {service_id}")
+            logger.warning(f"⚠️ Service not found: {service_id}")
             return False
 
         self._registry[service_id].enabled = False
@@ -230,7 +233,7 @@ class ServiceRegistry:
         if service_id in self._instances:
             del self._instances[service_id]
         
-        print(f"✅ Disabled service: {service_id}")
+        logger.info(f"✅ Disabled service: {service_id}")
         return True
 
     def get_config_manager(self) -> PluginConfigManager:
@@ -279,5 +282,5 @@ class ServiceRegistry:
             )
 
         except Exception as e:
-            print(f"❌ Failed to create service info: {e}")
+            logger.error(f"❌ Failed to create service info: {e}")
             return None
