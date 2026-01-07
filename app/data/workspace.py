@@ -14,10 +14,10 @@ from utils.yaml_utils import load_yaml, save_yaml
 
 class Workspace():
 
-    def __init__(self, workspace_path:str,project_name:str):
+    def __init__(self, workspace_path: str, project_name: str):
         self.workspace_path = workspace_path
         self.project_name = project_name
-        self.project_path = os.path.join(self.workspace_path,self.project_name)
+        self.project_path = os.path.join(self.workspace_path, self.project_name)
         self.project = Project(self, self.project_path, self.project_name, load_data=True)
 
         # 初始化ProjectManager

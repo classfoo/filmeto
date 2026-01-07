@@ -1,6 +1,6 @@
 import os.path
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable, Optional
 from datetime import datetime
 
 from blinker import signal
@@ -17,20 +17,32 @@ from utils.yaml_utils import load_yaml, save_yaml
 
 class Project():
 
-    timeline_position=signal('timeline_position')
+    timeline_position = signal('timeline_position')
+    
+    # Project-level signals for task events (forwarded from current timeline item's task manager)
+    task_create = signal('project_task_create')
+    task_finished = signal('project_task_finished')
+    task_progress = signal('project_task_progress')
 
-    def __init__(self, workspace, project_path:str, project_name:str, load_data:bool = True):
+    def __init__(self, workspace, project_path: str, project_name: str, load_data: bool = True):
         self.workspace = workspace
         self.project_path = project_path
         self.project_name = project_name
         self.config = load_yaml(os.path.join(self.project_path, "project.yaml"))
-        self.tasks_path = os.path.join(self.project_path,"tasks")
-        self.task_manager = TaskManager(self.workspace, self, self.tasks_path)
-        self.timeline =  Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
+        self.timeline = Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
         self.drawing = Drawing(self.workspace, self)
         self.resource_manager = ResourceManager(self.project_path)
         self.character_manager = CharacterManager(self.project_path)
         self.conversation_manager = ConversationManager(self.project_path)
+        
+        # Store registered signal handlers for task events
+        self._task_create_handlers: List[Callable] = []
+        self._task_execute_handlers: List[Callable] = []
+        self._task_progress_handlers: List[Callable] = []
+        self._task_finished_handlers: List[Callable] = []
+        
+        # Track the current connected task manager to avoid duplicate connections
+        self._current_task_manager: Optional[TaskManager] = None
         
         # Debounced save mechanism for high-frequency updates (like timeline_position)
         self._pending_save = False
@@ -38,26 +50,72 @@ class Project():
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(500)  # Save every 500ms at most
         self._save_timer.timeout.connect(self._flush_config)
-        
-        # 只有在load_data为True时才自动加载项目中的所有任务
-        if load_data:
-            self.load_all_tasks()
 
 
     async def start(self):
-        await self.task_manager.start()
+        # Start the current timeline item's task manager if available
+        current_task_manager = self.get_current_task_manager()
+        if current_task_manager:
+            await current_task_manager.start()
 
-    def connect_task_create(self,func):
-        self.task_manager.connect_task_create(func)
+    def get_current_task_manager(self) -> Optional[TaskManager]:
+        """Get the task manager for the current timeline item"""
+        try:
+            current_item = self.timeline.get_current_item()
+            if current_item:
+                return current_item.get_task_manager()
+        except Exception as e:
+            print(f"⚠️ Could not get current task manager: {e}")
+        return None
 
-    def connect_task_execute(self,func):
-        self.task_manager.connect_task_execute(func)
+    def _connect_to_task_manager(self, task_manager: TaskManager):
+        """Connect signal handlers to a task manager"""
+        if task_manager is None:
+            return
+        
+        # Avoid duplicate connections
+        if self._current_task_manager == task_manager:
+            return
+        
+        self._current_task_manager = task_manager
+        
+        # Connect all registered handlers
+        for handler in self._task_create_handlers:
+            task_manager.connect_task_create(handler)
+        for handler in self._task_execute_handlers:
+            task_manager.connect_task_execute(handler)
+        for handler in self._task_progress_handlers:
+            task_manager.connect_task_progress(handler)
+        for handler in self._task_finished_handlers:
+            task_manager.connect_task_finished(handler)
 
-    def connect_task_progress(self,func):
-        self.task_manager.connect_task_progress(func)
+    def connect_task_create(self, func):
+        self._task_create_handlers.append(func)
+        # Connect to current task manager if available
+        current_tm = self.get_current_task_manager()
+        if current_tm:
+            current_tm.connect_task_create(func)
 
-    def connect_task_finished(self,func):
-        self.task_manager.connect_task_finished(func)
+    def connect_task_execute(self, func):
+        self._task_execute_handlers.append(func)
+        # Connect to current task manager if available
+        current_tm = self.get_current_task_manager()
+        if current_tm:
+            current_tm.connect_task_execute(func)
+
+    def connect_task_progress(self, func):
+        self._task_progress_handlers.append(func)
+        # Connect to current task manager if available
+        current_tm = self.get_current_task_manager()
+        if current_tm:
+            current_tm.connect_task_progress(func)
+
+    def connect_task_finished(self, func):
+        self._task_finished_handlers.append(func)
+        # Connect to current task manager if available
+        current_tm = self.get_current_task_manager()
+        if current_tm:
+            current_tm.connect_task_finished(func)
 
     def connect_timeline_switch(self,func):
         self.timeline.connect_timeline_switch(func)
@@ -209,12 +267,23 @@ class Project():
         """Get the conversation manager instance"""
         return self.conversation_manager
 
-    def submit_task(self,params):
+    def submit_task(self, params):
+        """Submit a task to the current timeline item's task manager"""
         print(params)
         params['timeline_index'] = self.get_timeline_index()
-        self.task_manager.submit_task(params)
+        params['timeline_item_id'] = self.get_timeline_index()  # Also store as timeline_item_id
+        
+        current_item = self.timeline.get_current_item()
+        if current_item:
+            task_manager = current_item.get_task_manager()
+            # Ensure signal handlers are connected
+            self._connect_to_task_manager(task_manager)
+            task_manager.submit_task(params)
+        else:
+            print("⚠️ No current timeline item, cannot submit task")
 
-    def on_task_finished(self,result:TaskResult):
+    def on_task_finished(self, result: TaskResult):
+        """Handle task completion - register resources and update timeline"""
         # Register AI-generated outputs as resources
         task = result.get_task()
         task_id = result.get_task_id()
@@ -309,14 +378,30 @@ class Project():
         
         # Continue with normal processing
         self.timeline.on_task_finished(result)
-        self.task_manager.on_task_finished(result)
+        
+        # Notify the task's own task manager
+        task_manager = task.task_manager
+        if task_manager:
+            task_manager.on_task_finished(result)
 
-    def get_tasks_path(self):
-        return self.tasks_path
+    def get_current_tasks_path(self) -> Optional[str]:
+        """Get the tasks path for the current timeline item"""
+        current_item = self.timeline.get_current_item()
+        if current_item:
+            return current_item.get_tasks_path()
+        return None
     
-    def load_all_tasks(self):
-        """加载项目中的所有任务"""
-        self.task_manager.load_all_tasks()
+    def load_current_tasks(self):
+        """Load tasks for the current timeline item"""
+        task_manager = self.get_current_task_manager()
+        if task_manager:
+            task_manager.load_all_tasks()
+    
+    def on_timeline_item_switched(self, timeline_item):
+        """Called when timeline item is switched - reconnect task signal handlers"""
+        if timeline_item:
+            task_manager = timeline_item.get_task_manager()
+            self._connect_to_task_manager(task_manager)
 
 
 class ProjectManager:
@@ -365,19 +450,18 @@ class ProjectManager:
         os.makedirs(project_path, exist_ok=True)
         
         # 创建项目配置文件
+        # Note: task_index is now stored per timeline_item, not at project level
         project_config = {
             "project_name": project_name,
             "created_at": datetime.now().isoformat(),
             "timeline_index": 0,
-            "task_index": 0,
             "timeline_position": 0.0,
             "timeline_duration": 0.0,
             "timeline_item_durations": {}
         }
         save_yaml(os.path.join(project_path, "project.yaml"), project_config)
         
-        # 创建tasks目录
-        os.makedirs(os.path.join(project_path, "tasks"), exist_ok=True)
+        # Note: tasks directory is now created per timeline_item, not at project level
         
         # 创建timeline目录
         os.makedirs(os.path.join(project_path, "timeline"), exist_ok=True)
@@ -452,7 +536,8 @@ class ProjectManager:
         if project_name in self.projects:
             # 加载项目数据（如果尚未加载）
             project = self.projects[project_name]
-            project.load_all_tasks()
+            # Load tasks for the current timeline item instead of all tasks
+            project.load_current_tasks()
             # 发送项目切换信号
             self.project_switched.send(project_name)
             return project
