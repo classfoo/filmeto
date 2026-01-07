@@ -128,7 +128,9 @@ class Image2Video(BaseTool,BaseTaskWidget):
             return  # Exit early if this is not an img2video task
             
         try:
-            print(f"Processing img2video task with FilmetoApi: {task.options}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Processing img2video task with FilmetoApi: {task.options}")
             from server.api import FilmetoApi, FilmetoTask, ToolType, ResourceInput, ResourceType
             from app.data.task import TaskResult as AppTaskResult, TaskProgress as AppTaskProgress
             from server.api.types import TaskProgress as FilmetoTaskProgress, TaskResult as FilmetoTaskResult
@@ -138,7 +140,7 @@ class Image2Video(BaseTool,BaseTaskWidget):
             # Find a plugin that supports image2video
             plugins = api.get_plugins_by_tool(ToolType.IMAGE2VIDEO)
             if not plugins:
-                print("No plugins found for image2video")
+                logger.warning("No plugins found for image2video")
                 return
             
             # Prefer ComfyUI if available, otherwise use the first one
@@ -196,7 +198,7 @@ class Image2Video(BaseTool,BaseTaskWidget):
                     task_result = AppTaskResult(task, result_wrapper)
                     self.workspace.on_task_finished(task_result)
         except Exception as e:
-            print(f"Error in Image2Video.execute: {e}")
+            logger.error(f"Error in Image2Video.execute: {e}")
             import traceback
             traceback.print_exc()
 
@@ -215,34 +217,34 @@ class Image2Video(BaseTool,BaseTaskWidget):
             if os.path.exists(prev_item.get_video_path()):
                 # Extract the last frame from the video using ffmpeg_utils
                 video_path = prev_item.get_video_path()
-                print(f"Getting image from video: {video_path}")
+                logger.info(f"Getting image from video: {video_path}")
 
                 # First, ensure ffmpeg is available
-                print("Failed to extract or save the last frame from video using ffmpeg")
+                logger.error("Failed to extract or save the last frame from video using ffmpeg")
                 # Try fallback method using OpenCV if available
                 current_item_path = os.path.join(os.path.dirname(input_image_path), "image.png")
                 opencv_result = extract_last_frame_opencv(video_path, current_item_path)
                 if opencv_result and os.path.exists(opencv_result):
                     input_image_path = opencv_result
-                    print(f"Saved last frame with OpenCV as: {input_image_path}")
+                    logger.info(f"Saved last frame with OpenCV as: {input_image_path}")
                     # 刷新时间线显示复制过来的图片
                     # 获取当前时间线项并更新其显示
                     current_item = timeline.get_item(current_index)
                     # 发送信号更新UI显示
                     timeline.timeline_switch.send(current_item)
                 else:
-                    print("OpenCV fallback also failed to extract the frame")
+                    logger.error("OpenCV fallback also failed to extract the frame")
             elif os.path.exists(prev_item.get_image_path()):
                 # Copy the image from previous item
                 prev_image_path = prev_item.get_image_path()
-                print(f"Getting image from previous item: {prev_image_path}")
+                logger.info(f"Getting image from previous item: {prev_image_path}")
 
                 # Copy to current item's directory
                 current_item_path = os.path.join(os.path.dirname(input_image_path), "image.png")
                 import shutil
                 shutil.copy2(prev_image_path, current_item_path)
                 input_image_path = current_item_path
-                print(f"Copied image to: {input_image_path}")
+                logger.info(f"Copied image to: {input_image_path}")
                 
                 # 刷新时间线显示复制过来的图片
                 # 获取当前时间线项并更新其显示
@@ -250,15 +252,15 @@ class Image2Video(BaseTool,BaseTaskWidget):
                 # 发送信号更新UI显示
                 timeline.timeline_switch.send(current_item)
             else:
-                print(f"No image or video found in previous timeline item {prev_index}")
+                logger.warning(f"No image or video found in previous timeline item {prev_index}")
         else:
-            print("No previous timeline item exists (at index 1)")
+            logger.warning("No previous timeline item exists (at index 1)")
 
         # If the input image path is still not valid, raise an error
         if not os.path.exists(input_image_path):
             raise FileNotFoundError(f"Input image not found: {input_image_path}")
 
-        print(f"Using input image: {input_image_path}")
+        logger.info(f"Using input image: {input_image_path}")
         return input_image_path
     
     def _on_start_frame_selected(self, file_path):

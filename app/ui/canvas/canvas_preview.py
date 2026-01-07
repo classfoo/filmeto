@@ -4,6 +4,7 @@ CanvasPreview - Timeline preview playback overlay widget
 This widget displays timeline media content during playback, overlaying the canvas area.
 It synchronizes with timeline position and handles smooth transitions between items.
 """
+import logging
 from typing import Optional
 from PySide6.QtWidgets import QWidget, QLabel
 from PySide6.QtCore import Qt, Signal, QTimer
@@ -13,6 +14,8 @@ from PySide6.QtMultimediaWidgets import QVideoWidget
 
 from app.data.workspace import Workspace
 from app.data.timeline import TimelineItem
+
+logger = logging.getLogger(__name__)
 
 
 class PreviewPreloader:
@@ -409,7 +412,7 @@ class CanvasPreview(QWidget):
         try:
             timeline_item = timeline.get_item(item_index)
         except Exception as e:
-            print(f"Error getting timeline item {item_index}: {e}")
+            logger.error(f"Error getting timeline item {item_index}: {e}")
             return
         
         # Check if next item is already prepared in secondary player
@@ -469,7 +472,7 @@ class CanvasPreview(QWidget):
         elif os.path.exists(image_path):
             self._display_image(image_path)
         else:
-            print(f"No media found for timeline item {timeline_item.get_index()}")
+            logger.warning(f"No media found for timeline item {timeline_item.get_index()}")
     
     def _display_preloaded_item(self, media_type: str, content, timeline_item: TimelineItem, item_offset: float):
         """
@@ -603,7 +606,7 @@ class CanvasPreview(QWidget):
                 next_item = timeline.get_item(next_item_index)
                 self.preloader.preload_item(next_item)
             except Exception as e:
-                print(f"Error preloading item {next_item_index}: {e}")
+                logger.error(f"Error preloading item {next_item_index}: {e}")
                 break  # Stop preloading if we encounter an error
     
     def _swap_active_player(self):
@@ -676,7 +679,7 @@ class CanvasPreview(QWidget):
         try:
             next_item = timeline.get_item(next_item_index)
         except Exception as e:
-            print(f"Error getting next timeline item {next_item_index}: {e}")
+            logger.error(f"Error getting next timeline item {next_item_index}: {e}")
             return
         
         # Determine which player is secondary (not currently active)
@@ -693,7 +696,7 @@ class CanvasPreview(QWidget):
             secondary_player.setSource(url)
             # Don't start playback yet, just prepare
             self._next_item_prepared = next_item_index
-            print(f"Prepared next item {next_item_index} in secondary player")
+            logger.info(f"Prepared next item {next_item_index} in secondary player")
     
     def resizeEvent(self, event):
         """Handle resize events to update preview geometry."""

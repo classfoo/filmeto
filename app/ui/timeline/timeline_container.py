@@ -6,6 +6,7 @@ following the mouse position. The line is drawn on top of all timeline content
 including cards, and mouse tracking works across all child widgets.
 """
 
+import logging
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, QPoint, QEvent, QPointF, QTimer
 from PySide6.QtGui import QPainter, QPen, QColor, QHoverEvent, QPolygonF, QMouseEvent
@@ -17,6 +18,8 @@ from app.ui.signals import Signals
 from app.ui.timeline.video_timeline import VideoTimeline
 from app.ui.timeline.subtitle_timeline import SubtitleTimeline
 from app.ui.timeline.voice_timeline import VoiceTimeline
+
+logger = logging.getLogger(__name__)
 
 
 class TimelinePositionLineOverlay(QWidget):
@@ -536,7 +539,7 @@ class TimelineContainer(BaseWidget):
             try:
                 item_duration = project.get_item_duration(card_index)
             except Exception as e:
-                print(f"Error getting duration for card {card_index}: {e}")
+                logger.error(f"Error getting duration for card {card_index}: {e}")
                 item_duration = 1.0  # Default to 1 second if error
             
             # Calculate card boundaries
@@ -606,7 +609,7 @@ class TimelineContainer(BaseWidget):
             try:
                 item_duration = project.get_item_duration(card_index)
             except Exception as e:
-                print(f"Error getting duration for card {card_index}: {e}")
+                logger.error(f"Error getting duration for card {card_index}: {e}")
                 item_duration = 1.0  # Default to 1 second if error
             
             # Calculate card boundaries in time

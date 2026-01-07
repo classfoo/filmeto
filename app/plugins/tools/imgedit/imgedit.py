@@ -104,7 +104,9 @@ class ImageEdit(BaseTool, BaseTaskWidget):
         if task.tool != "imgedit":
             return  # Exit early if this is not an imgedit task
         try:
-            print(f"Processing imgedit task with FilmetoApi: {task.options}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Processing imgedit task with FilmetoApi: {task.options}")
             from server.api import FilmetoApi, FilmetoTask, ToolType, ResourceInput, ResourceType
             from app.data.task import TaskResult as AppTaskResult, TaskProgress as AppTaskProgress
             from server.api.types import TaskProgress as FilmetoTaskProgress, TaskResult as FilmetoTaskResult
@@ -114,7 +116,7 @@ class ImageEdit(BaseTool, BaseTaskWidget):
             # Find a plugin that supports image2image (used for imgedit)
             plugins = api.get_plugins_by_tool(ToolType.IMAGE2IMAGE)
             if not plugins:
-                print("No plugins found for image2image")
+                logger.warning("No plugins found for image2image")
                 return
             
             # Prefer ComfyUI if available, otherwise use the first one
@@ -163,6 +165,6 @@ class ImageEdit(BaseTool, BaseTaskWidget):
                     task_result = AppTaskResult(task, result_wrapper)
                     self.workspace.on_task_finished(task_result)
         except Exception as e:
-            print(f"Error in ImageEdit.execute: {e}")
+            logger.error(f"Error in ImageEdit.execute: {e}")
             import traceback
             traceback.print_exc()

@@ -144,7 +144,7 @@ class ServerListDialog(CustomDialog):
             self.list_view.set_server_manager(self.server_manager)
             
         except Exception as e:
-            print(f"Failed to load servers: {e}")
+            logger.error(f"Failed to load servers: {e}")
             QMessageBox.critical(self, tr("错误"), f"{tr('加载服务器失败')}: {str(e)}")
     
     def _show_list_view(self):

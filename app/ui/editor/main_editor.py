@@ -3,6 +3,7 @@ AI Image/Video Editor Component with Dynamic Tool Loading
 A comprehensive editor widget that dynamically loads tools from plugins/tools directory.
 """
 
+import logging
 from typing import Dict, Optional
 from dataclasses import dataclass
 
@@ -26,6 +27,8 @@ from app.data.timeline import TimelineItem
 from app.spi.tool import BaseTool
 from app.plugins.plugins import ToolInfo
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 class MainEditorWidget(BaseTaskWidget):
@@ -104,7 +107,7 @@ class MainEditorWidget(BaseTaskWidget):
                 instance = tool_info.tool_class(self.workspace, self)
                 self._tool_instances[tool_id] = instance
             except Exception as e:
-                print(f"Failed to create tool instance for {tool_id}: {e}")
+                logger.error(f"Failed to create tool instance for {tool_id}: {e}")
                 return None
         
         return self._tool_instances.get(tool_id)
@@ -499,7 +502,7 @@ class MainEditorWidget(BaseTaskWidget):
             try:
                 instance.init_ui(self)
             except Exception as e:
-                print(f"init_ui failed for {tool_id}: {e}")
+                logger.error(f"init_ui failed for {tool_id}: {e}")
         else:
             # If no instance or no init_ui method, clear the tool panel
             self.set_tool_panel(None)
@@ -531,13 +534,13 @@ class MainEditorWidget(BaseTaskWidget):
             return
         
         if not self.current_tool:
-            print(tr("No tool selected"))
+            logger.warning(tr("No tool selected"))
             return
         
         # Get tool instance
         tool = self._get_tool_instance(self.current_tool)
         if not tool:
-            print(tr("Tool not available"))
+            logger.warning(tr("Tool not available"))
             return
         
         try:
@@ -557,13 +560,13 @@ class MainEditorWidget(BaseTaskWidget):
                 self.task_submitted.emit(params)
                 
                 # Update status
-                print(tr("Task submitted..."))
+                logger.info(tr("Task submitted..."))
             else:
-                print(tr("Tool does not support params()"))
+                logger.warning(tr("Tool does not support params()"))
         
         except Exception as e:
-            print(f"Error submitting task: {e}")
-            print(tr("Error submitting task"))
+            logger.error(f"Error submitting task: {e}")
+            logger.error(tr("Error submitting task"))
     
     # ========== Task Event Handlers ==========
     

@@ -2,9 +2,12 @@
 Internationalization utility for managing translations
 """
 import os
+import logging
 from pathlib import Path
 from PySide6.QtCore import QTranslator, QCoreApplication, QLocale, QObject, Signal
 from PySide6.QtWidgets import QApplication
+
+logger = logging.getLogger(__name__)
 
 
 class TranslationManager(QObject):
@@ -48,11 +51,11 @@ class TranslationManager(QObject):
     def switch_language(self, language_code):
         """Switch to a different language"""
         if language_code not in self.available_languages:
-            print(f"Language {language_code} not available")
+            logger.warning(f"Language {language_code} not available")
             return False
         
         if not self._app:
-            print("Application instance not set")
+            logger.error("Application instance not set")
             return False
         
         # Remove existing translators
@@ -70,17 +73,17 @@ class TranslationManager(QObject):
                     self._app.installTranslator(translator)
                     self._translators.append(translator)
                     self._current_language = language_code
-                    print(f"✅ Switched to language: {language_code}")
+                    logger.info(f"✅ Switched to language: {language_code}")
                     # Emit signal to notify all widgets
                     self.language_changed.emit(language_code)
                     return True
                 else:
-                    print(f"⚠️ Failed to load translation file: {qm_file}")
+                    logger.error(f"⚠️ Failed to load translation file: {qm_file}")
             else:
-                print(f"⚠️ Translation file not found: {qm_file}")
+                logger.warning(f"⚠️ Translation file not found: {qm_file}")
         else:
             self._current_language = language_code
-            print(f"✅ Switched to language: {language_code}")
+            logger.info(f"✅ Switched to language: {language_code}")
             # Emit signal to notify all widgets
             self.language_changed.emit(language_code)
             return True

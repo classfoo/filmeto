@@ -1,4 +1,5 @@
 import sys
+import logging
 from PySide6.QtWidgets import (
     QApplication, QWidget, QHBoxLayout,
     QLabel, QVBoxLayout, QFrame, QSizePolicy
@@ -13,6 +14,8 @@ from app.ui.timeline.video_timeline_scroll import VideoTimelineScroll
 from app.ui.timeline.video_timeline_card import VideoTimelineCard
 from utils import qt_utils
 from utils.i18n_utils import tr, translation_manager
+
+logger = logging.getLogger(__name__)
 
 
 class AddCardFrame(QFrame):
@@ -222,7 +225,7 @@ class VideoTimeline(BaseTaskWidget):
             self.update()
             
         except Exception as e:
-            print(f"Error adding new card: {e}")
+            logger.error(f"Error adding new card: {e}")
             import traceback
             traceback.print_exc()
 
@@ -252,7 +255,7 @@ class VideoTimeline(BaseTaskWidget):
             # Reload the image (image.png has been updated)
             pixmap = timeline_item.get_image()
             self.cards[index - 1].setImage(pixmap)
-            print(f"Updated timeline card {index} after composition")
+            logger.info(f"Updated timeline card {index} after composition")
     
     def on_project_switched(self, project_name):
         """处理项目切换"""

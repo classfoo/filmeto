@@ -2,6 +2,7 @@
 Canvas Editor Component
 This module implements a canvas widget for displaying and editing images/videos.
 """
+import logging
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                               QSizePolicy, QLabel)
 
@@ -10,6 +11,8 @@ from app.ui.canvas.canvas import CanvasWidget
 from app.data.workspace import Workspace
 from app.data.timeline import TimelineItem
 from app.data.task import TaskResult
+
+logger = logging.getLogger(__name__)
 
 
 class CanvasEditor(BaseWidget):
@@ -41,7 +44,7 @@ class CanvasEditor(BaseWidget):
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             #self.canvas_widget.set_timeline_item(self.timeline_item)
         except Exception as e:
-            print(f"Error initializing CanvasEditor: {e}")
+            logger.error(f"Error initializing CanvasEditor: {e}")
             import traceback
             traceback.print_exc()
             raise
@@ -50,7 +53,7 @@ class CanvasEditor(BaseWidget):
     
     def on_task_finished(self, result: TaskResult):
         """Handle task finished event - add generated image as a new layer"""
-        print(f"Task finished: {result.get_task_id()}")
+        logger.info(f"Task finished: {result.get_task_id()}")
         # Get the image path from the task result
         image_path = result.get_image_path()
         if image_path and self.canvas_widget:

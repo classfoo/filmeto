@@ -1,3 +1,4 @@
+import logging
 from PySide6.QtGui import QMouseEvent, QCursor
 from PySide6.QtWidgets import (QWidget, QHBoxLayout,
                                QPushButton, QMenu)
@@ -10,6 +11,8 @@ from app.ui.dialog.mac_button import MacTitleBar
 from app.ui.project_menu.project_menu import ProjectMenu
 from app.ui.server_status import ServerStatusWidget, ServerListDialog
 from utils.i18n_utils import translation_manager, tr
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindowTopSideBar(BaseWidget):
@@ -254,7 +257,7 @@ class MainWindowTopSideBar(BaseWidget):
 
     def _on_settings_changed(self):
         """Handle settings changes"""
-        print("Settings have been changed")
+        logger.info("Settings have been changed")
         # Here you could emit a signal or update other parts of the UI as needed
     
     def _show_server_dialog(self):
@@ -275,7 +278,7 @@ class MainWindowTopSideBar(BaseWidget):
             if preview_widget:
                 preview_widget.set_preview_size(width, height)
             else:
-                print("Preview widget not found")
+                logger.warning("Preview widget not found")
     
     def _on_home_clicked(self):
         """Handle home button click to return to startup mode."""

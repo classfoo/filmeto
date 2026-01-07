@@ -1,6 +1,7 @@
 """
 Canvas component that provides drawing functionality with multiple modes.
 """
+import logging
 from typing import List, Optional
 from PySide6.QtWidgets import QApplication, QWidget, QSizePolicy
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor
@@ -14,6 +15,8 @@ from app.ui.canvas.canvas_layer import CanvasImageLayerWidget, CanvasVideoLayerW
 from app.ui.canvas.canvas_preview import CanvasPreview
 from app.ui.signals import Signals
 import os
+
+logger = logging.getLogger(__name__)
 
 
 class CanvasWidget(BaseTaskWidget):
@@ -48,7 +51,7 @@ class CanvasWidget(BaseTaskWidget):
         
         # Set up UI with overlapped layout for layers
         self.init_ui()
-        print("CanvasWidget initialized")
+        logger.info("CanvasWidget initialized")
     
     def init_ui(self):
         """Initialize the user interface"""

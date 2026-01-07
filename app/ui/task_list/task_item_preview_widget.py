@@ -1,4 +1,5 @@
 import os
+import logging
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
     QScrollArea, QFrame, QTextEdit
@@ -9,6 +10,8 @@ from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from utils.i18n_utils import tr
 from utils.yaml_utils import load_yaml
+
+logger = logging.getLogger(__name__)
 
 
 class TaskItemPreviewWidget(QWidget):
@@ -109,7 +112,7 @@ class TaskItemPreviewWidget(QWidget):
                     if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.avi', '.mov', '.webm')):
                         result_files.append(os.path.join(self.task.path, filename))
         except Exception as e:
-            print(f"Error loading resources from task config: {e}")
+            logger.error(f"Error loading resources from task config: {e}")
             # Fallback to scanning task directory
             if os.path.exists(self.task.path):
                 for filename in os.listdir(self.task.path):
@@ -144,7 +147,7 @@ class TaskItemPreviewWidget(QWidget):
                         img_label.setStyleSheet("background-color: transparent;")
                         self.content_layout.addWidget(img_label)
                 except Exception as e:
-                    print(f"Error loading image {filepath}: {e}")
+                    logger.error(f"Error loading image {filepath}: {e}")
             
             # If it's a video, show a video player
             elif filename.lower().endswith(('.mp4', '.avi', '.mov', '.webm')):

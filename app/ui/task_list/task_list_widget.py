@@ -1,6 +1,7 @@
 # task_list_widget.py
 import json
 import yaml
+import logging
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QPushButton, QHBoxLayout, QFrame
 from PySide6.QtCore import Qt, Signal, Slot, QThreadPool, QRect
 from .enhanced_task_item_widget import EnhancedTaskItemWidget
@@ -8,6 +9,8 @@ import os
 
 from ..base_widget import BaseWidget, BaseTaskWidget
 from utils.i18n_utils import tr, translation_manager
+
+logger = logging.getLogger(__name__)
 
 
 class TaskListWidget(BaseTaskWidget):
@@ -144,7 +147,7 @@ class TaskListWidget(BaseTaskWidget):
                                  key=lambda x: int(x), reverse=True)
             self.all_task_dirs = all_task_ids
         except Exception as e:
-            print(f"❌ 读取任务目录失败: {e}")
+            logger.error(f"读取任务目录失败: {e}")
             self.all_task_dirs = []
 
     def on_task_item_clicked(self, task_widget):
@@ -268,7 +271,7 @@ class TaskListWidget(BaseTaskWidget):
             self.on_tasks_loaded(tasks)
             
         except Exception as e:
-            print(f"❌ 加载任务失败: {e}")
+            logger.error(f"加载任务失败: {e}")
             self.loading = False
 
     @Slot(list)
@@ -325,12 +328,12 @@ class TaskListWidget(BaseTaskWidget):
     @Slot()
     def refresh_tasks(self):
         """手动刷新：重新加载所有任务"""
-        print("🔄 手动刷新任务...")
+        logger.info("手动刷新任务...")
         # Update task manager reference first
         self._update_task_manager_for_current_item()
         
         if self.task_manager is None:
-            print("⚠️ No task manager available for current timeline item")
+            logger.warning("No task manager available for current timeline item")
             self.clear_tasks()
             return
             
@@ -375,13 +378,13 @@ class TaskListWidget(BaseTaskWidget):
                 task.log = logs
                 
                 task_widget.update_display(task)
-                print(f"🔄 Updated task {task_id} progress to {percent}%")
+                logger.info(f"Updated task {task_id} progress to {percent}%")
             else:
                 # Task might not be loaded yet, refresh the task list if needed
                 # For now we just log this case
-                print(f"Progress update for unloaded task {task_id}, skipping update")
+                logger.debug(f"Progress update for unloaded task {task_id}, skipping update")
         except Exception as e:
-            print(f"❌ Error handling task progress update: {e}")
+            logger.error(f"Error handling task progress update: {e}")
             import traceback
             traceback.print_exc()
     

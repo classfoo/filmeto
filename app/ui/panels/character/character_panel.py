@@ -1,5 +1,6 @@
 """Character panel for role/character management."""
 
+import logging
 import os
 from typing import List, Optional
 from PySide6.QtWidgets import (
@@ -14,6 +15,8 @@ from app.data.character import Character, CharacterManager
 from app.data.workspace import Workspace
 from app.ui.worker.worker import run_in_background
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 class CharacterCard(QFrame):
@@ -253,7 +256,7 @@ class CharacterPanel(BasePanel):
         self._character_cards: List[CharacterCard] = []
         self._character_dict: dict[str, CharacterCard] = {}  # character_name -> card
         init_time = (time.time() - init_start) * 1000
-        print(f"⏱️  [CharacterPanel] __init__ completed in {init_time:.2f}ms")
+        logger.debug(f"⏱️  [CharacterPanel] __init__ completed in {init_time:.2f}ms")
     
     def setup_ui(self):
         """Set up the UI components with grid layout."""
@@ -320,7 +323,7 @@ class CharacterPanel(BasePanel):
         self.content_layout.addWidget(scroll_area, 1)
         
         setup_time = (time.time() - setup_start) * 1000
-        print(f"⏱️  [CharacterPanel] setup_ui completed in {setup_time:.2f}ms")
+        logger.debug(f"⏱️  [CharacterPanel] setup_ui completed in {setup_time:.2f}ms")
         
         # Character manager will be loaded in load_data()
         # Data loading is deferred until panel activation
@@ -526,7 +529,7 @@ class CharacterPanel(BasePanel):
 
     def _on_load_error(self, error_msg: str, exception: Exception):
         """Handle loading error"""
-        print(f"❌ Error loading character manager: {error_msg}")
+        logger.error(f"❌ Error loading character manager: {error_msg}")
         # Mark as loaded to avoid infinite retries
         self._data_loaded = True
         self.hide_loading()
@@ -599,12 +602,12 @@ class CharacterPanel(BasePanel):
             self._connect_signals()
             self._load_characters()
         # If _data_loaded is False, load_data() will be called by base class
-        print("✅ Character panel activated")
+        logger.info("✅ Character panel activated")
     
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
-        print("⏸️ Character panel deactivated")
+        logger.info("⏸️ Character panel deactivated")
     
     def on_project_switched(self, project_name: str):
         """Handle project switch"""

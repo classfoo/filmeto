@@ -1,5 +1,6 @@
 """Models panel for AI model management."""
 
+import logging
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
     QListWidgetItem, QWidget, QProgressBar, QTabWidget
@@ -7,6 +8,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
+
+logger = logging.getLogger(__name__)
 
 
 class ModelItemWidget(QWidget):
@@ -202,12 +205,12 @@ class ModelsPanel(BasePanel):
         # Refresh models when panel is activated (if data already loaded)
         if self._data_loaded:
             self._load_models()
-        print("✅ Models panel activated")
+        logger.info("✅ Models panel activated")
     
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
-        print("⏸️ Models panel deactivated")
+        logger.info("⏸️ Models panel deactivated")
     
     def _load_models(self):
         """Load model catalog (mock data for now)."""

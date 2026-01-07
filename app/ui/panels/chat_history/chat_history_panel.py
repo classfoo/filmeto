@@ -1,5 +1,6 @@
 """Chat history panel for viewing conversation history."""
 
+import logging
 from PySide6.QtWidgets import (
     QVBoxLayout, QLabel, QListWidget, QListWidgetItem, 
     QHBoxLayout, QPushButton, QWidget
@@ -8,6 +9,8 @@ from PySide6.QtCore import Qt
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 class ChatHistoryPanel(BasePanel):
@@ -84,10 +87,10 @@ class ChatHistoryPanel(BasePanel):
         # Refresh conversations when panel is activated (if data already loaded)
         if self._data_loaded:
             self._load_conversations()
-        print("✅ Chat history panel activated")
+        logger.info("✅ Chat history panel activated")
     
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
-        print("⏸️ Chat history panel deactivated")
+        logger.info("⏸️ Chat history panel deactivated")
 

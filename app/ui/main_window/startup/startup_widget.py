@@ -5,6 +5,7 @@ Startup Widget
 This is the main container widget for the startup/home mode.
 It combines the project list (left panel) with the project info workspace (right panel).
 """
+import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame
 )
@@ -17,6 +18,8 @@ from app.ui.dialog.mac_button import MacTitleBar
 from .project_list_widget import ProjectListWidget
 from .project_info_widget import ProjectInfoWidget
 from .startup_prompt_widget import StartupPromptWidget
+
+logger = logging.getLogger(__name__)
 
 
 class StartupWidget(BaseWidget):
@@ -169,9 +172,9 @@ class StartupWidget(BaseWidget):
         # TODO: Handle prompt submission in startup mode
         # This could be used to interact with an AI assistant
         # for project-level operations
-        print(f"Prompt submitted: {prompt}")
-        print(f"Model: {model}")
-        print(f"Contexts: {contexts}")
+        logger.info(f"Prompt submitted: {prompt}")
+        logger.info(f"Model: {model}")
+        logger.info(f"Contexts: {contexts}")
     
     # Window dragging support
     def _on_top_bar_mouse_press(self, event: QMouseEvent):

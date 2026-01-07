@@ -45,7 +45,7 @@ class AgentPanel(BasePanel):
         self.response_complete.connect(self._on_response_complete)
         self.error_occurred.connect(self._on_error)
         init_time = (time.time() - init_start) * 1000
-        print(f"⏱️  [AgentPanel] __init__ completed in {init_time:.2f}ms")
+        logger.debug(f"⏱️  [AgentPanel] __init__ completed in {init_time:.2f}ms")
     
     def setup_ui(self):
         """Set up the UI components with vertical layout."""
@@ -65,7 +65,7 @@ class AgentPanel(BasePanel):
         self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
         
         setup_time = (time.time() - setup_start) * 1000
-        print(f"⏱️  [AgentPanel] setup_ui completed in {setup_time:.2f}ms")
+        logger.debug(f"⏱️  [AgentPanel] setup_ui completed in {setup_time:.2f}ms")
     
     def _on_message_submitted(self, message: str):
         """Handle message submission from prompt input widget."""
@@ -217,7 +217,7 @@ class AgentPanel(BasePanel):
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._initialize_agent_sync)
         except Exception as e:
-            print(f"❌ Error initializing agent: {e}")
+            logger.error(f"❌ Error initializing agent: {e}")
             import traceback
             traceback.print_exc()
         finally:
@@ -280,11 +280,11 @@ class AgentPanel(BasePanel):
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
-        print("✅ Agent panel activated")
+        logger.info("✅ Agent panel activated")
         # Agent will be initialized lazily on first message submission
     
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
-        print("⏸️ Agent panel deactivated")
+        logger.info("⏸️ Agent panel deactivated")
 

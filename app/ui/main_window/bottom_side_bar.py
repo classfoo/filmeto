@@ -1,8 +1,11 @@
+import logging
 from PySide6.QtWidgets import QHBoxLayout
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.play_control import PlayControlWidget
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindowBottomSideBar(BaseWidget):
@@ -34,14 +37,14 @@ class MainWindowBottomSideBar(BaseWidget):
     def _on_previous_clicked(self):
         """Handle previous segment button click."""
         # TODO: Implement navigation to previous segment
-        print("Previous segment clicked")
+        logger.info("Previous segment clicked")
     
     def _on_play_pause_clicked(self, is_playing: bool):
         """Handle play/pause button click."""
-        print(f"Play/Pause clicked - Playing: {is_playing}")
+        logger.info(f"Play/Pause clicked - Playing: {is_playing}")
     
     def _on_next_clicked(self):
         """Handle next segment button click."""
         # TODO: Implement navigation to next segment
-        print("Next segment clicked")
+        logger.info("Next segment clicked")
 

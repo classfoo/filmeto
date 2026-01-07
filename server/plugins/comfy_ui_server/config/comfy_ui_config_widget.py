@@ -6,6 +6,7 @@ Designed to be embedded in the server_list dialog's ServerConfigView.
 """
 
 import json
+import logging
 from typing import Dict, Any, Optional
 from pathlib import Path
 from PySide6.QtWidgets import (
@@ -16,6 +17,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QCursor
+
+logger = logging.getLogger(__name__)
 
 # Import ToolType from server API
 try:
@@ -427,7 +430,7 @@ class ComfyUIConfigWidget(QWidget):
                         shutil.copy2(builtin_file, workflow_file)
                         continue
                     except Exception as e:
-                        print(f"Failed to copy builtin workflow {builtin_file}: {e}")
+                        logger.error(f"Failed to copy builtin workflow {builtin_file}: {e}")
                 
                 # Create empty workflow if builtin doesn't exist
                 empty_workflow = {
@@ -444,7 +447,7 @@ class ComfyUIConfigWidget(QWidget):
                     with open(workflow_file, 'w', encoding='utf-8') as f:
                         json.dump(empty_workflow, f, indent=2, ensure_ascii=False)
                 except Exception as e:
-                    print(f"Failed to create default workflow {workflow_file}: {e}")
+                    logger.error(f"Failed to create default workflow {workflow_file}: {e}")
     
     def _load_workflows(self):
         """Load workflows from both workspace and builtin directories, merge and deduplicate"""
@@ -520,7 +523,7 @@ class ComfyUIConfigWidget(QWidget):
                 loaded_workflows[workflow_name] = workflow_entry
                 
             except Exception as e:
-                print(f"Failed to load workflow {workflow_file}: {e}")
+                logger.error(f"Failed to load workflow {workflow_file}: {e}")
                 # Create default entry on error
                 if workflow_name not in loaded_workflows:
                     workflow_entry = {
@@ -574,7 +577,7 @@ class ComfyUIConfigWidget(QWidget):
                     
                     loaded_workflows[workflow_name] = workflow_entry
             except Exception as e:
-                print(f"Failed to load workflow {workflow_file}: {e}")
+                logger.error(f"Failed to load workflow {workflow_file}: {e}")
     
     def _guess_tool_type_from_filename(self, filename: str) -> Optional[str]:
         """Guess tool type from filename"""
@@ -767,7 +770,7 @@ class ComfyUIConfigWidget(QWidget):
                     shutil.copy2(builtin_file, target_workflow_file)
                     source_workflow_file = target_workflow_file
                 except Exception as e:
-                    print(f"Failed to copy builtin workflow: {e}")
+                    logger.error(f"Failed to copy builtin workflow: {e}")
         
         # If still no source file, create empty one
         if not source_workflow_file or not Path(source_workflow_file).exists():
@@ -844,7 +847,7 @@ class ComfyUIConfigWidget(QWidget):
                         shutil.copy2(builtin_file, target_workflow_file)
                         source_workflow_file = target_workflow_file
                     except Exception as e:
-                        print(f"Failed to copy builtin workflow: {e}")
+                        logger.error(f"Failed to copy builtin workflow: {e}")
         
         # If still no source file, create empty one
         if not source_workflow_file or not Path(source_workflow_file).exists():

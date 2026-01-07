@@ -1,9 +1,12 @@
 # enhanced_task_item_widget.py
+import logging
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout, QTextEdit, QFrame
 from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve, QTime
 from PySide6.QtGui import QPainter, QColor, QPen, QFont, QPixmap, QMovie, QPainterPath, QBrush
 from utils.i18n_utils import tr
 from utils.yaml_utils import load_yaml
+
+logger = logging.getLogger(__name__)
 
 
 class EnhancedTaskItemWidget(QWidget):
@@ -65,7 +68,7 @@ class EnhancedTaskItemWidget(QWidget):
             # Draw the central status indicator
             self.draw_status_indicator(painter)
         except Exception as e:
-            print(f"Error in paintEvent: {e}")
+            logger.error(f"Error in paintEvent: {e}")
             # Draw a simple error indicator
             painter.setPen(QColor(255, 0, 0))
             painter.drawText(self.rect(), Qt.AlignCenter, "Error")
@@ -131,7 +134,7 @@ class EnhancedTaskItemWidget(QWidget):
                             result_path = os.path.join(self.task.path, filename)
                             break
             except Exception as e:
-                print(f"Error loading resources from task config in thumbnail: {e}")
+                logger.error(f"Error loading resources from task config in thumbnail: {e}")
                 # Fallback to scanning task directory
                 if hasattr(self.task, 'path') and os.path.exists(self.task.path):
                     for filename in os.listdir(self.task.path):
@@ -164,7 +167,7 @@ class EnhancedTaskItemWidget(QWidget):
                 self.draw_placeholder(painter, thumb_rect)
         except Exception as e:
             # If there's an error, just draw the placeholder
-            print(f"Error in draw_thumbnail_area: {e}")
+            logger.error(f"Error in draw_thumbnail_area: {e}")
             self.draw_placeholder(painter, thumb_rect)
 
     def draw_video_placeholder(self, painter, rect):
@@ -194,7 +197,7 @@ class EnhancedTaskItemWidget(QWidget):
                 ]
                 painter.drawPolygon(points)
         except Exception as e:
-            print(f"Error in draw_video_placeholder: {e}")
+            logger.error(f"Error in draw_video_placeholder: {e}")
         finally:
             painter.restore()
     
@@ -226,7 +229,7 @@ class EnhancedTaskItemWidget(QWidget):
 
             painter.drawText(x, y, text)
         except Exception as e:
-            print(f"Error in draw_placeholder: {e}")
+            logger.error(f"Error in draw_placeholder: {e}")
         finally:
             painter.restore()
 
@@ -293,7 +296,7 @@ class EnhancedTaskItemWidget(QWidget):
 
             painter.drawPath(path)
         except Exception as e:
-            print(f"Error in draw_progress_border: {e}")
+            logger.error(f"Error in draw_progress_border: {e}")
 
     def draw_task_number_bubble(self, painter):
         """Draw a colorful bubble for the task number in the top-right corner"""
@@ -340,7 +343,7 @@ class EnhancedTaskItemWidget(QWidget):
 
             painter.drawText(text_x, text_y, text)
         except Exception as e:
-            print(f"Error in draw_task_number_bubble: {e}")
+            logger.error(f"Error in draw_task_number_bubble: {e}")
         finally:
             painter.restore()
 
@@ -462,7 +465,7 @@ class EnhancedTaskItemWidget(QWidget):
                     (start_angle % 360) * 16, span_angle * 16  # Qt uses 1/16th degree units
                 )
         except Exception as e:
-            print(f"Error in draw_status_indicator: {e}")
+            logger.error(f"Error in draw_status_indicator: {e}")
         finally:
             painter.restore()
 

@@ -1,3 +1,4 @@
+import logging
 from PySide6.QtCore import QSize, QRectF, Signal
 from PySide6.QtGui import QTextFrame, QAction, Qt, QIcon, QPixmap, QPainter, QFont, QColor, QPen
 from PySide6.QtWidgets import QPushButton, QWidget, QVBoxLayout, QLabel, QStyle, QToolButton, QMenu, QMessageBox, QInputDialog, QDialog, QLineEdit, QHBoxLayout, QDialogButtonBox
@@ -5,6 +6,8 @@ from PySide6.QtWidgets import QPushButton, QWidget, QVBoxLayout, QLabel, QStyle,
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectMenu(BaseWidget):
@@ -101,7 +104,7 @@ class ProjectMenu(BaseWidget):
 
     def on_project_selected(self, project_name):
         """处理项目选择"""
-        print(f"选择了项目: {project_name}")
+        logger.info(f"选择了项目: {project_name}")
         
         # 使用Workspace切换项目，确保workspace中的当前项目信息都被更新
         switched_project = self.workspace.switch_project(project_name)

@@ -1,5 +1,6 @@
 """Resources panel for managing project resources."""
 
+import logging
 import os
 from pathlib import Path
 from PySide6.QtWidgets import (
@@ -15,6 +16,8 @@ from app.data.workspace import Workspace
 from app.ui.worker.worker import run_in_background
 from utils.i18n_utils import tr
 from .resource_preview import ResourcePreview
+
+logger = logging.getLogger(__name__)
 
 
 class ResourceTreeView(QTreeWidget):
@@ -272,13 +275,13 @@ class ResourcesPanel(BasePanel):
         if self._data_loaded:
             self._load_resources()
             self._connect_signals()
-        print("✅ Resources panel activated")
+        logger.info("✅ Resources panel activated")
     
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
         self._disconnect_signals()
-        print("⏸️ Resources panel deactivated")
+        logger.info("⏸️ Resources panel deactivated")
     
     def _load_resources(self):
         """Load resources from the resource manager asynchronously."""
@@ -303,7 +306,7 @@ class ResourcesPanel(BasePanel):
             )
             
         except Exception as e:
-            print(f"❌ Error initiating resource load: {e}")
+            logger.error(f"❌ Error initiating resource load: {e}")
             self.info_label.setText(f"Error: {str(e)}")
             self.hide_loading()
 
@@ -318,12 +321,12 @@ class ResourcesPanel(BasePanel):
         # Update info
         resource_count = len(resources)
         self.info_label.setText(f"{resource_count} resource(s)")
-        print(f"✅ Resources panel UI updated with {resource_count} resources")
+        logger.info(f"✅ Resources panel UI updated with {resource_count} resources")
         self.hide_loading()
 
     def _on_load_error(self, error_msg: str, exception: Exception):
         """Handle loading error"""
-        print(f"❌ Error loading resources: {error_msg}")
+        logger.error(f"❌ Error loading resources: {error_msg}")
         self.info_label.setText(f"Error: {error_msg}")
         self.hide_loading()
     
@@ -337,9 +340,9 @@ class ResourcesPanel(BasePanel):
             self.resource_manager.resource_added.connect(self._on_resource_added)
             self.resource_manager.resource_updated.connect(self._on_resource_updated)
             self.resource_manager.resource_deleted.connect(self._on_resource_deleted)
-            print("✅ Connected to ResourceManager signals")
+            logger.info("✅ Connected to ResourceManager signals")
         except Exception as e:
-            print(f"⚠️ Could not connect to ResourceManager signals: {e}")
+            logger.warning(f"⚠️ Could not connect to ResourceManager signals: {e}")
     
     def _disconnect_signals(self):
         """Disconnect from ResourceManager signals."""
@@ -351,23 +354,23 @@ class ResourcesPanel(BasePanel):
             self.resource_manager.resource_added.disconnect(self._on_resource_added)
             self.resource_manager.resource_updated.disconnect(self._on_resource_updated)
             self.resource_manager.resource_deleted.disconnect(self._on_resource_deleted)
-            print("✅ Disconnected from ResourceManager signals")
+            logger.info("✅ Disconnected from ResourceManager signals")
         except Exception as e:
-            print(f"⚠️ Could not disconnect from ResourceManager signals: {e}")
+            logger.warning(f"⚠️ Could not disconnect from ResourceManager signals: {e}")
     
     def _on_resource_added(self, resource):
         """Handle resource added signal."""
-        print(f"📥 Resource added: {resource.name}")
+        logger.info(f"📥 Resource added: {resource.name}")
         self._load_resources()
     
     def _on_resource_updated(self, resource):
         """Handle resource updated signal."""
-        print(f"🔄 Resource updated: {resource.name}")
+        logger.info(f"🔄 Resource updated: {resource.name}")
         self._load_resources()
     
     def _on_resource_deleted(self, resource_name):
         """Handle resource deleted signal."""
-        print(f"🗑️ Resource deleted: {resource_name}")
+        logger.info(f"🗑️ Resource deleted: {resource_name}")
         self._load_resources()
         # Clear preview if deleted resource was selected
         self.preview_widget.clear_preview()
@@ -397,4 +400,4 @@ class ResourcesPanel(BasePanel):
                 resource_manager = project.get_resource_manager()
                 self.preview_widget.set_resource(resource, resource_manager.project_path)
             except Exception as e:
-                print(f"❌ Error showing preview: {e}")
+                logger.error(f"❌ Error showing preview: {e}")

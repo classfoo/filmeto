@@ -5,6 +5,7 @@ Provides modular views for server list and server configuration that can be
 switched within a single dialog (Mac-style preferences).
 """
 
+import logging
 from typing import Optional, Dict, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
@@ -17,6 +18,8 @@ from PySide6.QtGui import QFont
 from app.ui.base_widget import BaseWidget
 
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 class ServerItemWidget(QWidget):
@@ -343,7 +346,7 @@ class ServerConfigView(BaseWidget):
 
         # This fallback should not be needed anymore as all plugins should implement init_ui
         # but we keep it for backwards compatibility and safety
-        print("Warning: Falling back to default UI, plugin should implement init_ui")
+        logger.warning("Falling back to default UI, plugin should implement init_ui")
 
         # Default form-based UI - this is the migrated logic that should now be in plugins
         # Header
@@ -628,7 +631,7 @@ class ServerConfigView(BaseWidget):
             return custom_widget
 
         except Exception as e:
-            print(f"Failed to get custom UI from plugin: {e}")
+            logger.error(f"Failed to get custom UI from plugin: {e}")
             import traceback
             traceback.print_exc()
             return None

@@ -93,7 +93,9 @@ class Text2Image(BaseTool,BaseTaskWidget):
         if task.tool != "text2img" and task.tool != "text2image":
             return  # Exit early if this is not a text2img task
         try:
-            print(f"Processing text2img task with FilmetoApi: {task.options}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Processing text2img task with FilmetoApi: {task.options}")
             from server.api import FilmetoApi, FilmetoTask, ToolType, ResourceInput, ResourceType
             from app.data.task import TaskResult as AppTaskResult, TaskProgress as AppTaskProgress
             from server.api.types import TaskProgress as FilmetoTaskProgress, TaskResult as FilmetoTaskResult
@@ -103,7 +105,7 @@ class Text2Image(BaseTool,BaseTaskWidget):
             # Find a plugin that supports text2image
             plugins = api.get_plugins_by_tool(ToolType.TEXT2IMAGE)
             if not plugins:
-                print("No plugins found for text2image")
+                logger.warning("No plugins found for text2image")
                 return
             
             # Prefer ComfyUI if available, otherwise use the first one
@@ -151,6 +153,6 @@ class Text2Image(BaseTool,BaseTaskWidget):
                     task_result = AppTaskResult(task, result_wrapper)
                     self.workspace.on_task_finished(task_result)
         except Exception as e:
-            print(f"Error in Text2Image.execute: {e}")
+            logger.error(f"Error in Text2Image.execute: {e}")
             import traceback
             traceback.print_exc()

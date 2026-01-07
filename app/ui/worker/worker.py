@@ -101,8 +101,8 @@ class BackgroundWorker(QObject):
     Example:
         worker = BackgroundWorker()
         worker.set_task(load_image, "path/to/image.png")
-        worker.finished.connect(lambda result: print(f"Loaded: {result}"))
-        worker.error.connect(lambda msg, e: print(f"Error: {msg}"))
+        worker.finished.connect(lambda result: logger.info(f"Loaded: {result}"))
+        worker.error.connect(lambda msg, e: logger.error(f"Error: {msg}"))
         worker.start()
     """
     

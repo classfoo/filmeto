@@ -1,3 +1,4 @@
+import logging
 import os
 import cv2
 import asyncio
@@ -17,6 +18,8 @@ from app.data.timeline import TimelineItem
 from app.ui.base_widget import BaseTaskWidget
 from app.ui.frame_selector.frame_selector import FrameSelectorWidget
 from app.ui.layers.layers_widget import LayersWidget
+
+logger = logging.getLogger(__name__)
 
 class MediaPreviewWidget(BaseTaskWidget):
     """
@@ -208,7 +211,7 @@ class MediaPreviewWidget(BaseTaskWidget):
     def load_file(self, file_path):
         """异步加载并预览指定的媒体文件"""
         if not os.path.exists(file_path):
-            print(f"文件不存在: {file_path}")
+            logger.error(f"文件不存在: {file_path}")
             self._clear_display()
             return
 
@@ -250,10 +253,10 @@ class MediaPreviewWidget(BaseTaskWidget):
                 # 视频加载保持同步，因为QMediaPlayer需要在主线程中使用
                 self.load_finished.emit(file_path, "video")
             else:
-                print(f"不支持的文件格式: {ext}")
+                logger.warning(f"不支持的文件格式: {ext}")
                 self.load_finished.emit(file_path, "unsupported")
         except Exception as e:
-            print(f"加载文件时出错: {e}")
+            logger.error(f"加载文件时出错: {e}")
             self.load_finished.emit(file_path, "error")
 
     async def _async_load_image(self, image_path):
@@ -483,7 +486,7 @@ class MediaPreviewWidget(BaseTaskWidget):
         
         # 添加错误检查
         if not self.media_player.source().isValid():
-            print(f"无法加载视频源: {video_path}")
+            logger.error(f"无法加载视频源: {video_path}")
             self._show_placeholder("无法加载视频")
             return
         
@@ -525,7 +528,7 @@ class MediaPreviewWidget(BaseTaskWidget):
         self.video_capture = cv2.VideoCapture(video_path)
         
         if not self.video_capture.isOpened():
-            print(f"无法打开视频文件: {video_path}")
+            logger.error(f"无法打开视频文件: {video_path}")
             # 不隐藏帧选择器，只是不更新
             return
         
@@ -534,7 +537,7 @@ class MediaPreviewWidget(BaseTaskWidget):
         self.video_fps = self.video_capture.get(cv2.CAP_PROP_FPS)
         
         if self.total_frames <= 0 or self.video_fps <= 0:
-            print(f"无法获取视频帧信息: 总帧数={self.total_frames}, FPS={self.video_fps}")
+            logger.error(f"无法获取视频帧信息: 总帧数={self.total_frames}, FPS={self.video_fps}")
             # 不隐藏帧选择器，只是不更新
             return
         
@@ -618,7 +621,7 @@ class MediaPreviewWidget(BaseTaskWidget):
                 QTimer.singleShot(0, lambda: self._play_when_ready())
         elif status == QMediaPlayer.MediaStatus.InvalidMedia:
             # Handle invalid media
-            print("无效的媒体文件")
+            logger.error("无效的媒体文件")
             self._show_placeholder("无效的媒体文件")
             self.play_pause_btn.setEnabled(False)
         elif status == QMediaPlayer.PlaybackState.StoppedState:
@@ -799,7 +802,7 @@ class MediaPreviewWidget(BaseTaskWidget):
     def switch_file(self, file_path):
         """切换文件但不重新构造UI控件（优化版本以防止闪烁）"""
         if not os.path.exists(file_path):
-            print(f"文件不存在: {file_path}")
+            logger.error(f"文件不存在: {file_path}")
             self._show_placeholder("文件不存在")
             return
 
@@ -819,7 +822,7 @@ class MediaPreviewWidget(BaseTaskWidget):
         elif ext in self.VIDEO_FORMATS:
             self._switch_to_video(file_path)
         else:
-            print(f"不支持的文件格式: {ext}")
+            logger.warning(f"不支持的文件格式: {ext}")
             self._show_placeholder(f"不支持的格式: {ext}")
 
     def _switch_to_image(self, image_path):
@@ -936,7 +939,7 @@ class MediaPreviewWidget(BaseTaskWidget):
         self.media_player.setSource(url)
         # 添加错误检查
         if not self.media_player.source().isValid():
-            print(f"无法加载视频源: {video_path}")
+            logger.error(f"无法加载视频源: {video_path}")
             self._show_placeholder("无法加载视频")
             return
         
@@ -1133,4 +1136,4 @@ class MediaPreviewWidget(BaseTaskWidget):
         """
         # TODO: 实现图层合成逻辑
         # 当图层发生变化时，需要重新合成所有图层并更新预览
-        print("图层已变化，需要重新生成预览")
+        logger.info("图层已变化，需要重新生成预览")

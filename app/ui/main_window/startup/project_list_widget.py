@@ -5,6 +5,7 @@ Project List Widget for Startup Mode
 This widget displays a list of projects in the left panel of the startup mode.
 It includes a logo at the top, project list in the middle, and a toolbar at the bottom.
 """
+import logging
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QSizePolicy, QLineEdit, QDialog,
@@ -16,6 +17,8 @@ from PySide6.QtGui import QColor, QFont, QIcon, QPixmap, QPainter, QPainterPath
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectItemWidget(QFrame):
@@ -421,7 +424,7 @@ class ProjectListWidget(BaseWidget):
                     self._select_project(project_name)
                     self.project_created.emit(project_name)
                 except Exception as e:
-                    print(f"Error creating project: {e}")
+                    logger.error(f"Error creating project: {e}")
     
     def get_selected_project(self) -> str:
         """Get the currently selected project name."""

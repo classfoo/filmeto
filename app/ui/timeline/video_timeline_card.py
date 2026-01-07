@@ -1,4 +1,5 @@
 import sys
+import logging
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame,
     QLabel, QGraphicsDropShadowEffect, QSizePolicy, QPushButton, QScrollArea, QGridLayout,
@@ -6,6 +7,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QColor, QPalette, QPainter, QFont, QAction
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect, QPoint, QTimer, Property, QSize
+
+logger = logging.getLogger(__name__)
 
 
 class VideoTimelineCard(QFrame):
@@ -185,15 +188,15 @@ class VideoTimelineCard(QFrame):
 
     def delete_item(self):
         """删除项目"""
-        print(f"Deleting item at index {self.index}")
+        logger.info(f"Deleting item at index {self.index}")
         # 实现删除逻辑
 
     def clean_item(self):
         """清理项目"""
-        print(f"Cleaning item at index {self.index}")
+        logger.info(f"Cleaning item at index {self.index}")
         # 实现清理逻辑
 
     def move_item(self):
         """移动项目"""
-        print(f"Moving item at index {self.index}")
+        logger.info(f"Moving item at index {self.index}")
         # 实现移动逻辑

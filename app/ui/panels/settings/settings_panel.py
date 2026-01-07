@@ -1,9 +1,12 @@
 """Settings panel for application settings."""
 
+import logging
 from PySide6.QtWidgets import QVBoxLayout
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from app.ui.settings import SettingsWidget
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsPanel(BasePanel):
@@ -24,10 +27,10 @@ class SettingsPanel(BasePanel):
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
-        print("✅ Settings panel activated")
+        logger.info("✅ Settings panel activated")
     
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
-        print("⏸️ Settings panel deactivated")
+        logger.info("⏸️ Settings panel deactivated")
 

@@ -1,5 +1,6 @@
 """Resource preview widget for displaying resource details and thumbnails."""
 
+import logging
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QScrollArea, QFrame,
@@ -9,6 +10,8 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPixmap
 
 from app.data.resource import Resource
+
+logger = logging.getLogger(__name__)
 
 
 class ResourcePreview(QWidget):
@@ -159,7 +162,7 @@ class ResourcePreview(QWidget):
                     self.preview_label.clear()
                     self.preview_label.setText(f"[{self.current_resource.media_type.upper()}]")
             except Exception as e:
-                print(f"⚠️ Error loading preview: {e}")
+                logger.warning(f"⚠️ Error loading preview: {e}")
                 self.preview_label.clear()
                 self.preview_label.setText(f"[Preview unavailable]")
         else:

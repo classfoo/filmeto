@@ -4,6 +4,7 @@ Layers Management Widget
 Provides a vertical list of layers with add, delete, and reorder functionality.
 """
 
+import logging
 from typing import Optional
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QScrollArea, QPushButton, 
                                QLabel, QHBoxLayout, QMenu, QSizePolicy)
@@ -16,6 +17,8 @@ from app.data.timeline import TimelineItem
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget, BaseTaskWidget
 from app.ui.layers.layer_item_widget import LayerItemWidget
+
+logger = logging.getLogger(__name__)
 
 
 class LayersWidget(BaseTaskWidget):
@@ -220,7 +223,7 @@ class LayersWidget(BaseTaskWidget):
             layer = self.layer_manager.add_layer(layer_type)
             self._reload_layers(self.layer_manager)
         except ValueError as e:
-            print(f"Error adding layer: {e}")
+            logger.error(f"Error adding layer: {e}")
             # 可以在这里添加用户提示，例如弹出消息框
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Error", f"Cannot add layer: {str(e)}")
@@ -292,7 +295,7 @@ class LayersWidget(BaseTaskWidget):
         """Handle drag start for layer reordering"""
         # TODO: Implement drag and drop reordering
         # For now, this is a placeholder
-        print(f"Drag started for layer {layer_id}")
+        logger.info(f"Drag started for layer {layer_id}")
     
     def refresh(self):
         """Refresh the layer list"""

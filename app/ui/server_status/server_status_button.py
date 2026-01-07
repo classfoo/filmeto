@@ -5,12 +5,15 @@ A button widget that displays the count of active and inactive servers
 with a beautiful badge UI. Clicking opens the server management dialog.
 """
 
+import logging
 from PySide6.QtWidgets import QPushButton, QWidget
 from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve, Property
 from PySide6.QtGui import QPainter, QColor, QFont, QPaintEvent
 
 from app.ui.base_widget import BaseWidget
 from utils.i18n_utils import tr
+
+logger = logging.getLogger(__name__)
 
 
 class ServerStatusButton(QPushButton):
@@ -249,7 +252,7 @@ class ServerStatusWidget(BaseWidget):
             self.status_button.set_server_counts(active_count, inactive_count)
             
         except Exception as e:
-            print(f"Failed to refresh server status: {e}")
+            logger.error(f"Failed to refresh server status: {e}")
             # Set default counts on error
             self.status_button.set_server_counts(0, 0)
     

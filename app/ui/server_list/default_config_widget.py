@@ -334,7 +334,7 @@ class DefaultConfigWidget(QWidget):
             if required:
                 value = config.get(field_name, "")
                 if not value:
-                    print(f"Field '{field_name}' is required but not provided")
+                    logger.error(f"Field '{field_name}' is required but not provided")
                     return False
 
         return True

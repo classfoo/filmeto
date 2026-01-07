@@ -1,5 +1,6 @@
 """Main switcher component for workspace top left bar panels."""
 
+import logging
 from typing import Dict, Optional, Tuple
 from PySide6.QtWidgets import QStackedWidget, QWidget
 from PySide6.QtCore import Signal, Slot
@@ -7,6 +8,8 @@ from PySide6.QtCore import Signal, Slot
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 from .base_panel import BasePanel
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindowWorkspaceTopLeftBar(BaseWidget):
@@ -84,7 +87,7 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
             panel_name: Name of the panel to switch to (e.g., 'resource', 'model')
         """
         if panel_name not in self.panel_registry:
-            print(f"⚠️ Unknown panel: {panel_name}")
+            logger.warning(f"⚠️ Unknown panel: {panel_name}")
             return
         
         # Deactivate current panel if exists
@@ -124,14 +127,14 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
             
             self.stacked_widget.addWidget(panel_instance)
             create_time = (time.time() - create_start) * 1000
-            print(f"✅ Created panel: {panel_name} (Total: {create_time:.2f}ms, Import: {import_time:.2f}ms, Init: {init_time:.2f}ms)")
+            logger.info(f"✅ Created panel: {panel_name} (Total: {create_time:.2f}ms, Import: {import_time:.2f}ms, Init: {init_time:.2f}ms)")
             
             # Defer panel activation
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self._finalize_panel_switch(panel_name))
             
         except Exception as e:
-            print(f"❌ Error creating panel {panel_name}: {e}")
+            logger.error(f"❌ Error creating panel {panel_name}: {e}")
             import traceback
             traceback.print_exc()
 
@@ -144,7 +147,7 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
         
         # Emit signal
         self.panel_switched.emit(panel_name)
-        print(f"🔄 Switched to panel: {panel_name}")
+        logger.info(f"🔄 Switched to panel: {panel_name}")
     
     def get_current_panel(self) -> Optional[BasePanel]:
         """
