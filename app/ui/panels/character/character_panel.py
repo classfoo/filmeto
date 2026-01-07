@@ -262,12 +262,12 @@ class CharacterPanel(BasePanel):
         """Set up the UI components with grid layout."""
         import time
         setup_start = time.time()
-        self.set_panel_title(tr("Roles"))
+        self.set_panel_title(tr("Characters"))
         
         # Add buttons to unified toolbar
-        self.add_toolbar_button("\ue610", self._on_add_character, tr("新建角色"))
-        self.add_toolbar_button("\ue6a7", self._on_draw_character, tr("抽卡"))
-        self.add_toolbar_button("\ue653", self._on_extract_character, tr("提取"))
+        self.add_toolbar_button("\ue610", self._on_add_character, tr("New Character"))
+        self.add_toolbar_button("\ue6a7", self._on_draw_character, tr("Random Generate"))
+        self.add_toolbar_button("\ue653", self._on_extract_character, tr("Extract From Story"))
         
         # Scroll area for character grid (like file manager)
         scroll_area = QScrollArea(self)
