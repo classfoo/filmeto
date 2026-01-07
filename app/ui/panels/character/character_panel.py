@@ -263,12 +263,12 @@ class CharacterPanel(BasePanel):
         import time
         setup_start = time.time()
         self.set_panel_title(tr("Characters"))
-        
+
         # Add buttons to unified toolbar
         self.add_toolbar_button("\ue610", self._on_add_character, tr("New Character"))
         self.add_toolbar_button("\ue6a7", self._on_draw_character, tr("Random Generate"))
         self.add_toolbar_button("\ue653", self._on_extract_character, tr("Extract From Story"))
-        
+
         # Scroll area for character grid (like file manager)
         scroll_area = QScrollArea(self)
         scroll_area.setWidgetResizable(True)  # Allow container to resize based on content
@@ -295,7 +295,7 @@ class CharacterPanel(BasePanel):
                 background: #707070;
             }
         """)
-        
+
         # Container for grid layout (2 columns)
         # Similar to file manager icon view: fixed icon size, uniform spacing, auto-wrap
         self.grid_container = QWidget()
@@ -303,7 +303,7 @@ class CharacterPanel(BasePanel):
         # Size policy: preferred horizontally (fit content), minimum vertically (content-based height)
         # This ensures container doesn't stretch unnecessarily
         self.grid_container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
-        
+
         self.grid_layout = QGridLayout(self.grid_container)
         # Margins: 10px on all sides for consistent spacing (like file manager)
         self.grid_layout.setContentsMargins(10, 10, 10, 10)
@@ -318,19 +318,31 @@ class CharacterPanel(BasePanel):
         # Don't stretch rows - rows size based on fixed card height (85px + spacing)
         # Alignment: top-left, like file manager icon view
         self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        
+
         scroll_area.setWidget(self.grid_container)
         self.content_layout.addWidget(scroll_area, 1)
-        
+
         setup_time = (time.time() - setup_start) * 1000
         logger.debug(f"⏱️  [CharacterPanel] setup_ui completed in {setup_time:.2f}ms")
-        
+
         # Character manager will be loaded in load_data()
         # Data loading is deferred until panel activation
         # But if panel is already visible/active, start loading immediately
         if self._is_active or self.isVisible():
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, self._perform_initial_load)
+        else:
+            # If panel is not active/visible yet, ensure loading happens when it becomes active
+            # This is the main activation path, but we also want to handle potential visibility changes
+            from PySide6.QtCore import QTimer
+            # Schedule a check after the UI is fully set up to see if the panel has become visible
+            QTimer.singleShot(100, self._check_and_load_if_visible)
+
+    def _check_and_load_if_visible(self):
+        """Check if panel is visible and trigger loading if needed"""
+        if self._is_active or self.isVisible():
+            if not self._data_loaded and not self._is_loading:
+                self._perform_initial_load()
     
     def resizeEvent(self, event):
         """Handle resize event - update layout like file manager"""
@@ -363,47 +375,80 @@ class CharacterPanel(BasePanel):
     
     def _ensure_character_manager(self) -> bool:
         """Ensure character manager is loaded, show loading if needed
-        
+
         Returns:
             True if character manager is available, False otherwise
         """
         if self.character_manager:
             return True
-        
+
         # If data is not loaded yet, trigger loading
         if not self._data_loaded:
             # Show loading state
             self.show_loading(tr("正在加载角色管理器..."))
             # Trigger loading
             self._perform_initial_load()
-            # Show message to user
-            QMessageBox.warning(self, tr("提示"), tr("角色管理器正在加载中，请稍候再试"))
-            return False
-        
+            # Return True to allow the operation to proceed,
+            # but the actual operation will be delayed until loading completes
+            return True
+
         # If data was loaded but manager is None, it means loading failed
         QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
         return False
     
     def _on_add_character(self):
         """Handle add character button click"""
-        if not self._ensure_character_manager():
-            return
-        
+        # If character manager is not available, try to load it
+        if not self.character_manager:
+            # If data is not loaded yet, trigger loading
+            if not self._data_loaded:
+                self.show_loading(tr("正在加载角色管理器..."))
+                self._perform_initial_load()
+                # Show a message to the user that loading is in progress
+                QMessageBox.information(self, tr("提示"), tr("角色管理器正在后台加载，请稍后再试添加角色"))
+                return
+            else:
+                # If data was loaded but manager is None, it means loading failed
+                QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
+                return
+
         dialog = CharacterEditDialog(self.character_manager, parent=self)
         dialog.character_saved.connect(self._on_character_saved)
         dialog.exec()
     
     def _on_draw_character(self):
         """Handle draw character button click (抽卡)"""
-        if not self._ensure_character_manager():
-            return
+        # If character manager is not available, try to load it
+        if not self.character_manager:
+            # If data is not loaded yet, trigger loading
+            if not self._data_loaded:
+                self.show_loading(tr("正在加载角色管理器..."))
+                self._perform_initial_load()
+                # Show a message to the user that loading is in progress
+                QMessageBox.information(self, tr("提示"), tr("角色管理器正在后台加载，请稍后再试随机生成角色"))
+                return
+            else:
+                # If data was loaded but manager is None, it means loading failed
+                QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
+                return
         # TODO: Implement character drawing feature
         QMessageBox.information(self, tr("提示"), tr("抽卡功能开发中..."))
     
     def _on_extract_character(self):
         """Handle extract character button click (提取)"""
-        if not self._ensure_character_manager():
-            return
+        # If character manager is not available, try to load it
+        if not self.character_manager:
+            # If data is not loaded yet, trigger loading
+            if not self._data_loaded:
+                self.show_loading(tr("正在加载角色管理器..."))
+                self._perform_initial_load()
+                # Show a message to the user that loading is in progress
+                QMessageBox.information(self, tr("提示"), tr("角色管理器正在后台加载，请稍后再试提取角色"))
+                return
+            else:
+                # If data was loaded but manager is None, it means loading failed
+                QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
+                return
         # TODO: Implement character extraction feature
         QMessageBox.information(self, tr("提示"), tr("提取功能开发中..."))
     
@@ -421,8 +466,18 @@ class CharacterPanel(BasePanel):
     def _on_edit_character(self, character_name: str):
         """Handle edit character request"""
         if not self.character_manager:
-            return
-        
+            # If data is not loaded yet, trigger loading
+            if not self._data_loaded:
+                self.show_loading(tr("正在加载角色管理器..."))
+                self._perform_initial_load()
+                # Show a message to the user that loading is in progress
+                QMessageBox.information(self, tr("提示"), tr("角色管理器正在后台加载，请稍后再试编辑角色"))
+                return
+            else:
+                # If data was loaded but manager is None, it means loading failed
+                QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
+                return
+
         dialog = CharacterEditDialog(self.character_manager, character_name, parent=self)
         dialog.character_saved.connect(self._on_character_saved)
         dialog.exec()
@@ -530,9 +585,27 @@ class CharacterPanel(BasePanel):
     def _on_load_error(self, error_msg: str, exception: Exception):
         """Handle loading error"""
         logger.error(f"❌ Error loading character manager: {error_msg}")
-        # Mark as loaded to avoid infinite retries
-        self._data_loaded = True
-        self.hide_loading()
+        logger.error(f"Exception: {exception}")
+        logger.error(f"Exception type: {type(exception)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+        # Don't mark as loaded immediately - allow for retry in certain cases
+        if not hasattr(self, '_load_attempts'):
+            self._load_attempts = 0
+
+        self._load_attempts += 1
+
+        if self._load_attempts < 3:  # Retry up to 3 times
+            logger.info(f"Retrying character manager load (attempt {self._load_attempts + 1})...")
+            from PySide6.QtCore import QTimer
+            # Retry after a short delay
+            QTimer.singleShot(1000, self._perform_initial_load)  # 1 second delay before retry
+        else:
+            logger.error("Max retries reached, giving up on character manager loading")
+            # Mark as loaded to avoid infinite retries
+            self._data_loaded = True
+            self.hide_loading()
 
     def _on_character_saved(self, character_name: str):
         """Handle character saved signal"""
@@ -564,14 +637,50 @@ class CharacterPanel(BasePanel):
         # But if workspace initialization is deferred, this might trigger it
         # So we defer this to background thread
         from app.ui.worker.worker import run_in_background
-        
+
         def _load_character_manager():
             """Load character manager in background to avoid blocking"""
-            project = self.workspace.get_project()
-            if project:
-                return project.get_character_manager()
-            return None
-        
+            max_retries = 3
+            retry_count = 0
+
+            while retry_count < max_retries:
+                try:
+                    project = self.workspace.get_project()
+                    if project:
+                        # Ensure project is fully initialized before accessing character manager
+                        # The character manager should always exist, but its data might not be loaded yet
+                        char_manager = project.get_character_manager()
+                        logger.info(f"Character manager retrieved (attempt {retry_count + 1}): {char_manager is not None}")
+
+                        # Additional check: try to access some data to ensure it's ready
+                        if char_manager:
+                            # This will trigger the loading if not already loaded
+                            char_count = len(char_manager.list_characters())
+                            logger.info(f"Character manager has {char_count} characters")
+
+                        return char_manager
+                    else:
+                        logger.warning(f"Project not available when loading character manager (attempt {retry_count + 1})")
+                        if retry_count < max_retries - 1:
+                            import time
+                            time.sleep(0.5)  # Wait before retry
+                            retry_count += 1
+                        else:
+                            return None
+                except Exception as e:
+                    logger.error(f"Error loading character manager (attempt {retry_count + 1}): {e}", exc_info=True)
+                    if retry_count < max_retries - 1:
+                        import time
+                        time.sleep(0.5)  # Wait before retry
+                        retry_count += 1
+                    else:
+                        logger.error(f"Failed to load character manager after {max_retries} attempts")
+                        raise  # Re-raise to be caught by the worker
+
+        # Show loading indicator while waiting for character manager
+        self.show_loading(tr("正在加载角色管理器..."))
+
+        logger.info("Starting background loading of character manager...")
         run_in_background(
             _load_character_manager,
             on_finished=self._on_character_manager_loaded,
@@ -580,15 +689,21 @@ class CharacterPanel(BasePanel):
     
     def _on_character_manager_loaded(self, character_manager):
         """Callback when character manager is loaded"""
+        logger.info(f"✅ Character manager loaded callback called with manager: {character_manager is not None}")
         if character_manager:
             self.character_manager = character_manager
+            logger.info(f"Character manager assigned: {self.character_manager is not None}")
             # Connect signals after manager is loaded
             self._connect_signals()
+            logger.info("Signals connected")
             # Mark data as loaded only after manager is successfully loaded
             self._data_loaded = True
+            logger.info("Data marked as loaded")
             # Load characters
             self._load_characters()
+            logger.info("Characters loading initiated")
         else:
+            logger.warning("Character manager is None, marking as loaded to avoid retries")
             # If loading failed, still mark as loaded to avoid infinite retries
             self._data_loaded = True
             self.hide_loading()

@@ -66,6 +66,11 @@ class Project:
         self.resource_manager = ResourceManager(self.project_path)
         self.character_manager = CharacterManager(self.project_path, self.resource_manager)
         self.conversation_manager = ConversationManager(self.project_path)
+
+        # If load_data is True, ensure character data is loaded
+        if load_data:
+            # Trigger loading of character data to ensure it's available immediately
+            self.character_manager.list_characters()
         
         # Debounced save mechanism for high-frequency updates
         self._pending_save = False
