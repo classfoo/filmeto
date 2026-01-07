@@ -16,9 +16,8 @@ class TaskListWidget(BaseTaskWidget):
     def __init__(self, parent, workspace):
         super().__init__(workspace)
         self.workspace = workspace
-        project = workspace.get_project()
-        self.tasks_path = project.get_tasks_path()
-        self.task_manager = project.task_manager  # Get the task manager from the project
+        self._current_timeline_item = None
+        self.task_manager = None  # Will be set based on current timeline item
         self.loaded_tasks = {}  # task_id -> widget
         self.all_task_dirs = []
         self.current_index = 0
@@ -31,6 +30,9 @@ class TaskListWidget(BaseTaskWidget):
         # Connect to workspace task progress updates instead of using file system monitoring
         self.workspace.connect_task_progress(self.on_task_progress_update)
         self.init_ui()
+        
+        # Initialize with current timeline item's tasks
+        self._update_task_manager_for_current_item()
         # Initial load of tasks - only populate the UI with tasks already loaded in task_manager
         self.populate_initial_tasks()
 
@@ -107,13 +109,37 @@ class TaskListWidget(BaseTaskWidget):
     def retranslateUi(self):
         """更新所有UI文本当语言变化时"""
         self.refresh_btn.setText(tr("🔄 刷新任务"))
+
+    def _update_task_manager_for_current_item(self):
+        """Update the task manager reference based on current timeline item"""
+        current_item = self.workspace.get_current_timeline_item()
+        if current_item:
+            self._current_timeline_item = current_item
+            self.task_manager = current_item.get_task_manager()
+        else:
+            self._current_timeline_item = None
+            self.task_manager = None
+
+    def on_timeline_switch(self, item):
+        """Handle timeline item switch - reload tasks for the new item"""
+        if item != self._current_timeline_item:
+            self._current_timeline_item = item
+            if item:
+                self.task_manager = item.get_task_manager()
+            else:
+                self.task_manager = None
+            # Refresh to show tasks for the new timeline item
+            self.refresh_tasks()
     
-    def on_task_create(self,task):
+    def on_task_create(self, task):
         self.refresh_tasks()
 
     def load_all_task_dirs(self):
         # Get all task directories from TaskManager
         try:
+            if self.task_manager is None:
+                self.all_task_dirs = []
+                return
             all_task_ids = sorted([task_id for task_id in self.task_manager.tasks.keys() if task_id.isdigit()], 
                                  key=lambda x: int(x), reverse=True)
             self.all_task_dirs = all_task_ids
@@ -223,6 +249,9 @@ class TaskListWidget(BaseTaskWidget):
     def load_more_tasks(self):
         if self.loading:
             return
+        if self.task_manager is None:
+            return
+            
         self.loading = True
         
         # Load tasks using TaskManager instead of TaskLoader
@@ -272,6 +301,9 @@ class TaskListWidget(BaseTaskWidget):
     
     def populate_initial_tasks(self):
         """使用已经加载到task_manager中的任务来初始化UI"""
+        if self.task_manager is None:
+            return
+            
         # 获取已经加载的任务
         tasks = list(self.task_manager.tasks.values())
         # 按ID降序排列（最新的在前）
@@ -294,6 +326,14 @@ class TaskListWidget(BaseTaskWidget):
     def refresh_tasks(self):
         """手动刷新：重新加载所有任务"""
         print("🔄 手动刷新任务...")
+        # Update task manager reference first
+        self._update_task_manager_for_current_item()
+        
+        if self.task_manager is None:
+            print("⚠️ No task manager available for current timeline item")
+            self.clear_tasks()
+            return
+            
         # Reload all tasks from the task manager
         self.task_manager.load_all_tasks()
         self.clear_tasks()
@@ -347,10 +387,8 @@ class TaskListWidget(BaseTaskWidget):
     
     def on_project_switched(self, project_name):
         """处理项目切换"""
-        # 更新任务管理器和任务路径
-        project = self.workspace.get_project()
-        self.tasks_path = project.get_tasks_path()
-        self.task_manager = project.task_manager
+        # Update task manager for the new project's current timeline item
+        self._update_task_manager_for_current_item()
         
         # 刷新任务以确保显示新项目中的任务
         self.refresh_tasks()

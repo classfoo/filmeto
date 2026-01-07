@@ -4,30 +4,35 @@ from pathlib import Path
 
 from PySide6.QtGui import QPixmap, Qt
 
-from app.data.task import TaskResult
+from app.data.task import TaskResult, TaskManager
 from app.data.layer import LayerManager, LayerType
 
 from blinker import signal
 
 from utils import dict_utils
-from utils.yaml_utils import load_yaml,save_yaml
+from utils.yaml_utils import load_yaml, save_yaml
 
 
 class TimelineItem:
 
-    def __init__(self, timeline, timelinePath:str,index:int, layer_changed_signal=None):
+    def __init__(self, timeline, timelinePath: str, index: int, layer_changed_signal=None):
         self.timeline = timeline
         self.time_line_path = timelinePath
         self.index = index
-        self.image_path = os.path.join(self.time_line_path, str(self.index), "image.png")
-        self.video_path = os.path.join(self.time_line_path, str(self.index), "video.mp4")
-        self.config_path = os.path.join(self.time_line_path,str(self.index),"config.yaml")
-        self.layers_path = os.path.join(self.time_line_path, str(self.index), "layers")
+        self.item_path = os.path.join(self.time_line_path, str(self.index))
+        self.image_path = os.path.join(self.item_path, "image.png")
+        self.video_path = os.path.join(self.item_path, "video.mp4")
+        self.config_path = os.path.join(self.item_path, "config.yaml")
+        self.layers_path = os.path.join(self.item_path, "layers")
+        self.tasks_path = os.path.join(self.item_path, "tasks")
         self.config = load_yaml(self.config_path) or {}
         self._layer_changed_signal = layer_changed_signal
         self.layer_manager = None
-        # 创建layers目录（如果不存在）
+        self._task_manager = None  # Lazy-loaded TaskManager
+        
+        # Create directories if they don't exist
         os.makedirs(self.layers_path, exist_ok=True)
+        os.makedirs(self.tasks_path, exist_ok=True)
         
         # Migrate legacy duration from item config to project config
         self._migrate_duration_if_needed()
@@ -110,7 +115,7 @@ class TimelineItem:
 
     def get_item_path(self):
         """Get the timeline item's directory path"""
-        return os.path.join(self.time_line_path, str(self.index))
+        return self.item_path
 
     def get_preview_path(self):
         if os.path.exists(self.video_path):
@@ -168,6 +173,17 @@ class TimelineItem:
             self.layer_manager = LayerManager(self._layer_changed_signal)
             self.layer_manager.load_layers(self)
         return self.layer_manager
+
+    def get_task_manager(self) -> TaskManager:
+        """Get the TaskManager for this timeline item (lazy-loaded)"""
+        if self._task_manager is None:
+            self._task_manager = TaskManager(self, self.tasks_path)
+            self._task_manager.load_all_tasks()
+        return self._task_manager
+
+    def get_tasks_path(self) -> str:
+        """Get the path to the tasks directory for this timeline item"""
+        return self.tasks_path
 
     def update_by_task_result(self, result):
         self.update_image(result.get_image_path())
@@ -262,8 +278,10 @@ class Timeline:
         return self._item_cache[index]
 
     def get_current_item(self):
-        """Get the current timeline item"""
+        """Get the current timeline item (returns None if no valid item exists)"""
         current_index = self.project.get_timeline_index()
+        if current_index is None or current_index <= 0:
+            return None
         return self.get_item(current_index)
 
     def get_items(self):
@@ -327,8 +345,10 @@ class Timeline:
             pixmap.save(default_snapshot_path)
 
     def set_item_index(self, index):
-        self.project.update_config('timeline_index',index)
+        self.project.update_config('timeline_index', index)
         item = self.get_item(index)
         # Ensure the item's own LayerManager is loaded (lazy-load will handle first-time creation)
         item.get_layer_manager()
+        # Notify project about timeline item switch to reconnect task signal handlers
+        self.project.on_timeline_item_switched(item)
         self.timeline_switch.send(item)
