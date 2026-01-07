@@ -9,6 +9,7 @@ that can generate images, videos, audio, and other storyboard materials.
 import os
 import yaml
 import asyncio
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
@@ -17,6 +18,8 @@ from datetime import datetime
 from server.api.types import FilmetoTask, TaskProgress, TaskResult
 from server.plugins.plugin_manager import PluginManager, PluginInfo
 from server.plugins.plugin_ui_loader import PluginUILoader
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -303,7 +306,7 @@ class ServerManager:
         
         # Check if we need to reinitialize because workspace path has changed
         if self._initialized and str(self._workspace_path) != str(workspace_path):
-            print(f"⚠️ ServerManager workspace path changed from {self._workspace_path} to {workspace_path}")
+            logger.warning(f"⚠️ ServerManager workspace path changed from {self._workspace_path} to {workspace_path}")
             # For singleton, we'll stick with the first workspace path
             # This might need to be handled differently based on requirements
             return
@@ -391,7 +394,7 @@ class ServerManager:
                 endpoint="http://localhost:8188",
             )
             local_config.save_to_file(str(local_config_path))
-            print(f"✅ Created default server: local")
+            logger.info(f"✅ Created default server: local")
 
         # Default filmeto server
         filmeto_server_dir = self.servers_dir / "filmeto"
@@ -406,7 +409,7 @@ class ServerManager:
                 enabled=True,
             )
             filmeto_config.save_to_file(str(filmeto_config_path))
-            print(f"✅ Created default server: filmeto")
+            logger.info(f"✅ Created default server: filmeto")
 
         # Default routing rules
         if not self.router_config_path.exists():
@@ -424,7 +427,7 @@ class ServerManager:
             }
             with open(self.router_config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(default_rules, f, allow_unicode=True, sort_keys=False)
-            print(f"✅ Created default routing rules")
+            logger.info(f"✅ Created default routing rules")
 
     def cleanup_old_configs(self):
         """Clean up any old or invalid plugin configurations in the workspace"""
@@ -446,13 +449,13 @@ class ServerManager:
                     config = ServerConfig.load_from_file(str(config_path))
 
                     # If we can load it, it should be valid
-                    print(f"✅ Valid config found for: {config.name}")
+                    logger.info(f"✅ Valid config found for: {config.name}")
                 except Exception as e:
                     # If there's an error loading the config, delete the entire directory
                     import shutil
-                    print(f"❌ Invalid config in {plugin_dir.name}: {e} - removing")
+                    logger.error(f"❌ Invalid config in {plugin_dir.name}: {e} - removing")
                     shutil.rmtree(plugin_dir)
-                    print(f"🗑️ Removed invalid server config: {plugin_dir.name}")
+                    logger.info(f"🗑️ Removed invalid server config: {plugin_dir.name}")
     
     def _load_servers(self):
         """Load all server configurations"""
@@ -471,9 +474,9 @@ class ServerManager:
                 config = ServerConfig.load_from_file(str(config_path))
                 server = Server(config, self.plugin_manager, self.workspace_path)
                 self.servers[config.name] = server
-                print(f"✅ Loaded server: {config.name} ({config.server_type})")
+                logger.info(f"✅ Loaded server: {config.name} ({config.server_type})")
             except Exception as e:
-                print(f"❌ Failed to load server from {server_dir}: {e}")
+                logger.error(f"❌ Failed to load server from {server_dir}: {e}")
     
     def _load_routing_rules(self):
         """Load routing rules from configuration"""
@@ -490,9 +493,9 @@ class ServerManager:
             # Sort by priority (higher first)
             self.routing_rules.sort(key=lambda r: r.priority, reverse=True)
             
-            print(f"✅ Loaded {len(self.routing_rules)} routing rules")
+            logger.info(f"✅ Loaded {len(self.routing_rules)} routing rules")
         except Exception as e:
-            print(f"❌ Failed to load routing rules: {e}")
+            logger.error(f"❌ Failed to load routing rules: {e}")
     
     def _save_routing_rules(self):
         """Save routing rules to configuration"""
@@ -534,7 +537,7 @@ class ServerManager:
         server = Server(config, self.plugin_manager, self.workspace_path)
         self.servers[config.name] = server
         
-        print(f"✅ Added server: {config.name}")
+        logger.info(f"✅ Added server: {config.name}")
         return server
     
     def get_server(self, name: str) -> Optional[Server]:
@@ -587,7 +590,7 @@ class ServerManager:
         server = Server(config, self.plugin_manager, self.workspace_path)
         self.servers[name] = server
         
-        print(f"✅ Updated server: {name}")
+        logger.info(f"✅ Updated server: {name}")
         return server
     
     def delete_server(self, name: str):
@@ -616,7 +619,7 @@ class ServerManager:
             import shutil
             shutil.rmtree(server_dir)
         
-        print(f"✅ Deleted server: {name}")
+        logger.info(f"✅ Deleted server: {name}")
     
     # Routing Operations
     
@@ -625,13 +628,13 @@ class ServerManager:
         self.routing_rules.append(rule)
         self.routing_rules.sort(key=lambda r: r.priority, reverse=True)
         self._save_routing_rules()
-        print(f"✅ Added routing rule: {rule.name}")
+        logger.info(f"✅ Added routing rule: {rule.name}")
     
     def remove_routing_rule(self, name: str):
         """Remove a routing rule by name"""
         self.routing_rules = [r for r in self.routing_rules if r.name != name]
         self._save_routing_rules()
-        print(f"✅ Removed routing rule: {name}")
+        logger.info(f"✅ Removed routing rule: {name}")
     
     def get_routing_rules(self) -> List[RoutingRule]:
         """Get all routing rules"""
