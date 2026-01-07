@@ -324,6 +324,10 @@ class CharacterPanel(BasePanel):
         
         # Character manager will be loaded in load_data()
         # Data loading is deferred until panel activation
+        # But if panel is already visible/active, start loading immediately
+        if self._is_active or self.isVisible():
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self._perform_initial_load)
     
     def resizeEvent(self, event):
         """Handle resize event - update layout like file manager"""
@@ -354,10 +358,32 @@ class CharacterPanel(BasePanel):
         if project:
             self.character_manager = project.get_character_manager()
     
+    def _ensure_character_manager(self) -> bool:
+        """Ensure character manager is loaded, show loading if needed
+        
+        Returns:
+            True if character manager is available, False otherwise
+        """
+        if self.character_manager:
+            return True
+        
+        # If data is not loaded yet, trigger loading
+        if not self._data_loaded:
+            # Show loading state
+            self.show_loading(tr("正在加载角色管理器..."))
+            # Trigger loading
+            self._perform_initial_load()
+            # Show message to user
+            QMessageBox.warning(self, tr("提示"), tr("角色管理器正在加载中，请稍候再试"))
+            return False
+        
+        # If data was loaded but manager is None, it means loading failed
+        QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
+        return False
+    
     def _on_add_character(self):
         """Handle add character button click"""
-        if not self.character_manager:
-            QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化"))
+        if not self._ensure_character_manager():
             return
         
         dialog = CharacterEditDialog(self.character_manager, parent=self)
@@ -366,11 +392,15 @@ class CharacterPanel(BasePanel):
     
     def _on_draw_character(self):
         """Handle draw character button click (抽卡)"""
+        if not self._ensure_character_manager():
+            return
         # TODO: Implement character drawing feature
         QMessageBox.information(self, tr("提示"), tr("抽卡功能开发中..."))
     
     def _on_extract_character(self):
         """Handle extract character button click (提取)"""
+        if not self._ensure_character_manager():
+            return
         # TODO: Implement character extraction feature
         QMessageBox.information(self, tr("提示"), tr("提取功能开发中..."))
     
@@ -496,7 +526,10 @@ class CharacterPanel(BasePanel):
 
     def _on_load_error(self, error_msg: str, exception: Exception):
         """Handle loading error"""
-        print(f"❌ Error loading characters: {error_msg}")
+        print(f"❌ Error loading character manager: {error_msg}")
+        # Mark as loaded to avoid infinite retries
+        self._data_loaded = True
+        self.hide_loading()
 
     def _on_character_saved(self, character_name: str):
         """Handle character saved signal"""
@@ -516,10 +549,14 @@ class CharacterPanel(BasePanel):
         # Reload all characters
         self._load_characters()
     
+    def _perform_initial_load(self):
+        """Override to prevent setting _data_loaded before async loading completes"""
+        if not self._data_loaded:
+            self.load_data()
+            # Don't set _data_loaded here - it will be set in _on_character_manager_loaded
+    
     def load_data(self):
         """Load character data when panel is first activated."""
-        super().load_data()
-        
         # Get project - this should be fast if workspace is already initialized
         # But if workspace initialization is deferred, this might trigger it
         # So we defer this to background thread
@@ -544,17 +581,24 @@ class CharacterPanel(BasePanel):
             self.character_manager = character_manager
             # Connect signals after manager is loaded
             self._connect_signals()
+            # Mark data as loaded only after manager is successfully loaded
+            self._data_loaded = True
             # Load characters
             self._load_characters()
+        else:
+            # If loading failed, still mark as loaded to avoid infinite retries
+            self._data_loaded = True
+            self.hide_loading()
     
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
         # Reload characters when panel is activated (refresh data)
-        if self._data_loaded:
-            self._load_character_manager()
+        # Only reload if data was already loaded (i.e., not the first activation)
+        if self._data_loaded and self.character_manager:
             self._connect_signals()
             self._load_characters()
+        # If _data_loaded is False, load_data() will be called by base class
         print("✅ Character panel activated")
     
     def on_deactivated(self):
@@ -564,7 +608,9 @@ class CharacterPanel(BasePanel):
     
     def on_project_switched(self, project_name: str):
         """Handle project switch"""
+        # Reset data loaded state to trigger reload
+        self._data_loaded = False
+        # Clear existing character manager
+        self.character_manager = None
+        # Call super to trigger reload if panel is active
         super().on_project_switched(project_name)
-        self._load_character_manager()
-        self._connect_signals()
-        self._load_characters()
