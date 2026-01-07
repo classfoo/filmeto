@@ -74,20 +74,26 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
     def switch_to_panel(self, panel_name: str):
         """
         Switch to the specified panel asynchronously to avoid blocking UI.
-        
+
         Handles lazy instantiation, panel lifecycle, and visibility management.
-        
+
         Args:
             panel_name: Name of the panel to switch to (e.g., 'agent', 'chat_history')
         """
         if panel_name not in self.panel_registry:
             logger.warning(f"⚠️ Unknown right panel: {panel_name}")
             return
-        
+
+        # Safety check to prevent accessing destroyed objects
+        from shiboken6 import isValid
+        if not self.stacked_widget or not isValid(self.stacked_widget):
+            logger.warning(f"⚠️ Stacked widget is destroyed, skipping panel switch: {panel_name}")
+            return
+
         # Deactivate current panel if exists
-        if self.current_panel:
+        if self.current_panel and isValid(self.current_panel):
             self.current_panel.on_deactivated()
-        
+
         # Check if panel instance exists in cache
         if panel_name not in self.panel_instances:
             # Defer creation to avoid blocking
@@ -99,6 +105,12 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
 
     def _deferred_create_panel(self, panel_name: str):
         """Internal helper to create panel instance without blocking the immediate event loop"""
+        from shiboken6 import isValid
+        # Safety check to prevent accessing destroyed objects
+        if not self.stacked_widget or not isValid(self.stacked_widget):
+            logger.warning(f"⚠️ Stacked widget is destroyed, skipping panel creation: {panel_name}")
+            return
+
         panel_info = self.panel_registry[panel_name]
         try:
             import time
@@ -106,26 +118,35 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
             # Import panel class dynamically
             import importlib
             module_path, class_name = panel_info
-            
+
             import_start = time.time()
             module = importlib.import_module(module_path)
             panel_class = getattr(module, class_name)
             import_time = (time.time() - import_start) * 1000
-            
+
             # Create panel instance
             init_start = time.time()
             panel_instance = panel_class(self.workspace, self)
             self.panel_instances[panel_name] = panel_instance
             init_time = (time.time() - init_start) * 1000
-            
+
+            # Double-check that stacked widget still exists before adding widget
+            if not self.stacked_widget or not isValid(self.stacked_widget):
+                logger.warning(f"⚠️ Stacked widget destroyed after panel creation, removing panel: {panel_name}")
+                # Clean up the panel instance since we can't add it to the stacked widget
+                panel_instance.setParent(None)
+                if panel_name in self.panel_instances:
+                    del self.panel_instances[panel_name]
+                return
+
             self.stacked_widget.addWidget(panel_instance)
             create_time = (time.time() - create_start) * 1000
             logger.info(f"✅ Created right panel: {panel_name} (Total: {create_time:.2f}ms, Import: {import_time:.2f}ms, Init: {init_time:.2f}ms)")
-            
+
             # Defer panel activation
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self._finalize_panel_switch(panel_name))
-            
+
         except Exception as e:
             logger.error(f"❌ Error creating right panel {panel_name}: {e}")
             import traceback
@@ -133,11 +154,27 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
 
     def _finalize_panel_switch(self, panel_name: str):
         """Complete the panel switch after instance is ready"""
+        # Safety check to prevent accessing destroyed objects
+        from shiboken6 import isValid
+        if not self.stacked_widget or not isValid(self.stacked_widget):
+            logger.warning(f"⚠️ Stacked widget is destroyed, skipping panel switch: {panel_name}")
+            return
+
+        if panel_name not in self.panel_instances:
+            logger.warning(f"⚠️ Panel {panel_name} not found in instances, skipping switch")
+            return
+
         panel = self.panel_instances[panel_name]
+
+        # Double-check that panel hasn't been destroyed
+        if not panel or not isValid(panel):
+            logger.warning(f"⚠️ Panel {panel_name} is destroyed, skipping switch")
+            return
+
         self.stacked_widget.setCurrentWidget(panel)
         panel.on_activated()
         self.current_panel = panel
-        
+
         # Emit signal
         self.panel_switched.emit(panel_name)
         logger.info(f"🔄 Switched to right panel: {panel_name}")

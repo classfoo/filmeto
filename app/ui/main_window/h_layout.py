@@ -42,15 +42,31 @@ class MainWindowHLayout(BaseWidget):
         self.left_bar.bar.set_selected_button('character')
         self.right_bar.bar.set_selected_button('agent')
         
-        # Switch to default panels immediately (panels will be created lazily)
-        # Use minimal delay to ensure UI is ready but don't wait too long
-        QTimer.singleShot(10, self._switch_to_default_panels)
+        # Switch to default panels after UI is ready (panels will be created lazily)
+        # Use a more robust approach to ensure UI components are fully initialized
+        # before attempting to switch panels to avoid segfault during transitions
+        QTimer.singleShot(50, self._switch_to_default_panels)  # Increased delay to ensure UI is ready
     
     def _switch_to_default_panels(self):
         """Switch to default panels after UI is rendered."""
+        # Check if components still exist before switching (avoid segfault during transitions)
+        if not hasattr(self, 'workspace') or not self.workspace:
+            return
+
+        if not hasattr(self.workspace, 'workspace_top') or not self.workspace.workspace_top:
+            return
+
+        if (not hasattr(self.workspace.workspace_top, 'left') or
+            not self.workspace.workspace_top.left):
+            return
+
+        if (not hasattr(self.workspace.workspace_top, 'right') or
+            not self.workspace.workspace_top.right):
+            return
+
         # Switch to character panel by default (panel will be created lazily)
         self.workspace.workspace_top.left.switch_to_panel('character')
-        
+
         # Switch to agent panel by default for right side (panel will be created lazily)
         self.workspace.workspace_top.right.switch_to_panel('agent')
 
