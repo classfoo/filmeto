@@ -11,9 +11,12 @@ import json
 import yaml
 import asyncio
 import subprocess
+import logging
 from pathlib import Path
 from typing import Dict, Optional, Any, AsyncIterator, List
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 from server.api.types import FilmetoTask, TaskProgress, TaskResult, ProgressType
 from server.api.types import PluginNotFoundError, PluginExecutionError
@@ -68,10 +71,10 @@ class PluginProcess:
             PluginExecutionError: If plugin fails to start
         """
         if self.process and self.process.returncode is None:
-            print(f"Plugin {self.plugin_info.name} is already running")
+            logger.warning(f"Plugin {self.plugin_info.name} is already running")
             return
         
-        print(f"Starting plugin: {self.plugin_info.name}")
+        logger.info(f"Starting plugin: {self.plugin_info.name}")
         
         try:
             # Determine Python executable
@@ -97,7 +100,7 @@ class PluginProcess:
                 
                 if ready_msg and ready_msg.get("method") == "ready":
                     self.is_ready = True
-                    print(f"Plugin {self.plugin_info.name} is ready")
+                    logger.info(f"Plugin {self.plugin_info.name} is ready")
                 else:
                     raise PluginExecutionError(
                         f"Plugin {self.plugin_info.name} did not send ready message",
@@ -161,7 +164,7 @@ class PluginProcess:
                     break
                     
             except Exception as e:
-                print(f"Error receiving message from plugin: {e}")
+                logger.error(f"Error receiving message from plugin: {e}")
                 break
     
     async def ping(self) -> bool:
@@ -203,7 +206,7 @@ class PluginProcess:
                 self.process.kill()
                 await self.process.wait()
             except Exception as e:
-                print(f"Error stopping plugin: {e}")
+                logger.error(f"Error stopping plugin: {e}")
             
             self.process = None
         
@@ -239,10 +242,10 @@ class PluginProcess:
             
             return json.loads(line.decode().strip())
         except json.JSONDecodeError as e:
-            print(f"Error parsing JSON from plugin: {e}")
+            logger.error(f"Error parsing JSON from plugin: {e}")
             return None
         except Exception as e:
-            print(f"Error reading from plugin: {e}")
+            logger.error(f"Error reading from plugin: {e}")
             return None
     
     def __repr__(self) -> str:
@@ -274,10 +277,10 @@ class PluginManager:
         """
         Discover available plugins in the plugins directory.
         """
-        print(f"Discovering plugins in: {self.plugins_dir}")
+        logger.info(f"Discovering plugins in: {self.plugins_dir}")
 
         if not self.plugins_dir.exists():
-            print(f"Plugins directory not found: {self.plugins_dir}")
+            logger.error(f"Plugins directory not found: {self.plugins_dir}")
             return
 
         for plugin_dir in self.plugins_dir.iterdir():
@@ -298,13 +301,13 @@ class PluginManager:
 
                 # Either tool_type (old way) or tools (new way) must be present
                 if not all(field in config for field in ['name', 'version', 'description']):
-                    print(f"⚠️ Plugin config missing required fields: {plugin_dir.name}")
+                    logger.error(f"⚠️ Plugin config missing required fields: {plugin_dir.name}")
                     continue
 
                 # Find main script
                 main_script = plugin_dir / "main.py"
                 if not main_script.exists():
-                    print(f"⚠️ Plugin main.py not found: {plugin_dir.name}")
+                    logger.error(f"⚠️ Plugin main.py not found: {plugin_dir.name}")
                     continue
 
                 # Check for requirements.txt
@@ -330,7 +333,7 @@ class PluginManager:
                         )
                         tools.append(tool_info)
                 else:
-                    print(f"⚠️ Plugin config missing 'tool_type' or 'tools': {plugin_dir.name}")
+                    logger.error(f"⚠️ Plugin config missing 'tool_type' or 'tools': {plugin_dir.name}")
                     continue
 
                 # Create plugin info
@@ -351,10 +354,10 @@ class PluginManager:
 
                 # Print discovered tools
                 tool_names = [t.name for t in tools]
-                print(f"✅ Discovered plugin: {plugin_info.name} (supports: {', '.join(tool_names)})")
+                logger.info(f"✅ Discovered plugin: {plugin_info.name} (supports: {', '.join(tool_names)})")
 
             except Exception as e:
-                print(f"❌ Failed to load plugin config {plugin_dir.name}: {e}")
+                logger.error(f"❌ Failed to load plugin config {plugin_dir.name}: {e}")
     
     async def get_plugin(self, plugin_name: str) -> PluginProcess:
         """
@@ -403,7 +406,7 @@ class PluginManager:
         if plugin_name in self.plugins:
             await self.plugins[plugin_name].stop()
             del self.plugins[plugin_name]
-            print(f"Stopped plugin: {plugin_name}")
+            logger.info(f"Stopped plugin: {plugin_name}")
     
     async def stop_all_plugins(self):
         """Stop all running plugins"""

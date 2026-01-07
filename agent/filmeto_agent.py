@@ -76,7 +76,9 @@ class FilmetoAgent:
                 # This will cause an error when trying to use the agent
                 # So we'll set a flag to indicate the issue
                 self.llm = None
-                print("⚠️ Warning: No OpenAI API key provided. Agent will not function until API key is set.")
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("⚠️ Warning: No OpenAI API key provided. Agent will not function until API key is set.")
                 return
         
         self.llm = ChatOpenAI(**llm_kwargs)
@@ -366,7 +368,9 @@ class FilmetoAgent:
             self.graph = self._build_graph()
         except ValueError:
             # LLM might still not be initialized
-            print("⚠️ Cannot build graph: LLM not initialized")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("⚠️ Cannot build graph: LLM not initialized")
     
     def get_conversation_history(self, conversation_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """

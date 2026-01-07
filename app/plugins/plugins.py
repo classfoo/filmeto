@@ -68,7 +68,7 @@ class Plugins:
         tools_dir = current_dir / "tools"
 
         if not tools_dir.exists():
-            print(f"Tools directory not found: {tools_dir}")
+            logger.error(f"Tools directory not found: {tools_dir}")
             return
 
         # Scan each subdirectory in tools/
@@ -90,11 +90,11 @@ class Plugins:
                         tool_info = self._create_tool_info(tool_id, obj, tool_module_path)
                         if tool_info:
                             self._tool_registry[tool_id] = tool_info
-                            print(f"Registered tool: {tool_id} ({tool_info.name})")
+                            logger.info(f"Registered tool: {tool_id} ({tool_info.name})")
                         break
 
             except Exception as e:
-                print(f"Failed to load tool from {tool_module_path}: {e}")
+                logger.error(f"Failed to load tool from {tool_module_path}: {e}")
 
     def _create_tool_info(self, tool_id: str, tool_class: Type[BaseTool], module_path: str) -> Optional[ToolInfo]:
         """Create ToolInfo from tool class by getting class method properties"""
@@ -111,7 +111,7 @@ class Plugins:
                 module_path=module_path
             )
         except Exception as e:
-            print(f"Failed to create tool info for {tool_id}: {e}")
+            logger.error(f"Failed to create tool info for {tool_id}: {e}")
             return None
 
     def get_tool_registry(self) -> Dict[str, ToolInfo]:
@@ -124,5 +124,5 @@ class Plugins:
 
     def _discover_services(self):
         """Discover and register service plugins"""
-        print("🔍 Discovering service plugins...")
+        logger.info("🔍 Discovering service plugins...")
         self._service_registry.discover_services()
