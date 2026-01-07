@@ -1,7 +1,7 @@
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QCursor
 from PySide6.QtWidgets import (QWidget, QHBoxLayout,
                                QPushButton, QMenu)
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
@@ -15,6 +15,8 @@ from utils.i18n_utils import translation_manager, tr
 class MainWindowTopSideBar(BaseWidget):
     # Signal to notify when language changes
     language_changed = Signal(str)
+    # Signal for home button click
+    home_clicked = Signal()
 
     def __init__(self, window, workspace: Workspace):
         super(MainWindowTopSideBar, self).__init__(workspace)
@@ -35,6 +37,33 @@ class MainWindowTopSideBar(BaseWidget):
         self.title_bar.setObjectName("main_window_top_bar_left")
         # add to layout
         self.layout.addWidget(self.title_bar)
+        
+        # Home button (to return to startup mode)
+        self.home_button = QPushButton("\ue600")  # Home icon
+        self.home_button.setObjectName("home_button")
+        self.home_button.setFixedSize(32, 32)
+        self.home_button.setToolTip(tr("返回首页"))
+        self.home_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.home_button.clicked.connect(self._on_home_clicked)
+        self.home_button.setStyleSheet("""
+            QPushButton#home_button {
+                background-color: #3c3f41;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                color: #ffffff;
+                font-size: 14px;
+                font-family: iconfont;
+            }
+            QPushButton#home_button:hover {
+                background-color: #4c5052;
+                border: 1px solid #666666;
+            }
+            QPushButton#home_button:pressed {
+                background-color: #2c2f31;
+            }
+        """)
+        self.layout.addWidget(self.home_button)
+        
         self.layout.addWidget(ProjectMenu(workspace))
         self.layout.addSpacing(100)
         self.layout.addWidget(QPushButton("\ue83f", self))
@@ -247,4 +276,8 @@ class MainWindowTopSideBar(BaseWidget):
                 preview_widget.set_preview_size(width, height)
             else:
                 print("Preview widget not found")
+    
+    def _on_home_clicked(self):
+        """Handle home button click to return to startup mode."""
+        self.home_clicked.emit()
 
