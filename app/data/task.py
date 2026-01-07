@@ -1,5 +1,21 @@
+"""
+Task Management Module
+
+This module provides a two-tier task management architecture:
+
+1. ProjectTaskManager: Project-level task orchestration
+   - Manages task signals (create, progress, finished)
+   - Handles task execution queue
+   - Coordinates task submission across timeline items
+
+2. TimelineItemTaskManager: Timeline-item-level task storage
+   - Manages task storage for a specific timeline item
+   - Handles task CRUD operations
+   - Provides task listing and pagination
+"""
+
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Dict, List, TYPE_CHECKING
 
 from blinker import signal
 
@@ -7,167 +23,292 @@ from app.spi.model import BaseModelResult
 from utils import dict_utils
 from utils.async_queue_utils import AsyncQueue
 from utils.progress_utils import Progress
-from utils.queue_utils import AsyncQueueManager
 from utils.yaml_utils import load_yaml, save_yaml
 
+if TYPE_CHECKING:
+    from app.data.timeline import TimelineItem
+    from app.data.project import Project
 
-class Task():
 
-    def __init__(self, task_manager, path: str, options: Any):
-        self.task_manager = task_manager
+class Task:
+    """
+    Represents a single task with its configuration and state.
+    
+    A Task belongs to a TimelineItemTaskManager for storage,
+    but reports progress through the ProjectTaskManager.
+    """
+
+    def __init__(self, timeline_item_task_manager: 'TimelineItemTaskManager', 
+                 project_task_manager: 'ProjectTaskManager',
+                 path: str, options: Any):
+        """
+        Initialize a Task.
+        
+        Args:
+            timeline_item_task_manager: The TimelineItemTaskManager for storage
+            project_task_manager: The ProjectTaskManager for progress callbacks
+            path: Path to the task directory
+            options: Task configuration options
+        """
+        self.timeline_item_task_manager = timeline_item_task_manager
+        self.project_task_manager = project_task_manager
         self.path = path
         self.config_path = os.path.join(self.path, "config.yaml")
         self.options = options or {}
         
-        # Extract properties from options that were in TaskData
-        self.task_id = os.path.basename(path)  # Get task ID from path
+        # Extract properties from options
+        self.task_id = os.path.basename(path)
         self.title = f'Task {self.task_id}'
         self.tool = self.options.get("tool", "txt2img")
         self.model = self.options.get("model", "comfyui")
         self.percent = self.options.get("percent", 0)
         self.status = self.options.get("status", "running")
-        self.log = self.options.get("log", "")  # For compatibility
-        return
+        self.log = self.options.get("log", "")
 
-    def get_config_path(self):
+    @property
+    def task_manager(self) -> 'ProjectTaskManager':
+        """Backward compatibility: return project task manager for progress callbacks"""
+        return self.project_task_manager
+
+    def get_config_path(self) -> str:
         return self.config_path
 
     def update_from_config(self):
         """Update task properties from config file"""
         if os.path.exists(self.config_path):
-            from utils.yaml_utils import load_yaml
             config = load_yaml(self.config_path) or {}
             self.options.update(config)
             
-            # Update properties from the config
             self.title = f'Task {self.task_id}'
-            self.tool = config.get("task_type", "txt2img")
+            self.tool = config.get("task_type", config.get("tool", "txt2img"))
             self.model = self.options.get("model", "comfyui")
-            self.percent = config.get("progress", 0)
+            self.percent = config.get("progress", config.get("percent", 0))
             self.status = config.get("status", "running")
             self.log = config.get("log", "")
 
-class TaskResult():
-    def __init__(self,task:Task, result:BaseModelResult):
+
+class TaskResult:
+    """Represents the result of a completed task."""
+    
+    def __init__(self, task: Task, result: BaseModelResult):
         self.task = task
         self.result = result
-        return
 
-    def get_timeline_index(self):
+    def get_timeline_index(self) -> int:
         return self.task.options['timeline_index']
 
-    def get_timeline_item_id(self):
+    def get_timeline_item_id(self) -> int:
         return self.task.options.get('timeline_item_id', self.task.options.get('timeline_index'))
 
-    def get_image_path(self):
+    def get_image_path(self) -> Optional[str]:
         return self.result.get_image_path()
 
-    def get_video_path(self):
+    def get_video_path(self) -> Optional[str]:
         return self.result.get_video_path()
 
-    def get_task(self):
+    def get_task(self) -> Task:
         return self.task
 
-    def get_task_id(self):
+    def get_task_id(self) -> str:
         return self.task.task_id
 
-class TaskProgress(Progress):
 
-    def __init__(self,task:Task):
-        super(TaskProgress, self).__init__()
+class TaskProgress(Progress):
+    """Tracks progress of a running task."""
+
+    def __init__(self, task: Task):
+        super().__init__()
         self.task = task
         self.percent = 0
         self.logs = ''
 
-    def on_progress(self, percent:int, logs:str):
+    def on_progress(self, percent: int, logs: str):
         self.percent = percent
         self.logs = logs
         dict_utils.set_value(self.task.options, 'percent', percent)
         dict_utils.set_value(self.task.options, 'logs', logs)
-        #刷新进度
+        # Save progress to config file
         save_yaml(self.task.config_path, self.task.options)
-        self.task.task_manager.on_task_progress(self)
+        # Notify through project task manager
+        self.task.project_task_manager.on_task_progress(self)
 
-class TaskManager():
+
+class ProjectTaskManager:
     """
-    TaskManager manages tasks at the timeline_item level.
-    Each timeline_item has its own TaskManager and task storage directory.
+    Project-level task manager for orchestrating task execution.
+    
+    Responsibilities:
+    - Manage project-wide task signals (create, progress, finished)
+    - Handle task execution queue
+    - Coordinate task submission across timeline items
+    - Provide signal connection methods for UI components
     """
 
-    task_create = signal("task_create")
+    # Project-level signals
+    task_create = signal("project_task_create")
+    task_finished = signal("project_task_finished")
+    task_progress = signal("project_task_progress")
 
-    task_finished = signal("task_finished")
-
-    task_progress = signal("task_progress")
-
-    def __init__(self, timeline_item, tasks_path: str):
+    def __init__(self, project: 'Project'):
         """
-        Initialize TaskManager for a specific timeline_item.
+        Initialize ProjectTaskManager.
         
         Args:
-            timeline_item: The TimelineItem instance this manager belongs to
-            tasks_path: Path to the tasks directory for this timeline_item
+            project: The Project instance this manager belongs to
         """
-        self.timeline_item = timeline_item
-        self.tasks_path = tasks_path
-        self.tasks = {}  # task_id -> Task object
-        self.create_consumer = AsyncQueue()
-        self.create_consumer.connect("create", self.create_task)
-        self.execute_consumer = AsyncQueue()
+        self.project = project
         
-        # Create tasks directory if it doesn't exist
-        os.makedirs(self.tasks_path, exist_ok=True)
-        return
+        # Task execution queue
+        self.create_consumer = AsyncQueue()
+        self.create_consumer.connect("create", self._on_create_task)
+        self.execute_consumer = AsyncQueue()
 
     async def start(self):
-        # Load all existing tasks from the tasks directory
-        self.load_all_tasks()
+        """Start the task manager (called when project starts)"""
+        pass
 
+    # Signal connection methods
     def connect_task_create(self, func):
+        """Connect a handler to task creation events"""
         self.task_create.connect(func)
 
     def connect_task_execute(self, func):
+        """Connect a handler to task execution events"""
         self.execute_consumer.connect("execute", func)
 
     def connect_task_progress(self, func):
+        """Connect a handler to task progress events"""
         self.task_progress.connect(func)
 
     def connect_task_finished(self, func):
+        """Connect a handler to task completion events"""
         self.task_finished.connect(func)
 
     def submit_task(self, options: dict):
+        """
+        Submit a new task for execution.
+        
+        The task will be stored in the current timeline item's task manager.
+        
+        Args:
+            options: Task configuration options
+        """
+        # Ensure timeline_index and timeline_item_id are set
+        timeline_index = self.project.get_timeline_index()
+        options['timeline_index'] = timeline_index
+        options['timeline_item_id'] = timeline_index
+        
         self.create_consumer.add("create", options)
 
+    async def _on_create_task(self, options: Any):
+        """Internal handler for task creation from the queue"""
+        timeline_item = self.project.get_timeline().get_current_item()
+        if timeline_item is None:
+            print("⚠️ No current timeline item, cannot create task")
+            return
+        
+        # Get the timeline item's task manager
+        item_task_manager = timeline_item.get_task_manager()
+        
+        # Create the task through the timeline item's task manager
+        task = await item_task_manager.create_task(options, self)
+        
+        if task:
+            # Emit task creation signal
+            self.task_create.send(task)
+            # Add to execution queue
+            self.execute_consumer.add("execute", task)
+
+    def on_task_progress(self, task_progress: TaskProgress):
+        """Handle task progress update"""
+        self.task_progress.send(task_progress)
+
+    def on_task_finished(self, result: TaskResult):
+        """Handle task completion"""
+        self.task_finished.send(result)
+
+
+class TimelineItemTaskManager:
+    """
+    Timeline-item-level task manager for task storage.
+    
+    Responsibilities:
+    - Manage task storage for a specific timeline item
+    - Handle task CRUD operations
+    - Provide task listing and pagination
+    """
+
+    def __init__(self, timeline_item: 'TimelineItem', tasks_path: str):
+        """
+        Initialize TimelineItemTaskManager.
+        
+        Args:
+            timeline_item: The TimelineItem instance this manager belongs to
+            tasks_path: Path to the tasks directory for this timeline item
+        """
+        self.timeline_item = timeline_item
+        self.tasks_path = tasks_path
+        self.tasks: Dict[str, Task] = {}
+        
+        # Create tasks directory if it doesn't exist
+        os.makedirs(self.tasks_path, exist_ok=True)
+
+    @property
+    def project(self) -> 'Project':
+        """Get the project this task manager belongs to"""
+        return self.timeline_item.timeline.project
+
+    @property
+    def project_task_manager(self) -> Optional[ProjectTaskManager]:
+        """Get the project-level task manager"""
+        return self.project.task_manager if self.project else None
+
     def _get_next_task_index(self) -> int:
-        """Get the next task index for this timeline_item"""
+        """Get the next task index for this timeline item"""
         task_index = self.timeline_item.get_config_value('task_index') or 0
         return task_index
 
     def _increment_task_index(self):
-        """Increment the task index for this timeline_item"""
+        """Increment the task index for this timeline item"""
         current = self._get_next_task_index()
         self.timeline_item.set_config_value('task_index', current + 1)
 
-    async def create_task(self, options: Any):
-        num = self._get_next_task_index()
-        self._increment_task_index()
-        task_fold_path = os.path.join(self.tasks_path, str(num))
-        os.makedirs(task_fold_path, exist_ok=True)
-        save_yaml(os.path.join(task_fold_path, "config.yaml"), options)
-        task = Task(self, task_fold_path, options)
-        self.tasks[str(num)] = task
-        self.task_create.send(task)
-        self.execute_consumer.add("execute", task)
-        return
+    async def create_task(self, options: Any, project_task_manager: ProjectTaskManager) -> Optional[Task]:
+        """
+        Create a new task and store it.
+        
+        Args:
+            options: Task configuration options
+            project_task_manager: The project-level task manager for callbacks
+            
+        Returns:
+            The created Task, or None if creation failed
+        """
+        try:
+            num = self._get_next_task_index()
+            self._increment_task_index()
+            
+            task_fold_path = os.path.join(self.tasks_path, str(num))
+            os.makedirs(task_fold_path, exist_ok=True)
+            save_yaml(os.path.join(task_fold_path, "config.yaml"), options)
+            
+            task = Task(self, project_task_manager, task_fold_path, options)
+            self.tasks[str(num)] = task
+            
+            return task
+        except Exception as e:
+            print(f"❌ Error creating task: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
-    def on_task_progress(self, task_progress: TaskProgress):
-        self.task_progress.send(task_progress)
-
-    def on_task_finished(self, result: TaskResult):
-        self.task_finished.send(result)
-
-    def load_all_tasks(self):
-        """Load all existing tasks from the tasks directory"""
+    def load_all_tasks(self) -> List[Task]:
+        """
+        Load all existing tasks from the tasks directory.
+        
+        Returns:
+            List of loaded Task objects
+        """
         if not os.path.exists(self.tasks_path):
             print(f"⚠️ Tasks directory does not exist: {self.tasks_path}")
             return []
@@ -185,6 +326,8 @@ class TaskManager():
 
             # Load each task
             loaded_tasks = []
+            project_tm = self.project_task_manager
+            
             for task_dir_name in task_dirs:
                 task_dir_path = os.path.join(self.tasks_path, task_dir_name)
                 
@@ -192,11 +335,10 @@ class TaskManager():
                 config_path = os.path.join(task_dir_path, "config.yaml")
                 options = {}
                 if os.path.exists(config_path):
-                    from utils.yaml_utils import load_yaml
                     options = load_yaml(config_path) or {}
                 
                 # Create Task object
-                task = Task(self, task_dir_path, options)
+                task = Task(self, project_tm, task_dir_path, options)
                 self.tasks[task_dir_name] = task
                 loaded_tasks.append(task)
             
@@ -209,58 +351,43 @@ class TaskManager():
             traceback.print_exc()
             return []
 
-    def get_task_by_id(self, task_id: str):
+    def get_task_by_id(self, task_id: str) -> Optional[Task]:
         """Get a task by its ID"""
         return self.tasks.get(task_id)
 
-    def load_tasks_paginated(self, start_index: int, count: int):
-        """Load tasks in a paginated manner (similar to task_loader functionality)"""
-        all_task_ids = sorted([task_id for task_id in self.tasks.keys() if task_id.isdigit()], 
-                             key=lambda x: int(x), reverse=True)
+    def get_all_tasks(self, start_index: int = 0, count: int = None) -> List[Task]:
+        """
+        Get all tasks with optional pagination.
         
-        # Get the slice of task IDs to load
-        end_index = min(start_index + count, len(all_task_ids))
-        task_ids_to_load = all_task_ids[start_index:end_index]
+        Args:
+            start_index: Starting index for pagination
+            count: Number of tasks to return (None for all)
+            
+        Returns:
+            List of Task objects
+        """
+        all_task_ids = sorted(
+            [task_id for task_id in self.tasks.keys() if task_id.isdigit()],
+            key=lambda x: int(x),
+            reverse=True
+        )
         
-        # Get the actual task objects
-        tasks = []
-        for task_id in task_ids_to_load:
-            task = self.tasks.get(task_id)
-            if task:
-                tasks.append(task)
-        
-        return tasks
-
-    def get_all_tasks(self, start_index: int = 0, count: int = None):
-        """Get all tasks as Task objects for UI (replaces previous task_loader functionality)"""
         if count is None:
-            # Load all tasks without pagination
-            all_task_ids = sorted([task_id for task_id in self.tasks.keys() if task_id.isdigit()], 
-                                 key=lambda x: int(x), reverse=True)
             task_ids_to_load = all_task_ids[start_index:]
         else:
-            # Load paginated tasks
-            all_task_ids = sorted([task_id for task_id in self.tasks.keys() if task_id.isdigit()], 
-                                 key=lambda x: int(x), reverse=True)
             end_index = min(start_index + count, len(all_task_ids))
             task_ids_to_load = all_task_ids[start_index:end_index]
         
-        # Get the actual task objects
-        task_list = []
-        for task_id in task_ids_to_load:
-            task = self.tasks.get(task_id)
-            if task:
-                task_list.append(task)
-        
-        return task_list
-    
+        return [self.tasks[task_id] for task_id in task_ids_to_load if task_id in self.tasks]
+
+    def get_task_count(self) -> int:
+        """Get the total number of tasks"""
+        return len(self.tasks)
+
     def get_timeline_item_id(self) -> int:
         """Get the timeline item ID this manager belongs to"""
         return self.timeline_item.get_index()
-    
-    @property
-    def project(self):
-        """Get the project this task manager belongs to (for backward compatibility)"""
-        return self.timeline_item.timeline.project
 
 
+# Backward compatibility aliases
+TaskManager = TimelineItemTaskManager
