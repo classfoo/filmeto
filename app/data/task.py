@@ -184,27 +184,42 @@ class ProjectTaskManager:
         """Connect a handler to task completion events"""
         self.task_finished.connect(func)
 
-    def submit_task(self, options: dict):
+    def submit_task(self, options: dict, timeline_item_id: int = None):
         """
         Submit a new task for execution.
         
-        The task will be stored in the current timeline item's task manager.
+        The task will be stored in the specified timeline item's task manager.
         
         Args:
             options: Task configuration options
+            timeline_item_id: The timeline item ID to associate with this task.
+                             If None, uses the current timeline index.
         """
-        # Ensure timeline_index and timeline_item_id are set
-        timeline_index = self.project.get_timeline_index()
-        options['timeline_index'] = timeline_index
-        options['timeline_item_id'] = timeline_index
+        # Use provided timeline_item_id or fall back to current timeline index
+        if timeline_item_id is None:
+            timeline_item_id = self.project.get_timeline_index()
+        
+        # Store both timeline_index and timeline_item_id in options
+        # timeline_index is kept for backward compatibility
+        options['timeline_index'] = timeline_item_id
+        options['timeline_item_id'] = timeline_item_id
         
         self.create_consumer.add("create", options)
 
     async def _on_create_task(self, options: Any):
         """Internal handler for task creation from the queue"""
-        timeline_item = self.project.get_timeline().get_current_item()
+        # Get timeline_item_id from options (set at submission time)
+        timeline_item_id = options.get('timeline_item_id')
+        if timeline_item_id is None:
+            print("⚠️ No timeline_item_id in task options, cannot create task")
+            return
+        
+        # Get the specific timeline item by ID (not current item)
+        timeline = self.project.get_timeline()
+        timeline_item = timeline.get_item(timeline_item_id)
+        
         if timeline_item is None:
-            print("⚠️ No current timeline item, cannot create task")
+            print(f"⚠️ Timeline item {timeline_item_id} not found, cannot create task")
             return
         
         # Get the timeline item's task manager
