@@ -309,17 +309,19 @@ class ProjectListWidget(BaseWidget):
     
     def _load_projects(self):
         """Load projects from the workspace."""
+        # Ensure projects are loaded before listing them
+        self.workspace.project_manager.ensure_projects_loaded()
         project_names = self.workspace.project_manager.list_projects()
-        
+
         # Clear existing items
         for item in self._project_items.values():
             item.deleteLater()
         self._project_items.clear()
-        
+
         # Add project items
         for name in project_names:
             self._add_project_item(name)
-        
+
         # Select the first project by default
         if project_names:
             self._select_project(project_names[0])

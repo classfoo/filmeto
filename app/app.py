@@ -213,7 +213,7 @@ class App():
             project_data_start = time.time()
             logger.info("⏱️  [BackgroundInit] Loading project data...")
             # Use executor to avoid blocking the main thread
-            await loop.run_in_executor(None, self.workspace.project.load_all_tasks)
+            await loop.run_in_executor(None, self._load_project_tasks)
             project_data_time = (time.time() - project_data_start) * 1000
             logger.info(f"⏱️  [BackgroundInit] Project data loaded in {project_data_time:.2f}ms")
             
@@ -247,16 +247,53 @@ class App():
             server_plugins_time = (time.time() - server_plugins_start) * 1000
             logger.info(f"⏱️  [BackgroundInit] Server plugin discovery completed in {server_plugins_time:.2f}ms")
             
+            # Refresh the startup page project list after background initialization
+            try:
+                logger.info("⏱️  [BackgroundInit] Refreshing startup page project list...")
+                refresh_start = time.time()
+                # Access the main window and refresh the project list
+                if hasattr(self, 'window') and hasattr(self.window, '_startup_widget'):
+                    startup_widget = self.window._startup_widget
+                    if startup_widget:
+                        startup_widget.refresh_projects()
+                refresh_time = (time.time() - refresh_start) * 1000
+                logger.info(f"⏱️  [BackgroundInit] Project list refreshed in {refresh_time:.2f}ms")
+            except Exception as e:
+                logger.error(f"Error refreshing startup page project list: {e}", exc_info=True)
+
             total_bg_time = (time.time() - bg_init_start) * 1000
             logger.info(f"⏱️  [BackgroundInit] Background initialization complete in {total_bg_time:.2f}ms")
         except Exception as e:
             logger.error(f"Error in background initialization: {e}", exc_info=True)
     
+    def _load_project_tasks(self):
+        """Load all tasks from all timeline items"""
+        logger.info("⏱️  [BackgroundInit] Loading all project tasks...")
+        start_time = time.time()
+
+        # Get all timeline items and load their tasks
+        timeline = self.workspace.project.get_timeline()
+        item_count = timeline.get_item_count()
+
+        loaded_task_count = 0
+        for i in range(1, item_count + 1):  # Timeline items start from index 1
+            try:
+                item = timeline.get_item(i)
+                task_manager = item.get_task_manager()  # This will load tasks automatically
+                task_count = task_manager.get_task_count()
+                loaded_task_count += task_count
+                logger.info(f"⏱️  [BackgroundInit] Loaded {task_count} tasks for timeline item {i}")
+            except Exception as e:
+                logger.error(f"⏱️  [BackgroundInit] Error loading tasks for timeline item {i}: {e}")
+
+        total_time = (time.time() - start_time) * 1000
+        logger.info(f"⏱️  [BackgroundInit] Loaded {loaded_task_count} tasks from {item_count} timeline items in {total_time:.2f}ms")
+
     def _complete_deferred_init(self):
         """Complete deferred initializations synchronously (runs in executor)"""
         init_start = time.time()
         logger.info(f"⏱️  [DeferredInit] Starting deferred workspace initializations...")
-        
+
         # Complete ProjectManager scan
         if hasattr(self.workspace.project_manager, 'ensure_projects_loaded'):
             pm_start = time.time()
@@ -264,7 +301,7 @@ class App():
             self.workspace.project_manager.ensure_projects_loaded()
             pm_time = (time.time() - pm_start) * 1000
             logger.info(f"⏱️  [DeferredInit] ProjectManager scan completed in {pm_time:.2f}ms")
-        
+
         # Complete Settings loading
         if hasattr(self.workspace.settings, '_ensure_loaded'):
             settings_start = time.time()
@@ -272,7 +309,7 @@ class App():
             self.workspace.settings._ensure_loaded()
             settings_time = (time.time() - settings_start) * 1000
             logger.info(f"⏱️  [DeferredInit] Settings loaded in {settings_time:.2f}ms")
-        
+
         # Complete Plugins discovery
         if hasattr(self.workspace.plugins, 'ensure_discovery'):
             plugins_start = time.time()
@@ -280,7 +317,7 @@ class App():
             self.workspace.plugins.ensure_discovery()
             plugins_time = (time.time() - plugins_start) * 1000
             logger.info(f"⏱️  [DeferredInit] Plugins discovery completed in {plugins_time:.2f}ms")
-        
+
         total_time = (time.time() - init_start) * 1000
         logger.info(f"⏱️  [DeferredInit] All deferred initializations completed in {total_time:.2f}ms")
     
