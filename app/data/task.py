@@ -387,7 +387,7 @@ class TimelineItemTaskManager:
     def get_all_tasks(self, start_index: int = 0, count: int = None) -> List[Task]:
         """
         Get all tasks with optional pagination.
-        
+
         Args:
             start_index: Starting index for pagination
             count: Number of tasks to return (None for all)
@@ -395,7 +395,10 @@ class TimelineItemTaskManager:
         Returns:
             List of Task objects
         """
-        self._ensure_loaded()
+        # Load tasks if not already loaded
+        if not self.tasks:
+            self.load_all_tasks()
+
         all_task_ids = sorted(
             [task_id for task_id in self.tasks.keys() if task_id.isdigit()],
             key=lambda x: int(x),
@@ -407,7 +410,7 @@ class TimelineItemTaskManager:
         else:
             end_index = min(start_index + count, len(all_task_ids))
             task_ids_to_load = all_task_ids[start_index:end_index]
-        
+
         return [self.tasks[task_id] for task_id in task_ids_to_load if task_id in self.tasks]
 
     def get_task_count(self) -> int:

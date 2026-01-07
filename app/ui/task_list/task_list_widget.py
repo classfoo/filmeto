@@ -365,18 +365,18 @@ class TaskListWidget(BaseTaskWidget):
             # Extract task info from progress object
             task_progress_obj = progress  # progress is already a TaskProgress instance
             task = task_progress_obj.task
-            task_id = os.path.basename(task.path)  # Extract task_id from path
+            task_id = task.task_id  # Use the task's actual ID instead of extracting from path
             percent = task_progress_obj.percent
             logs = task_progress_obj.logs
-            
+
             # Find the corresponding widget and update it
             if task_id in self.loaded_tasks:
                 task_widget = self.loaded_tasks[task_id]
-                
+
                 # Update task properties directly
                 task.percent = percent
                 task.log = logs
-                
+
                 task_widget.update_display(task)
                 logger.info(f"Updated task {task_id} progress to {percent}%")
             else:
