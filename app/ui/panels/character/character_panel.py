@@ -584,11 +584,33 @@ class CharacterPanel(BasePanel):
 
     def _on_load_error(self, error_msg: str, exception: Exception):
         """Handle loading error"""
+        # Safety check: make sure the object is still valid before accessing it
+        try:
+            # Check if the object has been deleted (using shiboken6 to check validity)
+            from shiboken6 import isValid
+            if not isValid(self):
+                logger.warning("CharacterPanel object is no longer valid, skipping error callback")
+                return
+        except ImportError:
+            # If shiboken6 is not available, skip the check
+            pass
+        except:
+            # If there's any error checking validity, assume it's valid
+            pass
+
         logger.error(f"❌ Error loading character manager: {error_msg}")
         logger.error(f"Exception: {exception}")
         logger.error(f"Exception type: {type(exception)}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
+
+        # Remove the worker from active workers list if it's there
+        if hasattr(self, '_active_workers') and hasattr(self, '_character_manager_worker'):
+            try:
+                if self._character_manager_worker in self._active_workers:
+                    self._active_workers.remove(self._character_manager_worker)
+            except:
+                pass  # Ignore errors when removing from list
 
         # Don't mark as loaded immediately - allow for retry in certain cases
         if not hasattr(self, '_load_attempts'):
@@ -681,15 +703,55 @@ class CharacterPanel(BasePanel):
         self.show_loading(tr("正在加载角色管理器..."))
 
         logger.info("Starting background loading of character manager...")
-        run_in_background(
+
+        # Store the worker reference to manage its lifecycle
+        if hasattr(self, '_character_manager_worker'):
+            # Cancel any existing worker to prevent conflicts
+            try:
+                if self._character_manager_worker and self._character_manager_worker.is_running():
+                    self._character_manager_worker.stop()
+            except:
+                pass  # Ignore errors when stopping old worker
+
+        # Create new worker and store reference
+        self._character_manager_worker = run_in_background(
             _load_character_manager,
             on_finished=self._on_character_manager_loaded,
             on_error=self._on_load_error
         )
+
+        # Store a reference to the worker to prevent it from being garbage collected
+        # This is important to ensure proper cleanup
+        if not hasattr(self, '_active_workers'):
+            self._active_workers = []
+        self._active_workers.append(self._character_manager_worker)
     
     def _on_character_manager_loaded(self, character_manager):
         """Callback when character manager is loaded"""
+        # Safety check: make sure the object is still valid before accessing it
+        try:
+            # Check if the object has been deleted (using shiboken6 to check validity)
+            from shiboken6 import isValid
+            if not isValid(self):
+                logger.warning("CharacterPanel object is no longer valid, skipping callback")
+                return
+        except ImportError:
+            # If shiboken6 is not available, skip the check
+            pass
+        except:
+            # If there's any error checking validity, assume it's valid
+            pass
+
         logger.info(f"✅ Character manager loaded callback called with manager: {character_manager is not None}")
+
+        # Remove the worker from active workers list if it's there
+        if hasattr(self, '_active_workers') and hasattr(self, '_character_manager_worker'):
+            try:
+                if self._character_manager_worker in self._active_workers:
+                    self._active_workers.remove(self._character_manager_worker)
+            except:
+                pass  # Ignore errors when removing from list
+
         if character_manager:
             self.character_manager = character_manager
             logger.info(f"Character manager assigned: {self.character_manager is not None}")
@@ -721,6 +783,25 @@ class CharacterPanel(BasePanel):
     
     def on_deactivated(self):
         """Called when panel is hidden."""
+        # Stop any running background workers to prevent segfaults
+        if hasattr(self, '_active_workers'):
+            for worker in self._active_workers:
+                try:
+                    if worker and worker.is_running():
+                        worker.stop()
+                except:
+                    pass  # Ignore errors when stopping worker
+            self._active_workers.clear()
+
+        # Also clean up the specific character manager worker
+        if hasattr(self, '_character_manager_worker'):
+            try:
+                if self._character_manager_worker and self._character_manager_worker.is_running():
+                    self._character_manager_worker.stop()
+            except:
+                pass  # Ignore errors when stopping worker
+            self._character_manager_worker = None
+
         super().on_deactivated()
         logger.info("⏸️ Character panel deactivated")
     
@@ -732,3 +813,17 @@ class CharacterPanel(BasePanel):
         self.character_manager = None
         # Call super to trigger reload if panel is active
         super().on_project_switched(project_name)
+
+    def closeEvent(self, event):
+        """Handle close event to properly cleanup resources"""
+        # Stop any running background workers to prevent segfaults
+        if hasattr(self, '_character_manager_worker'):
+            try:
+                if self._character_manager_worker and self._character_manager_worker.is_running():
+                    self._character_manager_worker.stop()
+            except:
+                pass  # Ignore errors when stopping worker
+            self._character_manager_worker = None
+
+        super().closeEvent(event)
+
