@@ -7,17 +7,20 @@ Independent window for startup/home mode with its own size management.
 import json
 import os
 import logging
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeyEvent
 
 from app.data.workspace import Workspace
-from .startup import StartupWidget
+from app.ui.dialog.left_panel_dialog import LeftPanelDialog
+from .startup.project_list_widget import ProjectListWidget
+from .startup.project_info_widget import ProjectInfoWidget
+from .startup.startup_prompt_widget import StartupPromptWidget
 
 logger = logging.getLogger(__name__)
 
 
-class StartupWindow(QMainWindow):
+class StartupWindow(LeftPanelDialog):
     """
     Independent window for startup/home mode.
     
@@ -28,9 +31,7 @@ class StartupWindow(QMainWindow):
     enter_edit_mode = Signal(str)  # Emits project name when entering edit mode
     
     def __init__(self, workspace: Workspace):
-        super(StartupWindow, self).__init__()
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        super(StartupWindow, self).__init__(parent=None, left_panel_width=250)
         self.workspace = workspace
         
         # Window size storage
@@ -114,32 +115,106 @@ class StartupWindow(QMainWindow):
         event.accept()
     
     def _setup_ui(self):
-        """Set up the UI with startup widget."""
-        central_widget = QWidget()
-        central_widget.setObjectName("startup_window")
+        """Set up the UI with left panel and right work area."""
+        # Left panel: Project list
+        self.project_list = ProjectListWidget(self.workspace)
+        self.set_left_content_widget(self.project_list)
         
-        layout = QVBoxLayout()
-        layout.setObjectName("startup_window_layout")
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        # Right work area: Project info + Prompt input
+        right_container = QWidget()
+        right_container.setObjectName("startup_right_container")
+        right_layout = QVBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
         
-        # Create startup widget
-        self.startup_widget = StartupWidget(self, self.workspace)
-        self.startup_widget.enter_edit_mode.connect(self.enter_edit_mode.emit)
-        layout.addWidget(self.startup_widget)
+        # Project info area (takes most of the space)
+        self.project_info = ProjectInfoWidget(self.workspace)
+        right_layout.addWidget(self.project_info, 1)
         
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
+        # Prompt input area (at the bottom)
+        prompt_container = QWidget()
+        prompt_container.setObjectName("startup_prompt_container")
+        prompt_layout = QVBoxLayout(prompt_container)
+        prompt_layout.setContentsMargins(16, 8, 16, 16)
+        
+        self.prompt_widget = StartupPromptWidget(self.workspace)
+        prompt_layout.addWidget(self.prompt_widget)
+        
+        right_layout.addWidget(prompt_container)
+        
+        self.set_right_work_widget(right_container)
+        
+        # Connect signals
+        self._connect_signals()
+        
+        # Apply styles
+        self._apply_styles()
+    
+    def _connect_signals(self):
+        """Connect signals between components."""
+        # Project selection changes
+        self.project_list.project_selected.connect(self._on_project_selected)
+        
+        # Edit project (from list or info widget)
+        self.project_list.project_edit.connect(self._on_edit_project)
+        self.project_info.edit_project.connect(self._on_edit_project)
+        
+        # New project created
+        self.project_list.project_created.connect(self._on_project_created)
+        
+        # Prompt submitted
+        self.prompt_widget.prompt_submitted.connect(self._on_prompt_submitted)
+    
+    def _apply_styles(self):
+        """Apply styles to the widget."""
+        self.setStyleSheet("""
+            QWidget#startup_right_container {
+                background-color: #2b2b2b;
+            }
+            QWidget#startup_prompt_container {
+                background-color: #2b2b2b;
+            }
+        """)
+    
+    def _on_project_selected(self, project_name: str):
+        """Handle project selection from the list."""
+        self.project_info.set_project(project_name)
+    
+    def _on_edit_project(self, project_name: str):
+        """Handle edit project request."""
+        # Switch to the project and enter edit mode
+        self.workspace.switch_project(project_name)
+        self.enter_edit_mode.emit(project_name)
+    
+    def _on_project_created(self, project_name: str):
+        """Handle new project creation."""
+        # The project list already updates itself
+        # Just update the info display
+        self.project_info.set_project(project_name)
+    
+    def _on_prompt_submitted(self, prompt: str, contexts: list, model: str):
+        """Handle prompt submission."""
+        # TODO: Handle prompt submission in startup mode
+        # This could be used to interact with an AI assistant
+        # for project-level operations
+        logger.info(f"Prompt submitted: {prompt}")
+        logger.info(f"Model: {model}")
+        logger.info(f"Contexts: {contexts}")
     
     def refresh_projects(self):
         """Refresh the project list."""
-        if self.startup_widget:
-            self.startup_widget.refresh_projects()
+        if self.project_list:
+            self.project_list.refresh()
+            
+            # Update project info if there's a selected project
+            selected = self.project_list.get_selected_project()
+            if selected:
+                self.project_info.set_project(selected)
     
     def get_selected_project(self) -> str:
         """Get the currently selected project name."""
-        if self.startup_widget:
-            return self.startup_widget.get_selected_project()
+        if self.project_list:
+            return self.project_list.get_selected_project()
         return None
     
     def keyPressEvent(self, event: QKeyEvent):
