@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
                                QLineEdit, QTextEdit, QPlainTextEdit,
                                QStackedWidget)
 from PySide6.QtCore import Qt, Signal
+import json
+import os
 
 from app.data.workspace import Workspace
 
@@ -28,37 +30,105 @@ class WindowMode(Enum):
 class MainWindow(QMainWindow):
     """
     Main application window with mode switching support.
-    
+
     The window can switch between:
-    - Startup mode: For browsing and managing projects
-    - Edit mode: For editing the current project
+    - Startup mode: For browsing and managing projects (800x600)
+    - Edit mode: For editing the current project (fullscreen)
     """
-    
+
     mode_changed = Signal(str)  # Emitted when mode changes
-    
+
     def __init__(self, workspace: Workspace):
         super(MainWindow, self).__init__()
-        self.setGeometry(100, 100, 1600, 900)
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.workspace = workspace
         self.project = workspace.get_project()
-        
+
         # Set main window reference to workspace for access to preview components
         self.workspace._main_window = self
-        
+
+        # Window size storage
+        self._window_sizes = {}
+        self._load_window_sizes()
+
         # Current mode (None initially to force first switch)
         self._current_mode = None
-        
+
         # Mode widgets (lazy initialization)
         self._startup_widget = None
         self._edit_widget = None
-        
+
         # Set up the central widget with stacked layout for mode switching
         self._setup_ui()
-        
+
         # Start in startup mode
         self.switch_mode(WindowMode.STARTUP)
+
+        # Ensure startup mode size is applied
+        startup_width, startup_height = self._get_window_size(WindowMode.STARTUP)
+        self.resize(startup_width, startup_height)
+
+        # Center the window on screen
+        screen = self.screen().availableGeometry()
+        x = (screen.width() - startup_width) // 2
+        y = (screen.height() - startup_height) // 2
+        self.move(x, y)
+
+    def _load_window_sizes(self):
+        """Load stored window sizes from file."""
+        try:
+            config_dir = os.path.join(os.path.dirname(__file__), "..", "..", "config")
+            os.makedirs(config_dir, exist_ok=True)
+            config_file = os.path.join(config_dir, "window_sizes.json")
+
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    self._window_sizes = json.load(f)
+            else:
+                # Default sizes
+                self._window_sizes = {
+                    WindowMode.STARTUP.value: {"width": 800, "height": 600},
+                    WindowMode.EDIT.value: {"width": 1600, "height": 900}
+                }
+        except Exception as e:
+            print(f"Error loading window sizes: {e}")
+            # Default sizes if loading fails
+            self._window_sizes = {
+                WindowMode.STARTUP.value: {"width": 800, "height": 600},
+                WindowMode.EDIT.value: {"width": 1600, "height": 900}
+            }
+
+    def _save_window_sizes(self):
+        """Save current window sizes to file."""
+        try:
+            config_dir = os.path.join(os.path.dirname(__file__), "..", "..", "config")
+            os.makedirs(config_dir, exist_ok=True)
+            config_file = os.path.join(config_dir, "window_sizes.json")
+
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(self._window_sizes, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving window sizes: {e}")
+
+    def _get_window_size(self, mode: WindowMode):
+        """Get the stored size for a mode."""
+        size_info = self._window_sizes.get(mode.value, {})
+        return size_info.get("width", 800), size_info.get("height", 600)
+
+    def _set_window_size(self, mode: WindowMode, width: int, height: int):
+        """Store the size for a mode."""
+        self._window_sizes[mode.value] = {"width": width, "height": height}
+        self._save_window_sizes()
+
+    def closeEvent(self, event):
+        """Handle close event to save current window size."""
+        # Save the current window size before closing
+        if self._current_mode is not None:
+            current_width = self.width()
+            current_height = self.height()
+            self._set_window_size(self._current_mode, current_width, current_height)
+        event.accept()
     
     def _setup_ui(self):
         """Set up the UI with a stacked widget for mode switching."""
@@ -97,22 +167,42 @@ class MainWindow(QMainWindow):
     def switch_mode(self, mode: WindowMode):
         """
         Switch between window modes.
-        
+
         Args:
             mode: The mode to switch to (WindowMode.STARTUP or WindowMode.EDIT)
         """
         if mode == self._current_mode:
             return
-        
+
+        # Save the current window size before switching
+        if self._current_mode is not None:
+            current_width = self.width()
+            current_height = self.height()
+            self._set_window_size(self._current_mode, current_width, current_height)
+
         if mode == WindowMode.STARTUP:
             self._ensure_startup_widget()
             self.stacked_widget.setCurrentWidget(self._startup_widget)
             # Refresh projects when returning to startup mode
             self._startup_widget.refresh_projects()
+
+            # Set startup mode size (800x600)
+            width, height = self._get_window_size(WindowMode.STARTUP)
+            self.resize(width, height)
+
+            # Center the window on screen
+            screen = self.screen().availableGeometry()
+            x = (screen.width() - width) // 2
+            y = (screen.height() - height) // 2
+            self.move(x, y)
+
         elif mode == WindowMode.EDIT:
             self._ensure_edit_widget()
             self.stacked_widget.setCurrentWidget(self._edit_widget)
-        
+
+            # Set edit mode to full screen
+            self.showMaximized()
+
         self._current_mode = mode
         self.mode_changed.emit(mode.value)
     

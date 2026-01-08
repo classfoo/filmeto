@@ -9,7 +9,6 @@ from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 from app.app import App
-from app.ui.main_window import MainWindow
 
 
 def setup_crash_logging():

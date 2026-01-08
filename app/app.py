@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import qInstallMessageHandler, QtMsgType
 
 from app.data.workspace import Workspace
-from app.ui.main_window import MainWindow
+from app.ui.main_window import WindowManager
 from server.server import Server, ServerManager
 from utils.i18n_utils import translation_manager
 
@@ -163,11 +163,11 @@ class App():
                 self.server_manager = ServerManager(workspacePath, defer_plugin_discovery=True)
                 self.server = self.server_manager.get_server("local")
             
-            # Create main window (critical path - show immediately)
-            with TimingContext("Main window creation"):
-                logger.info("Creating main window...")
-                self.window = MainWindow(self.workspace)
-                self.window.showMaximized()
+            # Create window manager and show startup window (critical path - show immediately)
+            with TimingContext("Window manager creation"):
+                logger.info("Creating window manager...")
+                self.window_manager = WindowManager(self.workspace)
+                self.window_manager.show_startup_window()
             
             # Process events to ensure window is rendered before heavy operations
             app.processEvents()
@@ -251,11 +251,9 @@ class App():
             try:
                 logger.info("⏱️  [BackgroundInit] Refreshing startup page project list...")
                 refresh_start = time.time()
-                # Access the main window and refresh the project list
-                if hasattr(self, 'window') and hasattr(self.window, '_startup_widget'):
-                    startup_widget = self.window._startup_widget
-                    if startup_widget:
-                        startup_widget.refresh_projects()
+                # Access the window manager and refresh the project list
+                if hasattr(self, 'window_manager'):
+                    self.window_manager.refresh_projects()
                 refresh_time = (time.time() - refresh_start) * 1000
                 logger.info(f"⏱️  [BackgroundInit] Project list refreshed in {refresh_time:.2f}ms")
             except Exception as e:

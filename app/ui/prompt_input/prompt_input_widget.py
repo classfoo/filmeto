@@ -271,13 +271,13 @@ class PromptInputWidget(BaseTaskWidget):
                 # Enter submits
                 self._on_send_clicked()
                 return True
-        
+
         # Escape closes dropdown
         elif event.key() == Qt.Key_Escape:
-            if self.template_dropdown_container.isVisible():
+            if hasattr(self, 'template_dropdown_container') and self.template_dropdown_container.isVisible():
                 self.template_dropdown_container.hide()
                 return True
-        
+
         return False
     
     # Public API
@@ -294,9 +294,16 @@ class PromptInputWidget(BaseTaskWidget):
         """Clear input field content"""
         self.text_edit.clear()
         self._current_text = ""
-        self.template_dropdown_container.hide()
+
+        # Hide template dropdown container if it exists
+        if hasattr(self, 'template_dropdown_container'):
+            self.template_dropdown_container.hide()
+
         self._in_input_mode = False  # Reset input mode when clearing
-        self.token_badge.hide()  # Hide token badge
+
+        # Hide token badge if it exists
+        if hasattr(self, 'token_badge'):
+            self.token_badge.hide()  # Hide token badge
     
     def on_timeline_switch(self, item):
         """Load and display the prompt content from the timeline item"""
@@ -332,12 +339,13 @@ class PromptInputWidget(BaseTaskWidget):
         """处理项目切换"""
         # 重新初始化提示管理器
         self.prompt_manager = self.workspace.get_prompt_manager()
-        
+
         # 清除当前内容
         self.clear_prompt()
-        
+
         # 隐藏模板下拉框
-        self.template_dropdown_container.hide()
+        if hasattr(self, 'template_dropdown_container'):
+            self.template_dropdown_container.hide()
         self._in_input_mode = False  # Reset input mode when switching projects
     
     def set_config_panel_widget(self, widget):

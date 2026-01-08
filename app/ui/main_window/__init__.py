@@ -18,6 +18,11 @@ from .startup import (
     StartupPromptWidget,
 )
 
+# New window classes
+from .startup_window import StartupWindow
+from .edit_window import EditWindow
+from .window_manager import WindowManager
+
 __all__ = [
     'MainWindow',
     'WindowMode',
@@ -34,5 +39,8 @@ __all__ = [
     'ProjectListWidget',
     'ProjectInfoWidget',
     'StartupPromptWidget',
+    'StartupWindow',
+    'EditWindow',
+    'WindowManager',
 ]
 
