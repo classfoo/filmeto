@@ -37,6 +37,10 @@ class WindowManager(QObject):
             self.startup_window.enter_edit_mode.connect(self._on_enter_edit_mode)
             self.startup_window.destroyed.connect(self._on_startup_window_destroyed)
         
+        # Ensure window is in normal state (not maximized)
+        from PySide6.QtCore import Qt
+        self.startup_window.setWindowState(Qt.WindowNoState)
+        
         # Show startup window
         self.startup_window.show()
         

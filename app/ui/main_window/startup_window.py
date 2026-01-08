@@ -40,9 +40,12 @@ class StartupWindow(QMainWindow):
         # Set up the UI
         self._setup_ui()
         
-        # Set initial window size
+        # Set initial window size (ensure not maximized)
         width, height = self._get_window_size()
         self.resize(width, height)
+        
+        # Ensure window is in normal state (not maximized)
+        self.setWindowState(Qt.WindowNoState)
         
         # Center the window on screen
         screen = self.screen().availableGeometry()
@@ -98,8 +101,9 @@ class StartupWindow(QMainWindow):
     
     def _get_window_size(self):
         """Get the stored size for startup window."""
-        size_info = self._window_sizes.get("startup", {})
-        return size_info.get("width", 800), size_info.get("height", 600)
+        # Startup window always uses default 800x600 size
+        # This ensures consistent startup experience
+        return 800, 600
     
     def closeEvent(self, event):
         """Handle close event to save current window size."""
