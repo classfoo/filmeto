@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout,
-                               QVBoxLayout, QLabel, QDialog, QPushButton)
+                               QVBoxLayout, QLabel, QDialog, QPushButton, QSizePolicy)
 from PySide6.QtCore import Qt, QPoint, QRectF, Signal
 from PySide6.QtGui import QPalette, QColor, QPainter, QBrush, QPen, QMouseEvent, QFont, QFontMetrics
 
@@ -99,15 +99,33 @@ class MacTitleBar(QWidget):
         super().__init__()
         self.window = window
         self.is_dialog = False  # 标记是否为对话框
+        
+        # 设置固定高度，确保紧凑布局
+        self.setFixedHeight(36)
+        
+        # 设置大小策略：水平方向固定（不被拉伸），垂直方向固定
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        
+        # 创建主布局
         self.layout = QHBoxLayout(self)
-        # macOS 标准间距：左边距 8px，上下 6px，按钮间距 8px
+        # macOS 标准间距：左边距 8px，上下 6px
         self.layout.setContentsMargins(8, 6, 8, 6)
-        self.layout.setSpacing(8)  # 按钮间距 8px
+        self.layout.setSpacing(0)  # 主布局不使用spacing，由内部容器控制
+
+        # 创建三个按钮的容器，使用固定宽度
+        buttons_container = QWidget(self)
+        # 计算固定宽度：按钮12 + 间距8 + 按钮12 + 间距8 + 按钮12 = 52px
+        # 加上主布局的左右边距8*2 = 16px，总宽度 = 68px
+        buttons_container.setFixedWidth(52)
+        
+        buttons_layout = QHBoxLayout(buttons_container)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(8)  # 按钮间距 8px
 
         # 创建三个按钮
-        self.close_button = MacButton('red', self)
-        self.minimize_button = MacButton('yellow', self)
-        self.maximize_button = MacButton('green', self)
+        self.close_button = MacButton('red', buttons_container)
+        self.minimize_button = MacButton('yellow', buttons_container)
+        self.maximize_button = MacButton('green', buttons_container)
 
         # 将所有按钮放入列表便于管理
         self.buttons = [self.close_button, self.minimize_button, self.maximize_button]
@@ -116,18 +134,20 @@ class MacTitleBar(QWidget):
         for button in self.buttons:
             button.hover_changed.connect(self._on_button_hover_changed)
 
-        # 添加到布局
-        self.layout.addWidget(self.close_button)
-        self.layout.addWidget(self.minimize_button)
-        self.layout.addWidget(self.maximize_button)
-
-        # 添加一个占位符，将按钮推到左边
-        # self.layout.addStretch()
+        # 将按钮添加到容器布局
+        buttons_layout.addWidget(self.close_button)
+        buttons_layout.addWidget(self.minimize_button)
+        buttons_layout.addWidget(self.maximize_button)
+        
+        # 不添加stretch，保持紧凑布局
 
         # 连接按钮点击事件
         self.close_button.mousePressEvent = self.close_window
         self.minimize_button.mousePressEvent = self.minimize_window
         self.maximize_button.mousePressEvent = self.maximize_window
+        
+        # 将按钮容器添加到主布局
+        self.layout.addWidget(buttons_container)
         
         # Navigation buttons container (initially hidden)
         self.nav_container = QWidget(self)
@@ -136,7 +156,7 @@ class MacTitleBar(QWidget):
         nav_layout.setSpacing(4)
         
         # Back button
-        self.back_button = QPushButton("◀", self)
+        self.back_button = QPushButton("◀", self.nav_container)
         self.back_button.setFixedSize(24, 24)
         self.back_button.clicked.connect(self.back_clicked.emit)
         self.back_button.setEnabled(False)
@@ -144,7 +164,7 @@ class MacTitleBar(QWidget):
         nav_layout.addWidget(self.back_button)
         
         # Forward button
-        self.forward_button = QPushButton("▶", self)
+        self.forward_button = QPushButton("▶", self.nav_container)
         self.forward_button.setFixedSize(24, 24)
         self.forward_button.clicked.connect(self.forward_clicked.emit)
         self.forward_button.setEnabled(False)
@@ -153,6 +173,8 @@ class MacTitleBar(QWidget):
         
         self.nav_container.hide()  # Initially hidden
         self.layout.addWidget(self.nav_container)
+        
+        # 不添加stretch，保持紧凑布局
 
     def set_for_dialog(self):
         """设置为对话框模式，此时最大化按钮变为最小化按钮"""
