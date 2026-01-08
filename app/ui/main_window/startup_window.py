@@ -116,9 +116,28 @@ class StartupWindow(LeftPanelDialog):
     
     def _setup_ui(self):
         """Set up the UI with left panel and right work area."""
-        # Left panel: Project list
+        # Left panel: Project list with header, scrollable list, and toolbar
+        # The ProjectListWidget already has the correct layout structure:
+        # - Header (top, fixed)
+        # - Scrollable project list (middle, stretches)
+        # - Toolbar (bottom, fixed)
         self.project_list = ProjectListWidget(self.workspace)
-        self.set_left_content_widget(self.project_list)
+        
+        # Clear the default left content layout and set up proper layout
+        # Remove the default margins and spacing to let ProjectListWidget control its own layout
+        while self.left_content_layout.count():
+            item = self.left_content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                item.layout().deleteLater()
+        
+        # Set margins to 0 so ProjectListWidget fills the entire left panel
+        self.left_content_layout.setContentsMargins(0, 0, 0, 0)
+        self.left_content_layout.setSpacing(0)
+        
+        # Add project list widget, it will stretch vertically
+        self.left_content_layout.addWidget(self.project_list, 1)
         
         # Right work area: Project info + Prompt input
         right_container = QWidget()

@@ -162,7 +162,7 @@ class ProjectListWidget(BaseWidget):
             self.setParent(parent)
         
         self.setObjectName("project_list_widget")
-        self.setFixedWidth(280)
+        # Width will be controlled by parent container, don't set fixed width
         
         self._selected_project = None
         self._project_items = {}
@@ -227,6 +227,9 @@ class ProjectListWidget(BaseWidget):
         self.project_list_layout.setContentsMargins(8, 8, 8, 8)
         self.project_list_layout.setSpacing(4)
         self.project_list_layout.setAlignment(Qt.AlignTop)
+        
+        # Add stretch at the bottom to push toolbar to the bottom
+        self.project_list_layout.addStretch()
         
         scroll_area.setWidget(self.project_list_container)
         layout.addWidget(scroll_area, 1)
@@ -316,12 +319,17 @@ class ProjectListWidget(BaseWidget):
         self.workspace.project_manager.ensure_projects_loaded()
         project_names = self.workspace.project_manager.list_projects()
 
-        # Clear existing items
-        for item in self._project_items.values():
-            item.deleteLater()
+        # Clear existing items (but keep the stretch at the end)
+        # Remove all items except the last one (which should be the stretch)
+        while self.project_list_layout.count() > 1:
+            item = self.project_list_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Clear the project items dictionary
         self._project_items.clear()
 
-        # Add project items
+        # Add project items (they will be inserted before the stretch)
         for name in project_names:
             self._add_project_item(name)
 
@@ -335,7 +343,10 @@ class ProjectListWidget(BaseWidget):
         item.clicked.connect(self._select_project)
         item.edit_clicked.connect(self._on_project_edit)
         
-        self.project_list_layout.addWidget(item)
+        # Insert before the stretch (which is always the last item)
+        # Get the index of the last item (stretch) and insert before it
+        stretch_index = self.project_list_layout.count() - 1
+        self.project_list_layout.insertWidget(stretch_index, item)
         self._project_items[project_name] = item
     
     def _select_project(self, project_name: str):

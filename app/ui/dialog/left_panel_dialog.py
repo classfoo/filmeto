@@ -21,15 +21,7 @@ class LeftPanelDialog(QDialog):
         self.left_panel = QFrame()
         self.left_panel.setObjectName("LeftPanelDialogLeftPanel")
         self.left_panel.setFixedWidth(left_panel_width)
-        self.left_panel.setStyleSheet("""
-            #LeftPanelDialogLeftPanel {
-                background-color: #2b2d30;
-                border-top-left-radius: 10px;
-                border-bottom-left-radius: 10px;
-                border: 1px solid #505254;
-                border-right: none;
-            }
-        """)
+        # 样式已移至全局样式表 dark_style.qss
         
         # 左边栏布局 - 垂直布局
         left_layout = QVBoxLayout(self.left_panel)
@@ -58,15 +50,7 @@ class LeftPanelDialog(QDialog):
         # 右边工作区容器
         self.right_work_area = QFrame()
         self.right_work_area.setObjectName("LeftPanelDialogRightWorkArea")
-        self.right_work_area.setStyleSheet("""
-            #LeftPanelDialogRightWorkArea {
-                background-color: #2b2d30;
-                border-top-right-radius: 10px;
-                border-bottom-right-radius: 10px;
-                border: 1px solid #505254;
-                border-left: none;
-            }
-        """)
+        # 样式已移至全局样式表 dark_style.qss
         
         # 右边工作区布局（供子类扩展）
         self.right_work_layout = QVBoxLayout(self.right_work_area)
