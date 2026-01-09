@@ -355,3 +355,131 @@ QComboBox QAbstractItemView {
     selection-background-color: #4c5052;
 }
 """
+
+# 对话框样式 - Custom Dialog 和 Left Panel Dialog 的基础样式
+DIALOG_STYLE = """
+/* Custom Dialog Title Bar */
+#CustomDialogTitleBar {
+    background-color: #3d3f4e;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border: none;
+}
+
+/* Custom Dialog Title Label */
+#CustomDialogTitleLabel {
+    color: #E1E1E1;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Custom Dialog Content Container */
+#CustomDialogContentContainer {
+    background-color: #2b2d30;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border: 1px solid #505254;
+    border-top: none;
+}
+
+/* Left Panel Dialog - Left Panel */
+#LeftPanelDialogLeftPanel {
+    background-color: #3d3f4e;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border: 1px solid #505254;
+    border-right: none;
+}
+
+/* Left Panel Dialog - Left Content */
+#LeftPanelDialogLeftContent {
+    background-color: transparent;
+}
+
+/* Left Panel Dialog - Right Work Area */
+#LeftPanelDialogRightWorkArea {
+    background-color: #2b2d30;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border: 1px solid #505254;
+    border-left: none;
+}
+"""
+
+# Navigation Button Style (for dialog title bars)
+DIALOG_NAV_BUTTON_STYLE = """
+QPushButton {
+    background-color: transparent;
+    color: #888888;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+}
+QPushButton:hover:enabled {
+    background-color: #4c4f52;
+    color: #E1E1E1;
+}
+QPushButton:pressed:enabled {
+    background-color: #3c3f42;
+}
+QPushButton:disabled {
+    color: #444444;
+}
+"""
+
+# Dialog Button Styles (for dialog action buttons)
+def get_dialog_button_style(role="default"):
+    """获取对话框按钮样式
+    
+    Args:
+        role: 按钮角色 - 'accept', 'reject', 'danger', 'default'
+    """
+    if role == "accept":
+        color = "#4CAF50"  # Green for accept/save
+    elif role == "reject":
+        color = "#555555"  # Gray for cancel
+    elif role == "danger":
+        color = "#F44336"  # Red for dangerous actions
+    else:
+        color = "#4c5052"  # Default color
+    
+    return f"""
+QPushButton {{
+    background-color: {color};
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: bold;
+}}
+QPushButton:hover {{
+    background-color: {_lighten_color(color)};
+}}
+QPushButton:pressed {{
+    background-color: {_darken_color(color)};
+}}
+"""
+
+def _lighten_color(color: str) -> str:
+    """Lighten a hex color"""
+    color = color.lstrip('#')
+    if len(color) != 6:
+        return color
+    r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
+    r = min(255, r + 20)
+    g = min(255, g + 20)
+    b = min(255, b + 20)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+def _darken_color(color: str) -> str:
+    """Darken a hex color"""
+    color = color.lstrip('#')
+    if len(color) != 6:
+        return color
+    r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
+    r = max(0, r - 20)
+    g = max(0, g - 20)
+    b = max(0, b - 20)
+    return f"#{r:02x}{g:02x}{b:02x}"

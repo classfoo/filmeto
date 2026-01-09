@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QDialog, QWidget, QHBoxLayout, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QMouseEvent
 from .mac_button import MacTitleBar
+from ..styles import DIALOG_STYLE, DIALOG_NAV_BUTTON_STYLE, _lighten_color, _darken_color
 
 
 class CustomTitleBar(QFrame):
@@ -15,14 +16,7 @@ class CustomTitleBar(QFrame):
         super().__init__(parent)
         self.setObjectName("CustomDialogTitleBar")  # Add object name for CSS
         self.setFixedHeight(36)  # 调整高度以适应 MacTitleBar
-        self.setStyleSheet("""
-            #CustomDialogTitleBar {
-                background-color: #3d3f4e;
-                border-top-left-radius: 10px;
-                border-top-right-radius: 10px;
-                border: none;
-            }
-        """)
+        # 样式已移至全局样式表 DIALOG_STYLE
 
         self.parent_dialog = parent
         self.drag_position = QPoint()
@@ -74,13 +68,7 @@ class CustomTitleBar(QFrame):
         # 标题标签
         self.title_label = QLabel(title)
         self.title_label.setObjectName("CustomDialogTitleLabel")  # Add object name for CSS
-        self.title_label.setStyleSheet("""
-            #CustomDialogTitleLabel {
-                color: #E1E1E1;
-                font-size: 14px;
-                font-weight: bold;
-            }
-        """)
+        # 样式已移至全局样式表 DIALOG_STYLE
 
         # 添加弹性空间
         layout.addWidget(self.title_label)
@@ -96,26 +84,7 @@ class CustomTitleBar(QFrame):
 
     def _style_nav_button(self, button):
         """Apply styling to navigation buttons"""
-        button.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #888888;
-                border: none;
-                border-radius: 4px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover:enabled {
-                background-color: #4c4f52;
-                color: #E1E1E1;
-            }
-            QPushButton:pressed:enabled {
-                background-color: #3c3f42;
-            }
-            QPushButton:disabled {
-                color: #444444;
-            }
-        """)
+        button.setStyleSheet(DIALOG_NAV_BUTTON_STYLE)
     
     def mousePressEvent(self, event: QMouseEvent):
         """处理鼠标按下事件"""
@@ -158,6 +127,9 @@ class CustomDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
+        
+        # 应用全局对话框样式
+        self.setStyleSheet(DIALOG_STYLE)
 
         # 主布局
         main_layout = QVBoxLayout(self)
@@ -174,15 +146,7 @@ class CustomDialog(QDialog):
         # 内容区域容器 - includes both content and button area
         self.content_container = QFrame()
         self.content_container.setObjectName("CustomDialogContentContainer")  # Add object name for CSS
-        self.content_container.setStyleSheet("""
-            #CustomDialogContentContainer {
-                background-color: #2b2d30;
-                border-bottom-left-radius: 10px;
-                border-bottom-right-radius: 10px;
-                border: 1px solid #505254;
-                border-top: none;
-            }
-        """)
+        # 样式已移至全局样式表 DIALOG_STYLE
 
         # Main content layout that will contain both the content and button area
         self.main_content_layout = QVBoxLayout(self.content_container)
@@ -360,22 +324,8 @@ class CustomDialog(QDialog):
 
     def _lighten_color(self, color: str) -> str:
         """Lighten a hex color"""
-        color = color.lstrip('#')
-        if len(color) != 6:
-            return color
-        r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
-        r = min(255, r + 20)
-        g = min(255, g + 20)
-        b = min(255, b + 20)
-        return f"#{r:02x}{g:02x}{b:02x}"
+        return _lighten_color(color)
 
     def _darken_color(self, color: str) -> str:
         """Darken a hex color"""
-        color = color.lstrip('#')
-        if len(color) != 6:
-            return color
-        r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
-        r = max(0, r - 20)
-        g = max(0, g - 20)
-        b = max(0, b - 20)
-        return f"#{r:02x}{g:02x}{b:02x}"
+        return _darken_color(color)

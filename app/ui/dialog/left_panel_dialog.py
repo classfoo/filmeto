@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QDialog, QWidget, QHBoxLayout, QVBoxLayout, QFrame
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QMouseEvent
 from .mac_button import MacTitleBar
+from ..styles import DIALOG_STYLE
 
 
 class LeftPanelDialog(QDialog):
@@ -12,6 +13,9 @@ class LeftPanelDialog(QDialog):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
         
+        # 应用全局对话框样式
+        self.setStyleSheet(DIALOG_STYLE)
+        
         # 主布局 - 水平布局，分为左右两部分
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -21,7 +25,7 @@ class LeftPanelDialog(QDialog):
         self.left_panel = QFrame()
         self.left_panel.setObjectName("LeftPanelDialogLeftPanel")
         self.left_panel.setFixedWidth(left_panel_width)
-        # 样式已移至全局样式表 dark_style.qss
+        # 样式已移至全局样式表 DIALOG_STYLE
         
         # 左边栏布局 - 垂直布局
         left_layout = QVBoxLayout(self.left_panel)
@@ -50,7 +54,7 @@ class LeftPanelDialog(QDialog):
         # 右边工作区容器
         self.right_work_area = QFrame()
         self.right_work_area.setObjectName("LeftPanelDialogRightWorkArea")
-        # 样式已移至全局样式表 dark_style.qss
+        # 样式已移至全局样式表 DIALOG_STYLE
         
         # 右边工作区布局（供子类扩展）
         self.right_work_layout = QVBoxLayout(self.right_work_area)
