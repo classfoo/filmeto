@@ -179,11 +179,6 @@ class App():
                 self.workspace.project.character_manager.list_characters()
                 self.workspace.project.resource_manager.get_all()
             
-            # Start workspace synchronously
-            with TimingContext("Workspace start"):
-                logger.info("Starting workspace...")
-                self.workspace.start()
-            
             # Complete server plugin discovery
             with TimingContext("Server plugin discovery"):
                 logger.info("Completing server plugin discovery...")
