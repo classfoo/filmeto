@@ -163,18 +163,43 @@ class App():
                 self.server_manager = ServerManager(workspacePath, defer_plugin_discovery=True)
                 self.server = self.server_manager.get_server("local")
             
-            # Create window manager and show startup window (critical path - show immediately)
+            # Complete deferred initializations synchronously
+            with TimingContext("Deferred initializations"):
+                logger.info("Completing deferred workspace initializations...")
+                self._complete_deferred_init()
+            
+            # Load project data synchronously
+            with TimingContext("Project data loading"):
+                logger.info("Loading project data...")
+                self._load_project_tasks()
+            
+            # Pre-load character and resource managers
+            with TimingContext("Managers pre-loading"):
+                logger.info("Pre-loading managers...")
+                self.workspace.project.character_manager.list_characters()
+                self.workspace.project.resource_manager.get_all()
+            
+            # Start workspace synchronously
+            with TimingContext("Workspace start"):
+                logger.info("Starting workspace...")
+                self.workspace.start()
+            
+            # Complete server plugin discovery
+            with TimingContext("Server plugin discovery"):
+                logger.info("Completing server plugin discovery...")
+                if hasattr(self.server_manager, '_complete_plugin_discovery'):
+                    self.server_manager._complete_plugin_discovery()
+            
+            # Create window manager and show startup window
             with TimingContext("Window manager creation"):
                 logger.info("Creating window manager...")
                 self.window_manager = WindowManager(self.workspace)
                 self.window_manager.show_startup_window()
             
-            # Process events to ensure window is rendered before heavy operations
-            app.processEvents()
-            
-            # Defer non-critical initialization to background
-            logger.info("Starting background initialization...")
-            asyncio.ensure_future(self._background_init(loop))
+            # Refresh the startup page project list
+            with TimingContext("Project list refresh"):
+                logger.info("Refreshing startup page project list...")
+                self.window_manager.refresh_projects()
             
             # Register cleanup on application exit
             logger.info("Registering cleanup handlers...")
@@ -197,72 +222,7 @@ class App():
             logger.critical("="*80)
             raise
     
-    async def _background_init(self, loop):
-        """Initialize non-critical components in background after UI is shown"""
-        bg_init_start = time.time()
-        logger.info(f"⏱️  [BackgroundInit] Starting background initialization...")
-        try:
-            # Complete deferred initializations
-            logger.info("⏱️  [BackgroundInit] Completing deferred workspace initializations...")
-            deferred_start = time.time()
-            await loop.run_in_executor(None, self._complete_deferred_init)
-            deferred_time = (time.time() - deferred_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] Deferred initializations completed in {deferred_time:.2f}ms")
-            
-            # Load project data asynchronously
-            project_data_start = time.time()
-            logger.info("⏱️  [BackgroundInit] Loading project data...")
-            # Use executor to avoid blocking the main thread
-            await loop.run_in_executor(None, self._load_project_tasks)
-            project_data_time = (time.time() - project_data_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] Project data loaded in {project_data_time:.2f}ms")
-            
-            # Pre-load character and resource managers to avoid blocking UI later
-            preload_start = time.time()
-            logger.info("⏱️  [BackgroundInit] Pre-loading managers...")
-            char_start = time.time()
-            await loop.run_in_executor(None, self.workspace.project.character_manager.list_characters)
-            char_time = (time.time() - char_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] CharacterManager pre-loaded in {char_time:.2f}ms")
-            
-            resource_start = time.time()
-            await loop.run_in_executor(None, self.workspace.project.resource_manager.get_all)
-            resource_time = (time.time() - resource_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] ResourceManager pre-loaded in {resource_time:.2f}ms")
-            preload_time = (time.time() - preload_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] Managers pre-loading completed in {preload_time:.2f}ms")
-            
-            # Start workspace async operations
-            workspace_start_start = time.time()
-            logger.info("⏱️  [BackgroundInit] Starting workspace...")
-            await self.workspace.start()
-            workspace_start_time = (time.time() - workspace_start_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] Workspace started in {workspace_start_time:.2f}ms")
-            
-            # Complete server plugin discovery in background
-            server_plugins_start = time.time()
-            logger.info("⏱️  [BackgroundInit] Completing server plugin discovery...")
-            if hasattr(self.server_manager, '_complete_plugin_discovery'):
-                self.server_manager._complete_plugin_discovery()
-            server_plugins_time = (time.time() - server_plugins_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] Server plugin discovery completed in {server_plugins_time:.2f}ms")
-            
-            # Refresh the startup page project list after background initialization
-            try:
-                logger.info("⏱️  [BackgroundInit] Refreshing startup page project list...")
-                refresh_start = time.time()
-                # Access the window manager and refresh the project list
-                if hasattr(self, 'window_manager'):
-                    self.window_manager.refresh_projects()
-                refresh_time = (time.time() - refresh_start) * 1000
-                logger.info(f"⏱️  [BackgroundInit] Project list refreshed in {refresh_time:.2f}ms")
-            except Exception as e:
-                logger.error(f"Error refreshing startup page project list: {e}", exc_info=True)
 
-            total_bg_time = (time.time() - bg_init_start) * 1000
-            logger.info(f"⏱️  [BackgroundInit] Background initialization complete in {total_bg_time:.2f}ms")
-        except Exception as e:
-            logger.error(f"Error in background initialization: {e}", exc_info=True)
     
     def _load_project_tasks(self):
         """Load all tasks from all timeline items"""

@@ -92,9 +92,6 @@ class Workspace():
         """Get the settings instance"""
         return self.settings
 
-    async def start(self):
-        await self.project.start()
-
     def connect_task_create(self, func):
         self.project.connect_task_create(func)
 

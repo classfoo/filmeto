@@ -488,7 +488,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
     
     
     def _load_characters(self):
-        """Load characters from CharacterManager asynchronously"""
+        """Load characters from CharacterManager synchronously"""
         if not self.character_manager:
             return
         
@@ -508,13 +508,13 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
             
         # Show loading state
         self.show_loading(tr("正在加载角色..."))
-            
-        # Run loading in background thread to avoid blocking UI
-        run_in_background(
-            self.character_manager.list_characters,
-            on_finished=self._on_characters_loaded,
-            on_error=self._on_load_error
-        )
+        
+        # Load characters synchronously to avoid thread issues
+        try:
+            characters = self.character_manager.list_characters()
+            self._on_characters_loaded(characters)
+        except Exception as e:
+            self._on_load_error(str(e), e)
 
     def _on_characters_loaded(self, characters: List[Character]):
         """Callback when characters are loaded from background thread"""

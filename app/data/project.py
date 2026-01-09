@@ -79,10 +79,6 @@ class Project:
         self._save_timer.setInterval(500)
         self._save_timer.timeout.connect(self._flush_config)
 
-    async def start(self):
-        """Start the project (async initialization)"""
-        await self.task_manager.start()
-
     # ==================== Task-related methods (delegate to ProjectTaskManager) ====================
 
     def connect_task_create(self, func: Callable):

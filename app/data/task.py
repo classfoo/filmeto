@@ -176,10 +176,6 @@ class ProjectTaskManager:
                     self.load_all_tasks()
                     self._loaded = True
 
-    async def start(self):
-        """Start the task manager (called when project starts)"""
-        pass
-
     # Signal connection methods
     def connect_task_create(self, func):
         """Connect a handler to task creation events"""
