@@ -110,12 +110,12 @@ class FilmetoAgent:
         # Initialize conversation manager
         self.conversation_manager = project.get_conversation_manager() if project else None
         self.current_conversation: Optional[Conversation] = None
-        
-        # Initialize graph
-        self.graph = self._build_graph()
-        
+
         # Memory for checkpointing
         self.memory = MemorySaver()
+
+        # Initialize graph
+        self.graph = self._build_graph()
     
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow."""
