@@ -7,14 +7,8 @@ from PySide6.QtGui import QKeyEvent, QFont, QCursor
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 from app.ui.layout.flow_layout import FlowLayout
+from app.ui.prompt import ContextItemWidget
 from utils.i18n_utils import tr
-
-# Import context item widget from agent panel
-try:
-    from app.ui.panels.agent.context_item_widget import ContextItemWidget
-except ImportError:
-    # Fallback if import fails
-    ContextItemWidget = None
 
 
 class AgentPromptWidget(BaseWidget):
@@ -27,6 +21,7 @@ class AgentPromptWidget(BaseWidget):
     
     # Signals
     prompt_submitted = Signal(str)  # Emitted when prompt is submitted
+    message_submitted = Signal(str)  # Alias for prompt_submitted
     add_context_requested = Signal()  # Emitted when add context button is clicked
     
     def __init__(self, workspace: Workspace, parent=None):
@@ -34,6 +29,10 @@ class AgentPromptWidget(BaseWidget):
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
+        
+        # Connect prompt_submitted to message_submitted for backward compatibility
+        self.prompt_submitted.connect(self.message_submitted.emit)
+        
         self._init_ui()
     
     def _init_ui(self):

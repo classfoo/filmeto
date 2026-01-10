@@ -8,7 +8,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from app.ui.panels.agent.chat_history_widget import ChatHistoryWidget
-from app.ui.panels.agent.prompt_input_widget import AgentPromptInputWidget
+from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 # Removed heavy top-level import: from agent.filmeto_agent import FilmetoAgent
 from utils.i18n_utils import tr
 
@@ -58,7 +58,7 @@ class AgentPanel(BasePanel):
         self.content_layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
         
         # Prompt input component (bottom, fixed height)
-        self.prompt_input_widget = AgentPromptInputWidget(self.workspace, self)
+        self.prompt_input_widget = AgentPromptWidget(self.workspace, self)
         self.content_layout.addWidget(self.prompt_input_widget, 0)  # No stretch
         
         # Connect signals

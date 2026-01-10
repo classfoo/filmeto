@@ -187,7 +187,7 @@ FilmetoAgent
 AgentPanel (UI)
     ├── FilmetoAgent
     ├── ChatHistoryWidget
-    └── AgentPromptInputWidget
+    └── AgentPromptWidget
 ```
 
 ## 测试覆盖

@@ -19,7 +19,7 @@
 │  │  └──────────────────────────────────────────────┘     │    │
 │  │                                                          │    │
 │  │  ┌──────────────────────────────────────────────┐     │    │
-│  │  │      AgentPromptInputWidget                   │     │    │
+│  │  │      AgentPromptWidget                   │     │    │
 │  │  │  - Multi-line input                           │     │    │
 │  │  │  - Auto-resize                                │     │    │
 │  │  │  - Send button                                │     │    │

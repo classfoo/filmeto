@@ -153,8 +153,8 @@ class WindowManager(QObject):
             if agent_panel and hasattr(agent_panel, 'prompt_input_widget'):
                 agent_panel.prompt_input_widget.set_text(prompt)
                 # Focus the input widget
-                if hasattr(agent_panel.prompt_input_widget, 'prompt_widget'):
-                    agent_panel.prompt_input_widget.prompt_widget.input_text.setFocus()
+                if hasattr(agent_panel.prompt_input_widget, 'input_text'):
+                    agent_panel.prompt_input_widget.input_text.setFocus()
         except Exception as e:
             logger.error(f"Error setting prompt in agent panel (delayed): {e}")
             import traceback
