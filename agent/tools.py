@@ -90,9 +90,9 @@ class ListCharactersTool(FilmetoBaseTool):
         
         result = "Characters in project:\n"
         for char in characters:
-            result += f"- {char['name']} (ID: {char['character_id']})\n"
-            if char.get('description'):
-                result += f"  Description: {char['description']}\n"
+            result += f"- {char.name} (ID: {char.character_id})\n"
+            if char.description:
+                result += f"  Description: {char.description}\n"
         
         return result
 
@@ -127,9 +127,9 @@ class GetCharacterInfoTool(FilmetoBaseTool):
 - Created: {character.created_at}
 - Updated: {character.updated_at}
 """
-        
-        if character.reference_images:
-            info += f"- Reference Images: {len(character.reference_images)}\n"
+
+        if character.resources:
+            info += f"- Resources: {len(character.resources)}\n"
         
         if character.metadata:
             info += "\nMetadata:\n"
