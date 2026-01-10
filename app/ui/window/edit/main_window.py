@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
     def _setup_ui(self):
         """Set up the UI with a stacked widget for mode switching."""
         central_widget = QWidget()
-        central_widget.setObjectName("main_window")
+        central_widget.setObjectName("window")
         
         layout = QVBoxLayout()
         layout.setObjectName("main_window_layout")

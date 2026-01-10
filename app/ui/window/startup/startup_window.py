@@ -13,9 +13,9 @@ from PySide6.QtGui import QKeyEvent
 
 from app.data.workspace import Workspace
 from app.ui.dialog.left_panel_dialog import LeftPanelDialog
-from .startup.project_list_widget import ProjectListWidget
-from .startup.project_info_widget import ProjectInfoWidget
-from .startup.startup_prompt_widget import StartupPromptWidget
+from app.ui.window.startup.project_list_widget import ProjectListWidget
+from app.ui.window.startup.project_info_widget import ProjectInfoWidget
+from app.ui.window.startup.startup_prompt_widget import StartupPromptWidget
 
 logger = logging.getLogger(__name__)
 

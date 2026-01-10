@@ -8,8 +8,8 @@ import logging
 from PySide6.QtCore import QObject
 
 from app.data.workspace import Workspace
-from .startup_window import StartupWindow
-from .edit_window import EditWindow
+from app.ui.window.startup.startup_window import StartupWindow
+from app.ui.window.edit.edit_window import EditWindow
 
 logger = logging.getLogger(__name__)
 

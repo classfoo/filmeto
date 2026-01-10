@@ -38,7 +38,8 @@ class FilmetoAgent:
         api_key: Optional[str] = None,
         model: str = "gpt-4o-mini",
         temperature: float = 0.7,
-        streaming: bool = True
+        streaming: bool = True,
+        base_url: Optional[str] = None
     ):
         """
         Initialize Filmeto Agent.
@@ -46,14 +47,20 @@ class FilmetoAgent:
         Args:
             workspace: Workspace instance
             project: Project instance
-            api_key: OpenAI API key (optional, can use environment variable)
+            api_key: OpenAI API key (optional, can use settings or environment variable)
             model: LLM model to use
             temperature: Temperature for LLM
             streaming: Enable streaming responses
+            base_url: OpenAI API base URL (optional, can use settings)
         """
         self.workspace = workspace
         self.project = project
         self.streaming = streaming
+        
+        # Get settings from workspace
+        settings = None
+        if workspace and hasattr(workspace, 'settings'):
+            settings = workspace.settings
         
         # Initialize LLM
         llm_kwargs = {
@@ -61,25 +68,38 @@ class FilmetoAgent:
             "temperature": temperature,
             "streaming": streaming
         }
+        
+        # Configure API key - priority: parameter > settings > environment
         if api_key:
             llm_kwargs["api_key"] = api_key
+        elif settings:
+            settings_api_key = settings.get("ai_services.openai_api_key", "")
+            if settings_api_key:
+                llm_kwargs["api_key"] = settings_api_key
         else:
-            # Use a default API key or handle missing key gracefully
-            # In a real implementation, you might want to provide a mock or fallback LLM
-            # For now, we'll check if the environment variable is set
+            # Fall back to environment variable
             import os
             env_api_key = os.getenv("OPENAI_API_KEY")
             if env_api_key:
                 llm_kwargs["api_key"] = env_api_key
-            else:
-                # If no API key is provided, we can't initialize the LLM
-                # This will cause an error when trying to use the agent
-                # So we'll set a flag to indicate the issue
-                self.llm = None
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning("⚠️ Warning: No OpenAI API key provided. Agent will not function until API key is set.")
-                return
+        
+        # Configure base URL - priority: parameter > settings > default
+        if base_url:
+            llm_kwargs["base_url"] = base_url
+        elif settings:
+            settings_base_url = settings.get("ai_services.openai_host", "")
+            if settings_base_url:
+                llm_kwargs["base_url"] = settings_base_url
+        
+        # Check if we have required configuration
+        if "api_key" not in llm_kwargs:
+            # If no API key is provided, we can't initialize the LLM
+            self.llm = None
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("⚠️ Warning: No OpenAI API key provided. Agent will not function until API key is set.")
+            logger.warning("   Please set API key in workspace settings (ai_services.openai_api_key) or environment variable (OPENAI_API_KEY)")
+            return
         
         self.llm = ChatOpenAI(**llm_kwargs)
         

@@ -235,6 +235,49 @@ async def example_error_handling():
         print("Make sure to set your OpenAI API key in settings.yaml")
 
 
+async def example_settings_configuration():
+    """Example 8: Using settings configuration for LangGraph."""
+    print("\n" + "="*60)
+    print("Example 8: Settings Configuration")
+    print("="*60)
+    
+    workspace = Workspace("/path/to/workspace", "project_name")
+    project = workspace.get_project()
+    
+    if not project:
+        print("No project found.")
+        return
+    
+    # Configure settings for LangGraph initialization
+    print("\nConfiguring AI settings...")
+    workspace.settings.set("ai_services.openai_api_key", "sk-your-api-key-here")
+    workspace.settings.set("ai_services.openai_host", "https://api.openai.com/v1")
+    workspace.settings.set("ai_services.default_model", "gpt-4o-mini")
+    workspace.settings.save()
+    
+    print("✅ Settings configured:")
+    print(f"   API Key: {workspace.settings.get('ai_services.openai_api_key', 'Not set')}")
+    print(f"   API Host: {workspace.settings.get('ai_services.openai_host', 'Not set')}")
+    print(f"   Default Model: {workspace.settings.get('ai_services.default_model', 'Not set')}")
+    
+    # Create agent - it will automatically use settings
+    agent = FilmetoAgent(
+        workspace=workspace,
+        project=project,
+        # API key and base_url will be read from settings automatically
+    )
+    
+    if agent.llm:
+        print("\n✅ Agent initialized successfully with settings configuration")
+        try:
+            response = await agent.chat("Hello! Please introduce yourself.")
+            print(f"\nAgent: {response}")
+        except Exception as e:
+            print(f"❌ Error during chat: {e}")
+    else:
+        print("\n⚠️ Agent LLM not initialized. Check your API key configuration.")
+
+
 async def main():
     """Run all examples."""
     examples = [
@@ -245,6 +288,7 @@ async def main():
         ("Conversation Management", example_conversation_management),
         ("Custom Tools", example_custom_tool),
         ("Error Handling", example_error_handling),
+        ("Settings Configuration", example_settings_configuration),
     ]
     
     print("\n" + "="*60)

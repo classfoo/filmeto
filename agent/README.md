@@ -99,22 +99,50 @@ The agent is integrated with `AgentPanel` for seamless UI interaction:
 
 ## Configuration
 
-Set OpenAI API key in workspace settings:
+Set OpenAI API key and host in workspace settings:
 
 ```yaml
 # workspace/settings.yaml
-openai_api_key: "sk-..."
+groups:
+  - name: ai_services
+    label: AI Services
+    fields:
+      - name: openai_api_key
+        default: "sk-..."
+      - name: openai_host
+        default: "https://api.openai.com/v1"
+      - name: openai_ak_sk
+        default: ""  # Optional AK/SK authentication
+      - name: default_model
+        default: "gpt-4o-mini"
 ```
 
-Or pass directly:
+The agent will automatically read these settings during initialization:
+
+```python
+# Settings are read automatically from workspace.settings
+agent = FilmetoAgent(
+    workspace=workspace,
+    project=project
+)
+```
+
+You can also pass configuration directly (overrides settings):
 
 ```python
 agent = FilmetoAgent(
     workspace=workspace,
     project=project,
-    api_key="your-key"
+    api_key="your-key",
+    base_url="https://custom.api.com/v1"
 )
 ```
+
+### Configuration Priority
+
+1. **Direct parameters** (highest priority)
+2. **Workspace settings** (`workspace.settings`)
+3. **Environment variables** (`OPENAI_API_KEY`)
 
 ## Examples
 

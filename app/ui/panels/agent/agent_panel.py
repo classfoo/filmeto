@@ -238,17 +238,15 @@ class AgentPanel(BasePanel):
                 logger.warning("⚠️ Cannot initialize agent: No project loaded")
                 return
             
-            # Get settings
+            # Get settings (model from settings, let FilmetoAgent read api_key internally)
             settings = self.workspace.get_settings()
-            api_key = settings.get('openai_api_key') if settings else None
-            model = settings.get('ai_services.default_model', 'gpt-4o-mini')
+            model = settings.get('ai_services.default_model', 'gpt-4o-mini') if settings else 'gpt-4o-mini'
             temperature = 0.7  # Could also make this configurable
             
-            # Create agent instance
+            # Create agent instance (it will read api_key and base_url from workspace.settings)
             self.agent = FilmetoAgent(
                 workspace=self.workspace,
                 project=project,
-                api_key=api_key,
                 model=model,
                 temperature=temperature,
                 streaming=True

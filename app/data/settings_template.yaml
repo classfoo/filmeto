@@ -99,8 +99,23 @@ groups:
         default: ""
         description: Your OpenAI API key for AI services
         validation:
-          max_length: 200
-          pattern: "^sk-[a-zA-Z0-9]+$"
+          max_length: 500
+      
+      - name: openai_host
+        label: OpenAI API Host
+        type: text
+        default: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        description: OpenAI API base URL for LangGraph initialization
+        validation:
+          max_length: 500
+      
+      - name: openai_ak_sk
+        label: OpenAI Access Key/Secret Key
+        type: text
+        default: ""
+        description: OpenAI AK/SK for alternative authentication (optional)
+        validation:
+          max_length: 500
         
       - name: default_model
         label: Default AI Model

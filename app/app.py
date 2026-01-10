@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import qInstallMessageHandler, QtMsgType
 
 from app.data.workspace import Workspace
-from app.ui.main_window import WindowManager
+from app.ui.window import WindowManager
 from server.server import Server, ServerManager
 from utils.i18n_utils import translation_manager
 
