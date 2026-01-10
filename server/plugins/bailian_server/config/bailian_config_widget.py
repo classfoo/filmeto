@@ -124,5 +124,3 @@ class BailianConfigWidget(QWidget):
             QMessageBox.warning(self, "Validation Error", "AccessKey ID and Secret are required.")
             return False
         return True
-
-

@@ -295,6 +295,3 @@ class ResourceProcessor:
             if cache_file.is_file():
                 total_size += cache_file.stat().st_size
         return total_size
-
-
-

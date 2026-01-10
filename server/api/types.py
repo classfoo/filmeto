@@ -385,6 +385,3 @@ class TimeoutError(TaskError):
             f"Task '{task_id}' exceeded timeout of {timeout} seconds",
             {"task_id": task_id, "timeout": timeout}
         )
-
-
-

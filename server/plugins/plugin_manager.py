@@ -448,6 +448,3 @@ class PluginManager:
             info for info in self.plugin_infos.values()
             if any(tool.name == tool_name for tool in info.tools)
         ]
-
-
-

@@ -34,6 +34,9 @@ class StartupWindow(LeftPanelDialog):
         super(StartupWindow, self).__init__(parent=None, left_panel_width=250)
         self.workspace = workspace
         
+        # Store pending prompt to be set in agent panel after entering edit mode
+        self._pending_prompt = None
+        
         # Window size storage
         self._window_sizes = {}
         self._load_window_sizes()
@@ -213,12 +216,17 @@ class StartupWindow(LeftPanelDialog):
     
     def _on_prompt_submitted(self, prompt: str, contexts: list, model: str):
         """Handle prompt submission."""
-        # TODO: Handle prompt submission in startup mode
-        # This could be used to interact with an AI assistant
-        # for project-level operations
-        logger.info(f"Prompt submitted: {prompt}")
-        logger.info(f"Model: {model}")
-        logger.info(f"Contexts: {contexts}")
+        # Get selected project or use default
+        project_name = self.get_selected_project()
+        if not project_name:
+            # If no project selected, use the current project
+            project_name = self.workspace.project_name
+        
+        # Store prompt to be set in agent panel after entering edit mode
+        self._pending_prompt = prompt
+        
+        # Enter edit mode with the project
+        self.enter_edit_mode.emit(project_name)
     
     def refresh_projects(self):
         """Refresh the project list."""
