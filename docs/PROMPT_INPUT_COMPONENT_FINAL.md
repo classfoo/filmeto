@@ -235,13 +235,13 @@ All requirements from the design document have been successfully implemented and
 
 ```python
 from app.data.workspace import Workspace
-from app.ui.prompt_input import PromptInputWidget
+from app.ui.prompt import CanvasPromptWidget
 
 # 1. Create workspace
 workspace = Workspace("../workspace", "my_project")
 
 # 2. Create widget
-prompt_widget = PromptInputWidget(workspace)
+prompt_widget = CanvasPromptWidget(workspace)
 
 # 3. Connect signals
 prompt_widget.prompt_submitted.connect(handle_prompt)

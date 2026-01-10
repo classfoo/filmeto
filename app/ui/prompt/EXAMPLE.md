@@ -5,27 +5,28 @@
 ```python
 from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 from app.data.workspace import Workspace
-from app.ui.prompt_input import PromptInputWidget
+from app.ui.prompt import CanvasPromptWidget
+
 
 class MyWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        
+
         # Create workspace
         workspace = Workspace("./workspace", "my_project")
-        
+
         # Create central widget
         central = QWidget()
         self.setCentralWidget(central)
-        
+
         # Create layout
         layout = QVBoxLayout(central)
-        
+
         # Add prompt input widget
-        self.prompt_input = PromptInputWidget(workspace)
+        self.prompt_input = CanvasPromptWidget(workspace)
         self.prompt_input.prompt_submitted.connect(self.on_prompt_submit)
         layout.addWidget(self.prompt_input)
-    
+
     def on_prompt_submit(self, prompt: str):
         print(f"Received prompt: {prompt}")
         # Process the prompt here
@@ -153,25 +154,26 @@ class TaskCreationDialog(QDialog):
 ## Example 7: Loading and Displaying Templates
 
 ```python
-from app.ui.prompt_input import TemplateItemWidget
+from app.ui.prompt import TemplateItemWidget
+
 
 class TemplateManagerWidget(QWidget):
     def __init__(self, workspace):
         super().__init__()
         self.workspace = workspace
-        
+
         layout = QVBoxLayout(self)
-        
+
         # Load all templates
         prompt_manager = workspace.get_prompt_manager()
         templates = prompt_manager.load_templates()
-        
+
         # Display each template
         for template in templates:
             item = TemplateItemWidget(template)
             item.clicked.connect(self.on_template_click)
             layout.addWidget(item)
-    
+
     def on_template_click(self, template):
         print(f"Clicked: {template.text}")
         print(f"Icon: {template.icon}")

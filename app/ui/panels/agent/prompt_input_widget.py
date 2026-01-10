@@ -3,7 +3,7 @@
 from PySide6.QtCore import Signal
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
-from app.ui.prompt_input.agent_prompt_widget import AgentPromptWidget
+from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 from utils.i18n_utils import tr
 
 

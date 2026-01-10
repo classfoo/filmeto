@@ -37,13 +37,13 @@ workspace/{project_name}/
 
 ```python
 from app.data.workspace import Workspace
-from app.ui.prompt_input import PromptInputWidget
+from app.ui.prompt import CanvasPromptWidget
 
 # Create workspace instance
 workspace = Workspace("./workspace", "demo")
 
 # Create prompt input widget
-prompt_widget = PromptInputWidget(workspace)
+prompt_widget = CanvasPromptWidget(workspace)
 
 # Connect to signals
 prompt_widget.prompt_submitted.connect(on_prompt_submitted)

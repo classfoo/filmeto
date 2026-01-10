@@ -147,10 +147,10 @@ All requirements from the design document have been implemented:
 
 ```python
 from app.data.workspace import Workspace
-from app.ui.prompt_input import PromptInputWidget
+from app.ui.prompt import CanvasPromptWidget
 
 workspace = Workspace("../workspace", "demo")
-prompt_widget = PromptInputWidget(workspace)
+prompt_widget = CanvasPromptWidget(workspace)
 prompt_widget.prompt_submitted.connect(on_submit)
 ```
 

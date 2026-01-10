@@ -6,12 +6,12 @@ from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QTextEdit,
 from PySide6.QtGui import QCursor, QTextCursor, QKeyEvent
 
 from app.ui.base_widget import BaseWidget, BaseTaskWidget
-from app.ui.prompt_input.template_item_widget import TemplateItemWidget
+from app.ui.prompt.template_item_widget import TemplateItemWidget
 from app.data.workspace import Workspace, PromptTemplate, PromptManager
 from utils.i18n_utils import tr, translation_manager
 
 
-class PromptInputWidget(BaseTaskWidget):
+class CanvasPromptWidget(BaseTaskWidget):
     """
     Reusable prompt input component with template management
     """

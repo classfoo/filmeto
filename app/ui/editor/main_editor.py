@@ -20,7 +20,7 @@ from qasync import asyncSlot
 from app.ui.base_widget import BaseTaskWidget
 from app.ui.canvas.canvas_editor import CanvasEditor  # 替换导入
 from app.ui.frame_selector.frame_selector import FrameSelectorWidget
-from app.ui.prompt_input.prompt_input_widget import PromptInputWidget
+from app.ui.prompt.canvas_prompt_widget import CanvasPromptWidget
 from app.data.workspace import Workspace
 from app.data.task import TaskResult, Task
 from app.data.timeline import TimelineItem
@@ -215,7 +215,7 @@ class MainEditorWidget(BaseTaskWidget):
         control_h_layout.addWidget(tool_section, 0)  # Don't stretch
         
         # Prompt input section (right)
-        self.prompt_input = PromptInputWidget(self.workspace)
+        self.prompt_input = CanvasPromptWidget(self.workspace)
         # Override the get_current_tool_name method to return the current tool
         original_get_current_tool_name = self.prompt_input.get_current_tool_name
         def get_current_tool_name_override():
@@ -630,7 +630,7 @@ class MainEditorWidget(BaseTaskWidget):
         workspace = self.workspace
 
         # 重新初始化提示输入组件
-        if hasattr(self, 'prompt_input') and self.prompt_input:
+        if hasattr(self, 'prompt') and self.prompt_input:
             self.prompt_input.on_project_switched(project_name)
 
         # 更新任务列表组件
