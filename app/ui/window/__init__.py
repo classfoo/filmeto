@@ -1,5 +1,4 @@
 # Export all classes for backward compatibility
-from app.ui.window.edit.main_window import MainWindow, WindowMode
 from app.ui.window.edit.top_side_bar import MainWindowTopSideBar
 from app.ui.window.edit.bottom_side_bar import MainWindowBottomSideBar
 from app.ui.window.edit.left_side_bar import MainWindowLeftSideBar
@@ -24,8 +23,6 @@ from app.ui.window.edit.edit_window import EditWindow
 from .window_manager import WindowManager
 
 __all__ = [
-    'MainWindow',
-    'WindowMode',
     'MainWindowTopSideBar',
     'MainWindowBottomSideBar',
     'MainWindowLeftSideBar',
