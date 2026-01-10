@@ -10,11 +10,9 @@ and manage projects.
 from .startup_widget import StartupWidget
 from .project_list_widget import ProjectListWidget
 from .project_info_widget import ProjectInfoWidget
-from .startup_prompt_widget import StartupPromptWidget
 
 __all__ = [
     'StartupWidget',
     'ProjectListWidget',
     'ProjectInfoWidget',
-    'StartupPromptWidget',
 ]

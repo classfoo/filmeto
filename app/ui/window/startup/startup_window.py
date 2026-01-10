@@ -15,7 +15,7 @@ from app.data.workspace import Workspace
 from app.ui.dialog.left_panel_dialog import LeftPanelDialog
 from app.ui.window.startup.project_list_widget import ProjectListWidget
 from app.ui.window.startup.project_info_widget import ProjectInfoWidget
-from app.ui.window.startup.startup_prompt_widget import StartupPromptWidget
+from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,8 @@ class StartupWindow(LeftPanelDialog):
         prompt_layout = QVBoxLayout(prompt_container)
         prompt_layout.setContentsMargins(16, 8, 16, 16)
         
-        self.prompt_widget = StartupPromptWidget(self.workspace)
+        self.prompt_widget = AgentPromptWidget(self.workspace)
+        self.prompt_widget.set_placeholder("请输入您的需求或问题...")
         prompt_layout.addWidget(self.prompt_widget)
         
         right_layout.addWidget(prompt_container)
@@ -214,7 +215,7 @@ class StartupWindow(LeftPanelDialog):
         # Just update the info display
         self.project_info.set_project(project_name)
     
-    def _on_prompt_submitted(self, prompt: str, contexts: list, model: str):
+    def _on_prompt_submitted(self, prompt: str):
         """Handle prompt submission."""
         # Get selected project or use default
         project_name = self.get_selected_project()

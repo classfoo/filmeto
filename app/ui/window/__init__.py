@@ -14,7 +14,6 @@ from .startup import (
     StartupWidget,
     ProjectListWidget,
     ProjectInfoWidget,
-    StartupPromptWidget,
 )
 
 # New window classes
@@ -35,7 +34,6 @@ __all__ = [
     'StartupWidget',
     'ProjectListWidget',
     'ProjectInfoWidget',
-    'StartupPromptWidget',
     'StartupWindow',
     'EditWindow',
     'WindowManager',

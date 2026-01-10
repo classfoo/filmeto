@@ -17,7 +17,7 @@ from app.ui.base_widget import BaseWidget
 from app.ui.dialog.mac_button import MacTitleBar
 from .project_list_widget import ProjectListWidget
 from .project_info_widget import ProjectInfoWidget
-from .startup_prompt_widget import StartupPromptWidget
+from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,8 @@ class StartupWidget(BaseWidget):
         prompt_layout = QVBoxLayout(prompt_container)
         prompt_layout.setContentsMargins(16, 8, 16, 16)
         
-        self.prompt_widget = StartupPromptWidget(self.workspace)
+        self.prompt_widget = AgentPromptWidget(self.workspace)
+        self.prompt_widget.set_placeholder("请输入您的需求或问题...")
         prompt_layout.addWidget(self.prompt_widget)
         
         right_layout.addWidget(prompt_container)
@@ -167,14 +168,12 @@ class StartupWidget(BaseWidget):
         # Just update the info display
         self.project_info.set_project(project_name)
     
-    def _on_prompt_submitted(self, prompt: str, contexts: list, model: str):
+    def _on_prompt_submitted(self, prompt: str):
         """Handle prompt submission."""
         # TODO: Handle prompt submission in startup mode
         # This could be used to interact with an AI assistant
         # for project-level operations
         logger.info(f"Prompt submitted: {prompt}")
-        logger.info(f"Model: {model}")
-        logger.info(f"Contexts: {contexts}")
     
     # Window dragging support
     def _on_top_bar_mouse_press(self, event: QMouseEvent):
