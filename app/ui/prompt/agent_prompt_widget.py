@@ -23,12 +23,16 @@ class AgentPromptWidget(BaseWidget):
     prompt_submitted = Signal(str)  # Emitted when prompt is submitted
     message_submitted = Signal(str)  # Alias for prompt_submitted
     add_context_requested = Signal()  # Emitted when add context button is clicked
+    cancel_requested = Signal()  # Emitted when cancel button is clicked during conversation
     
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the prompt widget."""
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
+        
+        # Track conversation state
+        self._is_conversation_active = False
         
         # Connect prompt_submitted to message_submitted for backward compatibility
         self.prompt_submitted.connect(self.message_submitted.emit)
@@ -225,7 +229,7 @@ class AgentPromptWidget(BaseWidget):
                 color: #6d6f72;
             }
         """)
-        self.send_button.clicked.connect(self._on_send_message)
+        self.send_button.clicked.connect(self._on_button_clicked)
 
         # Determine row based on whether context UI exists
         input_row = 1 if hasattr(self, 'context_widget') and self.context_widget else 0
@@ -297,7 +301,7 @@ class AgentPromptWidget(BaseWidget):
                 if (event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter):
                     modifiers = event.modifiers()
                     if not (modifiers & Qt.ShiftModifier):  # Enter sends message
-                        self._on_send_message()
+                        self._on_button_clicked()
                         return True
                     else:  # Shift+Enter creates new line
                         cursor = self.input_text.textCursor()
@@ -305,6 +309,15 @@ class AgentPromptWidget(BaseWidget):
                         return True
         
         return super().eventFilter(obj, event)
+    
+    def _on_button_clicked(self):
+        """Handle button click - either send or cancel based on conversation state."""
+        if self._is_conversation_active:
+            # Cancel the ongoing conversation
+            self.cancel_requested.emit()
+        else:
+            # Send message
+            self._on_send_message()
     
     def _on_send_message(self):
         """Handle send message button click."""
@@ -339,6 +352,20 @@ class AgentPromptWidget(BaseWidget):
     def set_placeholder(self, text: str):
         """Set placeholder text."""
         self.input_text.setPlaceholderText(text)
+    
+    def set_conversation_active(self, active: bool):
+        """Set the conversation active state and update button appearance."""
+        self._is_conversation_active = active
+        
+        # Update button icon and tooltip
+        if active:
+            # Change to cancel button
+            self.send_button.setText("\ue83b")  # close icon
+            self.send_button.setToolTip(tr("Cancel"))
+        else:
+            # Change back to send button
+            self.send_button.setText("\ue83e")  # play/send icon
+            self.send_button.setToolTip(tr("Send"))
     
     # Context management methods
     def add_context_item(self, context_id: str, context_name: str):
