@@ -87,7 +87,7 @@ class AgentPromptWidget(BaseWidget):
         context_main_layout.setSpacing(6)
         
         # Add button (24x24) on the left
-        icon_font = QFont("iconfont", 14)
+        icon_font = QFont("iconfont", 15)
         self.add_context_button = QPushButton("\ue835", self.context_widget)  # Add icon
         self.add_context_button.setObjectName("add_context_button")
         self.add_context_button.setFont(icon_font)
@@ -100,7 +100,7 @@ class AgentPromptWidget(BaseWidget):
                 border: none;
                 border-radius: 8px;
                 color: #888888;
-                font-size: 14px;
+                font-size: 15px;
             }
             QPushButton#add_context_button:hover {
                 background-color: rgba(255, 255, 255, 0.1);
@@ -119,7 +119,7 @@ class AgentPromptWidget(BaseWidget):
         self.context_placeholder.setStyleSheet("""
             QLabel#context_placeholder {
                 color: #888888;
-                font-size: 12px;
+                font-size: 15px;
                 background-color: transparent;
             }
         """)
@@ -155,7 +155,7 @@ class AgentPromptWidget(BaseWidget):
                 border: none;
                 border-radius: 4px;
                 padding: 0px;
-                font-size: 13px;
+                font-size: 15px;
                 line-height: 1.4;
                 selection-background-color: #4080ff;
             }
@@ -185,7 +185,7 @@ class AgentPromptWidget(BaseWidget):
         self.input_text.document().contentsChanged.connect(self._adjust_height_auto)
 
         # Send button - icon button (24x24)
-        icon_font = QFont("iconfont", 14)
+        icon_font = QFont("iconfont", 15)
         self.send_button = QPushButton("\ue83e", self.input_container)  # Play/send icon
         self.send_button.setObjectName("agent_send_button")
         self.send_button.setFont(icon_font)
@@ -198,7 +198,7 @@ class AgentPromptWidget(BaseWidget):
                 border: none;
                 border-radius: 12px;
                 color: #e1e1e1;
-                font-size: 14px;
+                font-size: 15px;
             }
             QPushButton#agent_send_button:hover {
                 background-color: #4080ff;
@@ -239,7 +239,7 @@ class AgentPromptWidget(BaseWidget):
         """Calculate the height of a single line of text."""
         font_metrics = self.input_text.fontMetrics()
         line_height = font_metrics.lineSpacing()
-        return max(line_height, 18)  # Minimum 18px
+        return max(line_height, 21)  # Minimum 21px to accommodate 15pt font
     
     def _adjust_height_auto(self):
         """Automatically adjust input height based on content."""
