@@ -48,9 +48,6 @@ class AgentPromptWidget(BaseWidget):
                 border-radius: 6px;
                 border: 1px solid transparent;
             }
-            QWidget#agent_prompt_widget[focused="true"] {
-                border: 2px solid #4080ff;
-            }
         """)
         self.setObjectName("agent_prompt_widget")
         
@@ -65,8 +62,11 @@ class AgentPromptWidget(BaseWidget):
         self.input_container.setStyleSheet("""
             QFrame#agent_input_container {
                 background-color: #1e1f22;
-                border: none;
+                border: 1px solid transparent;
                 border-radius: 8px;
+            }
+            QFrame#agent_input_container[focused="true"] {
+                border: 2px solid #4080ff;
             }
         """)
         # Use a grid layout for better control over spacing
@@ -289,10 +289,11 @@ class AgentPromptWidget(BaseWidget):
 
     def set_focused_state(self, focused: bool):
         """Set the focused state and update the widget's style."""
-        self.setProperty('focused', focused)
-        self.style().unpolish(self)
-        self.style().polish(self)
-        self.update()
+        # Apply focused property to the input container instead of the main widget
+        self.input_container.setProperty('focused', focused)
+        self.input_container.style().unpolish(self.input_container)
+        self.input_container.style().polish(self.input_container)
+        self.input_container.update()
 
     def eventFilter(self, obj, event):
         """Handle keyboard events."""
