@@ -176,8 +176,9 @@ class Settings:
                 # Store in schema
                 self.schema[group_name][field_name] = field
                 
-                # Initialize value with default
-                self.values[group_name][field_name] = field.default
+                # Initialize value - use 'value' field if present (user's saved value), otherwise use default
+                saved_value = field_data.get('value', field.default)
+                self.values[group_name][field_name] = saved_value
                 
                 # Add to group
                 group.fields.append(field)
@@ -388,7 +389,8 @@ class Settings:
                         'name': field.name,
                         'label': field.label,
                         'type': field.type,
-                        'default': self.values[group.name][field.name],  # Use current value as new default
+                        'default': field.default,  # Preserve original default value
+                        'value': self.values[group.name][field.name],  # Save current user value
                         'description': field.description
                     }
                     
