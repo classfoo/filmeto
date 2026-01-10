@@ -9,3 +9,4 @@ QWEN.md
 logs/
 logs/*.log
 workspace/*/resources
+/app/ui/config/window_sizes.json
