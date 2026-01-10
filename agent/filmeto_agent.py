@@ -281,10 +281,13 @@ class FilmetoAgent:
         
         # Stream response
         full_response = ""
-        
+
+        # Create config with thread_id for memory checkpointer
+        config = {"configurable": {"thread_id": conversation.conversation_id}}
+
         if self.streaming:
             # Use astream for streaming
-            async for event in self.graph.astream(initial_state):
+            async for event in self.graph.astream(initial_state, config=config):
                 for node_name, node_output in event.items():
                     if "messages" in node_output:
                         last_message = node_output["messages"][-1]
@@ -294,7 +297,7 @@ class FilmetoAgent:
                                 # Extract new content
                                 new_content = content[len(full_response):]
                                 full_response = content
-                                
+
                                 # Yield token by token
                                 for char in new_content:
                                     if on_token:
@@ -303,7 +306,7 @@ class FilmetoAgent:
                                     await asyncio.sleep(0.01)  # Small delay for smooth streaming
         else:
             # Non-streaming mode
-            result = await self.graph.ainvoke(initial_state)
+            result = await self.graph.ainvoke(initial_state, config=config)
             if "messages" in result:
                 last_message = result["messages"][-1]
                 if isinstance(last_message, AIMessage):
