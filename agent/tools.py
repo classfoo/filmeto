@@ -162,25 +162,22 @@ class ListResourcesTool(FilmetoBaseTool):
         """List resources."""
         if not self.project:
             return "No project is currently active."
-        
+
         resource_manager = self.project.get_resource_manager()
-        resources = resource_manager.list_resources()
-        
-        if resource_type:
-            resources = [r for r in resources if r.resource_type == resource_type]
-        
+        resources = resource_manager.list_resources(resource_type)
+
         if not resources:
             type_str = f" of type '{resource_type}'" if resource_type else ""
             return f"No resources{type_str} found in the project."
-        
+
         result = f"Resources in project{' (' + resource_type + ')' if resource_type else ''}:\n"
         for res in resources:
-            result += f"- {res.name} ({res.resource_type})\n"
+            result += f"- {res.name} ({res.media_type})\n"
             result += f"  ID: {res.resource_id}\n"
             result += f"  Path: {res.file_path}\n"
             if res.source_type:
                 result += f"  Source: {res.source_type}\n"
-        
+
         return result
 
 

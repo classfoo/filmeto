@@ -368,6 +368,20 @@ class ResourceManager:
         """Retrieve all project resources"""
         self._ensure_loaded()
         return list(self._resources_by_name.values())
+
+    def list_resources(self, resource_type: Optional[str] = None) -> List[Resource]:
+        """List all resources, optionally filtered by resource type
+
+        Args:
+            resource_type: Optional filter for resource type ('image', 'video', 'audio', etc.)
+
+        Returns:
+            List of Resource objects
+        """
+        self._ensure_loaded()
+        if resource_type:
+            return self.list_by_type(resource_type)
+        return self.get_all()
     
     def search(self, 
               media_type: Optional[str] = None,
