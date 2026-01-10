@@ -192,7 +192,7 @@ class AgentPromptWidget(BaseWidget):
 
         # Connect document contents changed signal to adjust height automatically
         self.input_text.document().contentsChanged.connect(self._adjust_height_auto)
-        
+
         # Also override the focus events directly
         self.original_focusInEvent = self.input_text.focusInEvent
         self.original_focusOutEvent = self.input_text.focusOutEvent
@@ -202,9 +202,76 @@ class AgentPromptWidget(BaseWidget):
         # Initialize focused property
         self.setProperty('focused', False)
 
-        # Send button - icon button (24x24)
+        # Determine row based on whether context UI exists
+        input_row = 1 if hasattr(self, 'context_widget') and self.context_widget else 0
+
+        # Add input text to grid
+        input_container_layout.addWidget(self.input_text, input_row, 0, 1, 2)
+
+        # Set stretch factors
+        input_container_layout.setRowStretch(input_row, 1)  # Text area gets all extra vertical space
+        input_container_layout.setColumnStretch(0, 1)  # Column 0 expands horizontally
+        input_container_layout.setColumnStretch(1, 0)  # Column 1 stays fixed
+
+        # Initialize the send UI separately
+        self._init_send_ui(input_container_layout)
+    
+    def _init_send_ui(self, input_container_layout):
+        """Initialize the send UI components with agent dropdown and send button."""
+        # Create a toolbar at the bottom of the input container
+        self.send_toolbar = QFrame(self.input_container)
+        self.send_toolbar.setObjectName("send_toolbar")
+        self.send_toolbar.setStyleSheet("""
+            QFrame#send_toolbar {
+                border: none;
+                background-color: transparent;
+                border-top: 1px solid #3a3a3a;
+                padding: 6px;
+            }
+        """)
+
+        # Create horizontal layout for the toolbar
+        toolbar_layout = QHBoxLayout(self.send_toolbar)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(6)
+
+        # Agent dropdown on the left
+        from PySide6.QtWidgets import QComboBox
+        self.agent_dropdown = QComboBox(self.send_toolbar)
+        self.agent_dropdown.setObjectName("agent_dropdown")
+        self.agent_dropdown.setStyleSheet("""
+            QComboBox#agent_dropdown {
+                background-color: #3d3f4e;
+                border: 1px solid #4a4a4a;
+                border-radius: 4px;
+                padding: 2px 6px;
+                color: #e1e1e1;
+                font-size: 13px;
+                min-width: 120px;
+            }
+            QComboBox#agent_dropdown:focus {
+                border: 1px solid #4080ff;
+            }
+            QComboBox#agent_dropdown::drop-down {
+                border: none;
+            }
+            QComboBox#agent_dropdown::down-arrow {
+                image: url(noimg);
+                width: 0px;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid #888888;
+            }
+        """)
+
+        # Add some default options to the dropdown
+        self.agent_dropdown.addItem(tr("Default Agent"), "default_agent")
+        self.agent_dropdown.addItem(tr("Creative Agent"), "creative_agent")
+        self.agent_dropdown.addItem(tr("Analytical Agent"), "analytical_agent")
+
+        # Send button on the right
         icon_font = QFont("iconfont", 15)
-        self.send_button = QPushButton("\ue83e", self.input_container)  # Play/send icon
+        self.send_button = QPushButton("\ue83e", self.send_toolbar)  # Play/send icon
         self.send_button.setObjectName("agent_send_button")
         self.send_button.setFont(icon_font)
         self.send_button.setFixedSize(24, 24)
@@ -231,46 +298,34 @@ class AgentPromptWidget(BaseWidget):
         """)
         self.send_button.clicked.connect(self._on_button_clicked)
 
-        # Determine row based on whether context UI exists
-        input_row = 1 if hasattr(self, 'context_widget') and self.context_widget else 0
-        
-        # Add input text to grid
-        input_container_layout.addWidget(self.input_text, input_row, 0, 1, 2)
-        
-        # Create a container for the button to position it properly
-        button_widget = QWidget(self.input_container)
-        button_layout = QHBoxLayout(button_widget)
-        button_layout.setContentsMargins(5, 2, 5, 2)
-        button_layout.addStretch()  # Push button to the right
-        button_layout.addWidget(self.send_button)
+        # Add widgets to the toolbar layout
+        toolbar_layout.addWidget(self.agent_dropdown)
+        toolbar_layout.addStretch()  # Add stretch to push send button to the right
+        toolbar_layout.addWidget(self.send_button)
 
-        # Add button container to grid
-        input_container_layout.addWidget(button_widget, input_row + 1, 1)
+        # Add the toolbar to the input container's layout - at the bottom
+        # Find the next available row in the grid layout
+        next_row = input_container_layout.rowCount()
+        input_container_layout.addWidget(self.send_toolbar, next_row, 0, 1, 2)  # Span both columns
 
-        # Set stretch factors
-        input_container_layout.setRowStretch(input_row, 1)  # Text area gets all extra vertical space
-        input_container_layout.setRowStretch(input_row + 1, 0)  # Button row gets no extra space
-        input_container_layout.setColumnStretch(0, 1)  # Column 0 expands horizontally
-        input_container_layout.setColumnStretch(1, 0)  # Column 1 stays fixed
-    
     def _calculate_line_height(self) -> int:
         """Calculate the height of a single line of text."""
         font_metrics = self.input_text.fontMetrics()
         line_height = font_metrics.lineSpacing()
         return max(line_height, 21)  # Minimum 21px to accommodate 15pt font
-    
+
     def _adjust_height_auto(self):
         """Automatically adjust input height based on content."""
         doc = self.input_text.document()
         block_count = doc.blockCount()
-        
+
         if block_count == 0:
             block_count = 1
-        
+
         # Clamp line count between 1 and 10
         clamped_lines = max(1, min(10, block_count))
         target_height = self._line_height * clamped_lines
-        
+
         self.input_text.setMinimumHeight(target_height)
         self.input_text.setMaximumHeight(target_height)
         self.input_text.setFixedHeight(target_height)
