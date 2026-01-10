@@ -42,6 +42,10 @@ class AgentPromptWidget(BaseWidget):
             QWidget#agent_prompt_widget {
                 background-color: #2b2d30;
                 border-radius: 6px;
+                border: 1px solid transparent;
+            }
+            QWidget#agent_prompt_widget[focused="true"] {
+                border: 2px solid #4080ff;
             }
         """)
         self.setObjectName("agent_prompt_widget")
@@ -164,6 +168,7 @@ class AgentPromptWidget(BaseWidget):
             }
         """)
         self.input_text.setPlaceholderText(tr("输入消息..."))
+        # Install event filter to handle keyboard events in the input_text
         self.input_text.installEventFilter(self)
 
         # Set scrollbar policy
@@ -183,6 +188,15 @@ class AgentPromptWidget(BaseWidget):
 
         # Connect document contents changed signal to adjust height automatically
         self.input_text.document().contentsChanged.connect(self._adjust_height_auto)
+        
+        # Also override the focus events directly
+        self.original_focusInEvent = self.input_text.focusInEvent
+        self.original_focusOutEvent = self.input_text.focusOutEvent
+        self.input_text.focusInEvent = self._input_focus_in_event
+        self.input_text.focusOutEvent = self._input_focus_out_event
+
+        # Initialize focused property
+        self.setProperty('focused', False)
 
         # Send button - icon button (24x24)
         icon_font = QFont("iconfont", 15)
@@ -257,6 +271,25 @@ class AgentPromptWidget(BaseWidget):
         self.input_text.setMaximumHeight(target_height)
         self.input_text.setFixedHeight(target_height)
     
+    def _input_focus_in_event(self, event):
+        """Handle focus in event for the input text."""
+        self.set_focused_state(True)
+        if self.original_focusInEvent:
+            self.original_focusInEvent(event)
+
+    def _input_focus_out_event(self, event):
+        """Handle focus out event for the input text."""
+        self.set_focused_state(False)
+        if self.original_focusOutEvent:
+            self.original_focusOutEvent(event)
+
+    def set_focused_state(self, focused: bool):
+        """Set the focused state and update the widget's style."""
+        self.setProperty('focused', focused)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
     def eventFilter(self, obj, event):
         """Handle keyboard events."""
         if obj == self.input_text and event.type() == QEvent.KeyPress:
