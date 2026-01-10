@@ -14,12 +14,12 @@ from app.data.workspace import Workspace
 
 
 def test_character_manager_directly():
-    """Test accessing character manager directly without UI"""
+    """Test accessing actor manager directly without UI"""
     
     workspace_path = os.path.join(project_root, "workspace")
     demo_project_name = "demo"
     
-    print("Testing direct access to character manager...")
+    print("Testing direct access to actor manager...")
     
     # Initialize workspace with load_data=True
     workspace = Workspace(workspace_path, demo_project_name, load_data=True, defer_heavy_init=False)
@@ -28,7 +28,7 @@ def test_character_manager_directly():
     project = workspace.get_project()
     print(f"Project: {project is not None}")
     
-    print("Getting character manager...")
+    print("Getting actor manager...")
     character_manager = project.get_character_manager()
     print(f"Character manager: {character_manager is not None}")
     

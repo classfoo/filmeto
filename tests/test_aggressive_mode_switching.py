@@ -14,7 +14,7 @@ sys.path.insert(0, str(project_root))
 from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QWidget, QVBoxLayout
 from PySide6.QtCore import QTimer
 from app.data.workspace import Workspace
-from app.ui.panels.character.character_panel import CharacterPanel
+from app.ui.panels.actor.actor_panel import ActorPanel
 
 
 class AggressiveTestWindow(QMainWindow):
@@ -38,8 +38,8 @@ class AggressiveTestWindow(QMainWindow):
         self.stacked_widget.addWidget(self.startup_widget)
         self.stacked_widget.addWidget(self.edit_widget)
         
-        # Add character panel to edit widget
-        self.character_panel = CharacterPanel(self.workspace, self.edit_widget)
+        # Add actor panel to edit widget
+        self.character_panel = ActorPanel(self.workspace, self.edit_widget)
         self.character_panel.setParent(self.edit_widget)
         
         edit_layout = QVBoxLayout(self.edit_widget)
@@ -57,7 +57,7 @@ class AggressiveTestWindow(QMainWindow):
             self.current_mode = "edit"
             print(f"Switched to edit mode (switch #{self.switch_count})")
             
-            # Trigger some operations on the character panel to increase background activity
+            # Trigger some operations on the actor panel to increase background activity
             try:
                 # This might trigger additional background operations
                 self.character_panel.on_activated()

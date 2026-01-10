@@ -67,9 +67,9 @@ class Project:
         self.character_manager = CharacterManager(self.project_path, self.resource_manager)
         self.conversation_manager = ConversationManager(self.project_path)
 
-        # If load_data is True, ensure character data is loaded
+        # If load_data is True, ensure actor data is loaded
         if load_data:
-            # Trigger loading of character data to ensure it's available immediately
+            # Trigger loading of actor data to ensure it's available immediately
             self.character_manager.list_characters()
         
         # Debounced save mechanism for high-frequency updates
@@ -336,7 +336,7 @@ class Project:
         return self.resource_manager
 
     def get_character_manager(self) -> CharacterManager:
-        """Get the character manager instance"""
+        """Get the actor manager instance"""
         return self.character_manager
 
     def get_conversation_manager(self) -> ConversationManager:

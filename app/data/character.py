@@ -1,10 +1,10 @@
 """
 Character Management System
 
-Manages character data for projects with support for:
+Manages actor data for projects with support for:
 - Character metadata (name, story, relationships, etc.)
 - Character resource files (images: main view, front, back, left, right, poses, costumes, etc.)
-- Project-scoped character organization
+- Project-scoped actor organization
 """
 
 import os
@@ -23,7 +23,7 @@ from utils.yaml_utils import load_yaml, save_yaml
 
 
 class Character:
-    """Represents a single character in the project"""
+    """Represents a single actor in the project"""
     
     # Resource file types
     RESOURCE_TYPES = {
@@ -38,7 +38,7 @@ class Character:
     }
     
     def __init__(self, data: Dict[str, Any], project_path: str):
-        """Initialize character from metadata dictionary
+        """Initialize actor from metadata dictionary
         
         Args:
             data: Character metadata dictionary
@@ -56,7 +56,7 @@ class Character:
         self.updated_at = data.get('updated_at', datetime.now().isoformat())
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert character to dictionary for serialization"""
+        """Convert actor to dictionary for serialization"""
         return {
             'character_id': self.character_id,
             'name': self.name,
@@ -131,17 +131,17 @@ class Character:
 class CharacterManager:
     """Manages project characters with centralized YAML storage"""
     
-    # Signals for character events
+    # Signals for actor events
     character_added = signal('character_added')
     character_updated = signal('character_updated')
     character_deleted = signal('character_deleted')
     
     def __init__(self, project_path: str, resource_manager=None):
-        """Initialize character manager for a project
+        """Initialize actor manager for a project
         
         Args:
             project_path: Absolute path to the project directory
-            resource_manager: ResourceManager instance for handling character resources
+            resource_manager: ResourceManager instance for handling actor resources
         """
         self.project_path = project_path
         self.resource_manager = resource_manager
@@ -181,7 +181,7 @@ class CharacterManager:
                     logger.info(f"✅ Loaded {len(self._characters)} characters from central config")
                     return
             except Exception as e:
-                logger.error(f"❌ Error loading central character config: {e}")
+                logger.error(f"❌ Error loading central actor config: {e}")
 
         # 2. Fallback: Migration from old directory-based storage
         if os.path.exists(self.characters_dir):
@@ -219,9 +219,9 @@ class CharacterManager:
                                 
                                 self._characters[character.name] = character
                                 migrated_count += 1
-                                logger.info(f"📦 Migrated character: {character.name}")
+                                logger.info(f"📦 Migrated actor: {character.name}")
                         except Exception as e:
-                            logger.error(f"❌ Error loading character {item} for migration: {e}")
+                            logger.error(f"❌ Error loading actor {item} for migration: {e}")
             
             if migrated_count > 0:
                 logger.info(f"✅ Migrated {migrated_count} characters to new structure")
@@ -258,7 +258,7 @@ class CharacterManager:
         return self._save_all_characters()
     
     def create_character(self, name: str, description: str = '', story: str = '') -> Optional[Character]:
-        """Create a new character
+        """Create a new actor
         
         Args:
             name: Character name (must be unique)
@@ -276,12 +276,12 @@ class CharacterManager:
         
         name = name.strip()
         
-        # Check if character already exists
+        # Check if actor already exists
         if name in self._characters:
             logger.error(f"❌ Character '{name}' already exists")
             return None
         
-        # Create character instance
+        # Create actor instance
         character_data = {
             'character_id': str(uuid.uuid4()),
             'name': name,
@@ -307,11 +307,11 @@ class CharacterManager:
         # Send signal
         self.character_added.send(character)
         
-        logger.info(f"✅ Created character: {name}")
+        logger.info(f"✅ Created actor: {name}")
         return character
     
     def get_character(self, name: str) -> Optional[Character]:
-        """Get character by name
+        """Get actor by name
         
         Args:
             name: Character name
@@ -332,7 +332,7 @@ class CharacterManager:
         return list(self._characters.values())
     
     def update_character(self, name: str, **kwargs) -> bool:
-        """Update character properties
+        """Update actor properties
         
         Args:
             name: Character name
@@ -380,13 +380,13 @@ class CharacterManager:
             # Send signal
             self.character_updated.send(character)
 
-            logger.info(f"✅ Updated character: {character.name}")
+            logger.info(f"✅ Updated actor: {character.name}")
             return True
 
         return False
     
     def delete_character(self, name: str, remove_files: bool = True) -> bool:
-        """Delete a character
+        """Delete a actor
         
         Args:
             name: Character name
@@ -413,14 +413,14 @@ class CharacterManager:
             # Send signal
             self.character_deleted.send(name)
 
-            logger.info(f"✅ Deleted character: {name}")
+            logger.info(f"✅ Deleted actor: {name}")
             return True
         except Exception as e:
-            logger.error(f"❌ Error deleting character {name}: {e}")
+            logger.error(f"❌ Error deleting actor {name}: {e}")
             return False
     
     def add_resource(self, character_name: str, resource_type: str, source_file_path: str) -> Optional[str]:
-        """Add a resource file to a character via ResourceManager
+        """Add a resource file to a actor via ResourceManager
         
         Args:
             character_name: Character name
@@ -450,7 +450,7 @@ class CharacterManager:
             logger.error(f"❌ Source file does not exist: {abs_source}")
             return None
 
-        # Check if this resource is already managed by ResourceManager and belongs to this character
+        # Check if this resource is already managed by ResourceManager and belongs to this actor
         current_rel_path = character.get_resource_path(resource_type)
         if current_rel_path:
             abs_current = os.path.join(self.project_path, current_rel_path)
@@ -470,25 +470,25 @@ class CharacterManager:
             if not resource:
                 return None
 
-            # Set resource path in character (relative path from project root)
+            # Set resource path in actor (relative path from project root)
             character.set_resource(resource_type, resource.file_path)
 
-            # Save character config
+            # Save actor config
             if not self._save_all_characters():
                 return None
 
             # Send signal
             self.character_updated.send(character)
 
-            logger.info(f"✅ Added resource '{resource_type}' to character '{character_name}' via ResourceManager")
+            logger.info(f"✅ Added resource '{resource_type}' to actor '{character_name}' via ResourceManager")
             return resource.file_path
 
         except Exception as e:
-            logger.error(f"❌ Error adding resource to character {character_name}: {e}")
+            logger.error(f"❌ Error adding resource to actor {character_name}: {e}")
             return None
     
     def remove_resource(self, character_name: str, resource_type: str, remove_file: bool = False) -> bool:
-        """Remove a resource from a character
+        """Remove a resource from a actor
         
         Args:
             character_name: Character name
@@ -514,22 +514,22 @@ class CharacterManager:
         # Remove resource reference
         character.remove_resource(resource_type)
 
-        # Save character config
+        # Save actor config
         if not self._save_all_characters():
             return False
 
         # Send signal
         self.character_updated.send(character)
 
-        logger.info(f"✅ Removed resource '{resource_type}' from character '{character_name}'")
+        logger.info(f"✅ Removed resource '{resource_type}' from actor '{character_name}'")
         return True
     
     def rename_character(self, old_name: str, new_name: str) -> bool:
-        """Rename a character
+        """Rename a actor
         
         Args:
-            old_name: Current character name
-            new_name: New character name
+            old_name: Current actor name
+            new_name: New actor name
             
         Returns:
             True if successful, False otherwise

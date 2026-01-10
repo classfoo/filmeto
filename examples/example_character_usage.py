@@ -59,8 +59,8 @@ def main():
         for char in characters:
             print(f"  - {char.name}: {char.description}")
         
-        # Update character
-        print("\n✏️  Updating character...")
+        # Update actor
+        print("\n✏️  Updating actor...")
         manager.update_character(
             "Alice",
             description="A brave adventurer and leader",
@@ -88,26 +88,26 @@ def main():
         # Search characters
         print("\n🔍 Searching characters...")
         results = manager.search_characters("brave")
-        print(f"  Found {len(results)} character(s) matching 'brave':")
+        print(f"  Found {len(results)} actor(s) matching 'brave':")
         for char in results:
             print(f"    - {char.name}")
         
-        # Rename character
-        print("\n🔄 Renaming character...")
+        # Rename actor
+        print("\n🔄 Renaming actor...")
         success = manager.rename_character("Bob", "Robert")
         if success:
             print("  ✅ Renamed 'Bob' to 'Robert'")
             robert = manager.get_character("Robert")
             print(f"     New name: {robert.name}")
         
-        # Delete character
-        print("\n🗑️  Deleting character...")
+        # Delete actor
+        print("\n🗑️  Deleting actor...")
         success = manager.delete_character("Charlie", remove_files=True)
         if success:
             print("  ✅ Deleted 'Charlie'")
         
         # Final list
-        print("\n📋 Final character list:")
+        print("\n📋 Final actor list:")
         characters = manager.list_characters()
         for char in characters:
             print(f"  - {char.name}: {char.description}")
@@ -115,7 +115,7 @@ def main():
                 print(f"    Resources: {list(char.resources.keys())}")
         
         print("\n✅ Example completed successfully!")
-        print(f"\n📁 Check the project directory for character files: {project_dir}")
+        print(f"\n📁 Check the project directory for actor files: {project_dir}")
         
     except Exception as e:
         print(f"\n❌ Error: {e}")

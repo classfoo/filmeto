@@ -105,7 +105,7 @@ class BaseService(ABC):
     @classmethod
     @abstractmethod
     def get_service_icon(cls) -> str:
-        """Returns icon unicode character for UI display"""
+        """Returns icon unicode actor for UI display"""
         pass
 
     @classmethod

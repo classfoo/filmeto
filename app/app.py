@@ -173,7 +173,7 @@ class App():
                 logger.info("Loading project data...")
                 self._load_project_tasks()
             
-            # Pre-load character and resource managers
+            # Pre-load actor and resource managers
             with TimingContext("Managers pre-loading"):
                 logger.info("Pre-loading managers...")
                 self.workspace.project.character_manager.list_characters()

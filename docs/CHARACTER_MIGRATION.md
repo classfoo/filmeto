@@ -104,3 +104,4 @@ from app.data.character import CharacterManager
 
 迁移已完成，系统现在具有更优雅和一致的架构！
 
+

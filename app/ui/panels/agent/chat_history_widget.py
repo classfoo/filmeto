@@ -21,10 +21,10 @@ class ChatHistoryWidget(BaseWidget):
     
     def _create_circular_icon(self, icon_char: str, size: int = 24, bg_color: QColor = None, icon_color: QColor = None, use_iconfont: bool = True) -> QIcon:
         """
-        Create a circular icon with an icon character.
+        Create a circular icon with an icon actor.
         
         Args:
-            icon_char: Icon character (unicode string or letter)
+            icon_char: Icon actor (unicode string or letter)
             size: Icon size in pixels
             bg_color: Background color (default: #4080ff for user, #3d3f4e for agent)
             icon_color: Icon color (default: white)
@@ -51,7 +51,7 @@ class ChatHistoryWidget(BaseWidget):
         rect.addEllipse(0, 0, size, size)
         painter.fillPath(rect, bg_color)
         
-        # Draw icon character
+        # Draw icon actor
         if use_iconfont:
             font = QFont("iconfont", size // 2)
         else:

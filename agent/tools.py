@@ -98,19 +98,19 @@ class ListCharactersTool(FilmetoBaseTool):
 
 
 class GetCharacterInfoInput(BaseModel):
-    """Input for getting character information."""
-    character_id: str = Field(description="The ID of the character to get information about")
+    """Input for getting actor information."""
+    character_id: str = Field(description="The ID of the actor to get information about")
 
 
 class GetCharacterInfoTool(FilmetoBaseTool):
-    """Tool to get detailed information about a specific character."""
+    """Tool to get detailed information about a specific actor."""
     
     name: str = "get_character_info"
-    description: str = "Get detailed information about a specific character by ID."
+    description: str = "Get detailed information about a specific actor by ID."
     args_schema: type[BaseModel] = GetCharacterInfoInput
     
     def _run(self, character_id: str) -> str:
-        """Get character information."""
+        """Get actor information."""
         if not self.project:
             return "No project is currently active."
         

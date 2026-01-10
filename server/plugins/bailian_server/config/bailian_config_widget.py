@@ -125,3 +125,4 @@ class BailianConfigWidget(QWidget):
             return False
         return True
 
+

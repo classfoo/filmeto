@@ -240,7 +240,7 @@ print(response)
 ```python
 # Multi-step request
 response = await agent.chat(
-    "List all characters, then create a text2img task using the first character"
+    "List all characters, then create a text2img task using the first actor"
 )
 # Agent will:
 # 1. Use list_characters tool

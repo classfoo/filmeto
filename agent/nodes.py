@@ -134,7 +134,7 @@ For each user request, create a plan with:
 Example plan format:
 Step 1: Get current project information using 'get_project_info'
 Step 2: List available characters using 'list_characters'
-Step 3: Create a new task using 'create_task' with the selected character
+Step 3: Create a new task using 'create_task' with the selected actor
 
 Create a detailed plan for the user's request."""),
             MessagesPlaceholder(variable_name="messages"),

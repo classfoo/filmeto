@@ -284,7 +284,7 @@ class AgentPromptInputWidget(BaseWidget):
                         self._on_send_message()
                         return True  # Consume the event to prevent default behavior (new line)
                     else:  # Shift+Enter creates new line
-                        # Insert a new line character manually
+                        # Insert a new line actor manually
                         cursor = self.input_text.textCursor()
                         cursor.insertText('\n')
                         return True  # Consume the event to prevent default behavior

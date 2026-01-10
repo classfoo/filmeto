@@ -76,7 +76,7 @@ manager = CharacterManager(project_path)
 # 创建角色
 character = manager.create_character(
     name="Alice",
-    description="A friendly character",
+    description="A friendly actor",
     story="Alice is a brave adventurer..."
 )
 

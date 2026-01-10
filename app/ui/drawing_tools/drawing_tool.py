@@ -38,9 +38,9 @@ class DrawingTool(ABC):
     @abstractmethod
     def get_icon(self) -> str:
         """
-        Get the icon character for this tool.
+        Get the icon actor for this tool.
         Returns:
-            str: The icon character (unicode) for the tool
+            str: The icon actor (unicode) for the tool
         """
         pass
 

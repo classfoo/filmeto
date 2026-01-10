@@ -39,7 +39,7 @@ class MainWindowHLayout(BaseWidget):
         
         # Immediately set default buttons as selected (before panel creation)
         # This provides instant visual feedback while panels load in background
-        self.left_bar.bar.set_selected_button('character')
+        self.left_bar.bar.set_selected_button('actor')
         self.right_bar.bar.set_selected_button('agent')
         
         # Switch to default panels after UI is ready (panels will be created lazily)
@@ -64,8 +64,8 @@ class MainWindowHLayout(BaseWidget):
             not self.workspace.workspace_top.right):
             return
 
-        # Switch to character panel by default (panel will be created lazily)
-        self.workspace.workspace_top.left.switch_to_panel('character')
+        # Switch to actor panel by default (panel will be created lazily)
+        self.workspace.workspace_top.left.switch_to_panel('actor')
 
         # Switch to agent panel by default for right side (panel will be created lazily)
         self.workspace.workspace_top.right.switch_to_panel('agent')

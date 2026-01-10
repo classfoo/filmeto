@@ -41,7 +41,7 @@ class TestCharacter(unittest.TestCase):
         self.character_data = {
             'character_id': 'test-id-123',
             'name': 'TestCharacter',
-            'description': 'A test character',
+            'description': 'A test actor',
             'story': 'This is a test story',
             'relationships': {'Friend': 'Good friend'},
             'resources': {'main_view': 'resources/images/test_image.png'},
@@ -55,17 +55,17 @@ class TestCharacter(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
     
     def test_character_initialization(self):
-        """Test character initialization"""
+        """Test actor initialization"""
         character = Character(self.character_data, self.test_dir)
         
         self.assertEqual(character.name, 'TestCharacter')
-        self.assertEqual(character.description, 'A test character')
+        self.assertEqual(character.description, 'A test actor')
         self.assertEqual(character.story, 'This is a test story')
         self.assertEqual(character.relationships['Friend'], 'Good friend')
         self.assertEqual(character.resources['main_view'], 'resources/images/test_image.png')
     
     def test_character_to_dict(self):
-        """Test character serialization"""
+        """Test actor serialization"""
         character = Character(self.character_data, self.test_dir)
         data = character.to_dict()
         
@@ -75,7 +75,7 @@ class TestCharacter(unittest.TestCase):
         self.assertIn('updated_at', data)
     
     def test_character_resource_paths(self):
-        """Test character resource path methods"""
+        """Test actor resource path methods"""
         character = Character(self.character_data, self.test_dir)
         
         rel_path = character.get_resource_path('main_view')
@@ -114,7 +114,7 @@ class TestCharacterManager(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
     
     def test_create_character(self):
-        """Test creating a new character"""
+        """Test creating a new actor"""
         character = self.manager.create_character(
             'TestChar',
             description='Test description',
@@ -130,14 +130,14 @@ class TestCharacterManager(unittest.TestCase):
         self.assertTrue(os.path.exists(self.manager.config_path))
     
     def test_create_character_duplicate_name(self):
-        """Test creating character with duplicate name"""
+        """Test creating actor with duplicate name"""
         self.manager.create_character('TestChar')
         character = self.manager.create_character('TestChar')
         
         self.assertIsNone(character)  # Should fail
     
     def test_create_character_empty_name(self):
-        """Test creating character with empty name"""
+        """Test creating actor with empty name"""
         character = self.manager.create_character('')
         self.assertIsNone(character)
         
@@ -145,7 +145,7 @@ class TestCharacterManager(unittest.TestCase):
         self.assertIsNone(character)
     
     def test_get_character(self):
-        """Test getting character by name"""
+        """Test getting actor by name"""
         self.manager.create_character('TestChar')
         
         character = self.manager.get_character('TestChar')
@@ -169,7 +169,7 @@ class TestCharacterManager(unittest.TestCase):
         self.assertIn('Char3', names)
     
     def test_update_character(self):
-        """Test updating character properties"""
+        """Test updating actor properties"""
         self.manager.create_character('TestChar', description='Old desc')
         
         success = self.manager.update_character(
@@ -185,7 +185,7 @@ class TestCharacterManager(unittest.TestCase):
         self.assertEqual(character.story, 'New story')
     
     def test_update_character_relationships(self):
-        """Test updating character relationships"""
+        """Test updating actor relationships"""
         self.manager.create_character('TestChar')
         
         relationships = {
@@ -205,12 +205,12 @@ class TestCharacterManager(unittest.TestCase):
         self.assertEqual(character.relationships['Enemy1'], 'Rival')
     
     def test_update_nonexistent_character(self):
-        """Test updating non-existent character"""
+        """Test updating non-existent actor"""
         success = self.manager.update_character('NonExistent', description='New')
         self.assertFalse(success)
     
     def test_delete_character(self):
-        """Test deleting a character"""
+        """Test deleting a actor"""
         self.manager.create_character('TestChar')
         
         success = self.manager.delete_character('TestChar')
@@ -220,12 +220,12 @@ class TestCharacterManager(unittest.TestCase):
         self.assertIsNone(character)
     
     def test_delete_nonexistent_character(self):
-        """Test deleting non-existent character"""
+        """Test deleting non-existent actor"""
         success = self.manager.delete_character('NonExistent')
         self.assertFalse(success)
     
     def test_add_resource(self):
-        """Test adding resource file to character"""
+        """Test adding resource file to actor"""
         self.manager.create_character('TestChar')
         
         # Create a test image file
@@ -245,7 +245,7 @@ class TestCharacterManager(unittest.TestCase):
         self.assertTrue(os.path.exists(abs_path))
     
     def test_add_resource_nonexistent_character(self):
-        """Test adding resource to non-existent character"""
+        """Test adding resource to non-existent actor"""
         rel_path = self.manager.add_resource('NonExistent', 'main_view', '/fake/path')
         self.assertIsNone(rel_path)
     
@@ -257,7 +257,7 @@ class TestCharacterManager(unittest.TestCase):
         self.assertIsNone(rel_path)
     
     def test_remove_resource(self):
-        """Test removing resource from character"""
+        """Test removing resource from actor"""
         self.manager.create_character('TestChar')
         
         # Add resource
@@ -275,7 +275,7 @@ class TestCharacterManager(unittest.TestCase):
         self.assertNotIn('main_view', character.resources)
     
     def test_rename_character(self):
-        """Test renaming a character"""
+        """Test renaming a actor"""
         self.manager.create_character('OldName')
         
         # Add a resource
@@ -311,7 +311,7 @@ class TestCharacterManager(unittest.TestCase):
     
     def test_search_characters(self):
         """Test searching characters"""
-        self.manager.create_character('Alice', description='A friendly character')
+        self.manager.create_character('Alice', description='A friendly actor')
         self.manager.create_character('Bob', story='A brave hero')
         self.manager.create_character('Charlie', description='A mysterious figure')
         
@@ -336,14 +336,14 @@ class TestCharacterManager(unittest.TestCase):
     
     def test_load_existing_characters(self):
         """Test loading existing characters from disk"""
-        # Create character manually
+        # Create actor manually
         self.manager.create_character('TestChar')
         
         # Create new manager instance (simulating restart)
         new_resource_manager = ResourceManager(self.test_dir)
         new_manager = CharacterManager(self.test_dir, new_resource_manager)
         
-        # Verify character is loaded
+        # Verify actor is loaded
         character = new_manager.get_character('TestChar')
         self.assertIsNotNone(character)
         self.assertEqual(character.name, 'TestChar')
@@ -363,7 +363,7 @@ class TestCharacterManagerIntegration(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
     
     def test_full_character_lifecycle(self):
-        """Test complete character lifecycle"""
+        """Test complete actor lifecycle"""
         # Create
         character = self.manager.create_character('Hero', description='A hero')
         self.assertIsNotNone(character)
@@ -411,13 +411,13 @@ class TestCharacterManagerIntegration(unittest.TestCase):
         self.assertFalse(success)
     
     def test_rename_nonexistent_character(self):
-        """Test renaming non-existent character"""
+        """Test renaming non-existent actor"""
         success = self.manager.rename_character('NonExistent', 'NewName')
         self.assertFalse(success)
     
     def test_search_characters(self):
         """Test searching characters"""
-        self.manager.create_character('Alice', description='A friendly character')
+        self.manager.create_character('Alice', description='A friendly actor')
         self.manager.create_character('Bob', story='A brave hero')
         self.manager.create_character('Charlie', description='A mysterious figure')
         
@@ -442,13 +442,13 @@ class TestCharacterManagerIntegration(unittest.TestCase):
     
     def test_load_existing_characters(self):
         """Test loading existing characters from disk"""
-        # Create character manually
+        # Create actor manually
         self.manager.create_character('TestChar')
         
         # Create new manager instance (simulating restart)
         new_manager = CharacterManager(self.test_dir)
         
-        # Verify character is loaded
+        # Verify actor is loaded
         character = new_manager.get_character('TestChar')
         self.assertIsNotNone(character)
         self.assertEqual(character.name, 'TestChar')
@@ -467,7 +467,7 @@ class TestCharacterManagerIntegration(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
     
     def test_full_character_lifecycle(self):
-        """Test complete character lifecycle"""
+        """Test complete actor lifecycle"""
         # Create
         character = self.manager.create_character('Hero', description='A hero')
         self.assertIsNotNone(character)

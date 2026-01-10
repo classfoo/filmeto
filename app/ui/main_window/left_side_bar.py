@@ -27,9 +27,9 @@ class MainWindowLeftSideBar(BaseWidget):
         self.character_button = QPushButton("\ue60c", self)  # Character icon (role1)
         self.character_button.setFixedSize(30, 30)
         self.character_button.setCheckable(True)  # Make button checkable
-        self.character_button.clicked.connect(lambda: self._on_button_clicked('character'))
+        self.character_button.clicked.connect(lambda: self._on_button_clicked('actor'))
         self.layout.addWidget(self.character_button, alignment=Qt.AlignCenter)
-        self.button_map['character'] = self.character_button
+        self.button_map['actor'] = self.character_button
         
         # buttons
         self.resource_button = QPushButton("\ue6b0", self)  # Play icon for resource

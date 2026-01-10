@@ -1,5 +1,5 @@
 """
-Test script to reproduce the character loading issue without involving Qt components
+Test script to reproduce the actor loading issue without involving Qt components
 """
 
 import os
@@ -17,14 +17,14 @@ from app.data.character import CharacterManager
 
 
 def test_character_loading_issue():
-    """Test the character loading issue directly with CharacterManager"""
+    """Test the actor loading issue directly with CharacterManager"""
 
     # Define the project path (same as in the demo)
     # Need to go up one level from tests directory to get to project root
     actual_project_root = project_root.parent if project_root.name == "tests" else project_root
     project_path = os.path.join(actual_project_root, "workspace", "demo")
 
-    # Create a character manager instance
+    # Create a actor manager instance
     char_manager = CharacterManager(project_path, resource_manager=None)
 
     print(f"Project path: {char_manager.project_path}")
@@ -41,25 +41,25 @@ def test_character_loading_issue():
     print(f"Number of characters loaded: {len(characters)}")
     print(f"Characters loaded after access: {char_manager._loaded}")
 
-    # Print character names
+    # Print actor names
     for char in characters:
         print(f"  - {char.name}")
 
-    # Try to get a specific character
+    # Try to get a specific actor
     char = char_manager.get_character("fuli")
     if char:
-        print(f"Found character 'fuli': {char.name}")
+        print(f"Found actor 'fuli': {char.name}")
         print(f"Character description: {char.description}")
     else:
         print("Character 'fuli' not found!")
 
-    # Check if the character config was loaded properly
-    print("\nTesting character creation after loading:")
-    new_char = char_manager.create_character("test_char", "A test character")
+    # Check if the actor config was loaded properly
+    print("\nTesting actor creation after loading:")
+    new_char = char_manager.create_character("test_char", "A test actor")
     if new_char:
-        print(f"Created new character: {new_char.name}")
+        print(f"Created new actor: {new_char.name}")
     else:
-        print("Failed to create new character")
+        print("Failed to create new actor")
 
     # List characters again to see if the new one was added
     characters_after = char_manager.list_characters()

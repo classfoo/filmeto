@@ -12,7 +12,7 @@ sys.path.insert(0, str(project_root))
 
 from PySide6.QtWidgets import QApplication
 from app.data.workspace import Workspace
-from app.ui.panels.character.character_panel import CharacterPanel
+from app.ui.panels.actor.actor_panel import ActorPanel
 
 
 def test_character_panel_loading_fix():
@@ -26,13 +26,13 @@ def test_character_panel_loading_fix():
     
     print("Testing CharacterPanel loading with the fix...")
     
-    # Initialize workspace with load_data=True (should load character data immediately due to our fix)
+    # Initialize workspace with load_data=True (should load actor data immediately due to our fix)
     workspace = Workspace(workspace_path, demo_project_name, load_data=True, defer_heavy_init=False)
     
     print("Creating CharacterPanel...")
     
     # Create CharacterPanel
-    panel = CharacterPanel(workspace)
+    panel = ActorPanel(workspace)
     
     print(f"Initial state - _data_loaded: {panel._data_loaded}")
     print(f"Initial state - _is_active: {panel._is_active}")
@@ -51,7 +51,7 @@ def test_character_panel_loading_fix():
     start_time = time.time()
     timeout = 5  # 5 seconds timeout
     
-    print("\nWaiting for character manager to load...")
+    print("\nWaiting for actor manager to load...")
     while time.time() - start_time < timeout:
         app.processEvents()
         time.sleep(0.1)
@@ -69,7 +69,7 @@ def test_character_panel_loading_fix():
         try:
             chars = panel.character_manager.list_characters()
             print(f"✓ Number of characters loaded: {len(chars)}")
-            print("✓ Sample character names:")
+            print("✓ Sample actor names:")
             for i, char in enumerate(chars[:3]):  # Print first 3 characters
                 print(f"  - {char.name}")
                 

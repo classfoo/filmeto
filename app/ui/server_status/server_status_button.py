@@ -101,7 +101,7 @@ class ServerStatusButton(QPushButton):
         # Calculate total servers count
         total_count = self._active_count + self._inactive_count
 
-        # Draw server icon (using Unicode character) - shifted to the left to make space for text
+        # Draw server icon (using Unicode actor) - shifted to the left to make space for text
         icon_font = QFont("iconfont", 14)  # Match language button font size
         painter.setFont(icon_font)
         painter.setPen(QColor(255, 255, 255))

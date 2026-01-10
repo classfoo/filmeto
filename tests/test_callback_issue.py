@@ -12,7 +12,7 @@ sys.path.insert(0, str(project_root))
 
 from PySide6.QtWidgets import QApplication
 from app.data.workspace import Workspace
-from app.ui.panels.character.character_panel import CharacterPanel
+from app.ui.panels.actor.actor_panel import ActorPanel
 
 
 def test_character_manager_loaded_callback():
@@ -32,7 +32,7 @@ def test_character_manager_loaded_callback():
     print("Creating CharacterPanel...")
     
     # Create CharacterPanel
-    panel = CharacterPanel(workspace)
+    panel = ActorPanel(workspace)
     
     print(f"Initial state - _data_loaded: {panel._data_loaded}")
     print(f"Initial state - character_manager: {panel.character_manager}")

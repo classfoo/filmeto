@@ -319,7 +319,7 @@ async def test_agent_chat():
 async def test_tool_execution():
     agent = FilmetoAgent(workspace=ws, project=proj)
     response = await agent.chat("列出角色")
-    assert "character" in response.lower()
+    assert "actor" in response.lower()
 ```
 
 ### UI 测试

@@ -113,11 +113,11 @@ async def example_complex_task():
     agent = FilmetoAgent(workspace=workspace, project=project)
     
     # Complex request that requires planning
-    print("\nUser: Create a video scene with the first character in my project")
+    print("\nUser: Create a video scene with the first actor in my project")
     print("Agent: ", end='', flush=True)
     
     async for token in agent.chat_stream(
-        message="Create a video scene with the first character in my project",
+        message="Create a video scene with the first actor in my project",
         on_token=lambda t: print(t, end='', flush=True)
     ):
         pass

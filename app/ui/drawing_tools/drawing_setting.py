@@ -26,7 +26,7 @@ class DrawingSetting(QObject):
         
         Args:
             name: Setting display name
-            icon: Icon character (unicode from iconfont)
+            icon: Icon actor (unicode from iconfont)
         """
         super().__init__()
         self.name = name

@@ -1,4 +1,4 @@
-"""Character panel for role/character management."""
+"""Character panel for role/actor management."""
 
 import logging
 import os
@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QFont, QCursor, QPixmap
 from app.ui.panels.base_panel import BasePanel
-from app.ui.panels.character.character_edit_dialog import CharacterEditDialog
+from app.ui.panels.actor.actor_edit_dialog import ActorEditDialog
+from app.ui.panels.actor.actor_card import ActorCard
 from app.data.character import Character, CharacterManager
 from app.data.workspace import Workspace
 from app.ui.worker.worker import run_in_background
@@ -20,236 +21,13 @@ from utils.i18n_utils import tr
 logger = logging.getLogger(__name__)
 
 
-class CharacterCard(QFrame):
-    """Individual character card in the grid"""
-
-    edit_requested = Signal(str)  # character_name
-    clicked = Signal(str)  # character_name
-    selection_changed = Signal(str, bool)  # character_name, is_selected
-
-    def __init__(self, character: Character, parent=None):
-        super().__init__(parent)
-        self.character = character
-        self._is_selected = False
-        self._image_loaded = False
-        self._init_ui()
-
-    def _init_ui(self):
-        """Initialize the card UI"""
-        # Fixed card size: 9:16 aspect ratio
-        # Total panel width: 240px
-        # Left/right margins: 10px each = 20px
-        # Card spacing: 10px
-        # Available width: 240 - 20 - 10 = 210px
-        # Card width: 210 / 2 = 105px
-        # Card height: 105 * 16 / 9 ≈ 187px
-        card_width = 105
-        card_height = int(card_width * 16 / 9)
-        self.setFixedSize(card_width, card_height)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-
-        # Main layout
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(4)
-
-        # Top layout for checkbox
-        top_layout = QHBoxLayout()
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.addStretch()
-
-        # Icon for selection indicator
-        self.selection_icon = QLabel()
-        self.selection_icon.setFixedSize(18, 18)
-        self.selection_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Set font for icon
-        icon_font = QFont("iconfont", 10)
-        self.selection_icon.setFont(icon_font)
-
-        # Initially show unselected icon
-        self._update_selection_icon()
-
-        # Make the icon clickable
-        self.selection_icon.mousePressEvent = self._on_selection_icon_clicked
-        self.selection_icon.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-
-        top_layout.addWidget(self.selection_icon)
-        layout.addLayout(top_layout)
-        
-        # Character image or icon - use placeholder first, load image asynchronously
-        self.icon_label = QLabel()
-        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.icon_label.setScaledContents(False)
-        # Start with placeholder icon (fast - no file I/O)
-        self._set_icon_label(self.icon_label)
-        
-        layout.addWidget(self.icon_label, 1)  # Stretch factor 1
-
-        # Name label
-        name_label = QLabel(self.character.name)
-        name_font = QFont()
-        name_font.setPointSize(10)
-        name_label.setFont(name_font)
-        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        name_label.setStyleSheet("color: #ffffff; border: none;")
-        name_label.setWordWrap(True)
-        name_label.setMaximumHeight(20)
-        layout.addWidget(name_label)
-
-        # Apply card style
-        self._apply_style()
-        
-        # Load image asynchronously after UI is created
-        self._load_image_async()
-
-    def _on_selection_icon_clicked(self, event):
-        """Handle selection icon click"""
-        self._is_selected = not self._is_selected
-        self._update_selection_icon()
-        self.selection_changed.emit(self.character.name, self._is_selected)
-        # Update card style based on selection
-        self._update_selection_style()
-
-    def set_selected(self, selected: bool):
-        """Set the selection state of the card"""
-        self._is_selected = selected
-        self._update_selection_icon()
-        self._update_selection_style()
-
-    def _update_selection_icon(self):
-        """Update the selection icon based on selection state"""
-        if self._is_selected:
-            self.selection_icon.setText("\ue675")  # Selected icon
-            self.selection_icon.setStyleSheet("color: #3498db;")  # Blue color for selected
-        else:
-            self.selection_icon.setText("\ue673")  # Unselected icon
-            self.selection_icon.setStyleSheet("color: #9e9e9e;")  # Gray color for unselected
-
-    def _update_selection_style(self):
-        """Update the card style based on selection state"""
-        if self._is_selected:
-            self.setStyleSheet("""
-                CharacterCard {
-                    background-color: #3a3a3a;
-                    border: 2px solid #3498db;
-                    border-radius: 8px;
-                }
-                CharacterCard:hover {
-                    background-color: #4a4a4a;
-                    border: 2px solid #3498db;
-                }
-            """)
-        else:
-            self.setStyleSheet("""
-                CharacterCard {
-                    background-color: #2d2d2d;
-                    border: 2px solid #3a3a3a;
-                    border-radius: 8px;
-                }
-                CharacterCard:hover {
-                    background-color: #3a3a3a;
-                    border: 2px solid #3498db;
-                }
-            """)
-
-    def _set_icon_label(self, icon_label: QLabel):
-        """Set icon label with character icon"""
-        icon_label.setText("\ue60c")  # Character icon
-        icon_font = QFont()
-        icon_font.setFamily("iconfont")
-        # Adjust icon size for taller card (9:16 ratio, height ~187px)
-        icon_font.setPointSize(40)
-        icon_label.setFont(icon_font)
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setStyleSheet("color: #3498db; border: none;")
-
-    def _load_image_async(self):
-        """Load character image asynchronously to avoid blocking UI"""
-        if self._image_loaded:
-            return
-        
-        # Get resource path without checking existence (fast)
-        main_view_path = self.character.get_resource_path('main_view')
-        if not main_view_path:
-            return
-        
-        # Defer image loading to avoid blocking card creation
-        # Use a small delay to ensure card UI is fully rendered first
-        QTimer.singleShot(50, lambda: self._load_image_sync(main_view_path))
-    
-    def _load_image_sync(self, rel_path: str):
-        """Load image synchronously (called after card is created)"""
-        if self._image_loaded:
-            return
-        
-        try:
-            abs_path = self.character.get_absolute_resource_path('main_view')
-            if not abs_path:
-                return
-            
-            # Check file existence first (fast check)
-            if not os.path.exists(abs_path):
-                return
-            
-            # Load pixmap - this can be slow for large images
-            # Use QPixmap.load() which is more efficient than constructor
-            pixmap = QPixmap()
-            if pixmap.load(abs_path):
-                # Scale pixmap to fit card size before setting (reduces memory and rendering cost)
-                card_width = 105  # Match card width
-                card_height = int(card_width * 16 / 9)
-                scaled_pixmap = pixmap.scaled(
-                    card_width, card_height,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
-                self.icon_label.setPixmap(scaled_pixmap)
-                self.icon_label.setScaledContents(False)  # Already scaled
-                self._image_loaded = True
-        except Exception:
-            # Keep placeholder icon on error
-            pass
-
-    def _apply_style(self):
-        """Apply styling to the card"""
-        self._update_selection_style()
-    
-    def mousePressEvent(self, event):
-        """Handle mouse press - single click for selection"""
-        if event.button() == Qt.MouseButton.LeftButton:
-            # Toggle selection when card is clicked
-            self._is_selected = not self._is_selected
-            self._update_selection_icon()
-            self.selection_changed.emit(self.character.name, self._is_selected)
-            self._update_selection_style()
-            self.clicked.emit(self.character.name)
-        super().mousePressEvent(event)
-
-    def mouseDoubleClickEvent(self, event):
-        """Handle mouse double click - open edit dialog"""
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.edit_requested.emit(self.character.name)
-        super().mouseDoubleClickEvent(event)
-
-    def contextMenuEvent(self, event):
-        """Handle context menu"""
-        menu = QMenu(self)
-
-        edit_action = menu.addAction(tr("编辑"))
-        edit_action.triggered.connect(lambda: self.edit_requested.emit(self.character.name))
-
-        menu.exec(event.globalPos())
-
-
-class CharacterPanel(ThreadSafetyMixin, BasePanel):
-    """Panel for role/character management."""
+class ActorPanel(ThreadSafetyMixin, BasePanel):
+    """Panel for role/actor management."""
 
     character_selected = Signal(str)  # character_name
 
     def __init__(self, workspace: Workspace, parent=None):
-        """Initialize the character panel."""
+        """Initialize the actor panel."""
         import time
         init_start = time.time()
         # Initialize ThreadSafetyMixin first
@@ -257,8 +35,8 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         # Then initialize BasePanel
         BasePanel.__init__(self, workspace, parent)
         self.character_manager: Optional[CharacterManager] = None
-        self._character_cards: List[CharacterCard] = []
-        self._character_dict: dict[str, CharacterCard] = {}  # character_name -> card
+        self._character_cards: List[ActorCard] = []
+        self._character_dict: dict[str, ActorCard] = {}  # character_name -> card
         init_time = (time.time() - init_start) * 1000
         logger.debug(f"⏱️  [CharacterPanel] __init__ completed in {init_time:.2f}ms")
     
@@ -273,7 +51,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         self.add_toolbar_button("\ue6a7", self._on_draw_character, tr("Random Generate"))
         self.add_toolbar_button("\ue653", self._on_extract_character, tr("Extract From Story"))
 
-        # Scroll area for character grid (like file manager)
+        # Scroll area for actor grid (like file manager)
         scroll_area = QScrollArea(self)
         scroll_area.setWidgetResizable(True)  # Allow container to resize based on content
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -356,7 +134,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
             self.grid_container.adjustSize()
     
     def _connect_signals(self):
-        """Connect character manager signals"""
+        """Connect actor manager signals"""
         if self.character_manager:
             # Disconnect first to avoid duplicate connections
             try:
@@ -372,16 +150,16 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
             self.character_manager.character_deleted.connect(self._on_character_deleted)
     
     def _load_character_manager(self):
-        """Load character manager from project (for use in on_activated)"""
+        """Load actor manager from project (for use in on_activated)"""
         project = self.workspace.get_project()
         if project:
             self.character_manager = project.get_character_manager()
     
     def _ensure_character_manager(self) -> bool:
-        """Ensure character manager is loaded, show loading if needed
+        """Ensure actor manager is loaded, show loading if needed
 
         Returns:
-            True if character manager is available, False otherwise
+            True if actor manager is available, False otherwise
         """
         if self.character_manager:
             return True
@@ -401,8 +179,8 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         return False
     
     def _on_add_character(self):
-        """Handle add character button click"""
-        # If character manager is not available, try to load it
+        """Handle add actor button click"""
+        # If actor manager is not available, try to load it
         if not self.character_manager:
             # If data is not loaded yet, trigger loading
             if not self._data_loaded:
@@ -416,13 +194,13 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
                 QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
                 return
 
-        dialog = CharacterEditDialog(self.character_manager, parent=self)
+        dialog = ActorEditDialog(self.character_manager, parent=self)
         dialog.character_saved.connect(self._on_character_saved)
         dialog.exec()
     
     def _on_draw_character(self):
-        """Handle draw character button click (抽卡)"""
-        # If character manager is not available, try to load it
+        """Handle draw actor button click (抽卡)"""
+        # If actor manager is not available, try to load it
         if not self.character_manager:
             # If data is not loaded yet, trigger loading
             if not self._data_loaded:
@@ -435,12 +213,12 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
                 # If data was loaded but manager is None, it means loading failed
                 QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
                 return
-        # TODO: Implement character drawing feature
+        # TODO: Implement actor drawing feature
         QMessageBox.information(self, tr("提示"), tr("抽卡功能开发中..."))
     
     def _on_extract_character(self):
-        """Handle extract character button click (提取)"""
-        # If character manager is not available, try to load it
+        """Handle extract actor button click (提取)"""
+        # If actor manager is not available, try to load it
         if not self.character_manager:
             # If data is not loaded yet, trigger loading
             if not self._data_loaded:
@@ -453,22 +231,22 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
                 # If data was loaded but manager is None, it means loading failed
                 QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
                 return
-        # TODO: Implement character extraction feature
+        # TODO: Implement actor extraction feature
         QMessageBox.information(self, tr("提示"), tr("提取功能开发中..."))
     
     def _on_character_clicked(self, character_name: str):
-        """Handle character card click - for selection only"""
+        """Handle actor card click - for selection only"""
         self.character_selected.emit(character_name)
 
     def _on_character_selection_changed(self, character_name: str, is_selected: bool):
-        """Handle character selection state change"""
+        """Handle actor selection state change"""
         # This can be used to maintain selection state or perform other actions
         # For now, we just emit the selection signal
         if is_selected:
             self.character_selected.emit(character_name)
     
     def _on_edit_character(self, character_name: str):
-        """Handle edit character request"""
+        """Handle edit actor request"""
         if not self.character_manager:
             # If data is not loaded yet, trigger loading
             if not self._data_loaded:
@@ -482,7 +260,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
                 QMessageBox.warning(self, tr("错误"), tr("角色管理器未初始化，请检查项目配置"))
                 return
 
-        dialog = CharacterEditDialog(self.character_manager, character_name, parent=self)
+        dialog = ActorEditDialog(self.character_manager, character_name, parent=self)
         dialog.character_saved.connect(self._on_character_saved)
         dialog.exec()
     
@@ -547,7 +325,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         QTimer.singleShot(10, self._process_next_batch)
 
     def _process_next_batch(self):
-        """Process a batch of character cards to keep UI responsive"""
+        """Process a batch of actor cards to keep UI responsive"""
         if not hasattr(self, '_pending_characters') or not self._pending_characters:
             self.grid_container.adjustSize()
             self.hide_loading() # Hide loading once all cards are created
@@ -558,7 +336,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         character = self._pending_characters.pop(0)
         
         # Create card (fast - no image loading in __init__)
-        card = CharacterCard(character, self)
+        card = ActorCard(character, self)
         card.edit_requested.connect(self._on_edit_character)
         card.clicked.connect(self._on_character_clicked)
         card.selection_changed.connect(self._on_character_selection_changed)
@@ -588,7 +366,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
 
     def _on_load_error(self, error_msg: str, exception: Exception):
         """Handle loading error"""
-        logger.error(f"❌ Error loading character manager: {error_msg}")
+        logger.error(f"❌ Error loading actor manager: {error_msg}")
         logger.error(f"Exception: {exception}")
         logger.error(f"Exception type: {type(exception)}")
         import traceback
@@ -601,31 +379,31 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         self._load_attempts += 1
 
         if self._load_attempts < 3:  # Retry up to 3 times
-            logger.info(f"Retrying character manager load (attempt {self._load_attempts + 1})...")
+            logger.info(f"Retrying actor manager load (attempt {self._load_attempts + 1})...")
             from PySide6.QtCore import QTimer
             # Retry after a short delay
             QTimer.singleShot(1000, self._perform_initial_load)  # 1 second delay before retry
         else:
-            logger.error("Max retries reached, giving up on character manager loading")
+            logger.error("Max retries reached, giving up on actor manager loading")
             # Mark as loaded to avoid infinite retries
             self._data_loaded = True
             self.hide_loading()
 
     def _on_character_saved(self, character_name: str):
-        """Handle character saved signal"""
+        """Handle actor saved signal"""
         self._load_characters()
     
     def _on_character_added(self, character: Character):
-        """Handle character added signal"""
+        """Handle actor added signal"""
         self._load_characters()
     
     def _on_character_updated(self, character: Character):
-        """Handle character updated signal"""
+        """Handle actor updated signal"""
         # Reload all characters to ensure consistency
         self._load_characters()
     
     def _on_character_deleted(self, character_name: str):
-        """Handle character deleted signal"""
+        """Handle actor deleted signal"""
         # Reload all characters
         self._load_characters()
     
@@ -636,13 +414,13 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
             # Don't set _data_loaded here - it will be set in _on_character_manager_loaded
     
     def load_data(self):
-        """Load character data when panel is first activated."""
+        """Load actor data when panel is first activated."""
         # Get project - this should be fast if workspace is already initialized
         # But if workspace initialization is deferred, this might trigger it
         # So we defer this to background thread
 
         def _load_character_manager():
-            """Load character manager in background to avoid blocking"""
+            """Load actor manager in background to avoid blocking"""
             max_retries = 3
             retry_count = 0
 
@@ -650,8 +428,8 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
                 try:
                     project = self.workspace.get_project()
                     if project:
-                        # Ensure project is fully initialized before accessing character manager
-                        # The character manager should always exist, but its data might not be loaded yet
+                        # Ensure project is fully initialized before accessing actor manager
+                        # The actor manager should always exist, but its data might not be loaded yet
                         char_manager = project.get_character_manager()
                         logger.info(f"Character manager retrieved (attempt {retry_count + 1}): {char_manager is not None}")
 
@@ -663,7 +441,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
 
                         return char_manager
                     else:
-                        logger.warning(f"Project not available when loading character manager (attempt {retry_count + 1})")
+                        logger.warning(f"Project not available when loading actor manager (attempt {retry_count + 1})")
                         if retry_count < max_retries - 1:
                             import time
                             time.sleep(0.5)  # Wait before retry
@@ -671,19 +449,19 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
                         else:
                             return None
                 except Exception as e:
-                    logger.error(f"Error loading character manager (attempt {retry_count + 1}): {e}", exc_info=True)
+                    logger.error(f"Error loading actor manager (attempt {retry_count + 1}): {e}", exc_info=True)
                     if retry_count < max_retries - 1:
                         import time
                         time.sleep(0.5)  # Wait before retry
                         retry_count += 1
                     else:
-                        logger.error(f"Failed to load character manager after {max_retries} attempts")
+                        logger.error(f"Failed to load actor manager after {max_retries} attempts")
                         raise  # Re-raise to be caught by the worker
 
-        # Show loading indicator while waiting for character manager
+        # Show loading indicator while waiting for actor manager
         self.show_loading(tr("正在加载角色管理器..."))
 
-        logger.info("Starting background loading of character manager...")
+        logger.info("Starting background loading of actor manager...")
 
         # Use the safe background task runner that handles object validity
         self.safe_run_in_background(
@@ -693,7 +471,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         )
     
     def _on_character_manager_loaded(self, character_manager):
-        """Callback when character manager is loaded"""
+        """Callback when actor manager is loaded"""
         logger.info(f"✅ Character manager loaded callback called with manager: {character_manager is not None}")
 
         if character_manager:
@@ -737,7 +515,7 @@ class CharacterPanel(ThreadSafetyMixin, BasePanel):
         """Handle project switch"""
         # Reset data loaded state to trigger reload
         self._data_loaded = False
-        # Clear existing character manager
+        # Clear existing actor manager
         self.character_manager = None
         # Call super to trigger reload if panel is active
         super().on_project_switched(project_name)

@@ -19,7 +19,7 @@ class ToolInfo:
     """Information about a registered tool"""
     tool_id: str  # e.g. "text2img"
     name: str  # Display name
-    icon: str  # Unicode icon character
+    icon: str  # Unicode icon actor
     tool_class: Type[BaseTool]  # Tool class
     module_path: str  # Module path for lazy loading
 

@@ -66,7 +66,7 @@ class MainWindowWorkspaceTopLeftBar(BaseWidget):
         # Map button names to panel module paths (lazy import)
         # Format: 'module_path.ClassName'
         self.panel_registry = {
-            'character': ('app.ui.panels.character.character_panel', 'CharacterPanel'),
+            'actor': ('app.ui.panels.actor.actor_panel', 'ActorPanel'),
             'resource': ('app.ui.panels.resources.resources_panel', 'ResourcesPanel'),
             'model': ('app.ui.panels.models.models_panel', 'ModelsPanel'),
             'attach': ('app.ui.panels.attachments.attachments_panel', 'AttachmentsPanel'),

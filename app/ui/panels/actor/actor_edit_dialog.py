@@ -1,7 +1,7 @@
 """
 Character Edit Dialog
 
-Custom dialog for editing character information including:
+Custom dialog for editing actor information including:
 - Basic info (name, description, story)
 - Relationships
 - Resource files (images for different views)
@@ -23,17 +23,17 @@ from app.data.character import Character, CharacterManager
 from utils.i18n_utils import tr
 
 
-class CharacterEditDialog(CustomDialog):
-    """Dialog for editing character information"""
+class ActorEditDialog(CustomDialog):
+    """Dialog for editing actor information"""
     
     character_saved = Signal(str)  # character_name
     
     def __init__(self, character_manager: CharacterManager, character_name: Optional[str] = None, parent=None):
-        """Initialize character edit dialog
+        """Initialize actor edit dialog
         
         Args:
             character_manager: CharacterManager instance
-            character_name: Character name if editing existing character, None for new character
+            character_name: Character name if editing existing actor, None for new actor
             parent: Parent widget
         """
         super().__init__(parent)
@@ -281,7 +281,7 @@ class CharacterEditDialog(CustomDialog):
         return section
     
     def _load_character(self):
-        """Load character data into the form"""
+        """Load actor data into the form"""
         if self.is_new_character:
             return
         
@@ -321,7 +321,7 @@ class CharacterEditDialog(CustomDialog):
         """Parse relationships from text input
         
         Returns:
-            Dictionary mapping character name to relationship description
+            Dictionary mapping actor name to relationship description
         """
         if not self.relationships_input:
             return {}
@@ -363,7 +363,7 @@ class CharacterEditDialog(CustomDialog):
         
         try:
             if self.is_new_character:
-                # Create new character
+                # Create new actor
                 character = self.character_manager.create_character(name, description, story)
                 if not character:
                     QMessageBox.warning(self, tr("错误"), tr("创建角色失败"))
@@ -382,15 +382,15 @@ class CharacterEditDialog(CustomDialog):
                 self.character_saved.emit(name)
                 self.accept()
             else:
-                # Update existing character
+                # Update existing actor
                 if name != self.character_name:
-                    # Rename character
+                    # Rename actor
                     if not self.character_manager.rename_character(self.character_name, name):
                         QMessageBox.warning(self, tr("错误"), tr("重命名角色失败"))
                         return
                     self.character_name = name
                 
-                # Update character properties
+                # Update actor properties
                 self.character_manager.update_character(
                     name,
                     description=description,
