@@ -71,14 +71,17 @@ class AgentPromptWidget(BaseWidget):
         """)
         # Use a grid layout for better control over spacing
         input_container_layout = QGridLayout(self.input_container)
-        input_container_layout.setContentsMargins(2, 2, 2, 2)
-        input_container_layout.setSpacing(2)
+        input_container_layout.setContentsMargins(4, 4, 4, 4)
+        input_container_layout.setSpacing(5)
 
         # Initialize context UI components (above input)
         self._init_context_ui(input_container_layout)
         
         # Initialize input UI components
         self._init_input_ui(input_container_layout)
+
+        # Initialize the send UI separately
+        self._init_send_ui(input_container_layout)
 
         layout.addWidget(self.input_container)
     
@@ -90,6 +93,13 @@ class AgentPromptWidget(BaseWidget):
         
         # Create a container for context items with horizontal layout
         self.context_widget = QWidget(self.input_container)
+        self.context_widget.setObjectName("agent_prompt_context_widget")
+        self.context_widget.setStyleSheet("""
+            QWidget#agent_prompt_context_widget {
+                padding: 5px 5px 5px 5px;
+                border-bottom: 1px solid #3a3a3a;
+            }
+        """)
         context_main_layout = QHBoxLayout(self.context_widget)
         context_main_layout.setContentsMargins(0, 0, 0, 0)
         context_main_layout.setSpacing(6)
@@ -162,16 +172,15 @@ class AgentPromptWidget(BaseWidget):
                 color: #e1e1e1;
                 border: none;
                 border-radius: 4px;
-                padding: 0px;
+                margin: 0px 5px 0px 5px;
                 font-size: 15px;
-                line-height: 1.4;
                 selection-background-color: #4080ff;
             }
             QPlainTextEdit#agent_input_text:focus {
                 border: none;
             }
         """)
-        self.input_text.setPlaceholderText(tr("输入消息..."))
+        self.input_text.setPlaceholderText(tr("Input Prompts..."))
         # Install event filter to handle keyboard events in the input_text
         self.input_text.installEventFilter(self)
 
@@ -212,9 +221,6 @@ class AgentPromptWidget(BaseWidget):
         input_container_layout.setRowStretch(input_row, 1)  # Text area gets all extra vertical space
         input_container_layout.setColumnStretch(0, 1)  # Column 0 expands horizontally
         input_container_layout.setColumnStretch(1, 0)  # Column 1 stays fixed
-
-        # Initialize the send UI separately
-        self._init_send_ui(input_container_layout)
     
     def _init_send_ui(self, input_container_layout):
         """Initialize the send UI components with agent dropdown and send button."""
@@ -226,7 +232,7 @@ class AgentPromptWidget(BaseWidget):
                 border: none;
                 background-color: transparent;
                 border-top: 1px solid #3a3a3a;
-                padding: 6px;
+                padding: 5px 5px 5px 5px;
             }
         """)
 
@@ -241,26 +247,38 @@ class AgentPromptWidget(BaseWidget):
         self.agent_dropdown.setObjectName("agent_dropdown")
         self.agent_dropdown.setStyleSheet("""
             QComboBox#agent_dropdown {
-                background-color: #3d3f4e;
-                border: 1px solid #4a4a4a;
+                background-color: transparent;
+                border: 1px solid transparent;
                 border-radius: 4px;
-                padding: 2px 6px;
+                padding: 1px 6px;
                 color: #e1e1e1;
-                font-size: 13px;
-                min-width: 120px;
+                font-size: 12px;
+                min-width: 10px;
+                max-width: 150px;
+            }
+            QComboBox#agent_dropdown:hover {
+                border: 1px solid #555555;
             }
             QComboBox#agent_dropdown:focus {
                 border: 1px solid #4080ff;
             }
             QComboBox#agent_dropdown::drop-down {
                 border: none;
+                width: 15px;
             }
             QComboBox#agent_dropdown::down-arrow {
                 image: url(noimg);
                 width: 0px;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #888888;
+                border-left: 1px solid transparent;
+                border-right: 1px solid transparent;
+                border-top: 1px solid #888888;
+            }
+            QComboBox#agent_dropdown QAbstractItemView {
+                background-color: #2b2d30;
+                border: 1px solid #4a4a4a;
+                color: #e1e1e1;
+                selection-background-color: #4080ff;
+                outline: none;
             }
         """)
 
