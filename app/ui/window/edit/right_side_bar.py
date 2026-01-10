@@ -17,8 +17,8 @@ class MainWindowRightSideBar(BaseWidget):
         self.parent = parent
         self.setFixedWidth(40)
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(10)
+        self.layout.setContentsMargins(0, 10, 0, 10)
+        self.layout.setSpacing(20)
         
         # Map panel names to buttons for easy access
         self.button_map = {}
