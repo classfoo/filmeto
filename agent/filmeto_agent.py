@@ -2,7 +2,7 @@
 
 import asyncio
 from typing import Any, Dict, List, Optional, AsyncIterator, Callable
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -265,11 +265,24 @@ class FilmetoAgent:
             self.conversation_manager.save_conversation(conversation)
         
         # Prepare messages for LLM
-        messages = [
-            HumanMessage(content=msg.content) if msg.role == MessageRole.USER
-            else AIMessage(content=msg.content)
-            for msg in conversation.messages
-        ]
+        messages = []
+        for msg in conversation.messages:
+            if msg.role == MessageRole.USER:
+                messages.append(HumanMessage(content=msg.content))
+            elif msg.role == MessageRole.ASSISTANT:
+                # Handle assistant messages with potential tool_calls
+                if msg.tool_calls:
+                    messages.append(AIMessage(content=msg.content, tool_calls=msg.tool_calls))
+                else:
+                    messages.append(AIMessage(content=msg.content))
+            elif msg.role == MessageRole.TOOL:
+                # Handle tool response messages
+                messages.append(ToolMessage(
+                    content=msg.content,
+                    tool_call_id=msg.tool_call_id
+                ))
+            elif msg.role == MessageRole.SYSTEM:
+                messages.append(SystemMessage(content=msg.content))
         
         # Initial state
         initial_state: AgentState = {
@@ -281,6 +294,7 @@ class FilmetoAgent:
         
         # Stream response
         full_response = ""
+        final_messages = []
 
         # Create config with thread_id for memory checkpointer
         config = {"configurable": {"thread_id": conversation.conversation_id}}
@@ -290,6 +304,9 @@ class FilmetoAgent:
             async for event in self.graph.astream(initial_state, config=config):
                 for node_name, node_output in event.items():
                     if "messages" in node_output:
+                        # Keep track of all messages for later saving
+                        final_messages = node_output["messages"]
+                        
                         last_message = node_output["messages"][-1]
                         if isinstance(last_message, AIMessage):
                             content = last_message.content
@@ -308,6 +325,7 @@ class FilmetoAgent:
             # Non-streaming mode
             result = await self.graph.ainvoke(initial_state, config=config)
             if "messages" in result:
+                final_messages = result["messages"]
                 last_message = result["messages"][-1]
                 if isinstance(last_message, AIMessage):
                     full_response = last_message.content
@@ -315,13 +333,35 @@ class FilmetoAgent:
                         on_token(full_response)
                     yield full_response
         
-        # Add assistant message to conversation
-        assistant_message = Message(
-            role=MessageRole.ASSISTANT,
-            content=full_response,
-            timestamp=datetime.now().isoformat()
-        )
-        conversation.add_message(assistant_message)
+        # Save all new messages (including tool calls and tool responses) to conversation
+        # Extract messages that were added during this turn
+        num_existing_messages = len(messages)
+        new_messages = final_messages[num_existing_messages:]
+        
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        for msg in new_messages:
+            if isinstance(msg, AIMessage):
+                # Save assistant message
+                assistant_msg = Message(
+                    role=MessageRole.ASSISTANT,
+                    content=msg.content or "",
+                    timestamp=datetime.now().isoformat(),
+                    tool_calls=msg.tool_calls if hasattr(msg, 'tool_calls') and msg.tool_calls else None
+                )
+                conversation.add_message(assistant_msg)
+                logger.debug(f"Saved assistant message with tool_calls: {assistant_msg.tool_calls is not None}")
+            elif isinstance(msg, ToolMessage):
+                # Save tool response message
+                tool_msg = Message(
+                    role=MessageRole.TOOL,
+                    content=msg.content,
+                    timestamp=datetime.now().isoformat(),
+                    tool_call_id=msg.tool_call_id
+                )
+                conversation.add_message(tool_msg)
+                logger.debug(f"Saved tool message with tool_call_id: {msg.tool_call_id}")
         
         # Save conversation
         if self.conversation_manager:
