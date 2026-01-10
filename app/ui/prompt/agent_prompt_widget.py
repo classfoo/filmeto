@@ -240,7 +240,7 @@ class AgentPromptWidget(BaseWidget):
         # Create a container for the button to position it properly
         button_widget = QWidget(self.input_container)
         button_layout = QHBoxLayout(button_widget)
-        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setContentsMargins(5, 2, 5, 2)
         button_layout.addStretch()  # Push button to the right
         button_layout.addWidget(self.send_button)
 
