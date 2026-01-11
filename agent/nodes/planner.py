@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI
 import json
 import re
 
-from agent.nodes.state import AgentState
+from agent.graph.state import AgentState
 
 
 class PlannerNode:

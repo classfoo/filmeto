@@ -1,7 +1,7 @@
 """LangGraph nodes for Filmeto agent with multi-agent architecture."""
 
 # Import state
-from agent.nodes.state import AgentState
+from agent.graph.state import AgentState
 
 
 # Import nodes
@@ -13,7 +13,7 @@ from agent.nodes.response import ResponseNode
 from agent.nodes.plan_refinement import PlanRefinementNode
 
 # Import routers
-from agent.nodes.router import (
+from agent.graph.router import (
     route_from_understanding,
     route_from_coordinator,
     route_after_tools,

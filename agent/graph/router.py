@@ -3,7 +3,7 @@
 from typing import Literal
 from langchain_core.messages import ToolMessage
 
-from agent.nodes.state import AgentState
+from agent.graph.state import AgentState
 
 
 def route_from_understanding(state: AgentState) -> Literal["planner", "coordinator"]:

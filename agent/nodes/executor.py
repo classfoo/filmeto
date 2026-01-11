@@ -4,7 +4,7 @@ from typing import Any, List
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
 
-from agent.nodes.state import AgentState
+from agent.graph.state import AgentState
 
 
 class ExecutorNode:

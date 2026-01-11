@@ -4,7 +4,7 @@ from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
-from agent.nodes.state import AgentState
+from agent.graph.state import AgentState
 
 
 class ResponseNode:
