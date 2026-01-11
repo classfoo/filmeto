@@ -1,24 +1,134 @@
-"""Sub-agent execution nodes for multi-agent workflow."""
+"""Sub-agent execution nodes for multi-agent workflow with parallel execution and streaming support."""
 
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Optional, Literal, Callable, Set
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from agent.skills.base import SkillContext, SkillStatus
 import json
 import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
 
 
+class DependencyGraph:
+    """Dependency graph for task execution ordering.
+    
+    Manages task dependencies and determines which tasks can be executed in parallel.
+    """
+    
+    def __init__(self):
+        """Initialize dependency graph."""
+        self._tasks: Dict[str, Dict[str, Any]] = {}
+        self._dependencies: Dict[str, List[str]] = {}
+        self._dependents: Dict[str, List[str]] = {}
+        self._completed: Set[str] = set()
+        self._failed: Set[str] = set()
+        self._running: Set[str] = set()
+    
+    def add_task(self, task_id: str, task_info: Dict[str, Any], dependencies: List[str] = None):
+        """Add a task with its dependencies."""
+        self._tasks[task_id] = task_info
+        self._dependencies[task_id] = list(dependencies) if dependencies else []
+        
+        if not task_id in self._dependents:
+            self._dependents[task_id] = []
+        
+        for dep in (dependencies or []):
+            if dep not in self._dependents:
+                self._dependents[dep] = []
+            self._dependents[dep].append(task_id)
+    
+    def add_tasks_from_plan(self, plan: Dict[str, Any]):
+        """Add tasks from an execution plan."""
+        tasks = plan.get("tasks", [])
+        for task in tasks:
+            task_id = str(task.get("task_id", len(self._tasks)))
+            dependencies = [str(d) for d in task.get("dependencies", [])]
+            self.add_task(task_id, task, dependencies)
+    
+    def get_ready_tasks(self) -> List[str]:
+        """Get tasks that are ready to execute (all dependencies met)."""
+        ready = []
+        for task_id in self._tasks:
+            if task_id in self._completed or task_id in self._failed or task_id in self._running:
+                continue
+            
+            deps = self._dependencies.get(task_id, [])
+            # All dependencies must be completed (not just present)
+            if all(dep in self._completed for dep in deps):
+                ready.append(task_id)
+        
+        return ready
+    
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get task info by ID."""
+        return self._tasks.get(task_id)
+    
+    def mark_running(self, task_id: str):
+        """Mark a task as running."""
+        self._running.add(task_id)
+    
+    def mark_complete(self, task_id: str):
+        """Mark a task as complete."""
+        self._running.discard(task_id)
+        self._completed.add(task_id)
+    
+    def mark_failed(self, task_id: str):
+        """Mark a task as failed."""
+        self._running.discard(task_id)
+        self._failed.add(task_id)
+    
+    def is_complete(self) -> bool:
+        """Check if all tasks are complete or failed."""
+        return len(self._completed) + len(self._failed) == len(self._tasks)
+    
+    def get_completion_status(self) -> Dict[str, Any]:
+        """Get completion status."""
+        return {
+            "total": len(self._tasks),
+            "completed": len(self._completed),
+            "failed": len(self._failed),
+            "running": len(self._running),
+            "pending": len(self._tasks) - len(self._completed) - len(self._failed) - len(self._running),
+            "is_complete": self.is_complete(),
+        }
+    
+    def get_parallel_groups(self) -> List[List[str]]:
+        """Get groups of tasks that can be executed in parallel."""
+        groups = []
+        remaining = set(self._tasks.keys())
+        completed_for_grouping = set()
+        
+        while remaining:
+            group = []
+            for task_id in list(remaining):
+                deps = self._dependencies.get(task_id, [])
+                if all(dep in completed_for_grouping for dep in deps):
+                    group.append(task_id)
+            
+            if not group:
+                logger.warning(f"Could not schedule remaining tasks: {remaining}")
+                break
+            
+            groups.append(group)
+            for task_id in group:
+                remaining.discard(task_id)
+                completed_for_grouping.add(task_id)
+        
+        return groups
+
+
 class SubAgentExecutorNode:
     """
-    Sub-agent executor node that executes tasks using sub-agents.
+    Sub-agent executor node that executes tasks using sub-agents with parallel execution support.
     
     This node:
     - Executes tasks from the execution plan using appropriate sub-agents
+    - Supports parallel execution of independent tasks based on dependencies
+    - Emits streaming events for UI updates
     - Evaluates results and quality
     - Handles task dependencies
-    - Can request help from other agents if needed
     """
     
     def __init__(
@@ -26,13 +136,25 @@ class SubAgentExecutorNode:
         sub_agent_registry: Any,
         tool_registry: Any,
         workspace: Any,
-        project: Any
+        project: Any,
+        max_parallel_tasks: int = 3
     ):
         """Initialize sub-agent executor node."""
         self.sub_agent_registry = sub_agent_registry
         self.tool_registry = tool_registry
         self.workspace = workspace
         self.project = project
+        self.max_parallel_tasks = max_parallel_tasks
+        self._stream_emitter = None
+        self._plan_id = None
+    
+    def set_stream_emitter(self, emitter: Any):
+        """Set the stream event emitter."""
+        self._stream_emitter = emitter
+    
+    def set_plan_id(self, plan_id: str):
+        """Set the current plan ID."""
+        self._plan_id = plan_id
     
     async def _execute_task_async(
         self,
@@ -45,88 +167,52 @@ class SubAgentExecutorNode:
         evaluated_result = await agent.evaluate_result(result, task_dict, skill_context)
         return evaluated_result
     
-    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute sub-agent tasks."""
-        from agent.nodes import AgentState
+    def _execute_single_task(
+        self,
+        task: Dict[str, Any],
+        context: Dict[str, Any],
+        sub_agent_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Execute a single task and return the result."""
+        task_id = str(task.get("task_id", 0))
+        agent_name = task.get("agent_name")
+        skill_name = task.get("skill_name")
+        parameters = dict(task.get("parameters", {}))
+        dependencies = task.get("dependencies", [])
         
-        execution_plan = state.get("execution_plan")
-        current_task_index = state.get("current_task_index", 0)
-        context = state.get("context", {})
-        sub_agent_results = state.get("sub_agent_results", {})
-        
-        if not execution_plan or "tasks" not in execution_plan:
-            return {
-                **state,
-                "next_action": "respond",
-                "messages": state["messages"] + [
-                    AIMessage(content="[Executor] No execution plan available, proceeding to response")
-                ]
-            }
-        
-        tasks = execution_plan["tasks"]
-        
-        if current_task_index >= len(tasks):
-            # All tasks completed
-            logger.info(f"All {len(tasks)} tasks completed, proceeding to review")
-            return {
-                **state,
-                "next_action": "review_plan",
-                "sub_agent_results": sub_agent_results,
-                "messages": state["messages"] + [
-                    AIMessage(content=f"[Executor] All {len(tasks)} tasks completed, reviewing results")
-                ]
-            }
-        
-        # Get current task
-        current_task = tasks[current_task_index]
-        task_id = current_task.get("task_id", current_task_index)
-        agent_name = current_task.get("agent_name")
-        skill_name = current_task.get("skill_name")
-        parameters = current_task.get("parameters", {})
-        dependencies = current_task.get("dependencies", [])
-        
-        logger.info(f"Executing task {task_id}: {agent_name}/{skill_name}")
-        
-        # Check dependencies
-        dependencies_met = all(dep in sub_agent_results for dep in dependencies)
-        if not dependencies_met:
-            # Check if dependencies failed
-            missing = [d for d in dependencies if d not in sub_agent_results]
-            logger.warning(f"Task {task_id} has unmet dependencies: {missing}")
-            
-            # Skip to next task and try again later
-            return {
-                **state,
-                "next_action": "execute_sub_agent_plan",
-                "current_task_index": current_task_index + 1,
-                "messages": state["messages"] + [
-                    AIMessage(content=f"[Executor] Task {task_id} waiting for dependencies: {missing}")
-                ]
-            }
+        # Emit task start event
+        if self._stream_emitter:
+            self._stream_emitter.emit_task_start(
+                task_id=task_id,
+                agent_name=agent_name,
+                skill_name=skill_name,
+                plan_id=self._plan_id
+            )
         
         # Inject dependency results into parameters
         for dep_id in dependencies:
-            dep_result = sub_agent_results.get(dep_id)
+            dep_id_str = str(dep_id)
+            dep_result = sub_agent_results.get(dep_id_str)
             if dep_result and dep_result.get("output"):
-                parameters[f"from_task_{dep_id}"] = dep_result.get("output")
+                parameters[f"from_task_{dep_id_str}"] = dep_result.get("output")
         
         # Get agent
         agent = self.sub_agent_registry.get_agent(agent_name)
         if not agent:
-            error_msg = f"[Executor] Agent '{agent_name}' not found"
-            sub_agent_results[task_id] = {
+            error_msg = f"Agent '{agent_name}' not found"
+            result = {
                 "status": "failed",
                 "error": error_msg,
                 "agent": agent_name,
-                "skill": skill_name
+                "skill": skill_name,
+                "task_id": task_id
             }
-            return {
-                **state,
-                "next_action": "execute_sub_agent_plan",
-                "current_task_index": current_task_index + 1,
-                "sub_agent_results": sub_agent_results,
-                "messages": state["messages"] + [AIMessage(content=error_msg)]
-            }
+            
+            # Emit error event
+            if self._stream_emitter:
+                self._stream_emitter.emit_agent_error(agent_name, error_msg)
+            
+            return result
         
         # Create skill context
         shared_state = context.get("shared_state", {})
@@ -163,7 +249,7 @@ class SubAgentExecutorNode:
                 )
             
             # Store result
-            result_dict = {
+            result = {
                 "status": evaluated_result.status.value,
                 "output": evaluated_result.output,
                 "message": evaluated_result.message,
@@ -173,34 +259,32 @@ class SubAgentExecutorNode:
                 "skill": skill_name,
                 "task_id": task_id
             }
-            sub_agent_results[task_id] = result_dict
             
             # Update shared state
             if evaluated_result.output:
                 shared_state[f"{agent_name}_{skill_name}"] = evaluated_result.output
                 context["shared_state"] = shared_state
             
-            # Create result message
-            status_emoji = "✓" if evaluated_result.status == SkillStatus.SUCCESS else "✗"
-            quality_str = f" (Quality: {evaluated_result.quality_score:.2f})" if evaluated_result.quality_score else ""
-            result_message = f"[{agent_name}] {status_emoji} Task {task_id} - {skill_name}: {evaluated_result.message}{quality_str}"
+            # Emit task complete event
+            if self._stream_emitter:
+                self._stream_emitter.emit_task_complete(
+                    task_id=task_id,
+                    agent_name=agent_name,
+                    skill_name=skill_name,
+                    status=evaluated_result.status.value,
+                    message=evaluated_result.message,
+                    quality_score=evaluated_result.quality_score,
+                    output=evaluated_result.output,
+                    plan_id=self._plan_id
+                )
             
-            logger.info(result_message)
-            
-            return {
-                **state,
-                "next_action": "execute_sub_agent_plan",
-                "current_task_index": current_task_index + 1,
-                "sub_agent_results": sub_agent_results,
-                "context": context,
-                "messages": state["messages"] + [AIMessage(content=result_message)]
-            }
+            return result
         
         except Exception as e:
-            error_msg = f"[Executor] Error in task {task_id}: {str(e)}"
-            logger.error(error_msg)
+            error_msg = f"Error in task {task_id}: {str(e)}"
+            logger.error(f"[Executor] {error_msg}")
             
-            sub_agent_results[task_id] = {
+            result = {
                 "status": "failed",
                 "error": str(e),
                 "agent": agent_name,
@@ -208,13 +292,197 @@ class SubAgentExecutorNode:
                 "task_id": task_id
             }
             
+            # Emit error event
+            if self._stream_emitter:
+                self._stream_emitter.emit_agent_error(agent_name, error_msg)
+            
+            return result
+    
+    def _execute_parallel_batch(
+        self,
+        tasks: List[Dict[str, Any]],
+        context: Dict[str, Any],
+        sub_agent_results: Dict[str, Any]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Execute a batch of tasks in parallel."""
+        results = {}
+        
+        if len(tasks) == 1:
+            # Single task, execute directly
+            task = tasks[0]
+            task_id = str(task.get("task_id", 0))
+            result = self._execute_single_task(task, context, sub_agent_results)
+            results[task_id] = result
+        else:
+            # Multiple tasks, execute in parallel
+            with ThreadPoolExecutor(max_workers=min(len(tasks), self.max_parallel_tasks)) as executor:
+                future_to_task = {
+                    executor.submit(
+                        self._execute_single_task,
+                        task,
+                        context.copy(),
+                        sub_agent_results.copy()
+                    ): task
+                    for task in tasks
+                }
+                
+                for future in as_completed(future_to_task):
+                    task = future_to_task[future]
+                    task_id = str(task.get("task_id", 0))
+                    try:
+                        result = future.result()
+                        results[task_id] = result
+                    except Exception as e:
+                        logger.error(f"Task {task_id} raised exception: {e}")
+                        results[task_id] = {
+                            "status": "failed",
+                            "error": str(e),
+                            "agent": task.get("agent_name"),
+                            "skill": task.get("skill_name"),
+                            "task_id": task_id
+                        }
+        
+        return results
+    
+    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute sub-agent tasks with parallel execution support."""
+        from agent.nodes import AgentState
+        
+        execution_plan = state.get("execution_plan")
+        current_task_index = state.get("current_task_index", 0)
+        context = state.get("context", {})
+        sub_agent_results = state.get("sub_agent_results", {})
+        
+        # Get or create dependency graph
+        dep_graph = context.get("_dependency_graph")
+        if dep_graph is None:
+            if not execution_plan or "tasks" not in execution_plan:
+                return {
+                    **state,
+                    "next_action": "respond",
+                    "messages": state["messages"] + [
+                        AIMessage(content="[Executor] No execution plan available, proceeding to response")
+                    ]
+                }
+            
+            # Create dependency graph from plan
+            dep_graph = DependencyGraph()
+            dep_graph.add_tasks_from_plan(execution_plan)
+            context["_dependency_graph"] = dep_graph
+            
+            # Mark already completed tasks
+            for task_id in sub_agent_results:
+                if sub_agent_results[task_id].get("status") == "success":
+                    dep_graph.mark_complete(task_id)
+                elif sub_agent_results[task_id].get("status") == "failed":
+                    dep_graph.mark_failed(task_id)
+        
+        # Check if all tasks are done
+        if dep_graph.is_complete():
+            status = dep_graph.get_completion_status()
+            logger.info(f"All {status['total']} tasks completed, proceeding to review")
             return {
                 **state,
-                "next_action": "execute_sub_agent_plan",
-                "current_task_index": current_task_index + 1,
+                "next_action": "review_plan",
                 "sub_agent_results": sub_agent_results,
-                "messages": state["messages"] + [AIMessage(content=error_msg)]
+                "context": context,
+                "messages": state["messages"] + [
+                    AIMessage(content=f"[Executor] All {status['total']} tasks completed ({status['completed']} success, {status['failed']} failed), reviewing results")
+                ]
             }
+        
+        # Get ready tasks
+        ready_task_ids = dep_graph.get_ready_tasks()
+        
+        if not ready_task_ids:
+            # No tasks ready, might be waiting for dependencies or stuck
+            status = dep_graph.get_completion_status()
+            if status['running'] > 0:
+                # Still have running tasks, wait
+                return {
+                    **state,
+                    "next_action": "execute_sub_agent_plan",
+                    "context": context,
+                    "messages": state["messages"]
+                }
+            else:
+                # No running tasks and no ready tasks - likely circular dependency or all failed
+                logger.warning("No tasks ready and none running - possible dependency issue")
+                return {
+                    **state,
+                    "next_action": "review_plan",
+                    "sub_agent_results": sub_agent_results,
+                    "context": context,
+                    "messages": state["messages"] + [
+                        AIMessage(content="[Executor] No more tasks can be executed, proceeding to review")
+                    ]
+                }
+        
+        # Get task details for ready tasks
+        tasks_to_execute = []
+        for task_id in ready_task_ids:
+            task = dep_graph.get_task(task_id)
+            if task:
+                dep_graph.mark_running(task_id)
+                tasks_to_execute.append(task)
+        
+        if not tasks_to_execute:
+            return {
+                **state,
+                "next_action": "review_plan",
+                "sub_agent_results": sub_agent_results,
+                "context": context,
+                "messages": state["messages"]
+            }
+        
+        logger.info(f"Executing {len(tasks_to_execute)} tasks in parallel: {[t.get('task_id') for t in tasks_to_execute]}")
+        
+        # Execute tasks (possibly in parallel)
+        batch_results = self._execute_parallel_batch(tasks_to_execute, context, sub_agent_results)
+        
+        # Update results and dependency graph
+        messages = []
+        for task_id, result in batch_results.items():
+            sub_agent_results[task_id] = result
+            
+            if result.get("status") == "success":
+                dep_graph.mark_complete(task_id)
+            else:
+                dep_graph.mark_failed(task_id)
+            
+            # Create result message
+            agent_name = result.get("agent", "Unknown")
+            skill_name = result.get("skill", "Unknown")
+            status = result.get("status", "unknown")
+            msg = result.get("message", result.get("error", ""))
+            quality_score = result.get("quality_score")
+            
+            status_emoji = "✓" if status == "success" else "✗"
+            quality_str = f" (Quality: {quality_score:.2f})" if quality_score else ""
+            result_message = f"[{agent_name}] {status_emoji} Task {task_id} - {skill_name}: {msg[:100]}{quality_str}"
+            
+            messages.append(AIMessage(content=result_message))
+            logger.info(result_message)
+        
+        # Update context with modified graph
+        context["_dependency_graph"] = dep_graph
+        
+        # Check if done after this batch
+        if dep_graph.is_complete():
+            status = dep_graph.get_completion_status()
+            messages.append(AIMessage(content=f"[Executor] All {status['total']} tasks completed, reviewing results"))
+            next_action = "review_plan"
+        else:
+            next_action = "execute_sub_agent_plan"
+        
+        return {
+            **state,
+            "next_action": next_action,
+            "current_task_index": current_task_index + len(tasks_to_execute),
+            "sub_agent_results": sub_agent_results,
+            "context": context,
+            "messages": state["messages"] + messages
+        }
 
 
 class PlanReviewNode:
@@ -231,6 +499,11 @@ class PlanReviewNode:
     def __init__(self, llm: Any):
         """Initialize plan review node."""
         self.llm = llm
+        self._stream_emitter = None
+    
+    def set_stream_emitter(self, emitter: Any):
+        """Set the stream event emitter."""
+        self._stream_emitter = emitter
     
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Review execution plan results."""
@@ -291,6 +564,12 @@ class PlanReviewNode:
             "status": status
         }
         
+        # Emit agent content event
+        if self._stream_emitter:
+            self._stream_emitter.emit_agent_start("Reviewer", AgentRole.SUPERVISOR)
+            self._stream_emitter.emit_agent_content("Reviewer", summary)
+            self._stream_emitter.emit_agent_complete("Reviewer", summary)
+        
         logger.info(f"Plan review: {status}, next action: {next_action}")
         
         return {
@@ -314,6 +593,11 @@ class ResultSynthesisNode:
     def __init__(self, llm: Any):
         """Initialize result synthesis node."""
         self.llm = llm
+        self._stream_emitter = None
+    
+    def set_stream_emitter(self, emitter: Any):
+        """Set the stream event emitter."""
+        self._stream_emitter = emitter
     
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Synthesize execution results."""
@@ -324,6 +608,11 @@ class ResultSynthesisNode:
         # Get original request
         original_request = context.get("original_request", "Unknown request")
         plan_description = context.get("plan_description", "")
+        
+        # Emit synthesis start
+        if self._stream_emitter:
+            from agent.streaming.protocol import AgentRole
+            self._stream_emitter.emit_agent_start("Synthesizer", AgentRole.COORDINATOR)
         
         # Build synthesis
         synthesis = "## 🎬 Film Production Team Report\n\n"
@@ -362,6 +651,11 @@ class ResultSynthesisNode:
         synthesis += f"- **Tasks completed:** {successful}/{total}\n"
         synthesis += f"- **Agents involved:** {len(agent_results)}\n"
         
+        # Emit content
+        if self._stream_emitter:
+            self._stream_emitter.emit_agent_content("Synthesizer", synthesis)
+            self._stream_emitter.emit_agent_complete("Synthesizer", synthesis)
+        
         logger.info(f"Synthesis complete: {successful}/{total} tasks successful")
         
         return {
@@ -369,3 +663,7 @@ class ResultSynthesisNode:
             "next_action": "respond",
             "messages": state["messages"] + [AIMessage(content=synthesis)]
         }
+
+
+# Import AgentRole for use in nodes
+from agent.streaming.protocol import AgentRole

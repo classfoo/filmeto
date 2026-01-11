@@ -1,14 +1,18 @@
-"""Agent panel for AI Agent interactions."""
+"""Agent panel for AI Agent interactions with multi-agent streaming support."""
 
 import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import Signal, Slot, QObject
+from PySide6.QtWidgets import QApplication
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from app.ui.chat.chat_history_widget import ChatHistoryWidget
 from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
-# Removed heavy top-level import: from agent.filmeto_agent import FilmetoAgent
+from agent.streaming import (
+    StreamEvent, StreamEventType, AgentRole,
+    AgentStreamSession, AgentStreamManager
+)
 from utils.i18n_utils import tr
 
 if TYPE_CHECKING:
@@ -17,13 +21,36 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class StreamEventHandler(QObject):
+    """Handler for stream events that bridges async agent to Qt signals."""
+    
+    # Signal to emit stream events on Qt main thread
+    stream_event_received = Signal(object, object)  # StreamEvent, AgentStreamSession
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+    
+    def handle_event(self, event: StreamEvent, session: AgentStreamSession):
+        """Handle a stream event (called from agent thread)."""
+        # Emit signal to be handled on main thread
+        self.stream_event_received.emit(event, session)
+
+
 class AgentPanel(BasePanel):
-    """Panel for AI Agent interactions."""
+    """Panel for AI Agent interactions with multi-agent streaming support.
+    
+    Features:
+    - Multi-agent streaming display
+    - Group-chat style agent collaboration visualization
+    - Concurrent agent execution support
+    - Structured content display (plans, tasks, media, references)
+    """
     
     # Signals for async operations
     response_token_received = Signal(str)
     response_complete = Signal(str)
     error_occurred = Signal(str)
+    stream_event = Signal(object, object)  # StreamEvent, AgentStreamSession
     
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the agent panel."""
@@ -32,17 +59,21 @@ class AgentPanel(BasePanel):
         super().__init__(workspace, parent)
         
         # Initialize agent (will be set when project is available)
-        # Use string type hint to avoid top-level import
         self.agent: Optional['FilmetoAgent'] = None
         self._current_response = ""
         self._current_message_id = None
         self._is_processing = False
         self._initialization_in_progress = False
         
+        # Stream event handler for bridging async to Qt
+        self._stream_handler = StreamEventHandler(self)
+        self._stream_handler.stream_event_received.connect(self._on_stream_event)
+        
         # Connect internal signals
         self.response_token_received.connect(self._on_token_received)
         self.response_complete.connect(self._on_response_complete)
         self.error_occurred.connect(self._on_error)
+        
         init_time = (time.time() - init_start) * 1000
         logger.debug(f"⏱️  [AgentPanel] __init__ completed in {init_time:.2f}ms")
     
@@ -62,6 +93,7 @@ class AgentPanel(BasePanel):
         
         # Connect signals
         self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
+        self.chat_history_widget.reference_clicked.connect(self._on_reference_clicked)
         
         setup_time = (time.time() - setup_start) * 1000
         logger.debug(f"⏱️  [AgentPanel] setup_ui completed in {setup_time:.2f}ms")
@@ -71,12 +103,16 @@ class AgentPanel(BasePanel):
         if not message or self._is_processing:
             return
         
-        # Add user message to chat history FIRST - always show user messages
-        # regardless of whether agent processing succeeds or fails
-        self.chat_history_widget.append_message(tr("用户"), message)
+        # Add user message to chat history using new card-based display
+        self.chat_history_widget.add_user_message(message)
         
         # Start async processing which will initialize agent if needed
         asyncio.create_task(self._process_message_async(message))
+    
+    def _on_reference_clicked(self, ref_type: str, ref_id: str):
+        """Handle reference click in chat history."""
+        logger.info(f"Reference clicked: {ref_type} / {ref_id}")
+        # TODO: Implement reference navigation (e.g., jump to timeline item, show task details)
     
     async def _process_message_async(self, message: str):
         """Process message asynchronously, initializing agent if needed."""
@@ -121,9 +157,10 @@ class AgentPanel(BasePanel):
         self._is_processing = True
         self.prompt_input_widget.set_enabled(False)
         
-        # Reset current response and start streaming message
+        # Reset current response - don't create a message card yet
+        # The streaming events will create cards as agents start responding
         self._current_response = ""
-        self._current_message_id = self.chat_history_widget.start_streaming_message(tr("Agent"))
+        self._current_message_id = None
         
         # Start streaming response
         try:
@@ -134,30 +171,56 @@ class AgentPanel(BasePanel):
             self.error_occurred.emit(error_msg)
     
     async def _stream_response(self, message: str):
-        """Stream response from agent."""
+        """Stream response from agent with multi-agent events."""
         try:
-            # Stream tokens from agent
-            async for token in self.agent.chat_stream(
-                message=message,
-                on_token=lambda t: self.response_token_received.emit(t),
-                on_complete=lambda r: self.response_complete.emit(r)
-            ):
-                # Tokens are handled by signal callbacks
-                pass
+            # Register UI callback with stream manager
+            self.agent.add_ui_callback(self._stream_handler.handle_event)
+            
+            try:
+                # Stream tokens from agent with event callback
+                async for token in self.agent.chat_stream(
+                    message=message,
+                    on_token=lambda t: self.response_token_received.emit(t),
+                    on_complete=lambda r: self.response_complete.emit(r),
+                    on_stream_event=lambda e: self._handle_stream_event_sync(e)
+                ):
+                    # Tokens are handled by signal callbacks and stream events
+                    pass
+            finally:
+                # Remove UI callback
+                self.agent.remove_ui_callback(self._stream_handler.handle_event)
+                
         except Exception as e:
-            # Ensure error is displayed, but user message is already shown
+            # Ensure error is displayed
             error_msg = f"{tr('错误')}: {str(e)}"
             self.error_occurred.emit(error_msg)
         finally:
-            # Ensure we always clean up streaming state even if there's an error
-            # The error handler will also clean up, but this provides extra safety
-            pass
+            # Re-enable input
+            self._is_processing = False
+            self.prompt_input_widget.set_enabled(True)
+    
+    def _handle_stream_event_sync(self, event: StreamEvent):
+        """Handle stream event synchronously (called from agent thread)."""
+        # Get session from agent
+        session = self.agent.get_current_session() if self.agent else None
+        if session:
+            self._stream_handler.handle_event(event, session)
+    
+    @Slot(object, object)
+    def _on_stream_event(self, event: StreamEvent, session: AgentStreamSession):
+        """Handle stream event on Qt main thread."""
+        # Forward to chat history widget
+        self.chat_history_widget.handle_stream_event(event, session)
+        
+        # Process UI updates
+        QApplication.processEvents()
     
     @Slot(str)
     def _on_token_received(self, token: str):
-        """Handle received token from agent."""
+        """Handle received token from agent (legacy API)."""
         self._current_response += token
-        # Update the streaming message in chat history
+        
+        # If we have a current message ID (legacy mode), update it
         if self._current_message_id:
             self.chat_history_widget.update_streaming_message(
                 self._current_message_id,
@@ -167,7 +230,7 @@ class AgentPanel(BasePanel):
     @Slot(str)
     def _on_response_complete(self, response: str):
         """Handle complete response from agent."""
-        # Update the final message (already displayed via streaming)
+        # Update the final message if in legacy mode
         if self._current_message_id:
             self.chat_history_widget.update_streaming_message(
                 self._current_message_id,
@@ -185,16 +248,14 @@ class AgentPanel(BasePanel):
     def _on_error(self, error_message: str):
         """Handle error during agent processing."""
         # If there's a streaming message in progress, update it with error
-        # Otherwise, add a new error message
         if self._current_message_id:
-            # Update the streaming message to show error
             self.chat_history_widget.update_streaming_message(
                 self._current_message_id,
                 error_message
             )
             self._current_message_id = None
         else:
-            # Add error message as new message
+            # Add error message as new system message
             self.chat_history_widget.append_message(tr("系统"), error_message)
         
         # Clear current response
@@ -266,22 +327,18 @@ class AgentPanel(BasePanel):
         """Update agent with new project context."""
         if self.agent:
             self.agent.update_context(project=project)
-        # Removed proactive initialization to ensure strict lazy loading on send button click
     
     def load_data(self):
         """Load agent data when panel is first activated."""
         super().load_data()
         # Agent will be initialized lazily on first message submission
-        # No data loading needed here
     
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
         logger.info("✅ Agent panel activated")
-        # Agent will be initialized lazily on first message submission
     
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
         logger.info("⏸️ Agent panel deactivated")
-

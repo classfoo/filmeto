@@ -1,57 +1,84 @@
-"""Chat history component for agent panel."""
+"""Chat history component for agent panel with multi-agent support.
 
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QScrollArea, QWidget, QLabel
-from PySide6.QtCore import Qt
+This module provides a group-chat style presentation for multi-agent conversations,
+with support for streaming content, structured data, and concurrent agent execution.
+"""
+
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from PySide6.QtWidgets import (
+    QVBoxLayout, QHBoxLayout, QScrollArea, QWidget, QLabel, QFrame, QSizePolicy
+)
+from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QIcon, QFont, QPen
+
 from app.ui.base_widget import BaseWidget
-from app.data.workspace import Workspace
+from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
+from agent.streaming.protocol import (
+    StreamEvent, StreamEventType, AgentRole, StructuredContent,
+    PlanContent, TaskContent, MediaContent, ReferenceContent, ThinkingContent
+)
+from agent.streaming.manager import AgentStreamSession, AgentMessage
 from utils.i18n_utils import tr
+
+if TYPE_CHECKING:
+    from app.data.workspace import Workspace
 
 
 class ChatHistoryWidget(BaseWidget):
-    """Chat history component for displaying agent conversation messages."""
-
-    def __init__(self, workspace: Workspace, parent=None):
+    """Chat history component for displaying multi-agent conversation messages.
+    
+    Features:
+    - Group-chat style presentation with multiple agent cards
+    - Streaming content updates per agent
+    - Structured content display (plans, tasks, media, references)
+    - Concurrent agent execution visualization
+    - Dynamic card updates during streaming
+    """
+    
+    # Signals
+    reference_clicked = Signal(str, str)  # ref_type, ref_id
+    message_complete = Signal(str, str)  # message_id, agent_name
+    
+    def __init__(self, workspace: 'Workspace', parent=None):
         """Initialize the chat history widget."""
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
-        self.messages = []
+        
+        # Message tracking
+        self.messages: List[QWidget] = []  # All message widgets
+        self._message_cards: Dict[str, AgentMessageCard] = {}  # message_id -> card
+        self._agent_current_cards: Dict[str, str] = {}  # agent_name -> current message_id
+        self._scroll_timer = QTimer()
+        self._scroll_timer.setSingleShot(True)
+        self._scroll_timer.timeout.connect(self._scroll_to_bottom)
+        
         self._setup_ui()
     
-    def _create_circular_icon(self, icon_char: str, size: int = 24, bg_color: QColor = None, icon_color: QColor = None, use_iconfont: bool = True) -> QIcon:
-        """
-        Create a circular icon with an icon actor.
-        
-        Args:
-            icon_char: Icon actor (unicode string or letter)
-            size: Icon size in pixels
-            bg_color: Background color (default: #4080ff for user, #3d3f4e for agent)
-            icon_color: Icon color (default: white)
-            use_iconfont: Whether to use iconfont (True) or regular font (False)
-            
-        Returns:
-            QIcon object
-        """
+    def _create_circular_icon(
+        self,
+        icon_char: str,
+        size: int = 24,
+        bg_color: QColor = None,
+        icon_color: QColor = None,
+        use_iconfont: bool = True
+    ) -> QIcon:
+        """Create a circular icon with an icon character."""
         if bg_color is None:
             bg_color = QColor("#4080ff")
         if icon_color is None:
             icon_color = QColor("#ffffff")
         
-        # Create pixmap
         pixmap = QPixmap(size, size)
         pixmap.fill(Qt.transparent)
         
-        # Create painter
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
         
-        # Draw circular background
         rect = QPainterPath()
         rect.addEllipse(0, 0, size, size)
         painter.fillPath(rect, bg_color)
         
-        # Draw icon actor
         if use_iconfont:
             font = QFont("iconfont", size // 2)
         else:
@@ -67,28 +94,17 @@ class ChatHistoryWidget(BaseWidget):
         return QIcon(pixmap)
     
     def _get_sender_info(self, sender: str):
-        """
-        Get sender information including icon and alignment.
-        
-        Args:
-            sender: Sender name
-            
-        Returns:
-            Tuple of (is_user, icon_char, bg_color, alignment, use_iconfont)
-        """
-        # Check if sender is user (支持中文和英文)
+        """Get sender information including icon and alignment."""
         is_user = sender in [tr("用户"), "用户", "User", "user"]
         
         if is_user:
-            # User icon: use iconfont user icon
-            icon_char = "\ue6b3"  # user icon from iconfont
-            bg_color = QColor("#35373a")  # Light gray background (slightly lighter than agent)
-            alignment = Qt.AlignLeft  # Left align for consistency
+            icon_char = "\ue6b3"
+            bg_color = QColor("#35373a")
+            alignment = Qt.AlignLeft
             use_iconfont = True
         else:
-            # Agent icon: use letter "A" with regular font
-            icon_char = "A"  # Agent initial
-            bg_color = QColor("#3d3f4e")  # Dark gray background
+            icon_char = "A"
+            bg_color = QColor("#3d3f4e")
             alignment = Qt.AlignLeft
             use_iconfont = False
         
@@ -135,192 +151,374 @@ class ChatHistoryWidget(BaseWidget):
         """)
         self.messages_layout = QVBoxLayout(self.messages_container)
         self.messages_layout.setContentsMargins(10, 10, 10, 10)
-        self.messages_layout.setSpacing(10)
-        self.messages_layout.addStretch()  # Push messages to top
+        self.messages_layout.setSpacing(8)
+        self.messages_layout.addStretch()
 
         self.scroll_area.setWidget(self.messages_container)
         layout.addWidget(self.scroll_area)
-
-    def append_message(self, sender: str, message: str, message_id: str = None):
-        """
-        Append a message to the chat history.
-        
-        Args:
-            sender: Sender name
-            message: Message content
-            message_id: Optional message ID for updating streaming messages
-        """
+    
+    def _scroll_to_bottom(self):
+        """Scroll to bottom of chat."""
+        scrollbar = self.scroll_area.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+    
+    def _schedule_scroll(self):
+        """Schedule a scroll to bottom (debounced)."""
+        self._scroll_timer.start(50)  # 50ms debounce
+    
+    # ========================================================================
+    # Legacy API (for backward compatibility)
+    # ========================================================================
+    
+    def append_message(self, sender: str, message: str, message_id: str = None) -> QWidget:
+        """Append a message to the chat history (legacy API)."""
         if not message:
-            return
+            return None
 
-        # Get sender information
         is_user, icon_char, bg_color, alignment, use_iconfont = self._get_sender_info(sender)
 
-        # Create message widget
-        message_widget = QWidget(self.messages_container)
-        message_widget.setStyleSheet("""
-            QWidget {
-                background-color: transparent;
-            }
-        """)
-        
-        # Store message_id as property if provided
-        if message_id:
-            message_widget.setProperty("message_id", message_id)
-
-        message_layout = QVBoxLayout(message_widget)
-        message_layout.setContentsMargins(0, 0, 0, 0)
-        message_layout.setSpacing(5)
-
-        # Sender row with icon and name
-        sender_row = QWidget(message_widget)
-        sender_row_layout = QHBoxLayout(sender_row)
-        sender_row_layout.setContentsMargins(0, 0, 0, 0)
-        sender_row_layout.setSpacing(6)
-        
-        # Create circular icon
-        icon = self._create_circular_icon(icon_char, size=24, bg_color=bg_color, use_iconfont=use_iconfont)
-        icon_label = QLabel(sender_row)
-        icon_label.setPixmap(icon.pixmap(24, 24))
-        icon_label.setFixedSize(24, 24)
-        icon_label.setScaledContents(True)
-        
-        # Sender name label
-        sender_label = QLabel(sender, sender_row)
-        sender_label.setObjectName("chat_sender_label")
-        sender_label.setStyleSheet("""
-            QLabel#chat_sender_label {
-                color: #ffffff;
-                font-size: 12px;
-                font-weight: bold;
-                padding: 2px 0px;
-            }
-        """)
-        
-        # Add icon and label based on alignment
+        # Create appropriate card
         if is_user:
-            # User: icon on right, name on right
-            sender_row_layout.addStretch()
-            sender_row_layout.addWidget(sender_label)
-            sender_row_layout.addWidget(icon_label)
+            card = UserMessageCard(message, self.messages_container)
         else:
-            # Agent: icon on left, name on left
-            sender_row_layout.addWidget(icon_label)
-            sender_row_layout.addWidget(sender_label)
-            sender_row_layout.addStretch()
-        
-        message_layout.addWidget(sender_row)
-
-        # Message content label
-        content_label = QLabel(message, message_widget)
-        content_label.setObjectName("chat_content_label")
-        content_label.setWordWrap(True)
-        content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
-        
-        # Adjust content alignment and style based on sender
-        if is_user:
-            # User message: left aligned with slightly lighter gray background
-            content_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-            content_label.setStyleSheet("""
-                QLabel#chat_content_label {
-                    color: #e1e1e1;
-                    font-size: 13px;
-                    padding: 8px;
-                    background-color: #35373a;
-                    border: 1px solid #505254;
-                    border-radius: 5px;
-                }
-            """)
-        else:
-            # Agent message: left aligned with darker gray background
-            content_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-            content_label.setStyleSheet("""
-                QLabel#chat_content_label {
-                    color: #e1e1e1;
-                    font-size: 13px;
-                    padding: 8px;
-                    background-color: #2b2d30;
-                    border: 1px solid #505254;
-                    border-radius: 5px;
-                }
-            """)
-        
-        message_layout.addWidget(content_label)
+            # For legacy API, use agent role based on sender name
+            agent_role = AgentRole.from_agent_name(sender)
+            if sender.lower() in ["agent", tr("Agent").lower()]:
+                agent_role = AgentRole.COORDINATOR
+            
+            card = AgentMessageCard(
+                message_id=message_id or str(id(card)),
+                agent_name=sender,
+                agent_role=agent_role,
+                parent=self.messages_container
+            )
+            card.set_content(message)
+            
+            if message_id:
+                self._message_cards[message_id] = card
 
         # Insert before the stretch spacer
-        self.messages_layout.insertWidget(self.messages_layout.count() - 1, message_widget)
-        self.messages.append(message_widget)
+        self.messages_layout.insertWidget(self.messages_layout.count() - 1, card)
+        self.messages.append(card)
 
-        # Scroll to bottom
-        self.scroll_area.verticalScrollBar().setValue(
-            self.scroll_area.verticalScrollBar().maximum()
-        )
+        self._schedule_scroll()
         
-        return message_widget
+        return card
     
     def update_last_message(self, message: str):
-        """
-        Update the content of the last message (for streaming).
-        
-        Args:
-            message: New message content
-        """
+        """Update the content of the last message (legacy API)."""
         if not self.messages:
             return
         
         last_widget = self.messages[-1]
-        # Find the content label
-        for child in last_widget.findChildren(QLabel):
-            if child.objectName() == "chat_content_label":
-                child.setText(message)
-                break
+        if isinstance(last_widget, AgentMessageCard):
+            last_widget.set_content(message)
+        else:
+            # Old style widget
+            for child in last_widget.findChildren(QLabel):
+                if child.objectName() == "chat_content_label":
+                    child.setText(message)
+                    break
         
-        # Scroll to bottom
-        self.scroll_area.verticalScrollBar().setValue(
-            self.scroll_area.verticalScrollBar().maximum()
-        )
+        self._schedule_scroll()
     
     def start_streaming_message(self, sender: str) -> str:
-        """
-        Start a new streaming message with empty content.
-        
-        Args:
-            sender: Sender name
-            
-        Returns:
-            Message ID for updating
-        """
+        """Start a new streaming message (legacy API)."""
         import uuid
         message_id = str(uuid.uuid4())
         self.append_message(sender, "...", message_id)
         return message_id
     
     def update_streaming_message(self, message_id: str, content: str):
-        """
-        Update a streaming message by ID.
+        """Update a streaming message by ID (legacy API)."""
+        card = self._message_cards.get(message_id)
+        if card:
+            card.set_content(content)
+        else:
+            # Fallback to old method
+            for widget in self.messages:
+                if hasattr(widget, 'property') and widget.property("message_id") == message_id:
+                    for child in widget.findChildren(QLabel):
+                        if child.objectName() == "chat_content_label":
+                            child.setText(content)
+                            break
+                    break
         
-        Args:
-            message_id: Message ID
-            content: New content
-        """
-        for widget in self.messages:
-            if widget.property("message_id") == message_id:
-                # Find the content label
-                for child in widget.findChildren(QLabel):
-                    if child.objectName() == "chat_content_label":
-                        child.setText(content)
-                        break
-                break
+        self._schedule_scroll()
+    
+    # ========================================================================
+    # Multi-Agent Streaming API
+    # ========================================================================
+    
+    def add_user_message(self, content: str) -> UserMessageCard:
+        """Add a user message card."""
+        card = UserMessageCard(content, self.messages_container)
+        self.messages_layout.insertWidget(self.messages_layout.count() - 1, card)
+        self.messages.append(card)
+        self._schedule_scroll()
+        return card
+    
+    def get_or_create_agent_card(
+        self,
+        message_id: str,
+        agent_name: str,
+        agent_role: AgentRole = None
+    ) -> AgentMessageCard:
+        """Get or create an agent message card."""
+        if message_id in self._message_cards:
+            return self._message_cards[message_id]
         
-        # Scroll to bottom
-        self.scroll_area.verticalScrollBar().setValue(
-            self.scroll_area.verticalScrollBar().maximum()
+        # Create new card
+        if agent_role is None:
+            agent_role = AgentRole.from_agent_name(agent_name)
+        
+        card = AgentMessageCard(
+            message_id=message_id,
+            agent_name=agent_name,
+            agent_role=agent_role,
+            parent=self.messages_container
         )
+        
+        # Connect signals
+        card.reference_clicked.connect(self.reference_clicked.emit)
+        
+        # Add to layout
+        self.messages_layout.insertWidget(self.messages_layout.count() - 1, card)
+        self.messages.append(card)
+        self._message_cards[message_id] = card
+        self._agent_current_cards[agent_name] = message_id
+        
+        self._schedule_scroll()
+        return card
+    
+    def get_agent_current_card(self, agent_name: str) -> Optional[AgentMessageCard]:
+        """Get the current active card for an agent."""
+        message_id = self._agent_current_cards.get(agent_name)
+        if message_id:
+            return self._message_cards.get(message_id)
+        return None
+    
+    def update_agent_card(
+        self,
+        message_id: str,
+        content: str = None,
+        append: bool = True,
+        is_thinking: bool = False,
+        thinking_text: str = "",
+        is_complete: bool = False,
+        structured_content: StructuredContent = None,
+        error: str = None
+    ):
+        """Update an agent message card."""
+        card = self._message_cards.get(message_id)
+        if not card:
+            return
+        
+        if content is not None:
+            if append:
+                card.append_content(content)
+            else:
+                card.set_content(content)
+        
+        if is_thinking:
+            card.set_thinking(True, thinking_text)
+        elif is_complete or content is not None:
+            card.set_thinking(False)
+        
+        if is_complete:
+            card.set_complete(True)
+        
+        if structured_content:
+            card.add_structured_content(structured_content)
+        
+        if error:
+            card.set_error(error)
+        
+        self._schedule_scroll()
+    
+    @Slot(StreamEvent, AgentStreamSession)
+    def handle_stream_event(self, event: StreamEvent, session: AgentStreamSession):
+        """Handle a streaming event from the agent system."""
+        event_type = event.event_type
+        
+        # Skip user-initiated events
+        if event.agent_role == AgentRole.USER:
+            return
+        
+        # Handle different event types
+        if event_type == StreamEventType.AGENT_START:
+            # Create or get card for this agent
+            self.get_or_create_agent_card(
+                event.message_id,
+                event.agent_name,
+                event.agent_role
+            )
+            self.update_agent_card(
+                event.message_id,
+                is_thinking=True
+            )
+            
+        elif event_type == StreamEventType.AGENT_THINKING:
+            card = self._message_cards.get(event.message_id)
+            if not card:
+                card = self.get_or_create_agent_card(
+                    event.message_id,
+                    event.agent_name,
+                    event.agent_role
+                )
+            
+            thinking_text = ""
+            if event.structured_content and isinstance(event.structured_content, ThinkingContent):
+                thinking_text = event.structured_content.data.get("thinking_text", "")
+            
+            self.update_agent_card(
+                event.message_id,
+                is_thinking=True,
+                thinking_text=thinking_text
+            )
+            
+        elif event_type == StreamEventType.AGENT_CONTENT:
+            card = self._message_cards.get(event.message_id)
+            if not card:
+                card = self.get_or_create_agent_card(
+                    event.message_id,
+                    event.agent_name,
+                    event.agent_role
+                )
+            
+            append = event.metadata.get("append", True)
+            self.update_agent_card(
+                event.message_id,
+                content=event.content,
+                append=append,
+                structured_content=event.structured_content
+            )
+            
+        elif event_type == StreamEventType.CONTENT_TOKEN:
+            card = self._message_cards.get(event.message_id)
+            if not card:
+                card = self.get_or_create_agent_card(
+                    event.message_id,
+                    event.agent_name,
+                    event.agent_role
+                )
+            
+            self.update_agent_card(
+                event.message_id,
+                content=event.content,
+                append=True
+            )
+            
+        elif event_type == StreamEventType.AGENT_COMPLETE:
+            self.update_agent_card(
+                event.message_id,
+                is_complete=True,
+                content=event.content if event.content else None,
+                append=False
+            )
+            self.message_complete.emit(event.message_id, event.agent_name)
+            
+        elif event_type == StreamEventType.AGENT_ERROR:
+            self.update_agent_card(
+                event.message_id,
+                error=event.content,
+                is_complete=True
+            )
+            
+        elif event_type == StreamEventType.PLAN_CREATED:
+            card = self._message_cards.get(event.message_id)
+            if not card:
+                card = self.get_or_create_agent_card(
+                    event.message_id,
+                    event.agent_name or "Planner",
+                    AgentRole.PLANNER
+                )
+            
+            if event.structured_content:
+                self.update_agent_card(
+                    event.message_id,
+                    structured_content=event.structured_content
+                )
+            
+        elif event_type == StreamEventType.PLAN_TASK_START:
+            card = self._message_cards.get(event.message_id)
+            if not card:
+                card = self.get_or_create_agent_card(
+                    event.message_id,
+                    event.agent_name,
+                    event.agent_role
+                )
+            
+            if event.structured_content:
+                self.update_agent_card(
+                    event.message_id,
+                    is_thinking=True,
+                    structured_content=event.structured_content
+                )
+            
+        elif event_type == StreamEventType.PLAN_TASK_COMPLETE:
+            if event.structured_content:
+                self.update_agent_card(
+                    event.message_id,
+                    structured_content=event.structured_content,
+                    is_complete=True
+                )
+            
+        elif event_type == StreamEventType.CONTENT_MEDIA:
+            if event.structured_content:
+                self.update_agent_card(
+                    event.message_id,
+                    structured_content=event.structured_content
+                )
+            
+        elif event_type == StreamEventType.CONTENT_REFERENCE:
+            if event.structured_content:
+                self.update_agent_card(
+                    event.message_id,
+                    structured_content=event.structured_content
+                )
+    
+    def sync_from_session(self, session: AgentStreamSession):
+        """Synchronize display from a stream session."""
+        for message in session.get_all_messages():
+            card = self._message_cards.get(message.message_id)
+            if not card:
+                card = self.get_or_create_agent_card(
+                    message.message_id,
+                    message.agent_name,
+                    message.agent_role
+                )
+            
+            # Update content
+            card.set_content(message.content)
+            
+            # Update thinking state
+            if message.is_thinking:
+                card.set_thinking(True, message.thinking_content)
+            else:
+                card.set_thinking(False)
+            
+            # Update completion state
+            if message.is_complete:
+                card.set_complete(True)
+            
+            # Update error
+            if message.error:
+                card.set_error(message.error)
+            
+            # Add structured contents
+            card.clear_structured_content()
+            for structured in message.structured_contents:
+                card.add_structured_content(structured)
+        
+        self._schedule_scroll()
 
     def clear(self):
         """Clear all messages from the chat history."""
-        # Remove all message widgets
         while self.messages:
             message_widget = self.messages.pop()
             message_widget.setParent(None)
             message_widget.deleteLater()
+        
+        self._message_cards.clear()
+        self._agent_current_cards.clear()

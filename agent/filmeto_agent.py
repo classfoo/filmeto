@@ -31,6 +31,15 @@ from agent.nodes.sub_agent_executor import (
 )
 from agent.tools import ToolRegistry
 from agent.sub_agents.registry import SubAgentRegistry
+from agent.streaming import (
+    StreamEventEmitter,
+    StreamEvent,
+    StreamEventType,
+    AgentRole,
+    AgentStreamManager,
+    AgentStreamSession,
+    PlanContent,
+)
 from app.data.conversation import ConversationManager, Conversation, Message, MessageRole
 
 logger = logging.getLogger(__name__)
@@ -44,10 +53,11 @@ class FilmetoAgent:
     - Multi-agent film production workflow
     - Question understanding and intelligent routing
     - Plan-based execution with sub-agents
-    - Streaming conversation interface
+    - Streaming conversation interface with role-based events
     - LangGraph-based agent workflow
     - Tool calling capabilities
     - Conversation history management
+    - Parallel task execution with dependency management
     
     The agent system models a film production team:
     - User acts as Executive Producer (出品人)
@@ -88,6 +98,11 @@ class FilmetoAgent:
         self.streaming = streaming
         self.model = model
         self.temperature = temperature
+        
+        # Stream manager for multi-agent communication
+        self.stream_manager = AgentStreamManager()
+        self._current_session: Optional[AgentStreamSession] = None
+        self._current_emitter: Optional[StreamEventEmitter] = None
         
         # Get settings from workspace
         settings = None
@@ -166,7 +181,7 @@ class FilmetoAgent:
         3. planner: Create execution plan for complex tasks
            → execute_sub_agent_plan: Execute plan with sub-agents
         
-        4. execute_sub_agent_plan: Execute tasks using sub-agents
+        4. execute_sub_agent_plan: Execute tasks using sub-agents (with parallel execution)
            → Continue until all tasks done
            → review_plan: Review results
         
@@ -194,7 +209,7 @@ class FilmetoAgent:
         executor = ExecutorNode(self.llm, self.tools)
         responder = ResponseNode(self.llm)
         
-        # Create sub-agent nodes
+        # Create sub-agent nodes with stream emitter support
         sub_agent_executor = SubAgentExecutorNode(
             self.sub_agent_registry,
             self.tool_registry,
@@ -204,6 +219,11 @@ class FilmetoAgent:
         plan_review = PlanReviewNode(self.llm)
         plan_refinement = PlanRefinementNode(self.llm, self.sub_agent_registry)
         result_synthesis = ResultSynthesisNode(self.llm)
+        
+        # Store nodes for later stream emitter setup
+        self._sub_agent_executor = sub_agent_executor
+        self._plan_review = plan_review
+        self._result_synthesis = result_synthesis
         
         # Create graph
         workflow = StateGraph(AgentState)
@@ -304,6 +324,17 @@ class FilmetoAgent:
         # Compile graph
         return workflow.compile(checkpointer=self.memory)
     
+    def _setup_stream_emitters(self, emitter: StreamEventEmitter, plan_id: str = None):
+        """Set up stream emitters on all nodes."""
+        if hasattr(self, '_sub_agent_executor'):
+            self._sub_agent_executor.set_stream_emitter(emitter)
+            if plan_id:
+                self._sub_agent_executor.set_plan_id(plan_id)
+        if hasattr(self, '_plan_review'):
+            self._plan_review.set_stream_emitter(emitter)
+        if hasattr(self, '_result_synthesis'):
+            self._result_synthesis.set_stream_emitter(emitter)
+    
     def set_conversation(self, conversation_id: str) -> bool:
         """
         Set the current conversation by ID.
@@ -351,21 +382,38 @@ class FilmetoAgent:
         
         raise RuntimeError("No conversation manager available")
     
+    def create_stream_session(self) -> tuple[AgentStreamSession, StreamEventEmitter]:
+        """Create a new streaming session with emitter."""
+        session, emitter = self.stream_manager.create_session()
+        self._current_session = session
+        self._current_emitter = emitter
+        return session, emitter
+    
+    def get_current_session(self) -> Optional[AgentStreamSession]:
+        """Get the current streaming session."""
+        return self._current_session
+    
+    def get_current_emitter(self) -> Optional[StreamEventEmitter]:
+        """Get the current stream emitter."""
+        return self._current_emitter
+    
     async def chat_stream(
         self,
         message: str,
         conversation_id: Optional[str] = None,
         on_token: Optional[Callable[[str], None]] = None,
-        on_complete: Optional[Callable[[str], None]] = None
+        on_complete: Optional[Callable[[str], None]] = None,
+        on_stream_event: Optional[Callable[[StreamEvent], None]] = None
     ) -> AsyncIterator[str]:
         """
-        Stream a chat response.
+        Stream a chat response with multi-agent events.
         
         Args:
             message: User message
             conversation_id: Optional conversation ID (uses current if not provided)
-            on_token: Optional callback for each token
-            on_complete: Optional callback when complete
+            on_token: Optional callback for each token (legacy)
+            on_complete: Optional callback when complete (legacy)
+            on_stream_event: Optional callback for stream events (new API)
             
         Yields:
             Response tokens as they are generated
@@ -383,6 +431,16 @@ class FilmetoAgent:
             self.set_conversation(conversation_id)
         
         conversation = self.get_or_create_conversation()
+        
+        # Create streaming session
+        session, emitter = self.create_stream_session()
+        
+        # Add stream event callback if provided
+        if on_stream_event:
+            emitter.add_callback(on_stream_event)
+        
+        # Emit session start
+        emitter.emit_session_start({"message": message})
         
         # Add user message to conversation
         from datetime import datetime
@@ -419,7 +477,7 @@ class FilmetoAgent:
         initial_state: AgentState = {
             "messages": messages,
             "next_action": "question_understanding",
-            "context": {},
+            "context": {"original_request": message},
             "iteration_count": 0,
             "execution_plan": None,
             "current_task_index": 0,
@@ -428,9 +486,14 @@ class FilmetoAgent:
             "plan_refinement_count": 0
         }
         
+        # Set up stream emitters on nodes
+        self._setup_stream_emitters(emitter)
+        
         # Stream response
         full_response = ""
         final_messages = []
+        current_node = None
+        plan_id = None
 
         # Create config with thread_id for memory checkpointer
         config = {"configurable": {"thread_id": conversation.conversation_id}}
@@ -439,23 +502,55 @@ class FilmetoAgent:
             # Use astream for streaming
             async for event in self.graph.astream(initial_state, config=config):
                 for node_name, node_output in event.items():
+                    current_node = node_name
+                    
+                    # Emit node-specific events
+                    if node_name == "question_understanding":
+                        emitter.emit_agent_start("Coordinator", AgentRole.COORDINATOR)
+                        context = node_output.get("context", {})
+                        analysis = context.get("question_analysis", {})
+                        if analysis:
+                            thinking_text = f"Task type: {analysis.get('task_type', 'unknown')}"
+                            emitter.emit_agent_thinking("Coordinator", thinking_text)
+                    
+                    elif node_name == "planner":
+                        emitter.emit_agent_start("Planner", AgentRole.PLANNER)
+                        execution_plan = node_output.get("execution_plan")
+                        if execution_plan:
+                            plan_event, plan_id = emitter.emit_plan_created(execution_plan, "Planner")
+                            # Update emitters with plan_id
+                            self._setup_stream_emitters(emitter, plan_id)
+                    
+                    elif node_name == "coordinator":
+                        if current_node != "coordinator":
+                            emitter.emit_agent_start("Coordinator", AgentRole.COORDINATOR)
+                    
+                    # Handle messages
                     if "messages" in node_output:
-                        # Keep track of all messages
                         final_messages = node_output["messages"]
                         
                         last_message = node_output["messages"][-1]
                         if isinstance(last_message, AIMessage):
                             content = last_message.content
-                            if content and content not in full_response:
-                                new_content = content[len(full_response):]
-                                full_response = content
+                            if content:
+                                # Determine which agent is responding
+                                agent_name = self._get_agent_name_from_node(node_name, node_output)
+                                agent_role = AgentRole.from_agent_name(agent_name)
+                                
+                                # Check if this is new content
+                                if content not in full_response:
+                                    new_content = content[len(full_response):]
+                                    full_response = content
+                                    
+                                    # Emit content event
+                                    emitter.emit_agent_content(agent_name, new_content, append=True)
 
-                                # Yield token by token
-                                for char in new_content:
-                                    if on_token:
-                                        on_token(char)
-                                    yield char
-                                    await asyncio.sleep(0.01)
+                                    # Yield token by token for legacy API
+                                    for char in new_content:
+                                        if on_token:
+                                            on_token(char)
+                                        yield char
+                                        await asyncio.sleep(0.01)
         else:
             # Non-streaming mode
             result = await self.graph.ainvoke(initial_state, config=config)
@@ -494,9 +589,38 @@ class FilmetoAgent:
         if self.conversation_manager:
             self.conversation_manager.save_conversation(conversation)
         
+        # Emit session end
+        emitter.emit_session_end({"total_response_length": len(full_response)})
+        
         # Call completion callback
         if on_complete:
             on_complete(full_response)
+    
+    def _get_agent_name_from_node(self, node_name: str, node_output: Dict[str, Any]) -> str:
+        """Get agent name from node name and output."""
+        node_to_agent = {
+            "question_understanding": "Coordinator",
+            "coordinator": "Coordinator",
+            "planner": "Planner",
+            "use_tools": "Coordinator",
+            "respond": "Coordinator",
+            "execute_sub_agent_plan": None,  # Determined by task
+            "review_plan": "Reviewer",
+            "refine_plan": "Planner",
+            "synthesize_results": "Synthesizer",
+        }
+        
+        # For execute_sub_agent_plan, try to get from task context
+        if node_name == "execute_sub_agent_plan":
+            sub_agent_results = node_output.get("sub_agent_results", {})
+            if sub_agent_results:
+                # Get the last added result's agent
+                for task_id, result in sorted(sub_agent_results.items(), reverse=True):
+                    if "agent" in result:
+                        return result["agent"]
+            return "Executor"
+        
+        return node_to_agent.get(node_name, "Agent")
     
     async def chat(
         self,
@@ -627,3 +751,21 @@ class FilmetoAgent:
             Dictionary mapping agent names to their skills
         """
         return self.sub_agent_registry.get_agent_capabilities()
+    
+    def add_stream_callback(self, callback: Callable[[StreamEvent], None]):
+        """Add a callback for stream events."""
+        if self._current_emitter:
+            self._current_emitter.add_callback(callback)
+    
+    def remove_stream_callback(self, callback: Callable[[StreamEvent], None]):
+        """Remove a stream event callback."""
+        if self._current_emitter:
+            self._current_emitter.remove_callback(callback)
+    
+    def add_ui_callback(self, callback: Callable[[StreamEvent, AgentStreamSession], None]):
+        """Add a UI callback to the stream manager."""
+        self.stream_manager.add_ui_callback(callback)
+    
+    def remove_ui_callback(self, callback: Callable[[StreamEvent, AgentStreamSession], None]):
+        """Remove a UI callback from the stream manager."""
+        self.stream_manager.remove_ui_callback(callback)
