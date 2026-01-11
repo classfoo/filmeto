@@ -1,8 +1,11 @@
-"""Base sub-agent implementation."""
+"""Base sub-agent implementation with LangGraph Subgraph support."""
 
 from typing import Any, Dict, List, Optional
 from abc import ABC, abstractmethod
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
+from langgraph.graph import StateGraph, END
 from agent.skills.base import BaseSkill, SkillContext, SkillResult, SkillStatus
+from agent.graph.state import SubAgentState
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,12 +15,13 @@ class BaseSubAgent(ABC):
     """
     Base class for sub-agents in the film production team.
     
-    Each sub-agent has:
-    - A name and role description
+    Each sub-agent is now a complete LangGraph Subgraph with:
+    - Independent state management (SubAgentState)
+    - Own execution workflow
     - A set of skills (capabilities)
     - The ability to execute tasks
     - The ability to evaluate work quality
-    - The ability to request help from other agents
+    - The ability to communicate with other agents via state
     """
     
     def __init__(
@@ -53,6 +57,148 @@ class BaseSubAgent(ABC):
         # Set agent name on all skills
         for skill in skills:
             skill.agent_name = name
+        
+        # Build the subgraph for this agent
+        self.graph = self._build_subgraph()
+    
+    def _build_subgraph(self) -> StateGraph:
+        """
+        Build the LangGraph subgraph for this agent.
+        
+        The default workflow:
+        1. execute_skill: Execute the requested skill
+        2. evaluate_result: Evaluate the execution result
+        3. END
+        
+        Subclasses can override this to customize the workflow.
+        """
+        workflow = StateGraph(SubAgentState)
+        
+        # Add nodes
+        workflow.add_node("execute_skill", self._execute_skill_node)
+        workflow.add_node("evaluate_result", self._evaluate_result_node)
+        
+        # Set entry point
+        workflow.set_entry_point("execute_skill")
+        
+        # Add edges
+        workflow.add_edge("execute_skill", "evaluate_result")
+        workflow.add_edge("evaluate_result", END)
+        
+        return workflow.compile()
+    
+    def _execute_skill_node(self, state: SubAgentState) -> SubAgentState:
+        """
+        Node that executes the requested skill.
+        
+        Args:
+            state: Current agent state
+            
+        Returns:
+            Updated agent state
+        """
+        task = state["task"]
+        skill_name = task.get("skill_name")
+        
+        # Update status
+        state["status"] = "in_progress"
+        
+        if not skill_name or skill_name not in self.skills:
+            available = ", ".join(self.list_skills())
+            state["result"] = {
+                "status": "failed",
+                "output": None,
+                "message": f"Unknown skill: {skill_name}. Available: {available}",
+                "metadata": {"agent": self.name}
+            }
+            state["status"] = "failed"
+            return state
+        
+        skill = self.skills[skill_name]
+        parameters = task.get("parameters", {})
+        
+        # Create skill context from state
+        context = SkillContext(
+            workspace=state["context"].get("workspace"),
+            project=state["context"].get("project"),
+            parameters=parameters,
+            shared_state=state["context"].get("shared_state", {})
+        )
+        
+        try:
+            logger.info(f"[{self.name}] Executing skill: {skill_name}")
+            # Execute skill synchronously (will be wrapped in async by graph)
+            import asyncio
+            if asyncio.iscoroutinefunction(skill.execute):
+                result = asyncio.create_task(skill.execute(context)).result()
+            else:
+                result = skill.execute(context)
+            
+            # Store result
+            state["result"] = {
+                "status": result.status.value,
+                "output": result.output,
+                "message": result.message,
+                "metadata": result.metadata,
+                "quality_score": result.quality_score
+            }
+            
+            # Add result message
+            result_msg = AIMessage(
+                content=f"[{self.name}] Skill '{skill_name}' completed: {result.message}"
+            )
+            state["messages"] = [result_msg]
+            
+            # Store in shared state
+            context.set_shared_data(f"{self.name}_{skill_name}", result.output)
+            state["context"]["shared_state"] = context.shared_state
+            
+        except Exception as e:
+            logger.error(f"[{self.name}] Error executing skill {skill_name}: {e}")
+            state["result"] = {
+                "status": "failed",
+                "output": None,
+                "message": f"Error executing skill: {str(e)}",
+                "metadata": {"error": str(e), "agent": self.name, "skill": skill_name}
+            }
+            state["status"] = "failed"
+            
+            error_msg = AIMessage(
+                content=f"[{self.name}] Error in skill '{skill_name}': {str(e)}"
+            )
+            state["messages"] = [error_msg]
+        
+        return state
+    
+    def _evaluate_result_node(self, state: SubAgentState) -> SubAgentState:
+        """
+        Node that evaluates the execution result.
+        
+        Args:
+            state: Current agent state
+            
+        Returns:
+            Updated agent state
+        """
+        result = state.get("result")
+        
+        if not result:
+            state["status"] = "failed"
+            return state
+        
+        # Update final status based on result
+        if result["status"] == "success":
+            state["status"] = "completed"
+        else:
+            state["status"] = "failed"
+        
+        # Add evaluation message
+        eval_msg = AIMessage(
+            content=f"[{self.name}] Evaluation: {result['status']} (quality: {result.get('quality_score', 0.0):.2f})"
+        )
+        state["messages"] = [eval_msg]
+        
+        return state
     
     def get_skill(self, skill_name: str) -> Optional[BaseSkill]:
         """Get a skill by name."""
@@ -78,14 +224,16 @@ class BaseSubAgent(ABC):
         """Get skills in a specific category."""
         return [skill for skill in self.skills.values() if skill.category == category]
     
-    @abstractmethod
     async def execute_task(
         self,
         task: Dict[str, Any],
         context: SkillContext
     ) -> SkillResult:
         """
-        Execute a task using appropriate skills.
+        Execute a task using the agent's subgraph.
+        
+        This method now invokes the agent's LangGraph subgraph to execute
+        the task through the defined workflow.
         
         Args:
             task: Task description with skill_name and parameters
@@ -94,7 +242,49 @@ class BaseSubAgent(ABC):
         Returns:
             SkillResult with execution status and output
         """
-        pass
+        # Create initial state for the subgraph
+        initial_state: SubAgentState = {
+            "agent_id": self.name,
+            "agent_name": self.role,
+            "task": task,
+            "task_id": task.get("task_id", "unknown"),
+            "messages": [],
+            "context": {
+                "workspace": context.workspace,
+                "project": context.project,
+                "shared_state": context.shared_state
+            },
+            "result": None,
+            "status": "pending",
+            "metadata": {}
+        }
+        
+        # Execute the subgraph
+        try:
+            final_state = await self.graph.ainvoke(initial_state)
+            
+            # Extract result from final state
+            result_dict = final_state.get("result", {})
+            
+            # Convert to SkillResult
+            status_str = result_dict.get("status", "failed")
+            status = SkillStatus.SUCCESS if status_str == "success" else SkillStatus.FAILED
+            
+            return SkillResult(
+                status=status,
+                output=result_dict.get("output"),
+                message=result_dict.get("message", ""),
+                metadata=result_dict.get("metadata", {}),
+                quality_score=result_dict.get("quality_score", 0.0)
+            )
+        except Exception as e:
+            logger.error(f"[{self.name}] Error executing subgraph: {e}")
+            return SkillResult(
+                status=SkillStatus.FAILED,
+                output=None,
+                message=f"Error executing agent subgraph: {str(e)}",
+                metadata={"error": str(e), "agent": self.name}
+            )
     
     async def evaluate_result(
         self,
@@ -161,43 +351,10 @@ class FilmProductionAgent(BaseSubAgent):
     """
     Base class for film production agents with common functionality.
     
-    Provides default implementation for execute_task that delegates to skills.
-    """
+    Uses the default LangGraph subgraph workflow:
+    1. execute_skill: Execute the requested skill
+    2. evaluate_result: Evaluate the result
     
-    async def execute_task(
-        self,
-        task: Dict[str, Any],
-        context: SkillContext
-    ) -> SkillResult:
-        """Execute a task using appropriate skill."""
-        skill_name = task.get("skill_name")
-        if not skill_name or skill_name not in self.skills:
-            available = ", ".join(self.list_skills())
-            return SkillResult(
-                status=SkillStatus.FAILED,
-                output=None,
-                message=f"Unknown skill: {skill_name}. Available: {available}",
-                metadata={"agent": self.name}
-            )
-        
-        skill = self.skills[skill_name]
-        parameters = task.get("parameters", {})
-        context.parameters = parameters
-        
-        try:
-            logger.info(f"[{self.name}] Executing skill: {skill_name}")
-            result = await skill.execute(context)
-            
-            # Store result in shared state for other agents
-            context.set_shared_data(f"{self.name}_{skill_name}", result.output)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"[{self.name}] Error executing skill {skill_name}: {e}")
-            return SkillResult(
-                status=SkillStatus.FAILED,
-                output=None,
-                message=f"Error executing skill: {str(e)}",
-                metadata={"error": str(e), "agent": self.name, "skill": skill_name}
-            )
+    All film production agents (Director, Screenwriter, etc.) inherit from this.
+    """
+    pass  # Uses default subgraph implementation from BaseSubAgent

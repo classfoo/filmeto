@@ -1,34 +1,16 @@
-"""Filmeto Agent - Main entry point for AI agent interactions with multi-agent architecture."""
+"""Filmeto Agent - Main entry point for AI agent interactions with multi-agent architecture.
+
+Now uses ProductionAgent as the main orchestrator, which itself is a complete
+LangGraph instance managing all workflow aspects.
+"""
 
 import asyncio
-from typing import Any, Dict, List, Optional, AsyncIterator, Callable, Literal
+from typing import Any, Dict, List, Optional, AsyncIterator, Callable
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 import logging
 
-from agent.nodes import (
-    AgentState,
-    QuestionUnderstandingNode,
-    PlannerNode,
-    CoordinatorNode,
-    ExecutorNode,
-    ResponseNode,
-    PlanRefinementNode,
-    route_from_understanding,
-    route_from_coordinator,
-    route_after_tools,
-    route_from_planner,
-    route_from_sub_agent_executor,
-    route_from_plan_review,
-    route_from_refinement,
-)
-from agent.nodes.sub_agent_executor import (
-    SubAgentExecutorNode,
-    PlanReviewNode,
-    ResultSynthesisNode
-)
+from agent.production_agent import ProductionAgent
 from agent.tools import ToolRegistry
 from agent.sub_agents.registry import SubAgentRegistry
 from agent.streaming import (
@@ -47,28 +29,25 @@ logger = logging.getLogger(__name__)
 
 class FilmetoAgent:
     """
-    Main agent class for Filmeto AI interactions with multi-agent architecture.
+    Main agent class for Filmeto AI interactions with project-isolated architecture.
     
-    Provides:
-    - Multi-agent film production workflow
-    - Question understanding and intelligent routing
-    - Plan-based execution with sub-agents
-    - Streaming conversation interface with role-based events
-    - LangGraph-based agent workflow
-    - Tool calling capabilities
-    - Conversation history management
-    - Parallel task execution with dependency management
+    Key Features:
+    - Project-level isolation: Each project has independent conversation context
+    - Production Agent as orchestrator: Uses ProductionAgent (a LangGraph instance)
+    - Multi-agent coordination: All sub-agents are independent LangGraph Subgraphs
+    - Streaming support: Real-time event streaming for UI updates
     
-    The agent system models a film production team:
-    - User acts as Executive Producer (出品人)
-    - Production Agent: Producer - overall project management
-    - Director Agent: Creative vision and scene direction
-    - Screenwriter Agent: Script and story development
-    - Actor Agent: Character portrayal and performance
-    - MakeupArtist Agent: Costume, makeup, and styling
-    - Supervisor Agent: Continuity and script supervision
-    - SoundMixer Agent: Audio mixing and sound design
-    - Editor Agent: Video editing and final assembly
+    Architecture:
+    FilmetoAgent (Project-scoped)
+      └── ProductionAgent (Main LangGraph)
+            ├── question_understanding (node)
+            ├── coordinator (node)
+            ├── planner (node)
+            ├── sub_agent_executor (node)
+            │     ├── DirectorAgent (Subgraph)
+            │     ├── ScreenwriterAgent (Subgraph)
+            │     └── ... other agents (Subgraphs)
+            └── respond (node)
     """
     
     def __init__(
@@ -82,11 +61,11 @@ class FilmetoAgent:
         base_url: Optional[str] = None
     ):
         """
-        Initialize Filmeto Agent.
+        Initialize Filmeto Agent for a specific project.
         
         Args:
             workspace: Workspace instance
-            project: Project instance
+            project: Project instance (required for project isolation)
             api_key: OpenAI API key (optional, can use settings or environment variable)
             model: LLM model to use
             temperature: Temperature for LLM
@@ -98,6 +77,9 @@ class FilmetoAgent:
         self.streaming = streaming
         self.model = model
         self.temperature = temperature
+        
+        # Project ID for context isolation
+        self.project_id = project.project_name if project else "default"
         
         # Stream manager for multi-agent communication
         self.stream_manager = AgentStreamManager()
@@ -141,6 +123,7 @@ class FilmetoAgent:
         # Check if we have required configuration
         if "api_key" not in llm_kwargs:
             self.llm = None
+            self.production_agent = None
             logger.warning("⚠️ Warning: No OpenAI API key provided. Agent will not function until API key is set.")
             logger.warning("   Please set API key in workspace settings (ai_services.openai_api_key) or environment variable (OPENAI_API_KEY)")
             return
@@ -149,191 +132,23 @@ class FilmetoAgent:
         
         # Initialize tool registry
         self.tool_registry = ToolRegistry(workspace=workspace, project=project)
-        self.tools = self.tool_registry.get_all_tools()
         
         # Initialize sub-agent registry
         self.sub_agent_registry = SubAgentRegistry(llm=self.llm)
         
-        # Initialize conversation manager
+        # Initialize conversation manager (project-scoped)
         self.conversation_manager = project.get_conversation_manager() if project else None
         self.current_conversation: Optional[Conversation] = None
-
-        # Memory for checkpointing
-        self.memory = MemorySaver()
-
-        # Initialize graph
-        self.graph = self._build_multi_agent_graph()
-    
-    def _build_multi_agent_graph(self) -> StateGraph:
-        """
-        Build the multi-agent LangGraph workflow.
         
-        The workflow follows this structure:
-        
-        1. question_understanding: Analyze user request, determine if multi-agent needed
-           → If simple: coordinator
-           → If complex: planner
-        
-        2. coordinator: Handle simple tasks with tools
-           → use_tools: Execute tool calls
-           → respond: Generate response
-        
-        3. planner: Create execution plan for complex tasks
-           → execute_sub_agent_plan: Execute plan with sub-agents
-        
-        4. execute_sub_agent_plan: Execute tasks using sub-agents (with parallel execution)
-           → Continue until all tasks done
-           → review_plan: Review results
-        
-        5. review_plan: Check execution quality
-           → refine_plan: If refinement needed
-           → synthesize_results: If successful
-        
-        6. refine_plan: Adjust plan based on results
-           → execute_sub_agent_plan: Re-execute
-           → synthesize_results: If no more refinement
-        
-        7. synthesize_results: Combine sub-agent results
-           → respond: Generate final response
-        
-        8. respond: Generate user-facing response
-           → END
-        """
-        if not self.llm:
-            raise ValueError("Cannot build graph: LLM not initialized. API key is required.")
-        
-        # Create nodes
-        question_understanding = QuestionUnderstandingNode(self.llm, self.sub_agent_registry)
-        coordinator = CoordinatorNode(self.llm, self.tools)
-        planner = PlannerNode(self.llm, self.sub_agent_registry)
-        executor = ExecutorNode(self.llm, self.tools)
-        responder = ResponseNode(self.llm)
-        
-        # Create sub-agent nodes with stream emitter support
-        sub_agent_executor = SubAgentExecutorNode(
-            self.sub_agent_registry,
-            self.tool_registry,
-            self.workspace,
-            self.project
+        # Initialize Production Agent (the main orchestrator)
+        self.production_agent = ProductionAgent(
+            project_id=self.project_id,
+            workspace=workspace,
+            project=project,
+            llm=self.llm,
+            sub_agent_registry=self.sub_agent_registry,
+            tool_registry=self.tool_registry
         )
-        plan_review = PlanReviewNode(self.llm)
-        plan_refinement = PlanRefinementNode(self.llm, self.sub_agent_registry)
-        result_synthesis = ResultSynthesisNode(self.llm)
-        
-        # Store nodes for later stream emitter setup
-        self._sub_agent_executor = sub_agent_executor
-        self._plan_review = plan_review
-        self._result_synthesis = result_synthesis
-        
-        # Create graph
-        workflow = StateGraph(AgentState)
-        
-        # Add all nodes
-        workflow.add_node("question_understanding", question_understanding)
-        workflow.add_node("coordinator", coordinator)
-        workflow.add_node("planner", planner)
-        workflow.add_node("use_tools", executor)
-        workflow.add_node("respond", responder)
-        workflow.add_node("execute_sub_agent_plan", sub_agent_executor)
-        workflow.add_node("review_plan", plan_review)
-        workflow.add_node("refine_plan", plan_refinement)
-        workflow.add_node("synthesize_results", result_synthesis)
-        
-        # Set entry point
-        workflow.set_entry_point("question_understanding")
-        
-        # Add edges from question_understanding
-        workflow.add_conditional_edges(
-            "question_understanding",
-            route_from_understanding,
-            {
-                "planner": "planner",
-                "coordinator": "coordinator"
-            }
-        )
-        
-        # Add edges from coordinator
-        workflow.add_conditional_edges(
-            "coordinator",
-            route_from_coordinator,
-            {
-                "use_tools": "use_tools",
-                "respond": "respond",
-                "end": END
-            }
-        )
-        
-        # Add edge from tools back to coordinator
-        workflow.add_conditional_edges(
-            "use_tools",
-            route_after_tools,
-            {
-                "coordinator": "coordinator",
-                "end": END
-            }
-        )
-        
-        # Add edges from planner
-        workflow.add_conditional_edges(
-            "planner",
-            route_from_planner,
-            {
-                "execute_sub_agent_plan": "execute_sub_agent_plan",
-                "coordinator": "coordinator"
-            }
-        )
-        
-        # Add edges from sub-agent executor
-        workflow.add_conditional_edges(
-            "execute_sub_agent_plan",
-            route_from_sub_agent_executor,
-            {
-                "execute_sub_agent_plan": "execute_sub_agent_plan",
-                "review_plan": "review_plan",
-                "end": END
-            }
-        )
-        
-        # Add edges from plan review
-        workflow.add_conditional_edges(
-            "review_plan",
-            route_from_plan_review,
-            {
-                "refine_plan": "refine_plan",
-                "synthesize_results": "synthesize_results",
-                "respond": "respond"
-            }
-        )
-        
-        # Add edges from plan refinement
-        workflow.add_conditional_edges(
-            "refine_plan",
-            route_from_refinement,
-            {
-                "execute_sub_agent_plan": "execute_sub_agent_plan",
-                "synthesize_results": "synthesize_results"
-            }
-        )
-        
-        # Add edge from synthesis to respond
-        workflow.add_edge("synthesize_results", "respond")
-        
-        # Add edge from responder to end
-        workflow.add_edge("respond", END)
-        
-        # Compile graph
-        return workflow.compile(checkpointer=self.memory)
-    
-    def _setup_stream_emitters(self, emitter: StreamEventEmitter, plan_id: str = None):
-        """Set up stream emitters on all nodes."""
-        if hasattr(self, '_sub_agent_executor'):
-            self._sub_agent_executor.set_stream_emitter(emitter)
-            if plan_id:
-                self._sub_agent_executor.set_plan_id(plan_id)
-        if hasattr(self, '_plan_review'):
-            self._plan_review.set_stream_emitter(emitter)
-        if hasattr(self, '_result_synthesis'):
-            self._result_synthesis.set_stream_emitter(emitter)
     
     def set_conversation(self, conversation_id: str) -> bool:
         """
@@ -406,7 +221,7 @@ class FilmetoAgent:
         on_stream_event: Optional[Callable[[StreamEvent], None]] = None
     ) -> AsyncIterator[str]:
         """
-        Stream a chat response with multi-agent events.
+        Stream a chat response using the Production Agent.
         
         Args:
             message: User message
@@ -418,8 +233,8 @@ class FilmetoAgent:
         Yields:
             Response tokens as they are generated
         """
-        # Check if LLM is initialized
-        if not self.llm:
+        # Check if agent is initialized
+        if not self.production_agent:
             error_msg = "Error: OpenAI API key not configured. Please set your API key in settings."
             if on_token:
                 on_token(error_msg)
@@ -435,12 +250,15 @@ class FilmetoAgent:
         # Create streaming session
         session, emitter = self.create_stream_session()
         
+        # Set emitter on production agent
+        self.production_agent.stream_emitter = emitter
+        
         # Add stream event callback if provided
         if on_stream_event:
             emitter.add_callback(on_stream_event)
         
         # Emit session start
-        emitter.emit_session_start({"message": message})
+        emitter.emit_session_start({"message": message, "project_id": self.project_id})
         
         # Add user message to conversation
         from datetime import datetime
@@ -473,37 +291,18 @@ class FilmetoAgent:
             elif msg.role == MessageRole.SYSTEM:
                 messages.append(SystemMessage(content=msg.content))
         
-        # Initial state
-        initial_state: AgentState = {
-            "messages": messages,
-            "next_action": "question_understanding",
-            "context": {"original_request": message},
-            "iteration_count": 0,
-            "execution_plan": None,
-            "current_task_index": 0,
-            "sub_agent_results": {},
-            "requires_multi_agent": False,
-            "plan_refinement_count": 0
-        }
-        
-        # Set up stream emitters on nodes
-        self._setup_stream_emitters(emitter)
+        # Create config with thread_id for memory checkpointer
+        config = {"configurable": {"thread_id": conversation.conversation_id}}
         
         # Stream response
         full_response = ""
         final_messages = []
-        current_node = None
         plan_id = None
 
-        # Create config with thread_id for memory checkpointer
-        config = {"configurable": {"thread_id": conversation.conversation_id}}
-
         if self.streaming:
-            # Use astream for streaming
-            async for event in self.graph.astream(initial_state, config=config):
+            # Use production agent stream
+            async for event in self.production_agent.stream(messages, config=config):
                 for node_name, node_output in event.items():
-                    current_node = node_name
-                    
                     # Emit node-specific events
                     if node_name == "question_understanding":
                         emitter.emit_agent_start("QuestionUnderstanding", AgentRole.QUESTION_UNDERSTANDING)
@@ -518,12 +317,9 @@ class FilmetoAgent:
                         execution_plan = node_output.get("execution_plan")
                         if execution_plan:
                             plan_event, plan_id = emitter.emit_plan_created(execution_plan, "Planner")
-                            # Update emitters with plan_id
-                            self._setup_stream_emitters(emitter, plan_id)
                     
                     elif node_name == "coordinator":
-                        if current_node != "coordinator":
-                            emitter.emit_agent_start("Coordinator", AgentRole.COORDINATOR)
+                        emitter.emit_agent_start("Coordinator", AgentRole.COORDINATOR)
                     
                     # Handle messages
                     if "messages" in node_output:
@@ -553,7 +349,7 @@ class FilmetoAgent:
                                         await asyncio.sleep(0.01)
         else:
             # Non-streaming mode
-            result = await self.graph.ainvoke(initial_state, config=config)
+            result = await self.production_agent.execute(messages, config=config)
             if "messages" in result:
                 final_messages = result["messages"]
                 last_message = result["messages"][-1]
@@ -658,6 +454,7 @@ class FilmetoAgent:
             self.workspace = workspace
         if project:
             self.project = project
+            self.project_id = project.project_name
             self.conversation_manager = project.get_conversation_manager()
         
         # Update API key if provided
@@ -675,14 +472,19 @@ class FilmetoAgent:
             self.sub_agent_registry = SubAgentRegistry(llm=self.llm)
         
         # Update tool registry
-        self.tool_registry.update_context(workspace, project)
+        if workspace or project:
+            self.tool_registry.update_context(workspace, project)
         
-        # Rebuild graph with updated tools
-        self.tools = self.tool_registry.get_all_tools()
-        try:
-            self.graph = self._build_multi_agent_graph()
-        except ValueError:
-            logger.warning("⚠️ Cannot build graph: LLM not initialized")
+        # Rebuild production agent with updated context
+        if self.llm and (workspace or project):
+            self.production_agent = ProductionAgent(
+                project_id=self.project_id,
+                workspace=self.workspace,
+                project=self.project,
+                llm=self.llm,
+                sub_agent_registry=self.sub_agent_registry,
+                tool_registry=self.tool_registry
+            )
     
     def get_conversation_history(self, conversation_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """

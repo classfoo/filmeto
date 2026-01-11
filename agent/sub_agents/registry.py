@@ -21,9 +21,12 @@ class SubAgentRegistry:
         self._register_default_agents()
     
     def _register_default_agents(self):
-        """Register default sub-agents."""
+        """Register default sub-agents.
+        
+        Note: ProductionAgent is NOT registered here as it's the main orchestrator,
+        not a sub-agent that can be delegated to.
+        """
         # Import here to avoid circular imports
-        from agent.sub_agents.production import ProductionAgent
         from agent.sub_agents.director import DirectorAgent
         from agent.sub_agents.supervisor import SupervisorAgent
         from agent.sub_agents.actor import ActorAgent
@@ -33,7 +36,6 @@ class SubAgentRegistry:
         from agent.sub_agents.editor import EditorAgent
         
         agents = [
-            ProductionAgent(llm=self.llm),
             DirectorAgent(llm=self.llm),
             SupervisorAgent(llm=self.llm),
             ActorAgent(llm=self.llm),
@@ -126,10 +128,9 @@ class SubAgentRegistry:
             List of agents for that phase
         """
         phase_mapping = {
-            "pre_production": ["Screenwriter", "Director", "MakeupArtist", "Production"],
+            "pre_production": ["Screenwriter", "Director", "MakeupArtist"],
             "production": ["Director", "Actor", "Supervisor", "MakeupArtist"],
             "post_production": ["Editor", "SoundMixer", "Supervisor"],
-            "management": ["Production"]
         }
         
         agent_names = phase_mapping.get(phase, self.list_agent_names())
