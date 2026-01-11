@@ -2,7 +2,7 @@
 
 from typing import Any
 from agent.sub_agents.base import FilmProductionAgent
-from agent.skills.makeupartist import (
+from agent.skills.makeup_artist import (
     CharacterMakeupSkill,
     CostumeDesignSkill,
     AppearanceStylingSkill,

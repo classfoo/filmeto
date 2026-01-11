@@ -2,7 +2,7 @@
 
 from typing import Any
 from agent.sub_agents.base import FilmProductionAgent
-from agent.skills.soundmixer import (
+from agent.skills.sound_mixer import (
     AudioMixingSkill,
     SoundDesignSkill,
     AudioQualityControlSkill,
