@@ -2,14 +2,6 @@
 
 from typing import Dict, List, Optional, Any
 from agent.sub_agents.base import BaseSubAgent
-from agent.sub_agents.production import ProductionAgent
-from agent.sub_agents.director import DirectorAgent
-from agent.sub_agents.supervisor import SupervisorAgent
-from agent.sub_agents.actor import ActorAgent
-from agent.sub_agents.screenwriter import ScreenwriterAgent
-from agent.sub_agents.sound_mixer import SoundMixerAgent
-from agent.sub_agents.makeup_artist import MakeupArtistAgent
-from agent.sub_agents.editor import EditorAgent
 from agent.skills.registry import SkillRegistry
 
 
@@ -30,6 +22,16 @@ class SubAgentRegistry:
     
     def _register_default_agents(self):
         """Register default sub-agents."""
+        # Import here to avoid circular imports
+        from agent.sub_agents.production import ProductionAgent
+        from agent.sub_agents.director import DirectorAgent
+        from agent.sub_agents.supervisor import SupervisorAgent
+        from agent.sub_agents.actor import ActorAgent
+        from agent.sub_agents.screenwriter import ScreenwriterAgent
+        from agent.sub_agents.sound_mixer import SoundMixerAgent
+        from agent.sub_agents.makeup_artist import MakeupArtistAgent
+        from agent.sub_agents.editor import EditorAgent
+        
         agents = [
             ProductionAgent(llm=self.llm),
             DirectorAgent(llm=self.llm),
@@ -51,6 +53,15 @@ class SubAgentRegistry:
         # Register all agent skills in skill registry
         for skill in agent.skills.values():
             self.skill_registry.register_skill(skill, agent.name)
+    
+    def unregister_agent(self, agent_name: str) -> bool:
+        """Unregister a sub-agent."""
+        if agent_name in self._agents:
+            agent = self._agents.pop(agent_name)
+            for skill in agent.skills.values():
+                self.skill_registry.unregister_skill(skill.name, agent_name)
+            return True
+        return False
     
     def get_agent(self, agent_name: str) -> Optional[BaseSubAgent]:
         """Get an agent by name."""
@@ -83,3 +94,51 @@ class SubAgentRegistry:
             if agent.can_help_with(skill_name):
                 matching_agents.append(agent_name)
         return matching_agents
+    
+    def get_agents_by_specialty(self, specialty: str) -> List[BaseSubAgent]:
+        """Get agents with a specific specialty."""
+        return [
+            agent for agent in self._agents.values()
+            if agent.specialty == specialty
+        ]
+    
+    def get_collaborators(self, agent_name: str) -> List[BaseSubAgent]:
+        """Get agents that typically collaborate with the specified agent."""
+        agent = self.get_agent(agent_name)
+        if not agent:
+            return []
+        
+        collaborators = []
+        for collab_name in agent.collaborates_with:
+            collab = self.get_agent(collab_name)
+            if collab:
+                collaborators.append(collab)
+        return collaborators
+    
+    def get_workflow_agents(self, phase: str) -> List[BaseSubAgent]:
+        """
+        Get agents relevant for a specific production phase.
+        
+        Args:
+            phase: Production phase ("pre_production", "production", "post_production")
+            
+        Returns:
+            List of agents for that phase
+        """
+        phase_mapping = {
+            "pre_production": ["Screenwriter", "Director", "MakeupArtist", "Production"],
+            "production": ["Director", "Actor", "Supervisor", "MakeupArtist"],
+            "post_production": ["Editor", "SoundMixer", "Supervisor"],
+            "management": ["Production"]
+        }
+        
+        agent_names = phase_mapping.get(phase, self.list_agent_names())
+        return [self.get_agent(name) for name in agent_names if self.get_agent(name)]
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert registry to dictionary."""
+        return {
+            "agents": {name: agent.to_dict() for name, agent in self._agents.items()},
+            "total_agents": len(self._agents),
+            "total_skills": len(self.skill_registry.list_all_skills())
+        }

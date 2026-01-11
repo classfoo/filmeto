@@ -1,11 +1,13 @@
-"""Sub-agent execution nodes."""
+"""Sub-agent execution nodes for multi-agent workflow."""
 
 from typing import Any, Dict, List, Optional, Literal
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
-from agent.nodes import AgentState
 from agent.skills.base import SkillContext, SkillStatus
 import json
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SubAgentExecutorNode:
@@ -43,8 +45,10 @@ class SubAgentExecutorNode:
         evaluated_result = await agent.evaluate_result(result, task_dict, skill_context)
         return evaluated_result
     
-    def __call__(self, state: AgentState) -> AgentState:
+    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Execute sub-agent tasks."""
+        from agent.nodes import AgentState
+        
         execution_plan = state.get("execution_plan")
         current_task_index = state.get("current_task_index", 0)
         context = state.get("context", {})
@@ -53,9 +57,9 @@ class SubAgentExecutorNode:
         if not execution_plan or "tasks" not in execution_plan:
             return {
                 **state,
-                "next_action": "coordinator",
+                "next_action": "respond",
                 "messages": state["messages"] + [
-                    AIMessage(content="No execution plan available")
+                    AIMessage(content="[Executor] No execution plan available, proceeding to response")
                 ]
             }
         
@@ -63,10 +67,14 @@ class SubAgentExecutorNode:
         
         if current_task_index >= len(tasks):
             # All tasks completed
+            logger.info(f"All {len(tasks)} tasks completed, proceeding to review")
             return {
                 **state,
                 "next_action": "review_plan",
-                "sub_agent_results": sub_agent_results
+                "sub_agent_results": sub_agent_results,
+                "messages": state["messages"] + [
+                    AIMessage(content=f"[Executor] All {len(tasks)} tasks completed, reviewing results")
+                ]
             }
         
         # Get current task
@@ -77,20 +85,35 @@ class SubAgentExecutorNode:
         parameters = current_task.get("parameters", {})
         dependencies = current_task.get("dependencies", [])
         
+        logger.info(f"Executing task {task_id}: {agent_name}/{skill_name}")
+        
         # Check dependencies
         dependencies_met = all(dep in sub_agent_results for dep in dependencies)
         if not dependencies_met:
-            # Dependencies not met, skip for now (would need dependency resolution logic)
+            # Check if dependencies failed
+            missing = [d for d in dependencies if d not in sub_agent_results]
+            logger.warning(f"Task {task_id} has unmet dependencies: {missing}")
+            
+            # Skip to next task and try again later
             return {
                 **state,
                 "next_action": "execute_sub_agent_plan",
-                "current_task_index": current_task_index + 1
+                "current_task_index": current_task_index + 1,
+                "messages": state["messages"] + [
+                    AIMessage(content=f"[Executor] Task {task_id} waiting for dependencies: {missing}")
+                ]
             }
+        
+        # Inject dependency results into parameters
+        for dep_id in dependencies:
+            dep_result = sub_agent_results.get(dep_id)
+            if dep_result and dep_result.get("output"):
+                parameters[f"from_task_{dep_id}"] = dep_result.get("output")
         
         # Get agent
         agent = self.sub_agent_registry.get_agent(agent_name)
         if not agent:
-            error_msg = f"Agent '{agent_name}' not found"
+            error_msg = f"[Executor] Agent '{agent_name}' not found"
             sub_agent_results[task_id] = {
                 "status": "failed",
                 "error": error_msg,
@@ -113,22 +136,20 @@ class SubAgentExecutorNode:
             agent_name=agent_name,
             parameters=parameters,
             shared_state=shared_state,
-            tool_registry=self.tool_registry
+            tool_registry=self.tool_registry,
+            llm=agent.llm
         )
         
-        # Execute task - handle async execution
+        # Execute task
         try:
             task_dict = {
                 "skill_name": skill_name,
                 "parameters": parameters
             }
             
-            # Try to run async code in existing event loop or create new one
+            # Run async code
             try:
                 loop = asyncio.get_running_loop()
-                # If loop is running, we need to schedule and wait
-                # This is a limitation - we'll need to handle this differently
-                # For now, create a new thread with event loop
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
@@ -137,7 +158,6 @@ class SubAgentExecutorNode:
                     )
                     evaluated_result = future.result()
             except RuntimeError:
-                # No running loop, create new one
                 evaluated_result = asyncio.run(
                     self._execute_task_async(agent, task_dict, skill_context)
                 )
@@ -150,19 +170,22 @@ class SubAgentExecutorNode:
                 "quality_score": evaluated_result.quality_score,
                 "requires_help": evaluated_result.requires_help,
                 "agent": agent_name,
-                "skill": skill_name
+                "skill": skill_name,
+                "task_id": task_id
             }
             sub_agent_results[task_id] = result_dict
             
-            # Update shared state if needed
+            # Update shared state
             if evaluated_result.output:
                 shared_state[f"{agent_name}_{skill_name}"] = evaluated_result.output
                 context["shared_state"] = shared_state
             
-            # Create message for result
-            result_message = f"Task {task_id} completed by {agent_name} using {skill_name}: {evaluated_result.message}"
-            if evaluated_result.quality_score:
-                result_message += f" (Quality: {evaluated_result.quality_score:.2f})"
+            # Create result message
+            status_emoji = "✓" if evaluated_result.status == SkillStatus.SUCCESS else "✗"
+            quality_str = f" (Quality: {evaluated_result.quality_score:.2f})" if evaluated_result.quality_score else ""
+            result_message = f"[{agent_name}] {status_emoji} Task {task_id} - {skill_name}: {evaluated_result.message}{quality_str}"
+            
+            logger.info(result_message)
             
             return {
                 **state,
@@ -174,13 +197,17 @@ class SubAgentExecutorNode:
             }
         
         except Exception as e:
-            error_msg = f"Error executing task {task_id}: {str(e)}"
+            error_msg = f"[Executor] Error in task {task_id}: {str(e)}"
+            logger.error(error_msg)
+            
             sub_agent_results[task_id] = {
                 "status": "failed",
                 "error": str(e),
                 "agent": agent_name,
-                "skill": skill_name
+                "skill": skill_name,
+                "task_id": task_id
             }
+            
             return {
                 **state,
                 "next_action": "execute_sub_agent_plan",
@@ -205,17 +232,22 @@ class PlanReviewNode:
         """Initialize plan review node."""
         self.llm = llm
     
-    def __call__(self, state: AgentState) -> AgentState:
+    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Review execution plan results."""
         execution_plan = state.get("execution_plan")
         sub_agent_results = state.get("sub_agent_results", {})
         context = state.get("context", {})
         
         # Analyze results
-        all_successful = all(
-            result.get("status") == "success"
-            for result in sub_agent_results.values()
+        successful_count = sum(
+            1 for result in sub_agent_results.values()
+            if result.get("status") == "success"
         )
+        failed_count = sum(
+            1 for result in sub_agent_results.values()
+            if result.get("status") == "failed"
+        )
+        total_count = len(sub_agent_results)
         
         quality_scores = [
             result.get("quality_score", 0.0)
@@ -225,29 +257,46 @@ class PlanReviewNode:
         avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
         
         # Determine next action
+        all_successful = failed_count == 0 and total_count > 0
+        
         if all_successful and avg_quality >= 0.7:
-            # Plan executed successfully
             next_action = "synthesize_results"
+            status = "success"
         elif all_successful and avg_quality < 0.7:
-            # Plan executed but quality is low - consider refinement
             next_action = "refine_plan"
+            status = "low_quality"
+        elif failed_count > 0:
+            next_action = "refine_plan"
+            status = "has_failures"
         else:
-            # Some tasks failed - may need rework
-            next_action = "refine_plan"
+            next_action = "synthesize_results"
+            status = "unknown"
         
         # Create summary message
-        summary = f"Plan execution review: {len(sub_agent_results)} tasks completed"
+        summary = f"[Plan Review] Status: {status}\n"
+        summary += f"- Tasks: {successful_count}/{total_count} successful\n"
         if quality_scores:
-            summary += f", average quality: {avg_quality:.2f}"
+            summary += f"- Average quality: {avg_quality:.2f}\n"
+        if failed_count > 0:
+            failed_tasks = [r.get("task_id", "?") for r in sub_agent_results.values() if r.get("status") == "failed"]
+            summary += f"- Failed tasks: {failed_tasks}\n"
+        summary += f"→ Next: {next_action}"
+        
+        # Store review results
+        context["plan_review"] = {
+            "all_successful": all_successful,
+            "avg_quality": avg_quality,
+            "results_count": total_count,
+            "failed_count": failed_count,
+            "status": status
+        }
+        
+        logger.info(f"Plan review: {status}, next action: {next_action}")
         
         return {
             **state,
             "next_action": next_action,
-            "context": {**context, "plan_review": {
-                "all_successful": all_successful,
-                "avg_quality": avg_quality,
-                "results_count": len(sub_agent_results)
-            }},
+            "context": context,
             "messages": state["messages"] + [AIMessage(content=summary)]
         }
 
@@ -259,28 +308,61 @@ class ResultSynthesisNode:
     This node:
     - Synthesizes all sub-agent execution results
     - Creates a coherent final response
-    - Presents results to the user
+    - Presents results to the user (executive producer)
     """
     
     def __init__(self, llm: Any):
         """Initialize result synthesis node."""
         self.llm = llm
     
-    def __call__(self, state: AgentState) -> AgentState:
+    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Synthesize execution results."""
-        execution_plan = state.get("execution_plan")
+        execution_plan = state.get("execution_plan", {})
         sub_agent_results = state.get("sub_agent_results", {})
         context = state.get("context", {})
         
-        # Create synthesis message
-        synthesis = "Multi-agent execution completed successfully.\n\n"
-        synthesis += "Results summary:\n"
+        # Get original request
+        original_request = context.get("original_request", "Unknown request")
+        plan_description = context.get("plan_description", "")
+        
+        # Build synthesis
+        synthesis = "## 🎬 Film Production Team Report\n\n"
+        synthesis += f"**Executive Producer Request:** {original_request[:200]}...\n\n"
+        
+        if plan_description:
+            synthesis += f"**Production Plan:** {plan_description[:300]}...\n\n"
+        
+        synthesis += "### Task Results:\n\n"
+        
+        # Group results by agent
+        agent_results: Dict[str, List] = {}
         for task_id, result in sorted(sub_agent_results.items()):
             agent = result.get("agent", "Unknown")
-            skill = result.get("skill", "Unknown")
-            status = result.get("status", "unknown")
-            message = result.get("message", "")
-            synthesis += f"- Task {task_id} ({agent}/{skill}): {status} - {message}\n"
+            if agent not in agent_results:
+                agent_results[agent] = []
+            agent_results[agent].append((task_id, result))
+        
+        for agent, results in agent_results.items():
+            synthesis += f"#### {agent}\n"
+            for task_id, result in results:
+                skill = result.get("skill", "Unknown")
+                status = result.get("status", "unknown")
+                message = result.get("message", "")[:100]
+                quality = result.get("quality_score")
+                
+                status_icon = "✅" if status == "success" else "❌"
+                quality_str = f" (Quality: {quality:.0%})" if quality else ""
+                synthesis += f"- {status_icon} **{skill}**: {message}{quality_str}\n"
+            synthesis += "\n"
+        
+        # Add overall summary
+        successful = sum(1 for r in sub_agent_results.values() if r.get("status") == "success")
+        total = len(sub_agent_results)
+        synthesis += f"### Summary\n"
+        synthesis += f"- **Tasks completed:** {successful}/{total}\n"
+        synthesis += f"- **Agents involved:** {len(agent_results)}\n"
+        
+        logger.info(f"Synthesis complete: {successful}/{total} tasks successful")
         
         return {
             **state,
