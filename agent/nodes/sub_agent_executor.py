@@ -566,7 +566,7 @@ class PlanReviewNode:
         
         # Emit agent content event
         if self._stream_emitter:
-            self._stream_emitter.emit_agent_start("Reviewer", AgentRole.SUPERVISOR)
+            self._stream_emitter.emit_agent_start("Reviewer", AgentRole.REVIEWER)
             self._stream_emitter.emit_agent_content("Reviewer", summary)
             self._stream_emitter.emit_agent_complete("Reviewer", summary)
         
@@ -612,7 +612,7 @@ class ResultSynthesisNode:
         # Emit synthesis start
         if self._stream_emitter:
             from agent.streaming.protocol import AgentRole
-            self._stream_emitter.emit_agent_start("Synthesizer", AgentRole.COORDINATOR)
+            self._stream_emitter.emit_agent_start("Synthesizer", AgentRole.SYNTHESIZER)
         
         # Build synthesis
         synthesis = "## 🎬 Film Production Team Report\n\n"

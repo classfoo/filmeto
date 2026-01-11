@@ -45,8 +45,15 @@ class StreamEventType(str, Enum):
 class AgentRole(str, Enum):
     """Agent roles in the film production team."""
     USER = "user"
+    # Main agent roles (these should be aggregated as main agent messages)
+    MAIN_AGENT = "main_agent"  # Virtual role for main agent aggregation
     COORDINATOR = "coordinator"
     PLANNER = "planner"
+    QUESTION_UNDERSTANDING = "question_understanding"
+    EXECUTOR = "executor"
+    PLAN_REFINEMENT = "plan_refinement"
+    RESPONSE = "response"
+    # Sub-agent roles (these should be aggregated separately)
     PRODUCTION = "production"
     DIRECTOR = "director"
     SCREENWRITER = "screenwriter"
@@ -55,12 +62,23 @@ class AgentRole(str, Enum):
     SUPERVISOR = "supervisor"
     SOUND_MIXER = "sound_mixer"
     EDITOR = "editor"
+    # System roles
+    REVIEWER = "reviewer"
+    SYNTHESIZER = "synthesizer"
     SYSTEM = "system"
     
     @classmethod
     def from_agent_name(cls, name: str) -> 'AgentRole':
         """Convert agent name to role."""
         name_mapping = {
+            # Main agent roles
+            "Coordinator": cls.COORDINATOR,
+            "Planner": cls.PLANNER,
+            "QuestionUnderstanding": cls.QUESTION_UNDERSTANDING,
+            "Executor": cls.EXECUTOR,
+            "PlanRefinement": cls.PLAN_REFINEMENT,
+            "Response": cls.RESPONSE,
+            # Sub-agent roles
             "Production": cls.PRODUCTION,
             "Director": cls.DIRECTOR,
             "Screenwriter": cls.SCREENWRITER,
@@ -69,16 +87,55 @@ class AgentRole(str, Enum):
             "Supervisor": cls.SUPERVISOR,
             "SoundMixer": cls.SOUND_MIXER,
             "Editor": cls.EDITOR,
+            # System roles
+            "Reviewer": cls.REVIEWER,
+            "Synthesizer": cls.SYNTHESIZER,
         }
         return name_mapping.get(name, cls.SYSTEM)
+    
+    @classmethod
+    def is_main_agent_role(cls, role: 'AgentRole') -> bool:
+        """Check if a role belongs to main agent."""
+        main_agent_roles = {
+            cls.MAIN_AGENT,
+            cls.COORDINATOR,
+            cls.PLANNER,
+            cls.QUESTION_UNDERSTANDING,
+            cls.EXECUTOR,
+            cls.PLAN_REFINEMENT,
+            cls.RESPONSE,
+            cls.REVIEWER,
+            cls.SYNTHESIZER,
+        }
+        return role in main_agent_roles
+    
+    @classmethod
+    def is_sub_agent_role(cls, role: 'AgentRole') -> bool:
+        """Check if a role belongs to sub-agent."""
+        sub_agent_roles = {
+            cls.PRODUCTION,
+            cls.DIRECTOR,
+            cls.SCREENWRITER,
+            cls.ACTOR,
+            cls.MAKEUP_ARTIST,
+            cls.SUPERVISOR,
+            cls.SOUND_MIXER,
+            cls.EDITOR,
+        }
+        return role in sub_agent_roles
     
     @property
     def display_name(self) -> str:
         """Get display name for the role."""
         display_names = {
             AgentRole.USER: "User",
+            AgentRole.MAIN_AGENT: "Main Agent",
             AgentRole.COORDINATOR: "Coordinator",
             AgentRole.PLANNER: "Planner",
+            AgentRole.QUESTION_UNDERSTANDING: "Question Understanding",
+            AgentRole.EXECUTOR: "Executor",
+            AgentRole.PLAN_REFINEMENT: "Plan Refinement",
+            AgentRole.RESPONSE: "Response",
             AgentRole.PRODUCTION: "Producer",
             AgentRole.DIRECTOR: "Director",
             AgentRole.SCREENWRITER: "Screenwriter",
@@ -87,6 +144,8 @@ class AgentRole(str, Enum):
             AgentRole.SUPERVISOR: "Supervisor",
             AgentRole.SOUND_MIXER: "Sound Mixer",
             AgentRole.EDITOR: "Editor",
+            AgentRole.REVIEWER: "Reviewer",
+            AgentRole.SYNTHESIZER: "Synthesizer",
             AgentRole.SYSTEM: "System",
         }
         return display_names.get(self, self.value.title())
@@ -97,8 +156,13 @@ class AgentRole(str, Enum):
         # Unicode icons for each role
         icons = {
             AgentRole.USER: "\ue6b3",  # user icon
+            AgentRole.MAIN_AGENT: "🤖",
             AgentRole.COORDINATOR: "C",
             AgentRole.PLANNER: "P",
+            AgentRole.QUESTION_UNDERSTANDING: "Q",
+            AgentRole.EXECUTOR: "E",
+            AgentRole.PLAN_REFINEMENT: "R",
+            AgentRole.RESPONSE: "💬",
             AgentRole.PRODUCTION: "🎬",
             AgentRole.DIRECTOR: "🎥",
             AgentRole.SCREENWRITER: "✍️",
@@ -107,6 +171,8 @@ class AgentRole(str, Enum):
             AgentRole.SUPERVISOR: "📋",
             AgentRole.SOUND_MIXER: "🎧",
             AgentRole.EDITOR: "✂️",
+            AgentRole.REVIEWER: "👁️",
+            AgentRole.SYNTHESIZER: "🔗",
             AgentRole.SYSTEM: "⚙️",
         }
         return icons.get(self, "A")
@@ -116,8 +182,13 @@ class AgentRole(str, Enum):
         """Get color for the role."""
         colors = {
             AgentRole.USER: "#35373a",
+            AgentRole.MAIN_AGENT: "#4a90d9",
             AgentRole.COORDINATOR: "#4a90d9",
             AgentRole.PLANNER: "#7c4dff",
+            AgentRole.QUESTION_UNDERSTANDING: "#6c5ce7",
+            AgentRole.EXECUTOR: "#a29bfe",
+            AgentRole.PLAN_REFINEMENT: "#6c5ce7",
+            AgentRole.RESPONSE: "#74b9ff",
             AgentRole.PRODUCTION: "#ff6b6b",
             AgentRole.DIRECTOR: "#4ecdc4",
             AgentRole.SCREENWRITER: "#f7dc6f",
@@ -126,6 +197,8 @@ class AgentRole(str, Enum):
             AgentRole.SUPERVISOR: "#85c1e9",
             AgentRole.SOUND_MIXER: "#82e0aa",
             AgentRole.EDITOR: "#f8b739",
+            AgentRole.REVIEWER: "#fd79a8",
+            AgentRole.SYNTHESIZER: "#fdcb6e",
             AgentRole.SYSTEM: "#7f8c8d",
         }
         return colors.get(self, "#3d3f4e")
@@ -380,6 +453,7 @@ class StreamEventEmitter:
         self._callbacks: List[Callable[[StreamEvent], None]] = []
         self._async_callbacks: List[Callable[[StreamEvent], Any]] = []
         self._message_ids: Dict[str, str] = {}  # agent_name -> current message_id
+        self._main_agent_message_id: Optional[str] = None  # Aggregated main agent message ID
     
     def add_callback(self, callback: Callable[[StreamEvent], None]):
         """Add a synchronous callback."""
@@ -406,6 +480,16 @@ class StreamEventEmitter:
         """Create new message ID for an agent."""
         self._message_ids[agent_name] = str(uuid.uuid4())
         return self._message_ids[agent_name]
+    
+    def _get_main_agent_message_id(self) -> str:
+        """Get or create the main agent aggregated message ID."""
+        if self._main_agent_message_id is None:
+            self._main_agent_message_id = str(uuid.uuid4())
+        return self._main_agent_message_id
+    
+    def _reset_main_agent_message_id(self):
+        """Reset main agent message ID for new message."""
+        self._main_agent_message_id = str(uuid.uuid4())
     
     def emit(self, event: StreamEvent):
         """Emit an event synchronously."""
@@ -459,33 +543,54 @@ class StreamEventEmitter:
     
     def emit_agent_start(self, agent_name: str, agent_role: AgentRole = None):
         """Emit agent start event."""
-        message_id = self._new_message_id(agent_name)
         if agent_role is None:
             agent_role = AgentRole.from_agent_name(agent_name)
         
+        # For main agent roles, use aggregated message ID
+        if AgentRole.is_main_agent_role(agent_role):
+            message_id = self._get_main_agent_message_id()
+            # Override role to MAIN_AGENT for aggregation
+            display_role = AgentRole.MAIN_AGENT
+            display_name = "MainAgent"
+        else:
+            message_id = self._new_message_id(agent_name)
+            display_role = agent_role
+            display_name = agent_name
+        
         event = StreamEvent(
             event_type=StreamEventType.AGENT_START,
-            agent_role=agent_role,
-            agent_name=agent_name,
+            agent_role=display_role,
+            agent_name=display_name,
             message_id=message_id,
+            metadata={"original_role": agent_role.value, "original_name": agent_name}
         )
         self.emit(event)
         return event
     
     def emit_agent_thinking(self, agent_name: str, thinking_text: str, is_complete: bool = False):
         """Emit agent thinking event."""
-        message_id = self._get_or_create_message_id(agent_name)
         agent_role = AgentRole.from_agent_name(agent_name)
+        
+        # For main agent roles, use aggregated message ID
+        if AgentRole.is_main_agent_role(agent_role):
+            message_id = self._get_main_agent_message_id()
+            display_role = AgentRole.MAIN_AGENT
+            display_name = "MainAgent"
+        else:
+            message_id = self._get_or_create_message_id(agent_name)
+            display_role = agent_role
+            display_name = agent_name
         
         event = StreamEvent(
             event_type=StreamEventType.AGENT_THINKING,
-            agent_role=agent_role,
-            agent_name=agent_name,
+            agent_role=display_role,
+            agent_name=display_name,
             message_id=message_id,
             structured_content=ThinkingContent(
                 thinking_text=thinking_text,
                 is_complete=is_complete
-            )
+            ),
+            metadata={"original_role": agent_role.value, "original_name": agent_name}
         )
         self.emit(event)
         return event
@@ -498,62 +603,101 @@ class StreamEventEmitter:
         append: bool = True
     ):
         """Emit agent content event."""
-        message_id = self._get_or_create_message_id(agent_name)
         agent_role = AgentRole.from_agent_name(agent_name)
+        
+        # For main agent roles, use aggregated message ID
+        if AgentRole.is_main_agent_role(agent_role):
+            message_id = self._get_main_agent_message_id()
+            display_role = AgentRole.MAIN_AGENT
+            display_name = "MainAgent"
+        else:
+            message_id = self._get_or_create_message_id(agent_name)
+            display_role = agent_role
+            display_name = agent_name
         
         event = StreamEvent(
             event_type=StreamEventType.AGENT_CONTENT,
-            agent_role=agent_role,
-            agent_name=agent_name,
+            agent_role=display_role,
+            agent_name=display_name,
             message_id=message_id,
             content=content,
             structured_content=structured_content,
-            metadata={"append": append}
+            metadata={"append": append, "original_role": agent_role.value, "original_name": agent_name}
         )
         self.emit(event)
         return event
     
     def emit_content_token(self, agent_name: str, token: str):
         """Emit a single content token."""
-        message_id = self._get_or_create_message_id(agent_name)
         agent_role = AgentRole.from_agent_name(agent_name)
+        
+        # For main agent roles, use aggregated message ID
+        if AgentRole.is_main_agent_role(agent_role):
+            message_id = self._get_main_agent_message_id()
+            display_role = AgentRole.MAIN_AGENT
+            display_name = "MainAgent"
+        else:
+            message_id = self._get_or_create_message_id(agent_name)
+            display_role = agent_role
+            display_name = agent_name
         
         event = StreamEvent(
             event_type=StreamEventType.CONTENT_TOKEN,
-            agent_role=agent_role,
-            agent_name=agent_name,
+            agent_role=display_role,
+            agent_name=display_name,
             message_id=message_id,
             content=token,
+            metadata={"original_role": agent_role.value, "original_name": agent_name}
         )
         self.emit(event)
         return event
     
     def emit_agent_complete(self, agent_name: str, final_content: str = ""):
         """Emit agent complete event."""
-        message_id = self._get_or_create_message_id(agent_name)
         agent_role = AgentRole.from_agent_name(agent_name)
+        
+        # For main agent roles, use aggregated message ID
+        if AgentRole.is_main_agent_role(agent_role):
+            message_id = self._get_main_agent_message_id()
+            display_role = AgentRole.MAIN_AGENT
+            display_name = "MainAgent"
+        else:
+            message_id = self._get_or_create_message_id(agent_name)
+            display_role = agent_role
+            display_name = agent_name
         
         event = StreamEvent(
             event_type=StreamEventType.AGENT_COMPLETE,
-            agent_role=agent_role,
-            agent_name=agent_name,
+            agent_role=display_role,
+            agent_name=display_name,
             message_id=message_id,
             content=final_content,
+            metadata={"original_role": agent_role.value, "original_name": agent_name}
         )
         self.emit(event)
         return event
     
     def emit_agent_error(self, agent_name: str, error_message: str):
         """Emit agent error event."""
-        message_id = self._get_or_create_message_id(agent_name)
         agent_role = AgentRole.from_agent_name(agent_name)
+        
+        # For main agent roles, use aggregated message ID
+        if AgentRole.is_main_agent_role(agent_role):
+            message_id = self._get_main_agent_message_id()
+            display_role = AgentRole.MAIN_AGENT
+            display_name = "MainAgent"
+        else:
+            message_id = self._get_or_create_message_id(agent_name)
+            display_role = agent_role
+            display_name = agent_name
         
         event = StreamEvent(
             event_type=StreamEventType.AGENT_ERROR,
-            agent_role=agent_role,
-            agent_name=agent_name,
+            agent_role=display_role,
+            agent_name=display_name,
             message_id=message_id,
             content=error_message,
+            metadata={"original_role": agent_role.value, "original_name": agent_name}
         )
         self.emit(event)
         return event
@@ -561,7 +705,10 @@ class StreamEventEmitter:
     def emit_plan_created(self, plan: Dict[str, Any], agent_name: str = "Planner"):
         """Emit plan created event."""
         plan_id = str(uuid.uuid4())
-        message_id = self._new_message_id(agent_name)
+        agent_role = AgentRole.PLANNER
+        
+        # Planner is a main agent role, use aggregated message ID
+        message_id = self._get_main_agent_message_id()
         
         plan_content = PlanContent(
             description=plan.get("description", ""),
@@ -572,11 +719,12 @@ class StreamEventEmitter:
         
         event = StreamEvent(
             event_type=StreamEventType.PLAN_CREATED,
-            agent_role=AgentRole.PLANNER,
-            agent_name=agent_name,
+            agent_role=AgentRole.MAIN_AGENT,
+            agent_name="MainAgent",
             message_id=message_id,
             plan_id=plan_id,
             structured_content=plan_content,
+            metadata={"original_role": agent_role.value, "original_name": agent_name}
         )
         self.emit(event)
         return event, plan_id

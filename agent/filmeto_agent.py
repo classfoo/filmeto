@@ -506,12 +506,12 @@ class FilmetoAgent:
                     
                     # Emit node-specific events
                     if node_name == "question_understanding":
-                        emitter.emit_agent_start("Coordinator", AgentRole.COORDINATOR)
+                        emitter.emit_agent_start("QuestionUnderstanding", AgentRole.QUESTION_UNDERSTANDING)
                         context = node_output.get("context", {})
                         analysis = context.get("question_analysis", {})
                         if analysis:
                             thinking_text = f"Task type: {analysis.get('task_type', 'unknown')}"
-                            emitter.emit_agent_thinking("Coordinator", thinking_text)
+                            emitter.emit_agent_thinking("QuestionUnderstanding", thinking_text)
                     
                     elif node_name == "planner":
                         emitter.emit_agent_start("Planner", AgentRole.PLANNER)
@@ -599,14 +599,14 @@ class FilmetoAgent:
     def _get_agent_name_from_node(self, node_name: str, node_output: Dict[str, Any]) -> str:
         """Get agent name from node name and output."""
         node_to_agent = {
-            "question_understanding": "Coordinator",
+            "question_understanding": "QuestionUnderstanding",
             "coordinator": "Coordinator",
             "planner": "Planner",
-            "use_tools": "Coordinator",
-            "respond": "Coordinator",
+            "use_tools": "Executor",
+            "respond": "Response",
             "execute_sub_agent_plan": None,  # Determined by task
             "review_plan": "Reviewer",
-            "refine_plan": "Planner",
+            "refine_plan": "PlanRefinement",
             "synthesize_results": "Synthesizer",
         }
         
