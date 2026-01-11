@@ -1,14 +1,18 @@
 """Common agent prompt input widget with context management."""
 
+from typing import TYPE_CHECKING
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPlainTextEdit, QPushButton, QFrame, QSizePolicy, \
     QGridLayout, QWidget, QLabel
 from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtGui import QKeyEvent, QFont, QCursor
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
-from app.ui.layout.flow_layout import FlowLayout
-from app.ui.prompt import ContextItemWidget
 from utils.i18n_utils import tr
+
+# Lazy imports - defer until first use
+if TYPE_CHECKING:
+    from app.ui.layout.flow_layout import FlowLayout
+    from app.ui.prompt.context_item_widget import ContextItemWidget
 
 
 class AgentPromptWidget(BaseWidget):
@@ -87,9 +91,17 @@ class AgentPromptWidget(BaseWidget):
     
     def _init_context_ui(self, input_container_layout):
         """Initialize the context UI components."""
+        # Lazy import when first needed
+        try:
+            from app.ui.prompt.context_item_widget import ContextItemWidget
+        except ImportError:
+            ContextItemWidget = None
+        
         if ContextItemWidget is None:
             # If context widget is not available, skip context UI
             return
+        
+        from app.ui.layout.flow_layout import FlowLayout
         
         # Create a container for context items with horizontal layout
         self.context_widget = QWidget(self.input_container)
@@ -442,6 +454,12 @@ class AgentPromptWidget(BaseWidget):
     # Context management methods
     def add_context_item(self, context_id: str, context_name: str):
         """Add a context item to the context UI."""
+        # Lazy import when first needed
+        try:
+            from app.ui.prompt.context_item_widget import ContextItemWidget
+        except ImportError:
+            ContextItemWidget = None
+        
         if ContextItemWidget is None or not hasattr(self, 'context_items'):
             return
         

@@ -12,16 +12,17 @@ from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QIcon, QFont, QPen
 
 from app.ui.base_widget import BaseWidget
-from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
-from agent.streaming.protocol import (
-    StreamEvent, StreamEventType, AgentRole, StructuredContent,
-    PlanContent, TaskContent, MediaContent, ReferenceContent, ThinkingContent
-)
-from agent.streaming.manager import AgentStreamSession, AgentMessage
 from utils.i18n_utils import tr
 
+# Lazy imports - defer heavy imports until first use
 if TYPE_CHECKING:
     from app.data.workspace import Workspace
+    from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
+    from agent.streaming.protocol import (
+        StreamEvent, StreamEventType, AgentRole, StructuredContent,
+        PlanContent, TaskContent, MediaContent, ReferenceContent, ThinkingContent
+    )
+    from agent.streaming.manager import AgentStreamSession, AgentMessage
 
 
 class ChatHistoryWidget(BaseWidget):
@@ -175,6 +176,10 @@ class ChatHistoryWidget(BaseWidget):
         if not message:
             return None
 
+        # Lazy import when first needed
+        from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
+        from agent.streaming.protocol import AgentRole
+
         is_user, icon_char, bg_color, alignment, use_iconfont = self._get_sender_info(sender)
 
         # Create appropriate card
@@ -186,16 +191,20 @@ class ChatHistoryWidget(BaseWidget):
             if sender.lower() in ["agent", tr("Agent").lower()]:
                 agent_role = AgentRole.COORDINATOR
             
+            # Generate message_id if not provided
+            if not message_id:
+                import uuid
+                message_id = str(uuid.uuid4())
+            
             card = AgentMessageCard(
-                message_id=message_id or str(id(card)),
+                message_id=message_id,
                 agent_name=sender,
                 agent_role=agent_role,
                 parent=self.messages_container
             )
             card.set_content(message)
             
-            if message_id:
-                self._message_cards[message_id] = card
+            self._message_cards[message_id] = card
 
         # Insert before the stretch spacer
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, card)
@@ -209,6 +218,9 @@ class ChatHistoryWidget(BaseWidget):
         """Update the content of the last message (legacy API)."""
         if not self.messages:
             return
+        
+        # Lazy import when first needed
+        from app.ui.chat.agent_message_card import AgentMessageCard
         
         last_widget = self.messages[-1]
         if isinstance(last_widget, AgentMessageCard):
@@ -250,8 +262,11 @@ class ChatHistoryWidget(BaseWidget):
     # Multi-Agent Streaming API
     # ========================================================================
     
-    def add_user_message(self, content: str) -> UserMessageCard:
+    def add_user_message(self, content: str):
         """Add a user message card."""
+        # Lazy import when first needed
+        from app.ui.chat.agent_message_card import UserMessageCard
+        
         card = UserMessageCard(content, self.messages_container)
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, card)
         self.messages.append(card)
@@ -262,11 +277,15 @@ class ChatHistoryWidget(BaseWidget):
         self,
         message_id: str,
         agent_name: str,
-        agent_role: AgentRole = None
-    ) -> AgentMessageCard:
+        agent_role = None
+    ):
         """Get or create an agent message card."""
         if message_id in self._message_cards:
             return self._message_cards[message_id]
+        
+        # Lazy import when first needed
+        from app.ui.chat.agent_message_card import AgentMessageCard
+        from agent.streaming.protocol import AgentRole
         
         # Create new card
         if agent_role is None:
@@ -291,7 +310,7 @@ class ChatHistoryWidget(BaseWidget):
         self._schedule_scroll()
         return card
     
-    def get_agent_current_card(self, agent_name: str) -> Optional[AgentMessageCard]:
+    def get_agent_current_card(self, agent_name: str):
         """Get the current active card for an agent."""
         message_id = self._agent_current_cards.get(agent_name)
         if message_id:
@@ -306,7 +325,7 @@ class ChatHistoryWidget(BaseWidget):
         is_thinking: bool = False,
         thinking_text: str = "",
         is_complete: bool = False,
-        structured_content: StructuredContent = None,
+        structured_content = None,
         error: str = None
     ):
         """Update an agent message card."""
@@ -336,9 +355,12 @@ class ChatHistoryWidget(BaseWidget):
         
         self._schedule_scroll()
     
-    @Slot(StreamEvent, AgentStreamSession)
-    def handle_stream_event(self, event: StreamEvent, session: AgentStreamSession):
+    @Slot(object, object)
+    def handle_stream_event(self, event, session):
         """Handle a streaming event from the agent system."""
+        # Lazy import when first needed
+        from agent.streaming.protocol import StreamEventType, AgentRole, ThinkingContent
+        
         event_type = event.event_type
         
         # Skip user-initiated events
@@ -478,7 +500,7 @@ class ChatHistoryWidget(BaseWidget):
                     structured_content=event.structured_content
                 )
     
-    def sync_from_session(self, session: AgentStreamSession):
+    def sync_from_session(self, session):
         """Synchronize display from a stream session."""
         for message in session.get_all_messages():
             card = self._message_cards.get(message.message_id)

@@ -76,28 +76,63 @@ class AgentPanel(BasePanel):
         setup_start = time.time()
         self.set_panel_title(tr("Agent"))
 
-        # Import widgets locally to defer expensive imports
-        from app.ui.chat.chat_history_widget import ChatHistoryWidget
-        from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
-
-        # Chat history component (top, takes most space)
-        self.chat_history_widget = ChatHistoryWidget(self.workspace, self)
-        self.content_layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
-
-        # Prompt input component (bottom, fixed height)
-        self.prompt_input_widget = AgentPromptWidget(self.workspace, self)
-        self.content_layout.addWidget(self.prompt_input_widget, 0)  # No stretch
-
-        # Connect signals
-        self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
-        self.chat_history_widget.reference_clicked.connect(self._on_reference_clicked)
+        # Defer widget creation to avoid blocking UI initialization
+        # Widgets will be created on first activation
+        self.chat_history_widget = None
+        self.prompt_input_widget = None
+        self._widgets_initialized = False
 
         setup_time = (time.time() - setup_start) * 1000
         logger.debug(f"⏱️  [AgentPanel] setup_ui completed in {setup_time:.2f}ms")
     
+    def _initialize_widgets(self):
+        """Initialize heavy UI widgets (deferred until first activation)."""
+        import time
+        init_start = time.time()
+        
+        # Import widgets locally to defer expensive imports
+        import_start = time.time()
+        from app.ui.chat.chat_history_widget import ChatHistoryWidget
+        from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
+        import_time = (time.time() - import_start) * 1000
+        logger.info(f"⏱️  Import widgets: {import_time:.2f}ms")
+
+        # Chat history component (top, takes most space)
+        chat_start = time.time()
+        self.chat_history_widget = ChatHistoryWidget(self.workspace, self)
+        chat_time = (time.time() - chat_start) * 1000
+        logger.info(f"⏱️  ChatHistoryWidget created: {chat_time:.2f}ms")
+        
+        self.content_layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
+
+        # Prompt input component (bottom, fixed height)
+        prompt_start = time.time()
+        self.prompt_input_widget = AgentPromptWidget(self.workspace, self)
+        prompt_time = (time.time() - prompt_start) * 1000
+        logger.info(f"⏱️  AgentPromptWidget created: {prompt_time:.2f}ms")
+        
+        self.content_layout.addWidget(self.prompt_input_widget, 0)  # No stretch
+
+        # Connect signals
+        signal_start = time.time()
+        self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
+        self.chat_history_widget.reference_clicked.connect(self._on_reference_clicked)
+        signal_time = (time.time() - signal_start) * 1000
+        logger.info(f"⏱️  Signals connected: {signal_time:.2f}ms")
+        
+        self._widgets_initialized = True
+        
+        init_time = (time.time() - init_start) * 1000
+        logger.info(f"✅ Agent panel widgets initialized in {init_time:.2f}ms")
+    
     def _on_message_submitted(self, message: str):
         """Handle message submission from prompt input widget."""
         if not message or self._is_processing:
+            return
+        
+        # Ensure widgets are initialized
+        if not self._widgets_initialized:
+            logger.warning("⚠️ Agent panel widgets not initialized yet")
             return
         
         # Add user message to chat history using new card-based display
@@ -113,6 +148,11 @@ class AgentPanel(BasePanel):
     
     async def _process_message_async(self, message: str):
         """Process message asynchronously, initializing agent if needed."""
+        # Ensure widgets are initialized
+        if not self._widgets_initialized:
+            logger.error("❌ Agent panel widgets not initialized")
+            return
+        
         # Check if agent is initialized, if not, initialize it first
         if not self.agent:
             if not self._initialization_in_progress:
@@ -152,7 +192,8 @@ class AgentPanel(BasePanel):
         
         # Disable input while processing
         self._is_processing = True
-        self.prompt_input_widget.set_enabled(False)
+        if self.prompt_input_widget:
+            self.prompt_input_widget.set_enabled(False)
         
         # Reset current response - don't create a message card yet
         # The streaming events will create cards as agents start responding
@@ -194,7 +235,8 @@ class AgentPanel(BasePanel):
         finally:
             # Re-enable input
             self._is_processing = False
-            self.prompt_input_widget.set_enabled(True)
+            if self.prompt_input_widget:
+                self.prompt_input_widget.set_enabled(True)
     
     def _handle_stream_event_sync(self, event: 'StreamEvent'):
         """Handle stream event synchronously (called from agent thread)."""
@@ -206,6 +248,10 @@ class AgentPanel(BasePanel):
     @Slot(object, object)
     def _on_stream_event(self, event: 'StreamEvent', session: 'AgentStreamSession'):
         """Handle stream event on Qt main thread."""
+        # Ensure widgets are initialized
+        if not self._widgets_initialized or not self.chat_history_widget:
+            return
+        
         # Forward to chat history widget
         self.chat_history_widget.handle_stream_event(event, session)
 
@@ -218,7 +264,7 @@ class AgentPanel(BasePanel):
         self._current_response += token
         
         # If we have a current message ID (legacy mode), update it
-        if self._current_message_id:
+        if self._current_message_id and self.chat_history_widget:
             self.chat_history_widget.update_streaming_message(
                 self._current_message_id,
                 self._current_response
@@ -228,7 +274,7 @@ class AgentPanel(BasePanel):
     def _on_response_complete(self, response: str):
         """Handle complete response from agent."""
         # Update the final message if in legacy mode
-        if self._current_message_id:
+        if self._current_message_id and self.chat_history_widget:
             self.chat_history_widget.update_streaming_message(
                 self._current_message_id,
                 response
@@ -239,11 +285,16 @@ class AgentPanel(BasePanel):
         
         # Re-enable input
         self._is_processing = False
-        self.prompt_input_widget.set_enabled(True)
+        if self.prompt_input_widget:
+            self.prompt_input_widget.set_enabled(True)
     
     @Slot(str)
     def _on_error(self, error_message: str):
         """Handle error during agent processing."""
+        if not self.chat_history_widget:
+            logger.error(f"❌ Error but widgets not initialized: {error_message}")
+            return
+        
         # If there's a streaming message in progress, update it with error
         if self._current_message_id:
             self.chat_history_widget.update_streaming_message(
@@ -260,7 +311,8 @@ class AgentPanel(BasePanel):
         
         # Re-enable input
         self._is_processing = False
-        self.prompt_input_widget.set_enabled(True)
+        if self.prompt_input_widget:
+            self.prompt_input_widget.set_enabled(True)
     
     async def _initialize_agent_async(self):
         """Initialize the agent asynchronously with current workspace and project."""
@@ -333,6 +385,11 @@ class AgentPanel(BasePanel):
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
+        
+        # Initialize widgets on first activation
+        if not self._widgets_initialized:
+            self._initialize_widgets()
+        
         logger.info("✅ Agent panel activated")
     
     def on_deactivated(self):
