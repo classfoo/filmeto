@@ -7,30 +7,22 @@ from PySide6.QtCore import Signal, Slot, QObject
 from PySide6.QtWidgets import QApplication
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
-from app.ui.chat.chat_history_widget import ChatHistoryWidget
-from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
-from agent.streaming import (
-    StreamEvent, StreamEventType, AgentRole,
-    AgentStreamSession, AgentStreamManager
-)
 from utils.i18n_utils import tr
 
-if TYPE_CHECKING:
-    from agent.filmeto_agent import FilmetoAgent
 
 logger = logging.getLogger(__name__)
 
 
 class StreamEventHandler(QObject):
     """Handler for stream events that bridges async agent to Qt signals."""
-    
+
     # Signal to emit stream events on Qt main thread
     stream_event_received = Signal(object, object)  # StreamEvent, AgentStreamSession
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-    
-    def handle_event(self, event: StreamEvent, session: AgentStreamSession):
+
+    def handle_event(self, event: 'StreamEvent', session: 'AgentStreamSession'):
         """Handle a stream event (called from agent thread)."""
         # Emit signal to be handled on main thread
         self.stream_event_received.emit(event, session)
@@ -38,42 +30,43 @@ class StreamEventHandler(QObject):
 
 class AgentPanel(BasePanel):
     """Panel for AI Agent interactions with multi-agent streaming support.
-    
+
     Features:
     - Multi-agent streaming display
     - Group-chat style agent collaboration visualization
     - Concurrent agent execution support
     - Structured content display (plans, tasks, media, references)
     """
-    
+
     # Signals for async operations
     response_token_received = Signal(str)
     response_complete = Signal(str)
     error_occurred = Signal(str)
     stream_event = Signal(object, object)  # StreamEvent, AgentStreamSession
-    
+
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the agent panel."""
         import time
         init_start = time.time()
         super().__init__(workspace, parent)
-        
+
         # Initialize agent (will be set when project is available)
+        # Using forward reference to avoid import at class definition time
         self.agent: Optional['FilmetoAgent'] = None
         self._current_response = ""
         self._current_message_id = None
         self._is_processing = False
         self._initialization_in_progress = False
-        
+
         # Stream event handler for bridging async to Qt
         self._stream_handler = StreamEventHandler(self)
         self._stream_handler.stream_event_received.connect(self._on_stream_event)
-        
+
         # Connect internal signals
         self.response_token_received.connect(self._on_token_received)
         self.response_complete.connect(self._on_response_complete)
         self.error_occurred.connect(self._on_error)
-        
+
         init_time = (time.time() - init_start) * 1000
         logger.debug(f"⏱️  [AgentPanel] __init__ completed in {init_time:.2f}ms")
     
@@ -82,19 +75,23 @@ class AgentPanel(BasePanel):
         import time
         setup_start = time.time()
         self.set_panel_title(tr("Agent"))
-        
+
+        # Import widgets locally to defer expensive imports
+        from app.ui.chat.chat_history_widget import ChatHistoryWidget
+        from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
+
         # Chat history component (top, takes most space)
         self.chat_history_widget = ChatHistoryWidget(self.workspace, self)
         self.content_layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
-        
+
         # Prompt input component (bottom, fixed height)
         self.prompt_input_widget = AgentPromptWidget(self.workspace, self)
         self.content_layout.addWidget(self.prompt_input_widget, 0)  # No stretch
-        
+
         # Connect signals
         self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
         self.chat_history_widget.reference_clicked.connect(self._on_reference_clicked)
-        
+
         setup_time = (time.time() - setup_start) * 1000
         logger.debug(f"⏱️  [AgentPanel] setup_ui completed in {setup_time:.2f}ms")
     
@@ -199,7 +196,7 @@ class AgentPanel(BasePanel):
             self._is_processing = False
             self.prompt_input_widget.set_enabled(True)
     
-    def _handle_stream_event_sync(self, event: StreamEvent):
+    def _handle_stream_event_sync(self, event: 'StreamEvent'):
         """Handle stream event synchronously (called from agent thread)."""
         # Get session from agent
         session = self.agent.get_current_session() if self.agent else None
@@ -207,11 +204,11 @@ class AgentPanel(BasePanel):
             self._stream_handler.handle_event(event, session)
     
     @Slot(object, object)
-    def _on_stream_event(self, event: StreamEvent, session: AgentStreamSession):
+    def _on_stream_event(self, event: 'StreamEvent', session: 'AgentStreamSession'):
         """Handle stream event on Qt main thread."""
         # Forward to chat history widget
         self.chat_history_widget.handle_stream_event(event, session)
-        
+
         # Process UI updates
         QApplication.processEvents()
     
