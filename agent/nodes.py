@@ -1,12 +1,13 @@
 """LangGraph nodes for Filmeto agent."""
 
-from typing import Any, Dict, List, Literal, TypedDict, Annotated, Sequence
+from typing import Any, Dict, List, Literal, TypedDict, Annotated, Sequence, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 import operator
+import json
 
 
 # ============================================================================
@@ -19,6 +20,136 @@ class AgentState(TypedDict):
     next_action: str
     context: Dict[str, Any]
     iteration_count: int
+    execution_plan: Optional[Dict[str, Any]]  # Execution plan with sub-agent tasks
+    current_task_index: int  # Current task index in execution plan
+    sub_agent_results: Dict[str, Any]  # Results from sub-agent executions
+
+
+# ============================================================================
+# Question Understanding Node
+# ============================================================================
+
+class QuestionUnderstandingNode:
+    """
+    Question understanding node that analyzes user questions.
+    
+    This node:
+    - Analyzes user questions to understand intent
+    - Determines if sub-agents are needed for collaboration
+    - Routes to planner if sub-agents are needed, or to coordinator for simple tasks
+    """
+    
+    def __init__(self, llm: ChatOpenAI, sub_agent_registry: Any):
+        """Initialize question understanding node."""
+        self.llm = llm
+        self.sub_agent_registry = sub_agent_registry
+        
+        # Get agent capabilities
+        capabilities = sub_agent_registry.get_agent_capabilities()
+        capabilities_str = self._format_capabilities(capabilities)
+        
+        # Create question understanding prompt
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a question understanding system for Filmeto, an AI-powered video creation platform.
+
+Your role is to:
+1. Understand user questions and requests
+2. Determine if the request requires multi-agent collaboration
+3. Identify which sub-agents might be needed
+
+Available sub-agents and their capabilities:
+{capabilities}
+
+Analysis criteria:
+- Simple queries about project state: Use coordinator directly
+- Single-step tasks: Use coordinator with tools
+- Complex multi-step tasks requiring different skills: Require sub-agent collaboration
+- Creative tasks (script writing, directing, editing): Require sub-agent collaboration
+
+For each user request, analyze:
+1. Does this require multiple specialized skills?
+2. Which agents would be most suitable?
+3. What is the complexity level?
+
+Respond with JSON format:
+{{
+    "requires_sub_agents": true/false,
+    "complexity": "simple|moderate|complex",
+    "suggested_agents": ["AgentName1", "AgentName2"],
+    "reasoning": "Brief explanation"
+}}""".format(capabilities=capabilities_str)),
+            MessagesPlaceholder(variable_name="messages"),
+        ])
+    
+    def _format_capabilities(self, capabilities: Dict[str, List[Dict[str, str]]]) -> str:
+        """Format agent capabilities for prompt."""
+        lines = []
+        for agent_name, skills in capabilities.items():
+            lines.append(f"\n{agent_name}:")
+            for skill in skills:
+                lines.append(f"  - {skill['name']}: {skill['description']}")
+        return "\n".join(lines)
+    
+    def __call__(self, state: AgentState) -> AgentState:
+        """Process question understanding."""
+        messages = state["messages"]
+        context = state.get("context", {})
+        
+        # Get the last user message
+        user_message = None
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                user_message = msg.content
+                break
+        
+        if not user_message:
+            # No user message found, proceed to coordinator
+            return {
+                "messages": messages,
+                "next_action": "coordinator",
+                "context": context,
+                "iteration_count": state.get("iteration_count", 0) + 1,
+                "execution_plan": None,
+                "current_task_index": 0,
+                "sub_agent_results": {}
+            }
+        
+        # Format prompt
+        formatted_prompt = self.prompt.format_messages(messages=messages)
+        
+        # Get LLM response
+        response = self.llm.invoke(formatted_prompt)
+        
+        # Parse response
+        try:
+            analysis = json.loads(response.content)
+        except json.JSONDecodeError:
+            # Fallback if JSON parsing fails
+            analysis = {
+                "requires_sub_agents": False,
+                "complexity": "simple",
+                "suggested_agents": [],
+                "reasoning": "Could not parse analysis"
+            }
+        
+        # Store analysis in context
+        context["question_analysis"] = analysis
+        
+        # Determine next action
+        if analysis.get("requires_sub_agents", False):
+            next_action = "planner"
+        else:
+            next_action = "coordinator"
+        
+        return {
+            "messages": [response],
+            "next_action": next_action,
+            "context": context,
+            "iteration_count": state.get("iteration_count", 0) + 1,
+            "execution_plan": None,
+            "current_task_index": 0,
+            "sub_agent_results": {}
+        }
 
 
 # ============================================================================
@@ -105,64 +236,121 @@ Analyze the user's request and decide the next action."""),
 
 class PlannerNode:
     """
-    Planner node that creates execution plans for complex tasks.
+    Planner node that creates execution plans based on sub-agent skills.
     
-    The planner breaks down complex user requests into:
-    - Sequence of steps
-    - Required tools for each step
-    - Dependencies between steps
+    The planner:
+    - Creates execution plans using sub-agent skills
+    - Breaks down complex tasks into sub-agent tasks
+    - Determines task dependencies and sequencing
     """
     
-    def __init__(self, llm: ChatOpenAI, tools: List[Any]):
+    def __init__(self, llm: ChatOpenAI, sub_agent_registry: Any):
         """Initialize planner node."""
         self.llm = llm
-        self.tools = tools
+        self.sub_agent_registry = sub_agent_registry
+        
+        # Get agent capabilities
+        capabilities = sub_agent_registry.get_agent_capabilities()
+        capabilities_str = self._format_capabilities(capabilities)
         
         # Create planner prompt
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a planner for Filmeto, an AI-powered video creation platform.
 
-Your role is to break down complex user requests into actionable steps.
+Your role is to create execution plans using sub-agent skills to complete complex user requests.
 
-Available tools: {tool_names}
+Available sub-agents and their skills:
+{capabilities}
 
-For each user request, create a plan with:
-1. Clear sequence of steps
-2. Which tools to use for each step
-3. Expected outcomes
+For each user request, create an execution plan with:
+1. Sequence of tasks, each assigned to an appropriate sub-agent
+2. Each task specifies: agent_name, skill_name, parameters
+3. Dependencies between tasks
+4. Expected outcomes
 
-Example plan format:
-Step 1: Get current project information using 'get_project_info'
-Step 2: List available characters using 'list_characters'
-Step 3: Create a new task using 'create_task' with the selected actor
+Example plan format (JSON):
+{{
+    "tasks": [
+        {{
+            "task_id": 1,
+            "agent_name": "Screenwriter",
+            "skill_name": "script_outline",
+            "parameters": {{"topic": "..."}},
+            "dependencies": []
+        }},
+        {{
+            "task_id": 2,
+            "agent_name": "Director",
+            "skill_name": "storyboard",
+            "parameters": {{"script": "..."}},
+            "dependencies": [1]
+        }}
+    ],
+    "description": "Plan description"
+}}
 
-Create a detailed plan for the user's request."""),
+Create a detailed execution plan for the user's request.""").format(capabilities=capabilities_str),
             MessagesPlaceholder(variable_name="messages"),
         ])
     
+    def _format_capabilities(self, capabilities: Dict[str, List[Dict[str, str]]]) -> str:
+        """Format agent capabilities for prompt."""
+        lines = []
+        for agent_name, skills in capabilities.items():
+            lines.append(f"\n{agent_name}:")
+            for skill in skills:
+                lines.append(f"  - {skill['name']}: {skill['description']}")
+        return "\n".join(lines)
+    
     def __call__(self, state: AgentState) -> AgentState:
-        """Create a plan for the user's request."""
+        """Create an execution plan for the user's request."""
         messages = state["messages"]
         context = state.get("context", {})
         
-        # Format prompt with tool names
-        tool_names = [tool.name for tool in self.tools]
-        formatted_prompt = self.prompt.format_messages(
-            messages=messages,
-            tool_names=", ".join(tool_names)
-        )
+        # Get question analysis if available
+        analysis = context.get("question_analysis", {})
+        suggested_agents = analysis.get("suggested_agents", [])
+        
+        # Format prompt
+        formatted_prompt = self.prompt.format_messages(messages=messages)
         
         # Get plan from LLM
         response = self.llm.invoke(formatted_prompt)
         
-        # Store plan in context
-        context["plan"] = response.content
+        # Parse plan (try to extract JSON from response)
+        plan_content = response.content
+        execution_plan = None
+        
+        try:
+            # Try to find JSON in the response
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', plan_content)
+            if json_match:
+                execution_plan = json.loads(json_match.group())
+            else:
+                execution_plan = json.loads(plan_content)
+        except (json.JSONDecodeError, AttributeError):
+            # Fallback: create a simple plan structure
+            execution_plan = {
+                "tasks": [],
+                "description": plan_content
+            }
+        
+        # Validate and structure the plan
+        if "tasks" not in execution_plan:
+            execution_plan["tasks"] = []
+        
+        # Store plan in state
+        context["plan_description"] = execution_plan.get("description", plan_content)
         
         return {
             "messages": [response],
-            "next_action": "execute_plan",
+            "next_action": "execute_sub_agent_plan",
             "context": context,
-            "iteration_count": state.get("iteration_count", 0) + 1
+            "iteration_count": state.get("iteration_count", 0) + 1,
+            "execution_plan": execution_plan,
+            "current_task_index": 0,
+            "sub_agent_results": {}
         }
 
 
