@@ -1,5 +1,5 @@
 drawing:
-  current_tool: brush
+  current_tool: pen
   tool_settings:
     adjust: {}
     brush:
@@ -62,5 +62,5 @@ timeline_item_durations:
   '7': 1.0
   '8': 1.0
   '9': 6.0625
-timeline_position: 5.433
+timeline_position: 5.389
 timeline_size: 9

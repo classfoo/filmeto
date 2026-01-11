@@ -3,11 +3,10 @@
 import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
-from PySide6.QtWidgets import QVBoxLayout
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import Signal, Slot
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
-from app.ui.panels.agent.chat_history_widget import ChatHistoryWidget
+from app.ui.chat.chat_history_widget import ChatHistoryWidget
 from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 # Removed heavy top-level import: from agent.filmeto_agent import FilmetoAgent
 from utils.i18n_utils import tr

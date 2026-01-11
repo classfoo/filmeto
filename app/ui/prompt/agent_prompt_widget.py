@@ -97,7 +97,6 @@ class AgentPromptWidget(BaseWidget):
         self.context_widget.setStyleSheet("""
             QWidget#agent_prompt_context_widget {
                 padding: 5px 5px 5px 5px;
-                border-bottom: 1px solid #3a3a3a;
             }
         """)
         context_main_layout = QHBoxLayout(self.context_widget)
@@ -231,7 +230,6 @@ class AgentPromptWidget(BaseWidget):
             QFrame#send_toolbar {
                 border: none;
                 background-color: transparent;
-                border-top: 1px solid #3a3a3a;
                 padding: 5px 5px 5px 5px;
             }
         """)
