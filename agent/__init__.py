@@ -60,6 +60,21 @@ from agent.sub_agents import (
     EditorAgent,
     SubAgentRegistry
 )
+from agent.streaming import (
+    StreamEventType,
+    StreamEvent,
+    AgentRole,
+    ContentType,
+    StructuredContent,
+    PlanContent,
+    TaskContent,
+    MediaContent,
+    ReferenceContent,
+    ThinkingContent,
+    StreamEventEmitter,
+    AgentStreamManager,
+    AgentStreamSession,
+)
 
 __all__ = [
     # Main agent
@@ -102,4 +117,19 @@ __all__ = [
     'MakeupArtistAgent',
     'EditorAgent',
     'SubAgentRegistry',
+    
+    # Streaming
+    'StreamEventType',
+    'StreamEvent',
+    'AgentRole',
+    'ContentType',
+    'StructuredContent',
+    'PlanContent',
+    'TaskContent',
+    'MediaContent',
+    'ReferenceContent',
+    'ThinkingContent',
+    'StreamEventEmitter',
+    'AgentStreamManager',
+    'AgentStreamSession',
 ]
