@@ -102,7 +102,7 @@ class ProjectItemWidget(QFrame):
         if self._is_selected:
             self.setStyleSheet("""
                 QFrame#project_item {
-                    background-color: #3d4f7c;
+                    background-color: rgba(61, 79, 124, 0.6);
                     border-radius: 6px;
                     border: 1px solid #4080ff;
                 }
@@ -116,7 +116,7 @@ class ProjectItemWidget(QFrame):
                     border: 1px solid transparent;
                 }
                 QFrame#project_item:hover {
-                    background-color: #3c3f41;
+                    background-color: rgba(60, 63, 65, 0.5);
                 }
             """)
     
@@ -203,7 +203,7 @@ class ProjectListWidget(BaseWidget):
         # Separator line
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
-        separator.setStyleSheet("background-color: #3c3f41;")
+        separator.setStyleSheet("background-color: rgba(60, 63, 65, 0.5);")
         separator.setFixedHeight(1)
         layout.addWidget(separator)
         
@@ -217,12 +217,16 @@ class ProjectListWidget(BaseWidget):
                 background-color: transparent;
                 border: none;
             }
+            QScrollArea::viewport {
+                background-color: transparent;
+            }
             QScrollArea > QWidget > QWidget {
                 background-color: transparent;
             }
         """)
         
         self.project_list_container = QWidget()
+        self.project_list_container.setStyleSheet("background-color: transparent;")
         self.project_list_layout = QVBoxLayout(self.project_list_container)
         self.project_list_layout.setContentsMargins(8, 8, 8, 8)
         self.project_list_layout.setSpacing(4)
@@ -288,17 +292,17 @@ class ProjectListWidget(BaseWidget):
         """Apply styles to the widget."""
         self.setStyleSheet("""
             QWidget#project_list_widget {
-                background-color: #1e1f22;
+                background-color: transparent;
             }
             QWidget#project_list_header {
-                background-color: #1e1f22;
+                background-color: transparent;
             }
             QWidget#project_list_toolbar {
-                background-color: #1e1f22;
-                border-top: 1px solid #3c3f41;
+                background-color: transparent;
+                border-top: 1px solid rgba(60, 63, 65, 0.5);
             }
             QPushButton {
-                background-color: #3c3f41;
+                background-color: rgba(60, 63, 65, 0.6);
                 border: none;
                 border-radius: 6px;
                 color: #E1E1E1;
@@ -306,10 +310,10 @@ class ProjectListWidget(BaseWidget):
                 font-size: 18px;
             }
             QPushButton:hover {
-                background-color: #4c5052;
+                background-color: rgba(76, 80, 82, 0.8);
             }
             QPushButton:pressed {
-                background-color: #2c2f31;
+                background-color: rgba(44, 47, 49, 0.8);
             }
         """)
     
