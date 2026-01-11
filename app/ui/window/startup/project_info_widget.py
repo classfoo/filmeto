@@ -8,7 +8,7 @@ in the right workspace area of the startup mode.
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QSizePolicy, QTabWidget, QScrollArea, QProgressBar,
-    QTextEdit, QGridLayout, QSpacerItem
+    QTextEdit, QGridLayout, QSpacerItem, QStackedLayout
 )
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QColor, QFont, QPixmap, QPainter
@@ -25,7 +25,9 @@ class VideoPreviewWidget(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("video_preview")
-        self.setMinimumHeight(300)
+        # Keep this compact so the whole project info can fit in small windows
+        self.setMinimumHeight(160)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -65,11 +67,11 @@ class StatCard(QFrame):
     def __init__(self, title: str, value: str, icon: str = None, parent=None):
         super().__init__(parent)
         self.setObjectName("stat_card")
-        self.setFixedHeight(80)
+        self.setFixedHeight(64)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(4)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(2)
         
         # Title
         title_label = QLabel(title)
@@ -100,11 +102,11 @@ class BudgetProgressWidget(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("budget_progress")
-        self.setFixedHeight(100)
+        self.setFixedHeight(84)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(6)
         
         # Title row
         title_row = QHBoxLayout()
@@ -167,8 +169,8 @@ class StoryDescriptionWidget(QFrame):
         self.setObjectName("story_description")
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(6)
         
         # Title
         title_label = QLabel(tr("故事描述"))
@@ -179,7 +181,10 @@ class StoryDescriptionWidget(QFrame):
         self.description_text = QTextEdit()
         self.description_text.setReadOnly(True)
         self.description_text.setPlaceholderText(tr("暂无故事描述..."))
-        self.description_text.setMinimumHeight(100)
+        # Compact by default to fit in small windows; can still expand when space allows.
+        self.description_text.setMinimumHeight(80)
+        self.description_text.setMaximumHeight(120)
+        self.description_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.description_text.setStyleSheet("""
             QTextEdit {
                 background-color: #1e1f22;
@@ -217,6 +222,7 @@ class ProjectInfoWidget(BaseWidget):
         
         self.setObjectName("project_info_widget")
         self._current_project_name = None
+        self._full_project_name = ""
         
         self._setup_ui()
         self._apply_styles()
@@ -224,7 +230,8 @@ class ProjectInfoWidget(BaseWidget):
     def _setup_ui(self):
         """Set up the UI components."""
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 0, 16, 0)
+        # Slightly smaller margins so content fits better in ~400x400 containers
+        main_layout.setContentsMargins(12, 0, 12, 0)
         main_layout.setSpacing(0)
         
         # Tab widget
@@ -248,51 +255,88 @@ class ProjectInfoWidget(BaseWidget):
                 background-color: transparent;
                 border: none;
             }
+            QScrollArea::viewport {
+                background-color: transparent;
+            }
+            QScrollArea > QWidget {
+                background-color: transparent;
+            }
+            QScrollArea > QWidget > QWidget {
+                background-color: transparent;
+            }
         """)
         
         content = QWidget()
+        content.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 16, 0, 16)
-        layout.setSpacing(16)
-        
-        # Header with project name and edit button
-        header = QWidget()
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        
+        layout.setContentsMargins(0, 12, 0, 12)
+        layout.setSpacing(12)
+
+        # Top row: video preview (with overlay actions) + stats/budget side-by-side
+        top_row = QWidget()
+        top_row_layout = QHBoxLayout(top_row)
+        top_row_layout.setContentsMargins(0, 0, 0, 0)
+        top_row_layout.setSpacing(12)
+
+        # Video container with an overlay bar (saves vertical space vs a separate header row)
+        self.video_preview = VideoPreviewWidget()
+
+        video_container = QWidget()
+        video_container.setObjectName("video_container")
+        video_stack = QStackedLayout(video_container)
+        video_stack.setStackingMode(QStackedLayout.StackAll)
+        video_stack.setContentsMargins(0, 0, 0, 0)
+
+        video_stack.addWidget(self.video_preview)
+
+        overlay = QWidget()
+        overlay.setObjectName("video_overlay")
+        overlay_layout = QHBoxLayout(overlay)
+        overlay_layout.setContentsMargins(10, 8, 10, 8)
+        overlay_layout.setSpacing(10)
+
         self.project_name_label = QLabel()
-        self.project_name_label.setStyleSheet("color: #E1E1E1; font-size: 24px; font-weight: bold;")
-        header_layout.addWidget(self.project_name_label)
-        
-        header_layout.addStretch()
-        
-        self.edit_button = QPushButton(tr("编辑项目"))
-        self.edit_button.setFixedHeight(36)
+        self.project_name_label.setObjectName("project_name_label")
+        self.project_name_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.project_name_label.setWordWrap(False)
+        self.project_name_label.setStyleSheet("color: #EDEDED; font-size: 16px; font-weight: bold;")
+        overlay_layout.addWidget(self.project_name_label)
+
+        self.edit_button = QPushButton(tr("编辑"))
+        self.edit_button.setObjectName("edit_project_button")
+        self.edit_button.setFixedHeight(28)
+        self.edit_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.edit_button.clicked.connect(self._on_edit_clicked)
         self.edit_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4080ff;
+            QPushButton#edit_project_button {
+                background-color: rgba(64, 128, 255, 0.95);
                 border: none;
                 border-radius: 6px;
                 color: #FFFFFF;
-                padding: 8px 16px;
-                font-size: 14px;
+                padding: 5px 10px;
+                font-size: 13px;
             }
-            QPushButton:hover {
-                background-color: #5090ff;
+            QPushButton#edit_project_button:hover {
+                background-color: rgba(80, 144, 255, 0.95);
             }
-            QPushButton:pressed {
-                background-color: #3070ee;
+            QPushButton#edit_project_button:pressed {
+                background-color: rgba(48, 112, 238, 0.95);
             }
         """)
-        header_layout.addWidget(self.edit_button)
-        
-        layout.addWidget(header)
-        
-        # Video preview area
-        self.video_preview = VideoPreviewWidget()
-        layout.addWidget(self.video_preview)
-        
+        overlay_layout.addWidget(self.edit_button)
+
+        video_stack.addWidget(overlay)
+
+        # Ensure overlay stays top-left visually
+        video_stack.setAlignment(overlay, Qt.AlignTop)
+
+        top_row_layout.addWidget(video_container, 3)
+
+        side_col = QWidget()
+        side_col_layout = QVBoxLayout(side_col)
+        side_col_layout.setContentsMargins(0, 0, 0, 0)
+        side_col_layout.setSpacing(12)
+
         # Stats grid
         stats_widget = QWidget()
         stats_layout = QGridLayout(stats_widget)
@@ -304,12 +348,15 @@ class ProjectInfoWidget(BaseWidget):
         
         self.task_stat = StatCard(tr("任务数量"), "0")
         stats_layout.addWidget(self.task_stat, 0, 1)
-        
-        layout.addWidget(stats_widget)
-        
+
+        side_col_layout.addWidget(stats_widget)
+
         # Budget progress
         self.budget_widget = BudgetProgressWidget()
-        layout.addWidget(self.budget_widget)
+        side_col_layout.addWidget(self.budget_widget)
+
+        top_row_layout.addWidget(side_col, 2)
+        layout.addWidget(top_row)
         
         # Story description
         self.story_widget = StoryDescriptionWidget()
@@ -336,6 +383,9 @@ class ProjectInfoWidget(BaseWidget):
                 background-color: #2b2b2b;
                 border: none;
             }
+            QTabWidget#project_tabs QTabBar {
+                background-color: #2b2b2b;
+            }
             QTabWidget#project_tabs > QTabBar::tab {
                 background-color: #2b2b2b;
                 color: #888888;
@@ -351,13 +401,20 @@ class ProjectInfoWidget(BaseWidget):
             QTabWidget#project_tabs > QTabBar::tab:hover:!selected {
                 color: #AAAAAA;
             }
+            QWidget#video_overlay {
+                background-color: rgba(0, 0, 0, 0.35);
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+            }
         """)
     
     def set_project(self, project_name: str):
         """Set the project to display."""
         self._current_project_name = project_name
+        self._full_project_name = project_name or ""
         
         if not project_name:
+            self.project_name_label.setToolTip("")
             self.project_name_label.setText("")
             self.timeline_stat.set_value("0")
             self.task_stat.set_value("0")
@@ -365,7 +422,7 @@ class ProjectInfoWidget(BaseWidget):
             self.story_widget.set_description("")
             return
         
-        self.project_name_label.setText(project_name)
+        self._update_project_name_elided()
         
         # Get project data
         project = self.workspace.project_manager.get_project(project_name)
@@ -387,6 +444,27 @@ class ProjectInfoWidget(BaseWidget):
             # Story description
             story = config.get('story_description', '')
             self.story_widget.set_description(story)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_project_name_elided()
+
+    def _update_project_name_elided(self):
+        """Keep the project name single-line (elided) for compact layouts."""
+        full = self._full_project_name or ""
+        if not full:
+            return
+
+        self.project_name_label.setToolTip(full)
+        fm = self.project_name_label.fontMetrics()
+
+        # If layout hasn't run yet, fall back to a reasonable width estimate.
+        max_width = self.project_name_label.width()
+        if max_width <= 0:
+            max_width = max(0, self.width() - 140)
+
+        elided = fm.elidedText(full, Qt.ElideRight, max_width)
+        self.project_name_label.setText(elided)
     
     def _on_edit_clicked(self):
         """Handle edit button click."""
