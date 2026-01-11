@@ -271,12 +271,11 @@ class ProductionAgent:
         if config is None:
             config = {"configurable": {}}
         
-        # Add workspace and project to configurable context
+        # Add project_id to configurable context instead of workspace and project objects
         if "configurable" not in config:
             config["configurable"] = {}
         
-        config["configurable"]["workspace"] = self.workspace
-        config["configurable"]["project"] = self.project
+        config["configurable"]["project_id"] = self.project_id
         
         # Execute graph
         final_state = await self.graph.ainvoke(initial_state, config=config)
@@ -317,12 +316,11 @@ class ProductionAgent:
         if config is None:
             config = {"configurable": {}}
         
-        # Add workspace and project to configurable context
+        # Add project_id to configurable context instead of workspace and project objects
         if "configurable" not in config:
             config["configurable"] = {}
         
-        config["configurable"]["workspace"] = self.workspace
-        config["configurable"]["project"] = self.project
+        config["configurable"]["project_id"] = self.project_id
         
         # Stream graph execution
         async for event in self.graph.astream(initial_state, config=config):

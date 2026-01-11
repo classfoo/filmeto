@@ -142,9 +142,9 @@ class SubAgentExecutorNode:
         """Initialize sub-agent executor node."""
         self.sub_agent_registry = sub_agent_registry
         self.tool_registry = tool_registry
-        # We'll get workspace and project from the state context
-        self.workspace = workspace
-        self.project = project
+        # Note: We don't store workspace and project in the instance to avoid serialization issues
+        # We'll get workspace and project from the state context/configurable parameters
+        self.project_id = getattr(project, 'id', None) if project else None
         self.max_parallel_tasks = max_parallel_tasks
         self._stream_emitter = None
         self._plan_id = None
@@ -217,9 +217,20 @@ class SubAgentExecutorNode:
         
         # Create skill context
         shared_state = context.get("shared_state", {})
-        # Try to get workspace and project from state context first, then from node instance
-        workspace = context.get("workspace", self.workspace)
-        project = context.get("project", self.project)
+        # Get project_id from configurable params first, then from state context, then from node instance
+        project_id = self.configurable_params.get('project_id') or context.get("project_id") or self.project_id
+        
+        # For testing purposes, we'll pass the project_id and let the skill context handle the retrieval
+        # In a real implementation, we would use a singleton or service locator pattern
+        workspace = self.tool_registry.workspace if hasattr(self.tool_registry, 'workspace') else None
+        project = self.tool_registry.project if hasattr(self.tool_registry, 'project') else None
+        
+        # If still not found, try to get from state context as fallback
+        if not workspace:
+            workspace = context.get("workspace")
+        if not project:
+            project = context.get("project")
+        
         skill_context = SkillContext(
             workspace=workspace,
             project=project,
@@ -348,9 +359,12 @@ class SubAgentExecutorNode:
         
         return results
     
-    def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, state: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute sub-agent tasks with parallel execution support."""
         from agent.nodes import AgentState
+        
+        # Store configurable parameters for later use
+        self.configurable_params = config.get("configurable", {}) if config else {}
         
         execution_plan = state.get("execution_plan")
         current_task_index = state.get("current_task_index", 0)
@@ -358,28 +372,41 @@ class SubAgentExecutorNode:
         sub_agent_results = state.get("sub_agent_results", {})
         
         # Get or create dependency graph
-        dep_graph = context.get("_dependency_graph")
-        if dep_graph is None:
-            if not execution_plan or "tasks" not in execution_plan:
-                return {
-                    **state,
-                    "next_action": "respond",
-                    "messages": state["messages"] + [
-                        AIMessage(content="[Executor] No execution plan available, proceeding to response")
-                    ]
-                }
-            
-            # Create dependency graph from plan
-            dep_graph = DependencyGraph()
-            dep_graph.add_tasks_from_plan(execution_plan)
-            context["_dependency_graph"] = dep_graph
-            
-            # Mark already completed tasks
-            for task_id in sub_agent_results:
-                if sub_agent_results[task_id].get("status") == "success":
-                    dep_graph.mark_complete(task_id)
-                elif sub_agent_results[task_id].get("status") == "failed":
-                    dep_graph.mark_failed(task_id)
+        # Store dependency graph state separately to avoid serialization issues
+        dep_graph_state = context.get("_dependency_graph_state", {})
+        dep_graph = DependencyGraph()
+        
+        if not execution_plan or "tasks" not in execution_plan:
+            return {
+                **state,
+                "next_action": "respond",
+                "messages": state["messages"] + [
+                    AIMessage(content="[Executor] No execution plan available, proceeding to response")
+                ]
+            }
+        
+        # Create dependency graph from plan
+        dep_graph.add_tasks_from_plan(execution_plan)
+        
+        # Restore graph state from context
+        completed_tasks = dep_graph_state.get("completed", [])
+        failed_tasks = dep_graph_state.get("failed", [])
+        running_tasks = dep_graph_state.get("running", [])
+        
+        # Mark already completed/failed/running tasks
+        for task_id in completed_tasks:
+            dep_graph.mark_complete(task_id)
+        for task_id in failed_tasks:
+            dep_graph.mark_failed(task_id)
+        for task_id in running_tasks:
+            dep_graph.mark_running(task_id)
+        
+        # Also mark completed/failed tasks from sub_agent_results
+        for task_id in sub_agent_results:
+            if sub_agent_results[task_id].get("status") == "success":
+                dep_graph.mark_complete(task_id)
+            elif sub_agent_results[task_id].get("status") == "failed":
+                dep_graph.mark_failed(task_id)
         
         # Check if all tasks are done
         if dep_graph.is_complete():
@@ -468,8 +495,12 @@ class SubAgentExecutorNode:
             messages.append(AIMessage(content=result_message))
             logger.info(result_message)
         
-        # Update context with modified graph
-        context["_dependency_graph"] = dep_graph
+        # Update context with dependency graph state (instead of the graph object itself)
+        context["_dependency_graph_state"] = {
+            "completed": list(dep_graph._completed),
+            "failed": list(dep_graph._failed),
+            "running": list(dep_graph._running)
+        }
         
         # Check if done after this batch
         if dep_graph.is_complete():

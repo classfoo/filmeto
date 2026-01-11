@@ -118,11 +118,35 @@ class BaseSubAgent(ABC):
         parameters = task.get("parameters", {})
         
         # Create skill context from state
+        # Get project_id from state context
+        project_id = state["context"].get("project_id")
+        
+        # Get other context from instance variable (_current_context)
+        if hasattr(self, '_current_context') and self._current_context:
+            # For production use, workspace and project should be retrieved using project_id
+            # For now, we'll use the context values but in a real implementation, 
+            # we would retrieve workspace and project via singleton/service locator
+            workspace = self._current_context.workspace
+            project = self._current_context.project
+            agent_name = self._current_context.agent_name
+            tool_registry = self._current_context.tool_registry
+            llm = self._current_context.llm
+        else:
+            # Final fallback: try to get from state context (for backward compatibility)
+            workspace = state["context"].get("workspace")
+            project = state["context"].get("project")
+            agent_name = self.name
+            tool_registry = None
+            llm = self.llm
+        
         context = SkillContext(
-            workspace=state["context"].get("workspace"),
-            project=state["context"].get("project"),
+            workspace=workspace,
+            project=project,
+            agent_name=agent_name,
             parameters=parameters,
-            shared_state=state["context"].get("shared_state", {})
+            shared_state=state["context"].get("shared_state", {}),
+            tool_registry=tool_registry,
+            llm=llm
         )
         
         try:
@@ -242,7 +266,10 @@ class BaseSubAgent(ABC):
         Returns:
             SkillResult with execution status and output
         """
-        # Create initial state for the subgraph
+        # Store context in instance variable to avoid serialization issues
+        self._current_context = context
+        
+        # Create initial state for the subgraph (without non-serializable objects)
         initial_state: SubAgentState = {
             "agent_id": self.name,
             "agent_name": self.role,
@@ -250,9 +277,8 @@ class BaseSubAgent(ABC):
             "task_id": task.get("task_id", "unknown"),
             "messages": [],
             "context": {
-                "workspace": context.workspace,
-                "project": context.project,
-                "shared_state": context.shared_state
+                "shared_state": context.shared_state,
+                "project_id": getattr(context.project, 'id', None) if context.project else None
             },
             "result": None,
             "status": "pending",
@@ -279,12 +305,17 @@ class BaseSubAgent(ABC):
             )
         except Exception as e:
             logger.error(f"[{self.name}] Error executing subgraph: {e}")
+            import traceback
+            traceback.print_exc()
             return SkillResult(
                 status=SkillStatus.FAILED,
                 output=None,
                 message=f"Error executing agent subgraph: {str(e)}",
                 metadata={"error": str(e), "agent": self.name}
             )
+        finally:
+            # Clean up
+            self._current_context = None
     
     async def evaluate_result(
         self,

@@ -236,8 +236,8 @@ class TestSubAgentExecutorNode:
         
         result = executor(state)
         
-        # Check that dependency graph was created in context
-        assert "_dependency_graph" in result["context"]
+        # Check that dependency graph state was created in context
+        assert "_dependency_graph_state" in result["context"]
     
     def test_all_tasks_complete_goes_to_review(self, executor):
         """Test that when all tasks are complete, goes to review."""
@@ -250,7 +250,7 @@ class TestSubAgentExecutorNode:
             "messages": [],
             "execution_plan": {"tasks": [{"task_id": 1}]},
             "current_task_index": 1,
-            "context": {"_dependency_graph": graph},
+            "context": {"_dependency_graph_state": {"completed": ["1"], "failed": [], "running": []}}, # Simulate the graph state
             "sub_agent_results": {"1": {"status": "success"}},
         }
         
