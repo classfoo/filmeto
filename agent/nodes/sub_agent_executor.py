@@ -135,13 +135,14 @@ class SubAgentExecutorNode:
         self,
         sub_agent_registry: Any,
         tool_registry: Any,
-        workspace: Any,
-        project: Any,
+        workspace: Any = None,
+        project: Any = None,
         max_parallel_tasks: int = 3
     ):
         """Initialize sub-agent executor node."""
         self.sub_agent_registry = sub_agent_registry
         self.tool_registry = tool_registry
+        # We'll get workspace and project from the state context
         self.workspace = workspace
         self.project = project
         self.max_parallel_tasks = max_parallel_tasks
@@ -216,9 +217,12 @@ class SubAgentExecutorNode:
         
         # Create skill context
         shared_state = context.get("shared_state", {})
+        # Try to get workspace and project from state context first, then from node instance
+        workspace = context.get("workspace", self.workspace)
+        project = context.get("project", self.project)
         skill_context = SkillContext(
-            workspace=self.workspace,
-            project=self.project,
+            workspace=workspace,
+            project=project,
             agent_name=agent_name,
             parameters=parameters,
             shared_state=shared_state,

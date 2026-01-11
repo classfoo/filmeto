@@ -124,8 +124,8 @@ class ProductionAgent:
         sub_agent_executor = SubAgentExecutorNode(
             self.sub_agent_registry,
             self.tool_registry,
-            self.workspace,
-            self.project
+            workspace=self.workspace,
+            project=self.project
         )
         plan_review = PlanReviewNode(self.llm)
         plan_refinement = PlanRefinementNode(self.llm, self.sub_agent_registry)
@@ -257,8 +257,7 @@ class ProductionAgent:
             "messages": messages,
             "next_action": "question_understanding",
             "context": {
-                "workspace": self.workspace,
-                "project": self.project
+                "original_request": str(messages[-1].content) if messages else ""
             },
             "iteration_count": 0,
             "execution_plan": None,
@@ -267,6 +266,17 @@ class ProductionAgent:
             "requires_multi_agent": False,
             "plan_refinement_count": 0
         }
+        
+        # Prepare config with additional context
+        if config is None:
+            config = {"configurable": {}}
+        
+        # Add workspace and project to configurable context
+        if "configurable" not in config:
+            config["configurable"] = {}
+        
+        config["configurable"]["workspace"] = self.workspace
+        config["configurable"]["project"] = self.project
         
         # Execute graph
         final_state = await self.graph.ainvoke(initial_state, config=config)
@@ -293,8 +303,7 @@ class ProductionAgent:
             "messages": messages,
             "next_action": "question_understanding",
             "context": {
-                "workspace": self.workspace,
-                "project": self.project
+                "original_request": str(messages[-1].content) if messages else ""
             },
             "iteration_count": 0,
             "execution_plan": None,
@@ -303,6 +312,17 @@ class ProductionAgent:
             "requires_multi_agent": False,
             "plan_refinement_count": 0
         }
+        
+        # Prepare config with additional context
+        if config is None:
+            config = {"configurable": {}}
+        
+        # Add workspace and project to configurable context
+        if "configurable" not in config:
+            config["configurable"] = {}
+        
+        config["configurable"]["workspace"] = self.workspace
+        config["configurable"]["project"] = self.project
         
         # Stream graph execution
         async for event in self.graph.astream(initial_state, config=config):
