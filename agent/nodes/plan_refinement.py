@@ -9,6 +9,7 @@ import re
 import logging
 
 from agent.graph.state import AgentState
+from agent.workflow_logger import workflow_logger
 
 logger = logging.getLogger(__name__)
 
@@ -59,15 +60,21 @@ You MUST respond with valid JSON:
     
     def __call__(self, state: AgentState) -> AgentState:
         """Refine execution plan based on results."""
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "PlanRefinementNode", state)
+        
         messages = state["messages"]
         context = state.get("context", {})
         execution_plan = state.get("execution_plan", {})
         sub_agent_results = state.get("sub_agent_results", {})
         plan_refinement_count = state.get("plan_refinement_count", 0)
         
+        workflow_logger.log_logic_step(flow_id, "PlanRefinementNode", "check_limit", f"Refinement count: {plan_refinement_count}")
+        
         # Limit refinement iterations
         if plan_refinement_count >= 3:
-            return {
+            workflow_logger.log_logic_step(flow_id, "PlanRefinementNode", "limit_reached", "Maximum refinement attempts reached")
+            output_state = {
                 "messages": [AIMessage(content="[Plan Refinement] Maximum refinement attempts reached. Proceeding to synthesis.")],
                 "next_action": "synthesize_results",
                 "context": context,
@@ -76,8 +83,11 @@ You MUST respond with valid JSON:
                 "current_task_index": state.get("current_task_index", 0),
                 "sub_agent_results": sub_agent_results,
                 "requires_multi_agent": True,
-                "plan_refinement_count": plan_refinement_count
+                "plan_refinement_count": plan_refinement_count,
+                "flow_id": flow_id
             }
+            workflow_logger.log_node_exit(flow_id, "PlanRefinementNode", output_state, next_action="synthesize_results")
+            return output_state
         
         # Analyze results
         failed_tasks = []
@@ -88,9 +98,15 @@ You MUST respond with valid JSON:
             elif result.get("quality_score", 1.0) < 0.7:
                 low_quality_tasks.append((task_id, result))
         
+        workflow_logger.log_logic_step(flow_id, "PlanRefinementNode", "analyze_results", {
+            "failed_tasks": len(failed_tasks),
+            "low_quality_tasks": len(low_quality_tasks)
+        })
+        
         # If all tasks successful with good quality, proceed to synthesis
         if not failed_tasks and not low_quality_tasks:
-            return {
+            workflow_logger.log_logic_step(flow_id, "PlanRefinementNode", "all_successful", "All tasks completed successfully")
+            output_state = {
                 "messages": [AIMessage(content="[Plan Refinement] All tasks completed successfully with good quality.")],
                 "next_action": "synthesize_results",
                 "context": context,
@@ -99,8 +115,12 @@ You MUST respond with valid JSON:
                 "current_task_index": state.get("current_task_index", 0),
                 "sub_agent_results": sub_agent_results,
                 "requires_multi_agent": True,
-                "plan_refinement_count": plan_refinement_count
+                "plan_refinement_count": plan_refinement_count,
+                "flow_id": flow_id
             }
+            workflow_logger.log_node_exit(flow_id, "PlanRefinementNode", output_state, next_action="synthesize_results")
+            return output_state
+
         
         # Add results context to messages
         results_msg = f"[Results for Refinement] Failed: {len(failed_tasks)}, Low quality: {len(low_quality_tasks)}"
@@ -126,7 +146,9 @@ You MUST respond with valid JSON:
             refined_tasks = refinement.get("refined_tasks", [])
             execution_plan["tasks"] = current_tasks + refined_tasks
             
-            return {
+            workflow_logger.log_logic_step(flow_id, "PlanRefinementNode", "refinement_created", f"Added {len(refined_tasks)} tasks for rework")
+            
+            output_state = {
                 "messages": [AIMessage(content=f"[Plan Refinement] Added {len(refined_tasks)} tasks for rework.")],
                 "next_action": "execute_sub_agent_plan",
                 "context": context,
@@ -135,10 +157,14 @@ You MUST respond with valid JSON:
                 "current_task_index": len(current_tasks),  # Start from new tasks
                 "sub_agent_results": sub_agent_results,
                 "requires_multi_agent": True,
-                "plan_refinement_count": plan_refinement_count + 1
+                "plan_refinement_count": plan_refinement_count + 1,
+                "flow_id": flow_id
             }
+            workflow_logger.log_node_exit(flow_id, "PlanRefinementNode", output_state, next_action="execute_sub_agent_plan")
+            return output_state
         
-        return {
+        workflow_logger.log_logic_step(flow_id, "PlanRefinementNode", "no_refinement", "No further refinement needed")
+        output_state = {
             "messages": [AIMessage(content="[Plan Refinement] No further refinement needed.")],
             "next_action": "synthesize_results",
             "context": context,
@@ -147,5 +173,9 @@ You MUST respond with valid JSON:
             "current_task_index": state.get("current_task_index", 0),
             "sub_agent_results": sub_agent_results,
             "requires_multi_agent": True,
-            "plan_refinement_count": plan_refinement_count
+            "plan_refinement_count": plan_refinement_count,
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "PlanRefinementNode", output_state, next_action="synthesize_results")
+        return output_state
+

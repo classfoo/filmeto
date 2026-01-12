@@ -1,6 +1,7 @@
 """Sub-agent execution nodes for multi-agent workflow with parallel execution and streaming support."""
 
 from typing import Any, Dict, List, Optional, Literal, Callable, Set
+from langchain_core.runnables.config import RunnableConfig
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from agent.skills.base import SkillContext, SkillStatus
 import json
@@ -164,9 +165,12 @@ class SubAgentExecutorNode:
         self,
         agent: Any,
         task_dict: Dict[str, Any],
-        skill_context: SkillContext
+        skill_context: SkillContext,
+        flow_id: str = "unknown"
     ) -> Any:
         """Execute task asynchronously."""
+        # Add flow_id to task_dict so it can be passed to the agent's subgraph
+        task_dict["flow_id"] = flow_id
         result = await agent.execute_task(task_dict, skill_context)
         evaluated_result = await agent.evaluate_result(result, task_dict, skill_context)
         return evaluated_result
@@ -262,12 +266,12 @@ class SubAgentExecutorNode:
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
                         asyncio.run,
-                        self._execute_task_async(agent, task_dict, skill_context)
+                        self._execute_task_async(agent, task_dict, skill_context, flow_id)
                     )
                     evaluated_result = future.result()
             except RuntimeError:
                 evaluated_result = asyncio.run(
-                    self._execute_task_async(agent, task_dict, skill_context)
+                    self._execute_task_async(agent, task_dict, skill_context, flow_id)
                 )
             
             # Store result
@@ -370,7 +374,7 @@ class SubAgentExecutorNode:
         
         return results
     
-    def __call__(self, state: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def __call__(self, state: Dict[str, Any], config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
         """Execute sub-agent tasks with parallel execution support."""
         from agent.nodes import AgentState
         
@@ -679,6 +683,9 @@ class ResultSynthesisNode:
     
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Synthesize execution results."""
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "ResultSynthesisNode", state)
+        
         execution_plan = state.get("execution_plan", {})
         sub_agent_results = state.get("sub_agent_results", {})
         context = state.get("context", {})
@@ -686,6 +693,11 @@ class ResultSynthesisNode:
         # Get original request
         original_request = context.get("original_request", "Unknown request")
         plan_description = context.get("plan_description", "")
+        
+        workflow_logger.log_logic_step(flow_id, "ResultSynthesisNode", "synthesis_start", {
+            "results_count": len(sub_agent_results),
+            "original_request_len": len(original_request)
+        })
         
         # Emit synthesis start
         if self._stream_emitter:
@@ -735,12 +747,16 @@ class ResultSynthesisNode:
             self._stream_emitter.emit_agent_complete("Synthesizer", synthesis)
         
         logger.info(f"Synthesis complete: {successful}/{total} tasks successful")
+        workflow_logger.log_logic_step(flow_id, "ResultSynthesisNode", "synthesis_complete", f"{successful}/{total} tasks successful")
         
-        return {
+        output_state = {
             **state,
             "next_action": "respond",
-            "messages": state["messages"] + [AIMessage(content=synthesis)]
+            "messages": state["messages"] + [AIMessage(content=synthesis)],
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "ResultSynthesisNode", output_state, next_action="respond")
+        return output_state
 
 
 # Import AgentRole for use in nodes

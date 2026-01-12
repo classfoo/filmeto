@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 from agent.skills.base import BaseSkill, SkillContext, SkillResult, SkillStatus
 from agent.graph.state import SubAgentState
+from agent.workflow_logger import workflow_logger
 import logging
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,9 @@ class BaseSubAgent(ABC):
         Returns:
             Updated agent state
         """
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_sub_agent_start(flow_id, self.name, state)
+        
         task = state["task"]
         skill_name = task.get("skill_name")
         
@@ -179,6 +183,7 @@ class BaseSubAgent(ABC):
             
         except Exception as e:
             logger.error(f"[{self.name}] Error executing skill {skill_name}: {e}")
+            workflow_logger.log_logic_step(flow_id, self.name, "skill_execution_error", str(e))
             state["result"] = {
                 "status": "failed",
                 "output": None,
@@ -204,10 +209,12 @@ class BaseSubAgent(ABC):
         Returns:
             Updated agent state
         """
+        flow_id = state.get("flow_id", "unknown")
         result = state.get("result")
         
         if not result:
             state["status"] = "failed"
+            workflow_logger.log_sub_agent_exit(flow_id, self.name, state)
             return state
         
         # Update final status based on result
@@ -222,6 +229,7 @@ class BaseSubAgent(ABC):
         )
         state["messages"] = [eval_msg]
         
+        workflow_logger.log_sub_agent_exit(flow_id, self.name, state)
         return state
     
     def get_skill(self, skill_name: str) -> Optional[BaseSkill]:
@@ -269,6 +277,9 @@ class BaseSubAgent(ABC):
         # Store context in instance variable to avoid serialization issues
         self._current_context = context
         
+        # Get flow_id from task if available
+        flow_id = task.get("flow_id", "unknown")
+        
         # Create initial state for the subgraph (without non-serializable objects)
         initial_state: SubAgentState = {
             "agent_id": self.name,
@@ -282,7 +293,8 @@ class BaseSubAgent(ABC):
             },
             "result": None,
             "status": "pending",
-            "metadata": {}
+            "metadata": {},
+            "flow_id": flow_id
         }
         
         # Execute the subgraph

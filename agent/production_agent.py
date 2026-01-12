@@ -9,6 +9,7 @@ This is the main entry point that manages:
 """
 
 from typing import Any, Dict, List, Optional
+from langchain_core.runnables.config import RunnableConfig
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
@@ -240,7 +241,7 @@ class ProductionAgent:
     async def execute(
         self,
         messages: List[BaseMessage],
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[RunnableConfig] = None
     ) -> Dict[str, Any]:
         """
         Execute the Production Agent workflow.
@@ -310,7 +311,7 @@ class ProductionAgent:
     async def stream(
         self,
         messages: List[BaseMessage],
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[RunnableConfig] = None
     ):
         """
         Stream the Production Agent workflow execution.
