@@ -11,6 +11,8 @@ class AgentState(dict):
     next_action: str
     context: Dict[str, Any]
     iteration_count: int
+    flow_id: Optional[str]  # Unique identifier for the execution flow
+
 
 
 class ProductionAgentState(AgentState):
@@ -45,3 +47,5 @@ class SubAgentState(dict):
     result: Optional[Dict[str, Any]]  # Execution result
     status: str  # Execution status: "pending", "in_progress", "completed", "failed"
     metadata: Dict[str, Any]  # Additional metadata
+    flow_id: Optional[str]  # Trace back to main flow
+

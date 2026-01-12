@@ -6,8 +6,12 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 import json
 import re
+import logging
 
 from agent.graph.state import AgentState
+from agent.workflow_logger import workflow_logger
+
+logger = logging.getLogger(__name__)
 
 
 class QuestionUnderstandingNode:
@@ -81,6 +85,14 @@ You MUST respond with valid JSON format:
     
     def __call__(self, state: AgentState) -> AgentState:
         """Process question understanding."""
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "QuestionUnderstandingNode", state)
+        
+        logger.info("=" * 80)
+        logger.info(f"[QuestionUnderstandingNode] ENTRY")
+        logger.info(f"[QuestionUnderstandingNode] Iteration: {state.get('iteration_count', 0)}")
+        logger.info(f"[QuestionUnderstandingNode] Message count: {len(state.get('messages', []))}")
+        
         messages = state["messages"]
         context = state.get("context", {})
         
@@ -93,7 +105,12 @@ You MUST respond with valid JSON format:
         
         if not user_message:
             # No user message found, proceed to coordinator
-            return {
+            logger.warning("[QuestionUnderstandingNode] No user message found, routing to coordinator")
+            workflow_logger.log_logic_step(flow_id, "QuestionUnderstandingNode", "check_user_message", "No user message found, defaulting to coordinator")
+            logger.info("[QuestionUnderstandingNode] EXIT -> coordinator")
+            logger.info("=" * 80)
+            
+            output_state = {
                 "messages": [],
                 "next_action": "coordinator",
                 "context": context,
@@ -102,14 +119,22 @@ You MUST respond with valid JSON format:
                 "current_task_index": 0,
                 "sub_agent_results": {},
                 "requires_multi_agent": False,
-                "plan_refinement_count": 0
+                "plan_refinement_count": 0,
+                "flow_id": flow_id
             }
+            workflow_logger.log_node_exit(flow_id, "QuestionUnderstandingNode", output_state, next_action="coordinator")
+            return output_state
+        
+        logger.info(f"[QuestionUnderstandingNode] User message: {user_message[:100]}...")
+        workflow_logger.log_logic_step(flow_id, "QuestionUnderstandingNode", "analyze_question", f"Analyzing: {user_message[:50]}...")
         
         # Format prompt
         formatted_prompt = self.prompt.format_messages(messages=messages)
         
+        logger.info("[QuestionUnderstandingNode] Invoking LLM for question analysis...")
         # Get LLM response
         response = self.llm.invoke(formatted_prompt)
+        logger.debug(f"[QuestionUnderstandingNode] LLM response received: {response.content[:200]}...")
         
         # Parse response
         try:
@@ -119,8 +144,11 @@ You MUST respond with valid JSON format:
                 analysis = json.loads(json_match.group())
             else:
                 analysis = json.loads(response.content)
-        except json.JSONDecodeError:
+            logger.info(f"[QuestionUnderstandingNode] Successfully parsed analysis JSON")
+        except json.JSONDecodeError as e:
             # Fallback if JSON parsing fails
+            logger.warning(f"[QuestionUnderstandingNode] JSON parsing failed: {e}, using fallback")
+            workflow_logger.log_logic_step(flow_id, "QuestionUnderstandingNode", "parse_json_error", str(e))
             analysis = {
                 "requires_sub_agents": False,
                 "complexity": "simple",
@@ -129,6 +157,8 @@ You MUST respond with valid JSON format:
                 "reasoning": "Could not parse analysis, defaulting to coordinator"
             }
         
+        workflow_logger.log_logic_step(flow_id, "QuestionUnderstandingNode", "analysis_result", analysis)
+
         # Store analysis in context
         context["question_analysis"] = analysis
         context["original_request"] = user_message
@@ -140,6 +170,14 @@ You MUST respond with valid JSON format:
         else:
             next_action = "coordinator"
         
+        logger.info(f"[QuestionUnderstandingNode] Analysis results:")
+        logger.info(f"  - Task type: {analysis.get('task_type', 'unknown')}")
+        logger.info(f"  - Complexity: {analysis.get('complexity', 'unknown')}")
+        logger.info(f"  - Requires multi-agent: {requires_multi_agent}")
+        if requires_multi_agent:
+            logger.info(f"  - Suggested agents: {', '.join(analysis.get('suggested_agents', []))}")
+        logger.info(f"[QuestionUnderstandingNode] Routing to: {next_action}")
+        
         # Create analysis message for transparency
         analysis_msg = f"[Question Analysis] Task type: {analysis.get('task_type', 'unknown')}, " \
                        f"Complexity: {analysis.get('complexity', 'unknown')}, " \
@@ -147,7 +185,10 @@ You MUST respond with valid JSON format:
         if requires_multi_agent:
             analysis_msg += f", Suggested agents: {', '.join(analysis.get('suggested_agents', []))}"
         
-        return {
+        logger.info("[QuestionUnderstandingNode] EXIT")
+        logger.info("=" * 80)
+        
+        output_state = {
             "messages": [AIMessage(content=analysis_msg)],
             "next_action": next_action,
             "context": context,
@@ -156,5 +197,8 @@ You MUST respond with valid JSON format:
             "current_task_index": 0,
             "sub_agent_results": {},
             "requires_multi_agent": requires_multi_agent,
-            "plan_refinement_count": 0
+            "plan_refinement_count": 0,
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "QuestionUnderstandingNode", output_state, next_action=next_action)
+        return output_state

@@ -6,8 +6,12 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 import json
 import re
+import logging
 
 from agent.graph.state import AgentState
+from agent.workflow_logger import workflow_logger
+
+logger = logging.getLogger(__name__)
 
 
 class PlannerNode:
@@ -101,12 +105,21 @@ Create a detailed execution plan for the user's request, ensuring proper task se
     
     def __call__(self, state: AgentState) -> AgentState:
         """Create an execution plan for the user's request."""
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "PlannerNode", state)
+        
+        logger.info("=" * 80)
+        logger.info(f"[PlannerNode] ENTRY")
+        logger.info(f"[PlannerNode] Iteration: {state.get('iteration_count', 0)}")
+        
         messages = state["messages"]
         context = state.get("context", {})
         
         # Get question analysis if available
         analysis = context.get("question_analysis", {})
         suggested_agents = analysis.get("suggested_agents", [])
+        logger.info(f"[PlannerNode] Suggested agents: {suggested_agents}")
+        logger.info(f"[PlannerNode] Task type: {analysis.get('task_type', 'unknown')}")
         
         # Add analysis context to messages for planner
         analysis_context = f"[Context] Suggested agents: {suggested_agents}, Task type: {analysis.get('task_type', 'unknown')}"
@@ -115,8 +128,12 @@ Create a detailed execution plan for the user's request, ensuring proper task se
         # Format prompt
         formatted_prompt = self.prompt.format_messages(messages=augmented_messages)
         
+        logger.info("[PlannerNode] Invoking LLM to create execution plan...")
+        workflow_logger.log_logic_step(flow_id, "PlannerNode", "plan_generation", f"Generating plan for {analysis.get('task_type', 'unknown')}")
+        
         # Get plan from LLM
         response = self.llm.invoke(formatted_prompt)
+        logger.debug(f"[PlannerNode] LLM response received: {response.content[:200]}...")
         
         # Parse plan (try to extract JSON from response)
         plan_content = response.content
@@ -129,8 +146,11 @@ Create a detailed execution plan for the user's request, ensuring proper task se
                 execution_plan = json.loads(json_match.group())
             else:
                 execution_plan = json.loads(plan_content)
-        except (json.JSONDecodeError, AttributeError):
+            logger.info("[PlannerNode] Successfully parsed execution plan JSON")
+        except (json.JSONDecodeError, AttributeError) as e:
             # Fallback: create a simple plan structure
+            logger.warning(f"[PlannerNode] JSON parsing failed: {e}, using fallback plan structure")
+            workflow_logger.log_logic_step(flow_id, "PlannerNode", "plan_parsing_error", str(e))
             execution_plan = {
                 "tasks": [],
                 "description": plan_content,
@@ -146,12 +166,33 @@ Create a detailed execution plan for the user's request, ensuring proper task se
         context["plan_description"] = execution_plan.get("description", plan_content)
         context["plan_phase"] = execution_plan.get("phase", "unknown")
         
-        # Create plan message
         task_count = len(execution_plan.get("tasks", []))
+        logger.info(f"[PlannerNode] Execution plan created:")
+        logger.info(f"  - Phase: {execution_plan.get('phase', 'unknown')}")
+        logger.info(f"  - Task count: {task_count}")
+        logger.info(f"  - Description: {execution_plan.get('description', 'N/A')[:100]}...")
+        
+        workflow_logger.log_logic_step(flow_id, "PlannerNode", "plan_created", {
+            "phase": execution_plan.get("phase"),
+            "task_count": task_count,
+            "tasks": [f"{t.get('task_id')}: {t.get('agent_name')}/{t.get('skill_name')}" for t in execution_plan.get("tasks", [])]
+        })
+        
+        # Log task details
+        for i, task in enumerate(execution_plan.get("tasks", [])[:5]):  # Log first 5 tasks
+            logger.info(f"  Task {i+1}: {task.get('agent_name', 'unknown')}/{task.get('skill_name', 'unknown')} (deps: {task.get('dependencies', [])})")
+        if task_count > 5:
+            logger.info(f"  ... and {task_count - 5} more tasks")
+        
+        # Create plan message
         plan_msg = f"[Execution Plan] Created plan with {task_count} tasks for phase: {execution_plan.get('phase', 'unknown')}\n"
         plan_msg += f"Description: {execution_plan.get('description', 'N/A')[:200]}..."
         
-        return {
+        logger.info(f"[PlannerNode] Routing to: execute_sub_agent_plan")
+        logger.info("[PlannerNode] EXIT")
+        logger.info("=" * 80)
+        
+        output_state = {
             "messages": [AIMessage(content=plan_msg)],
             "next_action": "execute_sub_agent_plan",
             "context": context,
@@ -160,5 +201,9 @@ Create a detailed execution plan for the user's request, ensuring proper task se
             "current_task_index": 0,
             "sub_agent_results": {},
             "requires_multi_agent": True,
-            "plan_refinement_count": state.get("plan_refinement_count", 0)
+            "plan_refinement_count": state.get("plan_refinement_count", 0),
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "PlannerNode", output_state, next_action="execute_sub_agent_plan")
+        return output_state
+

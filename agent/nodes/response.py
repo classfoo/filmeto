@@ -3,8 +3,12 @@
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
+import logging
 
 from agent.graph.state import AgentState
+from agent.workflow_logger import workflow_logger
+
+logger = logging.getLogger(__name__)
 
 
 class ResponseNode:
@@ -42,6 +46,13 @@ When responding:
     
     def __call__(self, state: AgentState) -> AgentState:
         """Generate final response."""
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "ResponseNode", state)
+        
+        logger.info("=" * 80)
+        logger.info(f"[ResponseNode] ENTRY")
+        logger.info(f"[ResponseNode] Message count: {len(state.get('messages', []))}")
+        
         messages = state["messages"]
         context = state.get("context", {})
         sub_agent_results = state.get("sub_agent_results", {})
@@ -56,11 +67,18 @@ When responding:
                 message = result.get("message", "")[:100]
                 results_summary += f"- {agent}/{skill}: {status} - {message}\n"
             messages = list(messages) + [SystemMessage(content=results_summary)]
+            workflow_logger.log_logic_step(flow_id, "ResponseNode", "summarize_results", f"Summarizing {len(sub_agent_results)} sub-agent results")
         
+        logger.info("[ResponseNode] Generating final response...")
         formatted_prompt = self.prompt.format_messages(messages=messages)
         response = self.llm.invoke(formatted_prompt)
+        logger.info("[ResponseNode] Response generated")
         
-        return {
+        logger.info(f"[ResponseNode] Routing to: end")
+        logger.info("[ResponseNode] EXIT")
+        logger.info("=" * 80)
+        
+        output_state = {
             "messages": [response],
             "next_action": "end",
             "context": context,
@@ -69,5 +87,9 @@ When responding:
             "current_task_index": state.get("current_task_index", 0),
             "sub_agent_results": sub_agent_results,
             "requires_multi_agent": state.get("requires_multi_agent", False),
-            "plan_refinement_count": state.get("plan_refinement_count", 0)
+            "plan_refinement_count": state.get("plan_refinement_count", 0),
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "ResponseNode", output_state, next_action="end")
+        return output_state
+

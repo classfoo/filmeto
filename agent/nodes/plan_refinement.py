@@ -6,8 +6,11 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 import json
 import re
+import logging
 
 from agent.graph.state import AgentState
+
+logger = logging.getLogger(__name__)
 
 
 class PlanRefinementNode:

@@ -3,8 +3,12 @@
 from typing import Any, List
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
+import logging
 
 from agent.graph.state import AgentState
+from agent.workflow_logger import workflow_logger
+
+logger = logging.getLogger(__name__)
 
 
 class ExecutorNode:
@@ -24,12 +28,44 @@ class ExecutorNode:
     
     def __call__(self, state: AgentState) -> AgentState:
         """Execute tools based on the current state."""
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "ExecutorNode", state)
+        
+        logger.info("=" * 80)
+        logger.info(f"[ExecutorNode] ENTRY")
+        logger.info(f"[ExecutorNode] Message count: {len(state.get('messages', []))}")
+        
         messages = state["messages"]
         
+        # Extract tool calls from messages
+        tool_calls = []
+        for msg in messages:
+            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                tool_calls.extend(msg.tool_calls)
+        
+        logger.info(f"[ExecutorNode] Executing {len(tool_calls)} tool call(s)")
+        workflow_logger.log_logic_step(flow_id, "ExecutorNode", "executing_tools", [tc.get('name') for tc in tool_calls])
+        for i, tool_call in enumerate(tool_calls):
+            logger.info(f"  Tool call {i+1}: {tool_call.get('name', 'unknown')} with args: {str(tool_call.get('args', {}))[:100]}")
+        
         # Execute tools using LangGraph's ToolNode
+        logger.info("[ExecutorNode] Invoking ToolNode...")
         result = self.tool_node.invoke({"messages": messages})
         
-        return {
+        # Log tool results
+        tool_results = [msg for msg in result["messages"] if hasattr(msg, 'tool_call_id')]
+        logger.info(f"[ExecutorNode] Tool execution completed: {len(tool_results)} result(s)")
+        workflow_logger.log_logic_step(flow_id, "ExecutorNode", "tool_execution_completed", f"Executed {len(tool_results)} tools")
+        
+        for i, tool_result in enumerate(tool_results[:3]):  # Log first 3 results
+            result_content = str(tool_result.content)[:100] if hasattr(tool_result, 'content') else str(tool_result)[:100]
+            logger.debug(f"  Result {i+1}: {result_content}...")
+        
+        logger.info(f"[ExecutorNode] Routing to: coordinator")
+        logger.info("[ExecutorNode] EXIT")
+        logger.info("=" * 80)
+        
+        output_state = {
             "messages": result["messages"],
             "next_action": "coordinator",  # Return to coordinator after execution
             "context": state.get("context", {}),
@@ -38,5 +74,9 @@ class ExecutorNode:
             "current_task_index": state.get("current_task_index", 0),
             "sub_agent_results": state.get("sub_agent_results", {}),
             "requires_multi_agent": state.get("requires_multi_agent", False),
-            "plan_refinement_count": state.get("plan_refinement_count", 0)
+            "plan_refinement_count": state.get("plan_refinement_count", 0),
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "ExecutorNode", output_state, next_action="coordinator")
+        return output_state
+

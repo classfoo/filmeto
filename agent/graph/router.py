@@ -35,8 +35,15 @@ def route_after_tools(state: AgentState) -> Literal["coordinator", "end"]:
     messages = state["messages"]
     
     # Check if we have tool results
-    if messages and isinstance(messages[-1], ToolMessage):
-        return "coordinator"
+    if messages:
+        last_message = messages[-1]
+        # Return to coordinator if we have a ToolMessage (tool execution result)
+        if isinstance(last_message, ToolMessage):
+            return "coordinator"
+        # Also return to coordinator if we have an AI message with tool_calls (meaning tools were requested but not yet executed)
+        from langchain_core.messages import AIMessage
+        if isinstance(last_message, AIMessage) and hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            return "coordinator"
     
     return "end"
 

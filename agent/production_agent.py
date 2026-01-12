@@ -39,6 +39,7 @@ from agent.nodes.sub_agent_executor import (
 from agent.sub_agents.registry import SubAgentRegistry
 from agent.tools import ToolRegistry
 from agent.streaming import StreamEventEmitter
+from agent.workflow_logger import workflow_logger
 import logging
 
 logger = logging.getLogger(__name__)
@@ -251,7 +252,18 @@ class ProductionAgent:
         Returns:
             Final state after execution
         """
+        logger.info("=" * 80)
+        logger.info(f"[ProductionAgent] ENTRY: execute")
+        logger.info(f"[ProductionAgent] Project ID: {self.project_id}")
+        logger.info(f"[ProductionAgent] Message count: {len(messages)}")
+        if messages:
+            last_msg = str(messages[-1].content)[:100] if hasattr(messages[-1], 'content') else str(messages[-1])[:100]
+            logger.info(f"[ProductionAgent] Last message: {last_msg}...")
+        logger.info("=" * 80)
+        
         # Create initial state
+        flow_id = workflow_logger.log_flow_start(self.project_id)
+        
         initial_state: ProductionAgentState = {
             "project_id": self.project_id,
             "messages": messages,
@@ -264,8 +276,11 @@ class ProductionAgent:
             "current_task_index": 0,
             "sub_agent_results": {},
             "requires_multi_agent": False,
-            "plan_refinement_count": 0
+            "plan_refinement_count": 0,
+            "flow_id": flow_id
         }
+        
+        logger.info(f"[ProductionAgent] Initial state created: next_action={initial_state['next_action']}")
         
         # Prepare config with additional context
         if config is None:
@@ -277,8 +292,19 @@ class ProductionAgent:
         
         config["configurable"]["project_id"] = self.project_id
         
+        logger.info(f"[ProductionAgent] Starting graph execution...")
         # Execute graph
         final_state = await self.graph.ainvoke(initial_state, config=config)
+        
+        workflow_logger.log_flow_end(flow_id)
+        
+        logger.info("=" * 80)
+        logger.info(f"[ProductionAgent] EXIT: execute")
+        logger.info(f"[ProductionAgent] Final iteration_count: {final_state.get('iteration_count', 0)}")
+        logger.info(f"[ProductionAgent] Final next_action: {final_state.get('next_action', 'unknown')}")
+        logger.info(f"[ProductionAgent] Sub-agent results count: {len(final_state.get('sub_agent_results', {}))}")
+        logger.info("=" * 80)
+        
         return final_state
     
     async def stream(
@@ -296,7 +322,18 @@ class ProductionAgent:
         Yields:
             State updates as the workflow progresses
         """
+        logger.info("=" * 80)
+        logger.info(f"[ProductionAgent] ENTRY: stream")
+        logger.info(f"[ProductionAgent] Project ID: {self.project_id}")
+        logger.info(f"[ProductionAgent] Message count: {len(messages)}")
+        if messages:
+            last_msg = str(messages[-1].content)[:100] if hasattr(messages[-1], 'content') else str(messages[-1])[:100]
+            logger.info(f"[ProductionAgent] Last message: {last_msg}...")
+        logger.info("=" * 80)
+        
         # Create initial state
+        flow_id = workflow_logger.log_flow_start(self.project_id)
+        
         initial_state: ProductionAgentState = {
             "project_id": self.project_id,
             "messages": messages,
@@ -309,8 +346,11 @@ class ProductionAgent:
             "current_task_index": 0,
             "sub_agent_results": {},
             "requires_multi_agent": False,
-            "plan_refinement_count": 0
+            "plan_refinement_count": 0,
+            "flow_id": flow_id
         }
+        
+        logger.info(f"[ProductionAgent] Initial state created: next_action={initial_state['next_action']}")
         
         # Prepare config with additional context
         if config is None:
@@ -322,9 +362,21 @@ class ProductionAgent:
         
         config["configurable"]["project_id"] = self.project_id
         
+        logger.info(f"[ProductionAgent] Starting graph streaming...")
+        event_count = 0
         # Stream graph execution
         async for event in self.graph.astream(initial_state, config=config):
+            event_count += 1
+            node_names = list(event.keys())
+            logger.debug(f"[ProductionAgent] Stream event #{event_count}: nodes={node_names}")
             yield event
+            
+        workflow_logger.log_flow_end(flow_id)
+        
+        logger.info("=" * 80)
+        logger.info(f"[ProductionAgent] EXIT: stream")
+        logger.info(f"[ProductionAgent] Total events streamed: {event_count}")
+        logger.info("=" * 80)
     
     def update_context(self, workspace: Any = None, project: Any = None):
         """

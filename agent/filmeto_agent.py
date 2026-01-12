@@ -233,22 +233,34 @@ class FilmetoAgent:
         Yields:
             Response tokens as they are generated
         """
+        logger.info("=" * 80)
+        logger.info(f"[FilmetoAgent] ENTRY: chat_stream")
+        logger.info(f"[FilmetoAgent] Message: {message[:100]}...")
+        logger.info(f"[FilmetoAgent] Conversation ID: {conversation_id}")
+        logger.info(f"[FilmetoAgent] Project ID: {self.project_id}")
+        logger.info("=" * 80)
+        
         # Check if agent is initialized
         if not self.production_agent:
             error_msg = "Error: OpenAI API key not configured. Please set your API key in settings."
+            logger.error(f"[FilmetoAgent] ERROR: Production agent not initialized")
             if on_token:
                 on_token(error_msg)
             yield error_msg
+            logger.info("[FilmetoAgent] EXIT: chat_stream (early exit - no production agent)")
             return
         
         # Get or create conversation
         if conversation_id:
+            logger.info(f"[FilmetoAgent] Setting conversation: {conversation_id}")
             self.set_conversation(conversation_id)
         
         conversation = self.get_or_create_conversation()
+        logger.info(f"[FilmetoAgent] Using conversation: {conversation.conversation_id}")
         
         # Create streaming session
         session, emitter = self.create_stream_session()
+        logger.info(f"[FilmetoAgent] Created stream session: {session.session_id}")
         
         # Set emitter on production agent
         self.production_agent.stream_emitter = emitter
@@ -291,6 +303,8 @@ class FilmetoAgent:
             elif msg.role == MessageRole.SYSTEM:
                 messages.append(SystemMessage(content=msg.content))
         
+        logger.info(f"[FilmetoAgent] Prepared {len(messages)} messages for LLM")
+        
         # Create config with thread_id for memory checkpointer
         config = {"configurable": {"thread_id": conversation.conversation_id}}
         
@@ -300,9 +314,11 @@ class FilmetoAgent:
         plan_id = None
 
         if self.streaming:
+            logger.info("[FilmetoAgent] Starting streaming mode")
             # Use production agent stream
             async for event in self.production_agent.stream(messages, config=config):
                 for node_name, node_output in event.items():
+                    logger.debug(f"[FilmetoAgent] Received event from node: {node_name}")
                     # Emit node-specific events
                     if node_name == "question_understanding":
                         emitter.emit_agent_start("QuestionUnderstanding", AgentRole.QUESTION_UNDERSTANDING)
@@ -348,6 +364,7 @@ class FilmetoAgent:
                                         yield char
                                         await asyncio.sleep(0.01)
         else:
+            logger.info("[FilmetoAgent] Starting non-streaming mode")
             # Non-streaming mode
             result = await self.production_agent.execute(messages, config=config)
             if "messages" in result:
@@ -359,9 +376,12 @@ class FilmetoAgent:
                         on_token(full_response)
                     yield full_response
         
+        logger.info(f"[FilmetoAgent] Received {len(final_messages)} final messages")
+        
         # Save all new messages to conversation
         num_existing_messages = len(messages)
         new_messages = final_messages[num_existing_messages:]
+        logger.info(f"[FilmetoAgent] Saving {len(new_messages)} new messages to conversation")
         
         for msg in new_messages:
             if isinstance(msg, AIMessage):
@@ -391,6 +411,11 @@ class FilmetoAgent:
         # Call completion callback
         if on_complete:
             on_complete(full_response)
+        
+        logger.info("=" * 80)
+        logger.info(f"[FilmetoAgent] EXIT: chat_stream")
+        logger.info(f"[FilmetoAgent] Total response length: {len(full_response)}")
+        logger.info("=" * 80)
     
     def _get_agent_name_from_node(self, node_name: str, node_output: Dict[str, Any]) -> str:
         """Get agent name from node name and output."""

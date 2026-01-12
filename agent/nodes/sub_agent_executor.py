@@ -7,6 +7,9 @@ import json
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from agent.graph.state import AgentState, SubAgentState
+from agent.streaming import StreamEventEmitter, AgentStreamSession, StreamEventType, AgentRole
+from agent.workflow_logger import workflow_logger
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +175,8 @@ class SubAgentExecutorNode:
         self,
         task: Dict[str, Any],
         context: Dict[str, Any],
-        sub_agent_results: Dict[str, Any]
+        sub_agent_results: Dict[str, Any],
+        flow_id: str = "unknown"
     ) -> Dict[str, Any]:
         """Execute a single task and return the result."""
         task_id = str(task.get("task_id", 0))
@@ -180,6 +184,8 @@ class SubAgentExecutorNode:
         skill_name = task.get("skill_name")
         parameters = dict(task.get("parameters", {}))
         dependencies = task.get("dependencies", [])
+        
+        workflow_logger.log_sub_agent_start(flow_id, f"{agent_name}/{skill_name}", f"Task {task_id} executing with params: {str(parameters)[:100]}...")
         
         # Emit task start event
         if self._stream_emitter:
@@ -201,6 +207,7 @@ class SubAgentExecutorNode:
         agent = self.sub_agent_registry.get_agent(agent_name)
         if not agent:
             error_msg = f"Agent '{agent_name}' not found"
+            workflow_logger.log_logic_step(flow_id, "SubAgentExecutor", "agent_not_found", error_msg)
             result = {
                 "status": "failed",
                 "error": error_msg,
@@ -275,6 +282,8 @@ class SubAgentExecutorNode:
                 "task_id": task_id
             }
             
+            workflow_logger.log_sub_agent_end(flow_id, f"{agent_name}/{skill_name}", result)
+            
             # Update shared state
             if evaluated_result.output:
                 shared_state[f"{agent_name}_{skill_name}"] = evaluated_result.output
@@ -298,6 +307,7 @@ class SubAgentExecutorNode:
         except Exception as e:
             error_msg = f"Error in task {task_id}: {str(e)}"
             logger.error(f"[Executor] {error_msg}")
+            workflow_logger.log_logic_step(flow_id, "SubAgentExecutor", "task_execution_error", error_msg)
             
             result = {
                 "status": "failed",
@@ -317,7 +327,8 @@ class SubAgentExecutorNode:
         self,
         tasks: List[Dict[str, Any]],
         context: Dict[str, Any],
-        sub_agent_results: Dict[str, Any]
+        sub_agent_results: Dict[str, Any],
+        flow_id: str = "unknown"
     ) -> Dict[str, Dict[str, Any]]:
         """Execute a batch of tasks in parallel."""
         results = {}
@@ -326,8 +337,7 @@ class SubAgentExecutorNode:
             # Single task, execute directly
             task = tasks[0]
             task_id = str(task.get("task_id", 0))
-            result = self._execute_single_task(task, context, sub_agent_results)
-            results[task_id] = result
+            results[task_id] = self._execute_single_task(task, context, sub_agent_results, flow_id)
         else:
             # Multiple tasks, execute in parallel
             with ThreadPoolExecutor(max_workers=min(len(tasks), self.max_parallel_tasks)) as executor:
@@ -336,7 +346,8 @@ class SubAgentExecutorNode:
                         self._execute_single_task,
                         task,
                         context.copy(),
-                        sub_agent_results.copy()
+                        sub_agent_results.copy(),
+                        flow_id
                     ): task
                     for task in tasks
                 }
@@ -363,6 +374,9 @@ class SubAgentExecutorNode:
         """Execute sub-agent tasks with parallel execution support."""
         from agent.nodes import AgentState
         
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "SubAgentExecutor", state)
+        
         # Store configurable parameters for later use
         self.configurable_params = config.get("configurable", {}) if config else {}
         
@@ -377,13 +391,16 @@ class SubAgentExecutorNode:
         dep_graph = DependencyGraph()
         
         if not execution_plan or "tasks" not in execution_plan:
-            return {
+            output_state = {
                 **state,
                 "next_action": "respond",
                 "messages": state["messages"] + [
                     AIMessage(content="[Executor] No execution plan available, proceeding to response")
-                ]
+                ],
+                "flow_id": flow_id
             }
+            workflow_logger.log_node_exit(flow_id, "SubAgentExecutor", output_state, next_action="respond")
+            return output_state
         
         # Create dependency graph from plan
         dep_graph.add_tasks_from_plan(execution_plan)
@@ -412,15 +429,19 @@ class SubAgentExecutorNode:
         if dep_graph.is_complete():
             status = dep_graph.get_completion_status()
             logger.info(f"All {status['total']} tasks completed, proceeding to review")
-            return {
+            workflow_logger.log_logic_step(flow_id, "SubAgentExecutor", "tasks_completed", f"All {status['total']} tasks completed")
+            output_state = {
                 **state,
                 "next_action": "review_plan",
                 "sub_agent_results": sub_agent_results,
                 "context": context,
                 "messages": state["messages"] + [
                     AIMessage(content=f"[Executor] All {status['total']} tasks completed ({status['completed']} success, {status['failed']} failed), reviewing results")
-                ]
+                ],
+                "flow_id": flow_id
             }
+            workflow_logger.log_node_exit(flow_id, "SubAgentExecutor", output_state, next_action="review_plan")
+            return output_state
         
         # Get ready tasks
         ready_task_ids = dep_graph.get_ready_tasks()
@@ -467,9 +488,10 @@ class SubAgentExecutorNode:
             }
         
         logger.info(f"Executing {len(tasks_to_execute)} tasks in parallel: {[t.get('task_id') for t in tasks_to_execute]}")
+        workflow_logger.log_logic_step(flow_id, "SubAgentExecutor", "executing_tasks", [f"{t.get('task_id')}: {t.get('agent_name')}/{t.get('skill_name')}" for t in tasks_to_execute])
         
         # Execute tasks (possibly in parallel)
-        batch_results = self._execute_parallel_batch(tasks_to_execute, context, sub_agent_results)
+        batch_results = self._execute_parallel_batch(tasks_to_execute, context, sub_agent_results, flow_id)
         
         # Update results and dependency graph
         messages = []
@@ -507,17 +529,22 @@ class SubAgentExecutorNode:
             status = dep_graph.get_completion_status()
             messages.append(AIMessage(content=f"[Executor] All {status['total']} tasks completed, reviewing results"))
             next_action = "review_plan"
+            workflow_logger.log_logic_step(flow_id, "SubAgentExecutor", "all_tasks_completed", f"All {status['total']} tasks completed")
         else:
             next_action = "execute_sub_agent_plan"
+            workflow_logger.log_logic_step(flow_id, "SubAgentExecutor", "batch_completed", "Batch completed, more tasks pending")
         
-        return {
+        output_state = {
             **state,
             "next_action": next_action,
             "current_task_index": current_task_index + len(tasks_to_execute),
             "sub_agent_results": sub_agent_results,
             "context": context,
-            "messages": state["messages"] + messages
+            "messages": state["messages"] + messages,
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "SubAgentExecutor", output_state, next_action=next_action)
+        return output_state
 
 
 class PlanReviewNode:
@@ -542,6 +569,9 @@ class PlanReviewNode:
     
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Review execution plan results."""
+        flow_id = state.get("flow_id", "unknown")
+        workflow_logger.log_node_entry(flow_id, "PlanReviewNode", state)
+        
         execution_plan = state.get("execution_plan")
         sub_agent_results = state.get("sub_agent_results", {})
         context = state.get("context", {})
@@ -564,6 +594,13 @@ class PlanReviewNode:
         ]
         avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
         
+        workflow_logger.log_logic_step(flow_id, "PlanReviewNode", "analyzed_results", {
+            "total": total_count,
+            "success": successful_count,
+            "failed": failed_count,
+            "avg_quality": avg_quality
+        })
+        
         # Determine next action
         all_successful = failed_count == 0 and total_count > 0
         
@@ -579,6 +616,8 @@ class PlanReviewNode:
         else:
             next_action = "synthesize_results"
             status = "unknown"
+        
+        workflow_logger.log_logic_step(flow_id, "PlanReviewNode", "decision_made", f"Status: {status}, Next action: {next_action}")
         
         # Create summary message
         summary = f"[Plan Review] Status: {status}\n"
@@ -607,12 +646,16 @@ class PlanReviewNode:
         
         logger.info(f"Plan review: {status}, next action: {next_action}")
         
-        return {
+        output_state = {
             **state,
             "next_action": next_action,
             "context": context,
-            "messages": state["messages"] + [AIMessage(content=summary)]
+            "messages": state["messages"] + [AIMessage(content=summary)],
+            "flow_id": flow_id
         }
+        workflow_logger.log_node_exit(flow_id, "PlanReviewNode", output_state, next_action=next_action)
+        return output_state
+
 
 
 class ResultSynthesisNode:
