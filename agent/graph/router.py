@@ -66,10 +66,29 @@ def route_from_planner(state: AgentState) -> Literal["execute_sub_agent_plan", "
     execution_plan = state.get("execution_plan")
     
     route = "coordinator"
-    if execution_plan and execution_plan.get("tasks"):
-        route = "execute_sub_agent_plan"
+    # Check if execution_plan exists and has non-empty tasks list
+    if execution_plan:
+        tasks = execution_plan.get("tasks", [])
+        if tasks and len(tasks) > 0:
+            route = "execute_sub_agent_plan"
+            workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
+                "has_plan": True,
+                "task_count": len(tasks),
+                "route": route
+            })
+        else:
+            workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
+                "has_plan": True,
+                "task_count": 0,
+                "reason": "no_tasks",
+                "route": route
+            })
+    else:
+        workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
+            "has_plan": False,
+            "route": route
+        })
     
-    workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {"has_plan": bool(execution_plan), "route": route})
     return route
 
 

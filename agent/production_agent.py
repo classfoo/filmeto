@@ -135,6 +135,8 @@ class ProductionAgent:
         
         # Set stream emitter if available
         if self.stream_emitter:
+            coordinator.set_stream_emitter(self.stream_emitter)
+            executor.set_stream_emitter(self.stream_emitter)
             sub_agent_executor.set_stream_emitter(self.stream_emitter)
             plan_review.set_stream_emitter(self.stream_emitter)
             result_synthesis.set_stream_emitter(self.stream_emitter)

@@ -1,12 +1,13 @@
 """Coordinator Node for simple tasks."""
 
-from typing import Any, List
+from typing import Any, List, Optional
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 import logging
 
 from agent.graph.state import AgentState
 from agent.workflow_logger import workflow_logger
+from agent.streaming import StreamEventEmitter, AgentRole
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class CoordinatorNode:
         """Initialize coordinator node."""
         self.llm = llm
         self.tools = tools
+        self._stream_emitter: Optional[StreamEventEmitter] = None
         
         # Create coordinator prompt
         self.prompt = ChatPromptTemplate.from_messages([
@@ -54,6 +56,10 @@ When responding:
         # Bind tools to LLM
         self.llm_with_tools = self.llm.bind_tools(self.tools)
     
+    def set_stream_emitter(self, emitter: Optional[StreamEventEmitter]):
+        """Set the stream event emitter."""
+        self._stream_emitter = emitter
+    
     def __call__(self, state: AgentState) -> AgentState:
         """Process coordinator logic."""
         flow_id = state.get("flow_id", "unknown")
@@ -64,6 +70,11 @@ When responding:
         logger.info(f"[CoordinatorNode] Iteration: {state.get('iteration_count', 0)}")
         logger.info(f"[CoordinatorNode] Message count: {len(state.get('messages', []))}")
         logger.info(f"[CoordinatorNode] Available tools: {len(self.tools)}")
+        
+        # Emit coordinator start event
+        if self._stream_emitter:
+            self._stream_emitter.emit_agent_start("Coordinator", AgentRole.COORDINATOR)
+            self._stream_emitter.emit_agent_content("Coordinator", "正在分析任务并选择合适的工具...")
         
         messages = state["messages"]
         context = state.get("context", {})
@@ -85,16 +96,32 @@ When responding:
             next_action = "use_tools"
             logger.info(f"[CoordinatorNode] LLM requested {len(response.tool_calls)} tool call(s)")
             workflow_logger.log_logic_step(flow_id, "CoordinatorNode", "tool_selection", [tc.get('name') for tc in response.tool_calls])
+            
+            # Emit tool selection event
+            if self._stream_emitter:
+                tool_names = [tc.get('name', 'unknown') for tc in response.tool_calls]
+                tool_info = f"选择了 {len(tool_names)} 个工具: {', '.join(tool_names)}"
+                self._stream_emitter.emit_agent_content("Coordinator", tool_info, append=True)
+            
             for i, tool_call in enumerate(response.tool_calls):
                 logger.info(f"  Tool call {i+1}: {tool_call.get('name', 'unknown')}")
         else:
             next_action = "respond"
             logger.info("[CoordinatorNode] LLM response does not require tools")
             workflow_logger.log_logic_step(flow_id, "CoordinatorNode", "response_generation", "No tools needed")
+            
+            # Emit response generation event
+            if self._stream_emitter:
+                response_content = response.content[:200] if response.content else "生成回复中..."
+                self._stream_emitter.emit_agent_content("Coordinator", response_content, append=True)
         
         logger.info(f"[CoordinatorNode] Routing to: {next_action}")
         logger.info("[CoordinatorNode] EXIT")
         logger.info("=" * 80)
+        
+        # Emit coordinator complete event
+        if self._stream_emitter:
+            self._stream_emitter.emit_agent_complete("Coordinator", "")
         
         output_state = {
             "messages": [response],
