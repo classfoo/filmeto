@@ -161,37 +161,46 @@ Create a detailed execution plan for the user's request, ensuring proper task se
         # Validate and structure the plan
         if "tasks" not in execution_plan:
             execution_plan["tasks"] = []
-        
+
+        # Ensure execution_plan is never None/Falsy
+        if not execution_plan:
+            execution_plan = {
+                "tasks": [],
+                "description": "Fallback plan due to parsing error",
+                "phase": "unknown",
+                "success_criteria": "Complete all tasks"
+            }
+
         # Store plan in context
         context["plan_description"] = execution_plan.get("description", plan_content)
         context["plan_phase"] = execution_plan.get("phase", "unknown")
-        
+
         task_count = len(execution_plan.get("tasks", []))
         logger.info(f"[PlannerNode] Execution plan created:")
         logger.info(f"  - Phase: {execution_plan.get('phase', 'unknown')}")
         logger.info(f"  - Task count: {task_count}")
         logger.info(f"  - Description: {execution_plan.get('description', 'N/A')[:100]}...")
-        
+
         workflow_logger.log_logic_step(flow_id, "PlannerNode", "plan_created", {
             "phase": execution_plan.get("phase"),
             "task_count": task_count,
             "tasks": [f"{t.get('task_id')}: {t.get('agent_name')}/{t.get('skill_name')}" for t in execution_plan.get("tasks", [])]
         })
-        
+
         # Log task details
         for i, task in enumerate(execution_plan.get("tasks", [])[:5]):  # Log first 5 tasks
             logger.info(f"  Task {i+1}: {task.get('agent_name', 'unknown')}/{task.get('skill_name', 'unknown')} (deps: {task.get('dependencies', [])})")
         if task_count > 5:
             logger.info(f"  ... and {task_count - 5} more tasks")
-        
+
         # Create plan message
         plan_msg = f"[Execution Plan] Created plan with {task_count} tasks for phase: {execution_plan.get('phase', 'unknown')}\n"
         plan_msg += f"Description: {execution_plan.get('description', 'N/A')[:200]}..."
-        
+
         logger.info(f"[PlannerNode] Routing to: execute_sub_agent_plan")
         logger.info("[PlannerNode] EXIT")
         logger.info("=" * 80)
-        
+
         output_state = {
             "messages": [AIMessage(content=plan_msg)],
             "next_action": "execute_sub_agent_plan",

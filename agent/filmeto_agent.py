@@ -285,23 +285,8 @@ class FilmetoAgent:
         if self.conversation_manager:
             self.conversation_manager.save_conversation(conversation)
         
-        # Prepare messages for LLM
-        messages = []
-        for msg in conversation.messages:
-            if msg.role == MessageRole.USER:
-                messages.append(HumanMessage(content=msg.content))
-            elif msg.role == MessageRole.ASSISTANT:
-                if msg.tool_calls:
-                    messages.append(AIMessage(content=msg.content, tool_calls=msg.tool_calls))
-                else:
-                    messages.append(AIMessage(content=msg.content))
-            elif msg.role == MessageRole.TOOL:
-                messages.append(ToolMessage(
-                    content=msg.content,
-                    tool_call_id=msg.tool_call_id
-                ))
-            elif msg.role == MessageRole.SYSTEM:
-                messages.append(SystemMessage(content=msg.content))
+        # Prepare messages for LLM using the safe conversion method
+        messages = conversation.get_langchain_messages()
         
         logger.info(f"[FilmetoAgent] Prepared {len(messages)} messages for LLM")
         

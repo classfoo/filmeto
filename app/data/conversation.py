@@ -6,8 +6,19 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from dataclasses import dataclass, asdict
 from enum import Enum
+import logging
 
 from utils.yaml_utils import load_yaml, save_yaml
+
+# Import LangChain message types only when needed to avoid circular dependencies
+def _get_langchain_types():
+    try:
+        from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
+        return HumanMessage, AIMessage, SystemMessage, ToolMessage
+    except ImportError:
+        raise ImportError("langchain-core is required for LangChain message conversion. Please install it.")
+
+logger = logging.getLogger(__name__)
 
 
 class MessageRole(str, Enum):
@@ -107,6 +118,57 @@ class Conversation:
             }
             for msg in self.messages
         ]
+
+    def get_langchain_messages(self) -> List[Any]:
+        """Convert messages to LangChain format, handling tool call/response mismatches.
+
+        This method ensures that assistant messages with tool_calls are properly paired
+        with corresponding tool messages, avoiding the LangChain error:
+        'An assistant message with "tool_calls" must be followed by tool messages...'
+        """
+        HumanMessage, AIMessage, SystemMessage, ToolMessage = _get_langchain_types()
+
+        langchain_messages = []
+        i = 0
+
+        while i < len(self.messages):
+            msg = self.messages[i]
+
+            if msg.role == MessageRole.USER:
+                langchain_messages.append(HumanMessage(content=msg.content))
+            elif msg.role == MessageRole.ASSISTANT:
+                if msg.tool_calls:
+                    # Check if the next message is a corresponding tool message
+                    has_corresponding_tool_msg = (
+                        i + 1 < len(self.messages) and
+                        self.messages[i + 1].role == MessageRole.TOOL and
+                        self.messages[i + 1].tool_call_id in [tc.get('id') for tc in msg.tool_calls]
+                    )
+
+                    if has_corresponding_tool_msg:
+                        # Add the assistant message with tool calls
+                        langchain_messages.append(AIMessage(content=msg.content, tool_calls=msg.tool_calls))
+                    else:
+                        # Skip this assistant message with unpaired tool calls to prevent LangChain error
+                        logger.warning(
+                            f"Skipping assistant message with tool_calls that has no corresponding tool response. "
+                            f"Message content: {msg.content[:50]}..."
+                        )
+                else:
+                    # Regular assistant message without tool calls
+                    langchain_messages.append(AIMessage(content=msg.content))
+            elif msg.role == MessageRole.SYSTEM:
+                langchain_messages.append(SystemMessage(content=msg.content))
+            elif msg.role == MessageRole.TOOL:
+                # Only add tool message if it has a corresponding tool_call_id
+                if msg.tool_call_id:
+                    langchain_messages.append(ToolMessage(content=msg.content, tool_call_id=msg.tool_call_id))
+                else:
+                    logger.warning(f"Skipping tool message without tool_call_id: {msg.content[:50]}...")
+
+            i += 1
+
+        return langchain_messages
 
 
 class ConversationManager:

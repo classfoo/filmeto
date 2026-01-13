@@ -1,11 +1,12 @@
 """Router functions for agent graph navigation."""
-
+import logging
 from typing import Literal
 from langchain_core.messages import ToolMessage
 
 from agent.graph.state import AgentState
 from agent.workflow_logger import workflow_logger
 
+logger = logging.getLogger(__name__)
 
 def route_from_understanding(state: AgentState) -> Literal["planner", "coordinator"]:
     """Route from question understanding to next node."""
@@ -63,33 +64,68 @@ def route_after_tools(state: AgentState) -> Literal["coordinator", "end"]:
 def route_from_planner(state: AgentState) -> Literal["execute_sub_agent_plan", "coordinator"]:
     """Route from planner to execution."""
     flow_id = state.get("flow_id", "unknown")
-    execution_plan = state.get("execution_plan")
-    
-    route = "coordinator"
-    # Check if execution_plan exists and has non-empty tasks list
-    if execution_plan:
-        tasks = execution_plan.get("tasks", [])
-        if tasks and len(tasks) > 0:
-            route = "execute_sub_agent_plan"
-            workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
-                "has_plan": True,
-                "task_count": len(tasks),
-                "route": route
-            })
+
+    # Check if execution_plan key exists in state
+    if "execution_plan" not in state:
+        # Check if execution plan information exists in context
+        context = state.get("context", {})
+        plan_description = context.get("plan_description")
+        plan_phase = context.get("plan_phase")
+
+        if plan_description or plan_phase:
+            # Execution plan information exists in context, construct a minimal plan
+            execution_plan = {
+                "description": plan_description or "Plan from context",
+                "phase": plan_phase or "unknown",
+                "tasks": [],  # May not have tasks in this representation
+                "success_criteria": "Based on context information"
+            }
+            logger.info(f"[Router] Found execution plan in context, constructing plan object (flow_id: {flow_id})")
         else:
+            # No execution plan anywhere
             workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
-                "has_plan": True,
-                "task_count": 0,
-                "reason": "no_tasks",
-                "route": route
+                "error": "execution_plan missing from state and context",
+                "route": "coordinator"
             })
+            logger.warning(f"[Router] No execution plan found in state or context (flow_id: {flow_id})")
+            return "coordinator"
     else:
+        execution_plan = state.get("execution_plan")
+
+    # Check if execution_plan is falsy (None, empty dict, etc.)
+    if not execution_plan:
         workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
             "has_plan": False,
+            "reason": "execution_plan is falsy",
+            "route": "coordinator"
+        })
+        logger.warning(f"[Router] execution_plan is falsy in route_from_planner: {execution_plan} (flow_id: {flow_id})")
+        return "coordinator"
+
+    # At this point, execution_plan exists and is truthy
+    tasks = execution_plan.get("tasks", [])
+
+    # If there are tasks, proceed to execute them
+    if tasks and len(tasks) > 0:
+        route = "execute_sub_agent_plan"
+        workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
+            "has_plan": True,
+            "task_count": len(tasks),
             "route": route
         })
-    
-    return route
+        return route
+    else:
+        # The execution plan exists but has no tasks
+        # Instead of routing back to coordinator, continue to execute_sub_agent_plan
+        # This allows the execution system to handle empty plans appropriately
+        workflow_logger.log_logic_step(flow_id, "Router", "route_from_planner", {
+            "has_plan": True,
+            "task_count": 0,
+            "reason": "no_tasks_in_plan",
+            "route": "execute_sub_agent_plan"  # Changed to continue execution flow
+        })
+        logger.info(f"[Router] Execution plan exists but has no tasks, routing to execute_sub_agent_plan (flow_id: {flow_id})")
+        return "execute_sub_agent_plan"
 
 
 def route_from_sub_agent_executor(state: AgentState) -> Literal["execute_sub_agent_plan", "review_plan", "end"]:
