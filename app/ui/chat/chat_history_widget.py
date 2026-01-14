@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QIcon, QFont, QPen
 
+from agent.filmeto_agent import AgentRole
 from app.ui.base_widget import BaseWidget
 from utils.i18n_utils import tr
 
@@ -18,12 +19,6 @@ from utils.i18n_utils import tr
 if TYPE_CHECKING:
     from app.data.workspace import Workspace
     from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
-    from agent.streaming.protocol import (
-        StreamEvent, StreamEventType, AgentRole, StructuredContent,
-        PlanContent, TaskContent, MediaContent, ReferenceContent, ThinkingContent
-    )
-    from agent.streaming.manager import AgentStreamSession, AgentMessage
-
 
 class ChatHistoryWidget(BaseWidget):
     """Chat history component for displaying multi-agent conversation messages.
@@ -178,7 +173,6 @@ class ChatHistoryWidget(BaseWidget):
 
         # Lazy import when first needed
         from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
-        from agent.streaming.protocol import AgentRole
 
         is_user, icon_char, bg_color, alignment, use_iconfont = self._get_sender_info(sender)
 
