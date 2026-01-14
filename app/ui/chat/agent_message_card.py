@@ -444,7 +444,19 @@ class AgentMessageCard(QFrame):
         super().__init__(parent)
         self.agent_message = agent_message
 
+        # For backward compatibility
+        self._is_thinking = False
+        self._is_complete = False
+
         self._setup_ui()
+
+    @property
+    def is_thinking(self):
+        return self._is_thinking
+
+    @property
+    def is_complete(self):
+        return self._is_complete
 
     def _setup_ui(self):
         """Set up UI."""
@@ -563,6 +575,57 @@ class AgentMessageCard(QFrame):
 
         if widget:
             self.structured_layout.addWidget(widget)
+
+    def set_content(self, content: str):
+        """Set the content (replace)."""
+        self.agent_message.content = content
+        self.content_label.setText(content)
+
+    def append_content(self, content: str):
+        """Append content."""
+        self.agent_message.content += content
+        self.content_label.setText(self.agent_message.content)
+
+    def get_content(self) -> str:
+        """Get current content."""
+        return self.agent_message.content
+
+    def set_thinking(self, is_thinking: bool, thinking_text: str = ""):
+        """Set thinking state (placeholder for backward compatibility)."""
+        self._is_thinking = is_thinking
+        # The new structure doesn't have a thinking indicator, so we'll just ignore this for now
+        pass
+
+    def set_complete(self, is_complete: bool):
+        """Set completion state (placeholder for backward compatibility)."""
+        self._is_complete = is_complete
+        # The new structure doesn't have a completion state, so we'll just ignore this for now
+        pass
+
+    def set_error(self, error_message: str):
+        """Set error state."""
+        # Show error in content
+        error_content = f"❌ Error: {error_message}"
+        self.set_content(error_content)
+        self.content_label.setStyleSheet("""
+            QLabel#message_content {
+                color: #e74c3c;
+                font-size: 13px;
+                padding: 4px 0px;
+            }
+        """)
+
+    def add_structured_content(self, structured: StructureContent):
+        """Add structured content widget (alias for backward compatibility)."""
+        self.add_structure_content_widget(structured)
+
+    def clear_structured_content(self):
+        """Clear all structured content."""
+        for i in reversed(range(self.structured_layout.count())):
+            widget = self.structured_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
 
     def update_from_agent_message(self, agent_message: AgentMessage):
         """Update the card from a new agent message."""

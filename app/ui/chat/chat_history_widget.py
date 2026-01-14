@@ -214,20 +214,22 @@ class ChatHistoryWidget(BaseWidget):
         """Update the content of the last message (legacy API)."""
         if not self.messages:
             return
-        
+
         # Lazy import when first needed
         from app.ui.chat.agent_message_card import AgentMessageCard
-        
+
         last_widget = self.messages[-1]
         if isinstance(last_widget, AgentMessageCard):
-            last_widget.set_content(message)
+            # Update the content in the agent_message and refresh the display
+            last_widget.agent_message.content = message
+            last_widget.content_label.setText(message)
         else:
             # Old style widget
             for child in last_widget.findChildren(QLabel):
                 if child.objectName() == "chat_content_label":
                     child.setText(message)
                     break
-        
+
         self._schedule_scroll()
     
     def start_streaming_message(self, sender: str) -> str:
@@ -241,7 +243,9 @@ class ChatHistoryWidget(BaseWidget):
         """Update a streaming message by ID (legacy API)."""
         card = self._message_cards.get(message_id)
         if card:
-            card.set_content(content)
+            # Update the content in the agent_message and refresh the display
+            card.agent_message.content = content
+            card.content_label.setText(content)
         else:
             # Fallback to old method
             for widget in self.messages:
@@ -251,7 +255,7 @@ class ChatHistoryWidget(BaseWidget):
                             child.setText(content)
                             break
                     break
-        
+
         self._schedule_scroll()
     
     # ========================================================================
