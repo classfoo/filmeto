@@ -119,6 +119,10 @@ class Conversation:
             for msg in self.messages
         ]
 
+    def get_messages_as_dicts(self) -> List[Dict[str, Any]]:
+        """Get messages as dictionaries with all properties."""
+        return [msg.to_dict() for msg in self.messages]
+
     def get_langchain_messages(self) -> List[Any]:
         """Convert messages to LangChain format, handling tool call/response mismatches.
 
