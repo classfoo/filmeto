@@ -2,10 +2,9 @@
 Main agent module for Filmeto application.
 Implements the FilmetoAgent class with streaming capabilities.
 """
-import asyncio
 import uuid
 from typing import AsyncIterator, Dict, List, Optional, Callable, Any
-from .message import AgentMessage, MessageType
+from agent.chat.agent_chat_message import AgentMessage, MessageType
 
 
 class AgentRole:

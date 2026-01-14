@@ -2,7 +2,7 @@
 Utility functions for the Filmeto agent system.
 """
 from typing import Dict, Any
-from .message import AgentMessage
+from agent.chat.agent_chat_message import AgentMessage
 
 
 def create_text_message(content: str, sender_id: str, sender_name: str = "") -> AgentMessage:
@@ -17,7 +17,7 @@ def create_text_message(content: str, sender_id: str, sender_name: str = "") -> 
     Returns:
         AgentMessage: A properly formatted text message
     """
-    from .message import MessageType
+    from agent.chat.agent_chat_message import MessageType
     return AgentMessage(
         content=content,
         message_type=MessageType.TEXT,
@@ -38,7 +38,7 @@ def create_error_message(content: str, sender_id: str = "system", sender_name: s
     Returns:
         AgentMessage: A properly formatted error message
     """
-    from .message import MessageType
+    from agent.chat.agent_chat_message import MessageType
     return AgentMessage(
         content=content,
         message_type=MessageType.ERROR,
@@ -57,7 +57,7 @@ def create_system_message(content: str) -> AgentMessage:
     Returns:
         AgentMessage: A properly formatted system message
     """
-    from .message import MessageType
+    from agent.chat.agent_chat_message import MessageType
     return AgentMessage(
         content=content,
         message_type=MessageType.SYSTEM,
@@ -69,10 +69,10 @@ def create_system_message(content: str) -> AgentMessage:
 def format_card_data(message: AgentMessage) -> Dict[str, Any]:
     """
     Format message data for UI card display.
-    
+
     Args:
         message: The AgentMessage to format
-        
+
     Returns:
         Dictionary containing formatted data for UI rendering
     """
@@ -85,5 +85,6 @@ def format_card_data(message: AgentMessage) -> Dict[str, Any]:
             "name": message.sender_name
         },
         "timestamp": message.timestamp.isoformat(),
-        "metadata": message.metadata
+        "metadata": message.metadata,
+        "structured_content": [item.to_dict() for item in message.structured_content]
     }
