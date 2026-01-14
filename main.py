@@ -5,6 +5,15 @@ import logging
 import traceback
 from datetime import datetime
 
+# Configure LiteLLM to disable enterprise features before any imports
+try:
+    import litellm
+    litellm.suppress_debug_info = True
+    litellm.enable_enterprise_features = False
+except ImportError:
+    # litellm might not be available yet, which is fine
+    pass
+
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 

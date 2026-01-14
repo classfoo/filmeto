@@ -35,7 +35,7 @@ async def comprehensive_test():
             temperature=0.7
         )
         
-        if agent.new_production_agent:
+        if agent.production_agent:
             print("   ✓ FilmetoAgent initialized successfully")
         else:
             print("   ✗ FilmetoAgent initialization failed")

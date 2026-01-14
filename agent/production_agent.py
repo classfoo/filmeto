@@ -23,11 +23,17 @@ from agent.nodes.sub_agent_executor import SubAgentExecutorNode, PlanReviewNode,
 import litellm
 from litellm import acompletion
 
+# Disable LiteLLM enterprise features to prevent import errors
+litellm.suppress_debug_info = True
+
+# Additional configuration to prevent enterprise feature loading
+litellm.enable_enterprise_features = False
+
 
 logger = logging.getLogger(__name__)
 
 
-class NewProductionAgent:
+class ProductionAgent:
     """
     New Production Agent - The main orchestrator for Filmeto without LangChain/LangGraph dependencies.
 

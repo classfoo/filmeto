@@ -8,7 +8,7 @@ import asyncio
 from typing import Any, Dict, List, Optional, AsyncIterator, Callable
 import logging
 
-from agent.new_production_agent import NewProductionAgent
+from agent.production_agent import ProductionAgent
 from agent.tools import ToolRegistry
 from agent.sub_agents.registry import SubAgentRegistry
 from agent.streaming import (
@@ -113,7 +113,7 @@ class FilmetoAgent:
 
         # Check if we have required configuration
         if not hasattr(self, 'api_key') or not self.api_key:
-            self.new_production_agent = None
+            self.production_agent = None
             logger.warning("⚠️ Warning: No OpenAI API key provided. Agent will not function until API key is set.")
             logger.warning("   Please set API key in workspace settings (ai_services.openai_api_key) or environment variable (OPENAI_API_KEY)")
             return
@@ -129,7 +129,7 @@ class FilmetoAgent:
         self.current_conversation: Optional[Conversation] = None
 
         # Initialize New Production Agent (the main orchestrator)
-        self.new_production_agent = NewProductionAgent(
+        self.production_agent = ProductionAgent(
             project_id=self.project_id,
             workspace=workspace,
             project=project,
@@ -232,7 +232,7 @@ class FilmetoAgent:
         logger.info("=" * 80)
 
         # Check if agent is initialized
-        if not self.new_production_agent:
+        if not self.production_agent:
             error_msg = "Error: OpenAI API key not configured. Please set your API key in settings."
             logger.error(f"[FilmetoAgent] ERROR: Production agent not initialized")
             if on_token:
@@ -254,7 +254,7 @@ class FilmetoAgent:
         logger.info(f"[FilmetoAgent] Created stream session: {session.session_id}")
 
         # Set emitter on production agent
-        self.new_production_agent.stream_emitter = emitter
+        self.production_agent.stream_emitter = emitter
 
         # Add stream event callback if provided
         if on_stream_event:
@@ -292,7 +292,7 @@ class FilmetoAgent:
         if self.streaming:
             logger.info("[FilmetoAgent] Starting streaming mode")
             # Use new production agent stream
-            async for event in self.new_production_agent.stream(messages, config=config):
+            async for event in self.production_agent.stream(messages, config=config):
                 for node_name, node_output in event.items():
                     logger.debug(f"[FilmetoAgent] Received event from node: {node_name}")
                     # Emit node-specific events
@@ -342,7 +342,7 @@ class FilmetoAgent:
         else:
             logger.info("[FilmetoAgent] Starting non-streaming mode")
             # Non-streaming mode
-            result = await self.new_production_agent.execute(messages, config=config)
+            result = await self.production_agent.execute(messages, config=config)
             if "messages" in result:
                 final_messages = result["messages"]
                 last_message = result["messages"][-1]
@@ -460,7 +460,7 @@ class FilmetoAgent:
 
         # Rebuild new production agent with updated context
         if self.api_key and (workspace or project):
-            self.new_production_agent = NewProductionAgent(
+            self.production_agent = ProductionAgent(
                 project_id=self.project_id,
                 workspace=self.workspace,
                 project=self.project,
