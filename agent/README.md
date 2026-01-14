@@ -71,7 +71,7 @@ async for message in agent_manager.start_conversation(initial_message):
 The agent system provides an asynchronous iterator interface for streaming responses:
 
 ```python
-async def start_conversation(self, initial_prompt: AgentMessage) -> AsyncIterator[AgentMessage]:
+async def chat_stream(self, initial_prompt: AgentMessage) -> AsyncIterator[AgentMessage]:
 ```
 
 This allows the UI (AgentPanel) to receive messages in real-time as they are generated, displaying them as cards in the conversation.

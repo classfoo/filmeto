@@ -36,9 +36,9 @@ async def technical_expert_handler(message: AgentMessage) -> AsyncIterator[Agent
 
 async def main():
     """Example usage of the FilmetoAgent system."""
-    # Get the singleton instance
-    agent_manager = FilmetoAgent()
-    
+    # Create an instance of FilmetoAgent with mock workspace and project
+    agent_manager = FilmetoAgent(workspace=None, project=None)
+
     # Register different agents
     agent_manager.register_agent(
         "creative_writer",
@@ -46,31 +46,36 @@ async def main():
         "Specializes in creative content and storytelling",
         creative_writer_handler
     )
-    
+
     agent_manager.register_agent(
-        "tech_expert", 
+        "tech_expert",
         "Technical Expert",
         "Provides technical insights and solutions",
         technical_expert_handler
     )
-    
-    # Create an initial prompt
-    initial_message = AgentMessage(
-        content="How can we improve user engagement in video editing applications?",
-        message_type=MessageType.TEXT,
-        sender_id="user",
-        sender_name="User"
-    )
-    
+
     print("Starting conversation...")
-    
-    # Start the conversation and process responses
-    async for message in agent_manager.start_conversation(initial_message):
-        print(f"[{message.sender_name}]: {message.content}")
-        
-        # Stop after first response for this example
-        break
-    
+
+    # Define callback functions for the chat stream
+    def on_token(token):
+        print(f"Token received: {token}")
+
+    def on_complete(response):
+        print(f"Response complete: {response}")
+
+    def on_stream_event(event):
+        print(f"Stream event: {event.event_type} - {event.data}")
+
+    # Start the chat stream and process responses
+    async for token in agent_manager.chat_stream(
+        message="How can we improve user engagement in video editing applications?",
+        on_token=on_token,
+        on_complete=on_complete,
+        on_stream_event=on_stream_event
+    ):
+        print(f"Received token: {token}")
+        break  # Just process the first token for this example
+
     print("\nConversation history:")
     for msg in agent_manager.get_conversation_history():
         print(f"- [{msg.sender_name}]: {msg.content[:50]}...")
