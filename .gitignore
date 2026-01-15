@@ -10,3 +10,6 @@ logs/
 logs/*.log
 workspace/*/resources
 /app/ui/config/window_sizes.json
+
+.qwen/
+gha-creds-*.json

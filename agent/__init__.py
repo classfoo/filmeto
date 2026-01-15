@@ -10,9 +10,11 @@ from .utils import (
     create_system_message,
     format_card_data
 )
+from .llm.llm_service import LlmService
 
 __all__ = [
     "FilmetoAgent",
+    "LlmService",
     "AgentMessage",
     "MessageType",
     "create_text_message",
