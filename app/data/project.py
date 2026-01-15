@@ -366,28 +366,34 @@ class ProjectManager:
             workspace_root_path: Path to the workspace root directory
         """
         self.workspace_root_path = workspace_root_path
+        # Define the projects subdirectory path
+        self.projects_dir = os.path.join(workspace_root_path, "projects")
         self.projects: Dict[str, Project] = {}
         self._defer_scan = defer_scan
+
+        # Create the projects directory if it doesn't exist
+        os.makedirs(self.projects_dir, exist_ok=True)
+
         if not defer_scan:
             self._load_projects()
     
     def _load_projects(self):
-        """Load all projects from the workspace directory"""
-        if not os.path.exists(self.workspace_root_path):
-            os.makedirs(self.workspace_root_path, exist_ok=True)
-            logger.info(f"⏱️  [ProjectManager] Created workspace directory: {self.workspace_root_path}")
+        """Load all projects from the projects subdirectory"""
+        # Don't create the projects directory here to avoid early creation
+        if not os.path.exists(self.projects_dir):
+            logger.info(f"⏱️  [ProjectManager] Projects directory does not exist: {self.projects_dir}")
             return
-        
+
         scan_start = time.time()
-        logger.info(f"⏱️  [ProjectManager] Scanning workspace directory: {self.workspace_root_path}")
-        items = os.listdir(self.workspace_root_path)
+        logger.info(f"⏱️  [ProjectManager] Scanning projects directory: {self.projects_dir}")
+        items = os.listdir(self.projects_dir)
         scan_time = (time.time() - scan_start) * 1000
         logger.info(f"⏱️  [ProjectManager] Directory scan completed in {scan_time:.2f}ms (found {len(items)} items)")
 
         loaded_count = 0
         failed_count = 0
         for item in items:
-            project_path = os.path.join(self.workspace_root_path, item)
+            project_path = os.path.join(self.projects_dir, item)
             if os.path.isdir(project_path):
                 project_config_path = os.path.join(project_path, "project.yaml")
                 if os.path.exists(project_config_path):
@@ -409,7 +415,13 @@ class ProjectManager:
 
     def ensure_projects_loaded(self):
         """Ensure projects are loaded (for deferred loading)"""
-        if self._defer_scan and not self.projects:
+        # Create the projects directory if it doesn't exist
+        os.makedirs(self.projects_dir, exist_ok=True)
+
+        # Track whether projects were loaded initially
+        projects_already_loaded = bool(self.projects)
+
+        if self._defer_scan and not projects_already_loaded:
             load_start = time.time()
             logger.info(f"⏱️  [ProjectManager] Starting deferred project scan...")
             self._load_projects()
@@ -417,6 +429,16 @@ class ProjectManager:
             load_time = (time.time() - load_start) * 1000
             project_count = len(self.projects)
             logger.info(f"⏱️  [ProjectManager] Deferred project scan completed in {load_time:.2f}ms (found {project_count} projects)")
+        elif self._defer_scan and projects_already_loaded:
+            # If we're in deferred mode but some projects are already loaded,
+            # we still need to load all projects from disk
+            load_start = time.time()
+            logger.info(f"⏱️  [ProjectManager] Loading all projects from disk (some already loaded)...")
+            self._load_projects()
+
+            load_time = (time.time() - load_start) * 1000
+            project_count = len(self.projects)
+            logger.info(f"⏱️  [ProjectManager] Project scan completed in {load_time:.2f}ms (found {project_count} projects)")
 
     def create_project(self, project_name: str) -> Project:
         """
@@ -431,17 +453,17 @@ class ProjectManager:
         Raises:
             ValueError: If project already exists
         """
-        project_path = os.path.join(self.workspace_root_path, project_name)
+        project_path = os.path.join(self.projects_dir, project_name)
 
         if project_name in self.projects:
             raise ValueError(f"Project {project_name} already exists")
-        
+
         if os.path.exists(project_path):
             raise ValueError(f"Project path {project_path} already exists")
-        
+
         # Create project directory structure
         os.makedirs(project_path, exist_ok=True)
-        
+
         # Create project configuration
         project_config = {
             "project_name": project_name,
@@ -452,7 +474,7 @@ class ProjectManager:
             "timeline_item_durations": {}
         }
         save_yaml(os.path.join(project_path, "project.yaml"), project_config)
-        
+
         # Create directory structure
         os.makedirs(os.path.join(project_path, "timeline"), exist_ok=True)
         os.makedirs(os.path.join(project_path, "prompts"), exist_ok=True)
@@ -461,17 +483,17 @@ class ProjectManager:
         os.makedirs(resources_path, exist_ok=True)
         for subdir in ["images", "videos", "audio", "others"]:
             os.makedirs(os.path.join(resources_path, subdir), exist_ok=True)
-        
+
         os.makedirs(os.path.join(project_path, "characters"), exist_ok=True)
 
         agent_path = os.path.join(project_path, "agent")
         os.makedirs(agent_path, exist_ok=True)
         os.makedirs(os.path.join(agent_path, "conversations"), exist_ok=True)
-        
+
         # Create project instance
         project = Project(self.workspace_root_path, project_path, project_name)
         self.projects[project_name] = project
-        
+
         return project
     
     def get_project(self, project_name: str) -> Optional[Project]:
@@ -480,6 +502,8 @@ class ProjectManager:
     
     def list_projects(self) -> List[str]:
         """List all project names"""
+        # Ensure projects are loaded before returning the list
+        self.ensure_projects_loaded()
         return list(self.projects.keys())
     
     def delete_project(self, project_name: str) -> bool:
@@ -534,3 +558,4 @@ class ProjectManager:
             self.project_switched.send(project_name)
             return project
         return None
+

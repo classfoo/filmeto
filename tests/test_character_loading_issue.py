@@ -24,7 +24,7 @@ class TestCharacterLoadingIssue(unittest.TestCase):
         """Set up the test environment"""
         self.workspace_path = os.path.join(project_root, "workspace")
         self.demo_project_name = "demo"
-        self.demo_project_path = os.path.join(self.workspace_path, self.demo_project_name)
+        self.demo_project_path = os.path.join(self.workspace_path, "projects", self.demo_project_name)
 
     def test_character_data_loading_from_demo_project(self):
         """Test that actor data is properly loaded from the demo project's config.yaml"""

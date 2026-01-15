@@ -81,24 +81,29 @@ class ProjectMenu(BaseWidget):
         # 为每个项目创建菜单项
         for project_name in project_names:
             if project_name != self.workspace.project_name:  # 不显示当前项目
-                # 创建项目完整路径
-                project_path = f"{self.workspace.workspace_path}/{project_name}"
-                
+                # 获取项目完整路径通过ProjectManager
+                project_instance = self.workspace.project_manager.get_project(project_name)
+                if not project_instance:
+                    # 如果项目实例不存在，则跳过该项目
+                    continue
+
+                project_path = project_instance.project_path
+
                 # 创建动作
                 action = QAction(project_name, self)
-                
+
                 # 为项目菜单项添加图标
                 project_icon = self.create_rounded_letter_icon(
-                    project_name[0].upper(), 
-                    size=56, 
-                    bg_color=QColor("blue"), 
+                    project_name[0].upper(),
+                    size=56,
+                    bg_color=QColor("blue"),
                     text_color=QColor("white"),
                     corner_radius_ratio=0.25
                 )
                 action.setIcon(project_icon)
                 action.triggered.connect(lambda checked=False, name=project_name: self.on_project_selected(name))
                 self.toolbar_menu.addAction(action)
-                
+
                 # 添加项目路径作为工具提示
                 action.setToolTip(project_path)
 

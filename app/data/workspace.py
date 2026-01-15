@@ -24,23 +24,43 @@ class Workspace():
 
         self.workspace_path = workspace_path
         self.project_name = project_name
-        self.project_path = os.path.join(self.workspace_path, self.project_name)
-        self.project_path = os.path.join(self.workspace_path,self.project_name)
+        # Update project path to be inside the projects subdirectory
+        projects_dir = os.path.join(workspace_path, "projects")
+        self.project_path = os.path.join(projects_dir, self.project_name)
         self._defer_heavy_init = defer_heavy_init
 
-        # Initialize Project (this may take time)
-        project_start = time.time()
-        logger.info(f"⏱️  [Workspace] Creating Project instance...")
-        self.project = Project(self, self.project_path, self.project_name, load_data=load_data)
-        project_time = (time.time() - project_start) * 1000
-        logger.info(f"⏱️  [Workspace] Project created in {project_time:.2f}ms")
-
-        # Initialize ProjectManager (lightweight - just sets up structure)
+        # Initialize ProjectManager first (to handle project creation/loading)
         pm_start = time.time()
         logger.info(f"⏱️  [Workspace] Creating ProjectManager (defer_scan={defer_heavy_init})...")
         self.project_manager = ProjectManager(workspace_path, defer_scan=defer_heavy_init)
+
+        # Check if project exists, create if it doesn't
+        project = self.project_manager.get_project(project_name)
+        if project is None:
+            # If project is not in memory (possibly due to deferred loading),
+            # check if it exists on disk
+            projects_dir = os.path.join(workspace_path, "projects")
+            project_path_on_disk = os.path.join(projects_dir, project_name)
+
+            if os.path.exists(project_path_on_disk):
+                # Project exists on disk but wasn't loaded, so load it manually
+                logger.info(f"Project {project_name} exists on disk, loading it...")
+                project = Project(self, project_path_on_disk, project_name, load_data=load_data)
+                self.project_manager.projects[project_name] = project
+            else:
+                # Project doesn't exist anywhere, create it
+                logger.info(f"Project {project_name} does not exist, creating new project...")
+                project = self.project_manager.create_project(project_name)
+        else:
+            logger.info(f"Project {project_name} already exists, loading existing project...")
+
+        self.project = project
+
+        # Ensure all projects are loaded into memory regardless of defer_scan setting
+        # This is important for UI components that need to list all available projects
+        self.project_manager.ensure_projects_loaded()
         pm_time = (time.time() - pm_start) * 1000
-        logger.info(f"⏱️  [Workspace] ProjectManager created in {pm_time:.2f}ms")
+        logger.info(f"⏱️  [Workspace] ProjectManager and Project created in {pm_time:.2f}ms")
 
         # Initialize PromptManager (lightweight - just sets up directory)
         prompt_start = time.time()
@@ -135,22 +155,24 @@ class Workspace():
         """切换到指定项目"""
         # 更新项目路径和名称
         self.project_name = project_name
-        self.project_path = os.path.join(self.workspace_path, project_name)
-        
+        # Update project path to be inside the projects subdirectory
+        projects_dir = os.path.join(self.workspace_path, "projects")
+        self.project_path = os.path.join(projects_dir, project_name)
+
         # 创建新项目实例（不自动加载数据）
         new_project = Project(self, self.project_path, project_name, load_data=False)
-        
+
         # 替换当前项目
         self.project = new_project
-        
+
         # 更新PromptManager
         prompts_dir = os.path.join(self.project_path, 'prompts')
         self.prompt_manager = PromptManager(prompts_dir)
-        
+
         # 使用ProjectManager切换项目并发送信号
         # 注意：必须在更新完所有状态后再发送信号，确保监听者能获取到正确的项目状态
         switched_project = self.project_manager.switch_project(project_name)
-        
+
         logger.info(f"切换到项目: {project_name}")
         return self.project
 
