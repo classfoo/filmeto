@@ -61,19 +61,18 @@ class FilmetoAgent:
         self.ui_callbacks = []
         self.current_session: Optional[AgentStreamSession] = None
         self.llm_service = llm_service or LlmService(workspace)
-        self.production_agent = None  # Will be set by the actual AI implementation
 
-        # Initialize the actual production agent (this would typically connect to an AI service)
-        self._init_production_agent()
+        # Initialize the agent
+        self._init_agent()
     
-    def _init_production_agent(self):
-        """Initialize the production agent using LlmService."""
+    def _init_agent(self):
+        """Initialize the agent using LlmService."""
         # Check if the LLM service is properly configured
         if self.llm_service and self.llm_service.validate_config():
-            # Production agent is properly configured
+            # Agent is properly configured
             pass
         else:
-            # Production agent not configured due to missing API key
+            # Agent not configured due to missing API key or base URL
             pass
     
     def register_agent(self, agent_id: str, name: str, role_description: str, handler_func: Callable):

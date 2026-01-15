@@ -52,20 +52,18 @@ class TestProjectIsolation:
         assert agent2.project_id == "project2"
         assert agent1.project_id != agent2.project_id
     
-    def test_production_agent_project_context(self):
-        """Test that ProductionAgent maintains project context."""
+    def test_filmeto_agent_project_context(self):
+        """Test that FilmetoAgent maintains project context."""
         from agent.filmeto_agent import FilmetoAgent
-        
+
         workspace = MockWorkspace()
         project = MockProject("test_project")
-        
+
         agent = FilmetoAgent(workspace, project)
-        
-        # Verify production agent has project context
-        if agent.production_agent:
-            assert agent.production_agent.project_id == "test_project"
-            assert agent.production_agent.workspace == workspace
-            assert agent.production_agent.project == project
+
+        # Verify agent has project context
+        assert agent.workspace == workspace
+        assert agent.project == project
 
 
 class TestSubAgentArchitecture:
@@ -127,118 +125,106 @@ class TestSubAgentArchitecture:
 class TestStateManagement:
     """Test state management and communication."""
     
-    def test_production_agent_state_structure(self):
-        """Test ProductionAgentState structure."""
-        from agent.graph.state import ProductionAgentState
+    def test_agent_message_structure(self):
+        """Test AgentMessage structure."""
+        from agent.chat.agent_chat_message import AgentMessage, MessageType
         from langchain_core.messages import HumanMessage
-        
-        # Create state
-        state: ProductionAgentState = {
-            "project_id": "test_project",
-            "messages": [HumanMessage(content="Test message")],
-            "next_action": "question_understanding",
-            "context": {"test": "value"},
-            "iteration_count": 0,
-            "execution_plan": None,
-            "current_task_index": 0,
-            "sub_agent_results": {},
-            "requires_multi_agent": False,
-            "plan_refinement_count": 0
-        }
-        
-        # Verify state structure
-        assert state["project_id"] == "test_project"
-        assert len(state["messages"]) == 1
-        assert state["next_action"] == "question_understanding"
+
+        # Create an agent message
+        message = AgentMessage(
+            content="Test message",
+            message_type=MessageType.TEXT,
+            sender_id="test_agent",
+            sender_name="Test Agent",
+            message_id="test_id"
+        )
+
+        # Verify message structure
+        assert message.content == "Test message"
+        assert message.sender_id == "test_agent"
+        assert message.sender_name == "Test Agent"
+        assert message.message_id == "test_id"
     
-    def test_sub_agent_state_structure(self):
-        """Test SubAgentState structure."""
-        from agent.graph.state import SubAgentState
-        from langchain_core.messages import AIMessage
-        
-        # Create state
-        state: SubAgentState = {
-            "agent_id": "Director",
-            "agent_name": "Director",
-            "task": {"skill_name": "storyboard"},
-            "task_id": "task_001",
-            "messages": [AIMessage(content="Processing")],
-            "context": {"workspace": None, "project": None},
-            "result": None,
-            "status": "pending",
-            "metadata": {}
-        }
-        
-        # Verify state structure
-        assert state["agent_id"] == "Director"
-        assert state["task"]["skill_name"] == "storyboard"
-        assert state["status"] == "pending"
+    def test_agent_conversation_flow(self):
+        """Test agent conversation flow."""
+        from agent.chat.agent_chat_message import AgentMessage, MessageType
+
+        # Create a sequence of messages representing a conversation
+        messages = [
+            AgentMessage(
+                content="Hello, I need help creating a video.",
+                message_type=MessageType.TEXT,
+                sender_id="user",
+                sender_name="User",
+                message_id="msg_001"
+            ),
+            AgentMessage(
+                content="Sure, I can help you with that. What kind of video are you looking to create?",
+                message_type=MessageType.TEXT,
+                sender_id="assistant",
+                sender_name="Assistant",
+                message_id="msg_002"
+            )
+        ]
+
+        # Verify conversation structure
+        assert len(messages) == 2
+        assert messages[0].sender_id == "user"
+        assert messages[1].sender_id == "assistant"
+        assert messages[0].message_type == MessageType.TEXT
     
-    def test_state_isolation_between_agents(self):
-        """Test that agent states are isolated."""
-        from agent.graph.state import SubAgentState
-        
-        # Create states for two different agents
-        director_state: SubAgentState = {
-            "agent_id": "Director",
-            "agent_name": "Director",
-            "task": {},
-            "task_id": "task_001",
-            "messages": [],
-            "context": {"data": "director_data"},
-            "result": None,
-            "status": "pending",
-            "metadata": {}
-        }
-        
-        screenwriter_state: SubAgentState = {
-            "agent_id": "Screenwriter",
-            "agent_name": "Screenwriter",
-            "task": {},
-            "task_id": "task_002",
-            "messages": [],
-            "context": {"data": "screenwriter_data"},
-            "result": None,
-            "status": "pending",
-            "metadata": {}
-        }
-        
+    def test_isolation_between_different_projects(self):
+        """Test that conversations are isolated between different projects."""
+        from agent.chat.agent_chat_message import AgentMessage, MessageType
+
+        # Create messages for two different projects
+        project1_messages = [
+            AgentMessage(
+                content="Project 1 message",
+                message_type=MessageType.TEXT,
+                sender_id="user",
+                sender_name="User",
+                message_id="proj1_msg_001"
+            )
+        ]
+
+        project2_messages = [
+            AgentMessage(
+                content="Project 2 message",
+                message_type=MessageType.TEXT,
+                sender_id="user",
+                sender_name="User",
+                message_id="proj2_msg_001"
+            )
+        ]
+
         # Verify isolation
-        assert director_state["agent_id"] != screenwriter_state["agent_id"]
-        assert director_state["context"]["data"] != screenwriter_state["context"]["data"]
-        assert director_state["task_id"] != screenwriter_state["task_id"]
+        assert project1_messages[0].content != project2_messages[0].content
+        assert project1_messages[0].message_id != project2_messages[0].message_id
 
 
-class TestProductionAgent:
-    """Test Production Agent as main orchestrator."""
+class TestFilmetoAgent:
+    """Test FilmetoAgent as main orchestrator."""
     
-    def test_production_agent_initialization(self):
-        """Test ProductionAgent initialization."""
-        from agent.production_agent import ProductionAgent
-        from langchain_openai import ChatOpenAI
-        from agent.sub_agents.registry import SubAgentRegistry
-        from agent.tools import ToolRegistry
-        
+    def test_filmeto_agent_initialization(self):
+        """Test FilmetoAgent initialization."""
+        from agent.filmeto_agent import FilmetoAgent
+
         workspace = MockWorkspace()
         project = MockProject("test")
-        llm = ChatOpenAI(api_key="test_key")
-        sub_agent_registry = SubAgentRegistry(llm=llm)
-        tool_registry = ToolRegistry(workspace=workspace, project=project)
-        
-        production_agent = ProductionAgent(
-            project_id="test_project",
+
+        agent = FilmetoAgent(
             workspace=workspace,
             project=project,
-            llm=llm,
-            sub_agent_registry=sub_agent_registry,
-            tool_registry=tool_registry
+            model='gpt-4o-mini',
+            temperature=0.7
         )
-        
+
         # Verify initialization
-        assert production_agent.project_id == "test_project"
-        assert production_agent.graph is not None
-        assert production_agent.workspace == workspace
-        assert production_agent.project == project
+        assert agent.workspace == workspace
+        assert agent.project == project
+        assert agent.model == 'gpt-4o-mini'
+        assert agent.temperature == 0.7
 
 
 class TestConversationIsolation:

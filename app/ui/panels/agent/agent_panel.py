@@ -365,8 +365,8 @@ class AgentPanel(BasePanel):
             
             init_time = (time.time() - init_start) * 1000
             # Check if agent has a valid LLM initialized
-            if self.agent.production_agent is None:
-                logger.warning(f"⚠️ Agent initialized in {init_time:.2f}ms but LLM is not configured (missing API key)")
+            if not self.agent.llm_service.validate_config():
+                logger.warning(f"⚠️ Agent initialized in {init_time:.2f}ms but LLM is not configured (missing API key or base URL)")
             else:
                 logger.info(f"✅ Agent initialized successfully in {init_time:.2f}ms")
         except Exception as e:

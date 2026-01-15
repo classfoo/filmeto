@@ -33,7 +33,7 @@ async def test_updated_filmeto_agent():
     )
     
     print("Testing FilmetoAgent initialization...")
-    if agent.production_agent:
+    if agent.llm_service.validate_config():
         print("✓ FilmetoAgent initialized successfully")
     else:
         print("✗ FilmetoAgent initialization failed")
