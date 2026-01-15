@@ -21,8 +21,8 @@ class SoulService:
             os.path.dirname(__file__), 'system'
         )
         self.user_souls_dir = user_souls_dir or os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
-            'workspace', 'agent', 'soul'
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            'workspace', 'agent', 'skills'
         )
         self.souls: List[Soul] = []
         
