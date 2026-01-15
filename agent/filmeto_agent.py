@@ -5,6 +5,7 @@ Implements the FilmetoAgent class with streaming capabilities.
 import uuid
 from typing import AsyncIterator, Dict, List, Optional, Callable, Any
 from agent.chat.agent_chat_message import AgentMessage, MessageType
+from agent.llm.llm_service import LlmService
 
 
 class AgentRole:
@@ -47,8 +48,8 @@ class FilmetoAgent:
     Class for managing agent capabilities in Filmeto.
     Provides streaming conversation interface and manages multiple agents.
     """
-    
-    def __init__(self, workspace=None, project=None, model='gpt-4o-mini', temperature=0.7, streaming=True):
+
+    def __init__(self, workspace=None, project=None, model='gpt-4o-mini', temperature=0.7, streaming=True, llm_service: Optional[LlmService] = None):
         """Initialize the FilmetoAgent instance."""
         self.workspace = workspace
         self.project = project
@@ -59,20 +60,17 @@ class FilmetoAgent:
         self.conversation_history: List[AgentMessage] = []
         self.ui_callbacks = []
         self.current_session: Optional[AgentStreamSession] = None
+        self.llm_service = llm_service or LlmService(workspace)
         self.production_agent = None  # Will be set by the actual AI implementation
-        
+
         # Initialize the actual production agent (this would typically connect to an AI service)
         self._init_production_agent()
     
     def _init_production_agent(self):
-        """Initialize the production agent (placeholder implementation)."""
-        # This would normally connect to an actual AI service like OpenAI, etc.
-        # For now, we'll just set a flag indicating it's not configured
-        # In a real implementation, this would check for API keys and initialize accordingly
-        import os
-        api_key = os.getenv("OPENAI_API_KEY")  # Or whatever service is being used
-        if api_key:
-            # Initialize the actual AI agent here
+        """Initialize the production agent using LlmService."""
+        # Check if the LLM service is properly configured
+        if self.llm_service and self.llm_service.validate_config():
+            # Production agent is properly configured
             pass
         else:
             # Production agent not configured due to missing API key
