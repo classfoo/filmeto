@@ -363,11 +363,31 @@ class ChatHistoryWidget(BaseWidget):
     @Slot(object, object)
     def handle_stream_event(self, event, session):
         """Handle a streaming event from the agent system."""
-        # For now, we'll simplify this to work with the new structure
-        # We'll just update the content based on the event
+        # Handle different types of events based on event_type
+        if event.event_type == "error":
+            # Handle error events - data contains content and session_id
+            error_content = event.data.get('content', 'Unknown error occurred')
 
-        # Check if event has content to display
-        if hasattr(event, 'content') and event.content:
+            # Create a message ID for the error
+            import uuid
+            message_id = str(uuid.uuid4())
+
+            # Create or update the card with the error content
+            card = self.get_or_create_agent_card(
+                message_id,
+                "System",  # Error messages come from the system
+                "System"
+            )
+
+            # Update the card with the error content
+            self.update_agent_card(
+                message_id,
+                content=error_content,
+                append=False,  # Set as complete content
+                error=error_content
+            )
+        elif hasattr(event, 'content') and event.content:
+            # Handle regular content events
             # Create or update the card with the content
             card = self._message_cards.get(event.message_id)
             if not card:

@@ -347,7 +347,7 @@ class LinkWidget(QWidget):
                 color: #5aa0ff;
             }
         """)
-        link_button.clicked.connect(lambda: self.open_link(url))
+        link_button.clicked.connect(lambda: self._handle_link_click(url))
         layout.addWidget(link_button)
         layout.addStretch()
 
@@ -357,6 +357,18 @@ class LinkWidget(QWidget):
                 border-radius: 3px;
             }
         """)
+
+    def _handle_link_click(self, url: str):
+        """Handle link click and emit reference clicked signal."""
+        self.open_link(url)
+
+        # Find the parent AgentMessageCard and emit the reference clicked signal
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'reference_clicked'):
+                parent.reference_clicked.emit('link', url)
+                break
+            parent = parent.parent()
 
     def open_link(self, url: str):
         """Open the link in browser."""
@@ -407,7 +419,7 @@ class ButtonWidget(QWidget):
             }
         """)
         # Connect button click to a placeholder action
-        button.clicked.connect(lambda: self.button_clicked(action))
+        button.clicked.connect(lambda: self._handle_button_click(action))
         layout.addWidget(button)
         layout.addStretch()
 
@@ -420,6 +432,14 @@ class ButtonWidget(QWidget):
 
     def button_clicked(self, action: str):
         """Handle button click."""
+        # Find the parent AgentMessageCard and emit the reference clicked signal
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'reference_clicked'):
+                parent.reference_clicked.emit('button', action)
+                break
+            parent = parent.parent()
+
         print(f"Button clicked with action: {action}")
 
 
@@ -434,6 +454,7 @@ class AgentMessageCard(QFrame):
 
     # Signals
     clicked = Signal(str)  # message_id
+    reference_clicked = Signal(str, str)  # ref_type, ref_id
 
     def __init__(
         self,

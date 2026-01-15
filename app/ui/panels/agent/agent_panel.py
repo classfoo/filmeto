@@ -5,6 +5,8 @@ import logging
 from typing import Optional, TYPE_CHECKING
 from PySide6.QtCore import Signal, Slot, QObject
 from PySide6.QtWidgets import QApplication
+
+from agent.filmeto_agent import StreamEvent, AgentStreamSession
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from utils.i18n_utils import tr
@@ -238,7 +240,7 @@ class AgentPanel(BasePanel):
             if self.prompt_input_widget:
                 self.prompt_input_widget.set_enabled(True)
     
-    def _handle_stream_event_sync(self, event: 'StreamEvent'):
+    def _handle_stream_event_sync(self, event: StreamEvent):
         """Handle stream event synchronously (called from agent thread)."""
         # Get session from agent
         session = self.agent.get_current_session() if self.agent else None
@@ -246,7 +248,7 @@ class AgentPanel(BasePanel):
             self._stream_handler.handle_event(event, session)
     
     @Slot(object, object)
-    def _on_stream_event(self, event: 'StreamEvent', session: 'AgentStreamSession'):
+    def _on_stream_event(self, event: StreamEvent, session: AgentStreamSession):
         """Handle stream event on Qt main thread."""
         # Ensure widgets are initialized
         if not self._widgets_initialized or not self.chat_history_widget:
