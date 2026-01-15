@@ -40,20 +40,20 @@ class SkillService:
     - scripts/: Optional directory with executable scripts
     """
     
-    def __init__(self, workspace_path: Optional[str] = None):
+    def __init__(self, workspace=None):
         """
         Initialize the SkillService.
-        
+
         Args:
-            workspace_path: Optional path to workspace where custom skills may be located
+            workspace: Optional Workspace object where custom skills may be located
         """
-        self.workspace_path = workspace_path
+        self.workspace = workspace
         self.system_skills_path = os.path.join(os.path.dirname(__file__), "system")
-        self.custom_skills_path = os.path.join(workspace_path, "skills") if workspace_path else None
-        
+        self.custom_skills_path = os.path.join(workspace.workspace_path, "skills") if workspace and hasattr(workspace, 'workspace_path') else None
+
         # Dictionary to store loaded skills by name
         self.skills: Dict[str, Skill] = {}
-        
+
         # Load all skills
         self.load_skills()
     
