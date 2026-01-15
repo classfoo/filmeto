@@ -67,6 +67,6 @@ service.add_soul(new_soul)
 ## System Souls vs User Souls
 
 - **System Souls**: Predefined expert profiles stored in `agent/soul/system/`
-- **User Souls**: Custom profiles created by users stored in `workspace/agent/soul/`
+- **User Souls**: Custom profiles created by users stored in `workspace/agent/skills/`
 
 Both types are automatically loaded when the SoulService is initialized.
