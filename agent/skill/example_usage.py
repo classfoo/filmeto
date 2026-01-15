@@ -39,17 +39,17 @@ def example_basic_usage():
 def example_with_workspace():
     """Example showing SkillService with a workspace."""
     print("=== Example: SkillService with Workspace ===")
-    
+
     # Create a temporary workspace to demonstrate custom skills
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a custom skills directory
         skills_dir = os.path.join(temp_dir, "skills")
         os.makedirs(skills_dir, exist_ok=True)
-        
+
         # Create a custom skill directory
         custom_skill_dir = os.path.join(skills_dir, "my_custom_skill")
         os.makedirs(custom_skill_dir, exist_ok=True)
-        
+
         # Create a SKILL.md file for the custom skill
         skill_md_content = """---
 name: my_custom_skill
@@ -62,20 +62,27 @@ This is a custom skill that demonstrates how users can extend the agent's capabi
 """
         with open(os.path.join(custom_skill_dir, "SKILL.md"), 'w') as f:
             f.write(skill_md_content)
-        
-        # Initialize SkillService with the workspace
-        skill_service = SkillService(workspace_path=temp_dir)
-        
+
+        # Create a mock workspace object (in a real scenario, you would have an actual Workspace object)
+        class MockWorkspace:
+            def __init__(self, workspace_path):
+                self.workspace_path = workspace_path
+
+        workspace_obj = MockWorkspace(temp_dir)
+
+        # Initialize SkillService with the workspace object
+        skill_service = SkillService(workspace=workspace_obj)
+
         # Now we should have both system and custom skills
         all_skills = skill_service.get_skill_names()
         print(f"All skills (system + custom): {all_skills}")
-        
+
         # Get the custom skill
         custom_skill = skill_service.get_skill("my_custom_skill")
         if custom_skill:
             print(f"Custom skill loaded: {custom_skill.name}")
             print(f"Custom skill description: {custom_skill.description}")
-    
+
     print()
 
 
