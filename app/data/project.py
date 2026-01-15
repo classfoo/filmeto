@@ -489,10 +489,18 @@ class ProjectManager:
         agent_path = os.path.join(project_path, "agent")
         os.makedirs(agent_path, exist_ok=True)
         os.makedirs(os.path.join(agent_path, "conversations"), exist_ok=True)
+        os.makedirs(os.path.join(agent_path, "sub_agents"), exist_ok=True)
 
         # Create project instance
         project = Project(self.workspace_root_path, project_path, project_name)
         self.projects[project_name] = project
+
+        try:
+            from agent.sub_agent import SubAgentService
+
+            SubAgentService().initialize_project_sub_agents(project)
+        except Exception as exc:
+            logger.warning(f"Failed to initialize sub_agents for project {project_name}: {exc}")
 
         return project
     

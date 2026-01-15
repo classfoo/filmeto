@@ -12,11 +12,15 @@ from .utils import (
 )
 from .llm.llm_service import LlmService
 from .skill.skill_service import SkillService
+from .sub_agent import SubAgent, SubAgentConfig, SubAgentService
 
 __all__ = [
     "FilmetoAgent",
     "LlmService",
     "SkillService",
+    "SubAgent",
+    "SubAgentConfig",
+    "SubAgentService",
     "AgentMessage",
     "MessageType",
     "create_text_message",
