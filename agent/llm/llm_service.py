@@ -244,11 +244,13 @@ class LlmService:
     def validate_config(self) -> bool:
         """
         Validate if the LLM service is properly configured.
-        
+
         Returns:
             True if properly configured, False otherwise
         """
-        return bool(self.api_key)
+        # Check if either API key is set OR API base is set (for custom endpoints)
+        # This allows for services that might use different authentication methods
+        return bool(self.api_key) or bool(self.api_base)
     
     def get_current_config(self) -> Dict[str, Any]:
         """
