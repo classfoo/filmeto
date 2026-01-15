@@ -11,10 +11,12 @@ from .utils import (
     format_card_data
 )
 from .llm.llm_service import LlmService
+from .skill.skill_service import SkillService
 
 __all__ = [
     "FilmetoAgent",
     "LlmService",
+    "SkillService",
     "AgentMessage",
     "MessageType",
     "create_text_message",
