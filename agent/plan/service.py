@@ -368,6 +368,38 @@ class PlanService:
 
         return plan
 
+    def update_plan(
+        self,
+        project_id: str,
+        plan_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        tasks: Optional[List[PlanTask]] = None,
+        append_tasks: Optional[List[PlanTask]] = None,
+        metadata: Optional[Dict] = None,
+    ) -> Optional[Plan]:
+        """
+        Update an existing Plan definition.
+        """
+        plan = self.load_plan(project_id, plan_id)
+        if not plan:
+            return None
+
+        if name is not None:
+            plan.name = name
+        if description is not None:
+            plan.description = description
+        if metadata:
+            plan.metadata.update(metadata)
+
+        if tasks is not None:
+            plan.tasks = tasks
+        if append_tasks:
+            plan.tasks.extend(append_tasks)
+
+        self._save_plan(plan)
+        return plan
+
     def load_plan_instance(self, project_id: str, plan_id: str, instance_id: str) -> Optional[PlanInstance]:
         """Load a PlanInstance from disk."""
         plan_dir = self._get_flow_dir(project_id, plan_id)
