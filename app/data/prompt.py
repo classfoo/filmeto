@@ -60,7 +60,7 @@ class PromptManager:
         if not prompts_path.exists():
             return templates
         
-        for yaml_file in prompts_path.glob('template_*.yaml'):
+        for yaml_file in prompts_path.glob('template_*.yml'):
             try:
                 data = load_yaml(str(yaml_file))
                 if data and self._validate_template_data(data):
@@ -105,7 +105,7 @@ class PromptManager:
         )
         
         # Save to file
-        file_path = os.path.join(self.prompts_dir, f'template_{template_id}.yaml')
+        file_path = os.path.join(self.prompts_dir, f'template_{template_id}.yml')
         save_yaml(file_path, template.to_dict())
         
         # Update cache
@@ -115,7 +115,7 @@ class PromptManager:
     
     def delete_template(self, template_id: str) -> bool:
         """Remove template from storage"""
-        file_path = os.path.join(self.prompts_dir, f'template_{template_id}.yaml')
+        file_path = os.path.join(self.prompts_dir, f'template_{template_id}.yml')
         
         try:
             if os.path.exists(file_path):
@@ -144,7 +144,7 @@ class PromptManager:
     
     def increment_usage(self, template_id: str):
         """Increment usage count for a template"""
-        file_path = os.path.join(self.prompts_dir, f'template_{template_id}.yaml')
+        file_path = os.path.join(self.prompts_dir, f'template_{template_id}.yml')
         
         try:
             if os.path.exists(file_path):

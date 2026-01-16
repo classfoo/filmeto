@@ -29,7 +29,7 @@ def test_all_projects_loaded():
             "timeline_duration": 0.0,
             "timeline_item_durations": {}
         }
-        save_yaml(os.path.join(project1_dir, "project.yaml"), project1_config)
+        save_yaml(os.path.join(project1_dir, "project.yml"), project1_config)
         os.makedirs(os.path.join(project1_dir, "timeline"), exist_ok=True)
         os.makedirs(os.path.join(project1_dir, "prompts"), exist_ok=True)
         
@@ -45,7 +45,7 @@ def test_all_projects_loaded():
             "timeline_duration": 0.0,
             "timeline_item_durations": {}
         }
-        save_yaml(os.path.join(project2_dir, "project.yaml"), project2_config)
+        save_yaml(os.path.join(project2_dir, "project.yml"), project2_config)
         os.makedirs(os.path.join(project2_dir, "timeline"), exist_ok=True)
         os.makedirs(os.path.join(project2_dir, "prompts"), exist_ok=True)
         
@@ -61,7 +61,7 @@ def test_all_projects_loaded():
             "timeline_duration": 0.0,
             "timeline_item_durations": {}
         }
-        save_yaml(os.path.join(project3_dir, "project.yaml"), project3_config)
+        save_yaml(os.path.join(project3_dir, "project.yml"), project3_config)
         os.makedirs(os.path.join(project3_dir, "timeline"), exist_ok=True)
         os.makedirs(os.path.join(project3_dir, "prompts"), exist_ok=True)
         

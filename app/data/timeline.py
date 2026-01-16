@@ -38,7 +38,7 @@ class TimelineItem:
         self.item_path = os.path.join(self.time_line_path, str(self.index))
         self.image_path = os.path.join(self.item_path, "image.png")
         self.video_path = os.path.join(self.item_path, "video.mp4")
-        self.config_path = os.path.join(self.item_path, "config.yaml")
+        self.config_path = os.path.join(self.item_path, "config.yml")
         self.layers_path = os.path.join(self.item_path, "layers")
         self.tasks_path = os.path.join(self.item_path, "tasks")
         self.config = load_yaml(self.config_path) or {}

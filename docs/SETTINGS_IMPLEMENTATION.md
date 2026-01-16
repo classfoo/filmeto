@@ -26,7 +26,7 @@ Successfully implemented a complete settings management system for the Filmeto a
 - Color (hex color picker)
 - Slider (with min/max/step configuration)
 
-### 2. Settings Template (`app/data/settings_template.yaml`)
+### 2. Settings Template (`app/data/settings_template.yml`)
 
 Default configuration structure with 3 groups:
 - **General**: Language, auto-save interval, tooltips
@@ -75,7 +75,7 @@ Comprehensive test script that validates:
 app/
 ├── data/
 │   ├── settings.py              # Settings class (437 lines)
-│   ├── settings_template.yaml   # Default configuration template
+│   ├── settings_template.yml   # Default configuration template
 │   └── workspace.py             # Updated with Settings integration
 └── ui/
     └── settings/
@@ -165,7 +165,7 @@ settings_widget.show()
 The system is designed for easy extension:
 
 ### Adding New Settings
-1. Edit `settings_template.yaml`
+1. Edit `settings_template.yml`
 2. Add new group or field with proper schema
 3. No code changes required
 

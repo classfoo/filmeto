@@ -110,7 +110,7 @@ Conversations are stored per-project in the `agent/conversations/` directory:
 ```
 project/
 └── agent/
-    ├── conversations_index.yaml      # Conversation metadata
+    ├── conversations_index.yml      # Conversation metadata
     └── conversations/
         ├── conv_20260104_120000.json
         └── conv_20260104_130000.json
@@ -219,7 +219,7 @@ agent = FilmetoAgent(
 The agent reads API keys from workspace settings:
 
 ```yaml
-# workspace/settings.yaml
+# workspace/settings.yml
 openai_api_key: "sk-..."
 ```
 

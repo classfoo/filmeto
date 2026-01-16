@@ -135,7 +135,7 @@ class PlanService:
             temp_file.close()
 
             # Atomically move the temporary file to the target location
-            target_path = plan_dir / "plan.yaml"
+            target_path = plan_dir / "plan.yml"
             shutil.move(temp_file.name, target_path)
         except Exception:
             # Clean up the temporary file if something went wrong
@@ -177,7 +177,7 @@ class PlanService:
             temp_file.close()
 
             # Atomically move the temporary file to the target location
-            target_path = plan_dir / "plan_instance.yaml"
+            target_path = plan_dir / "plan_instance.yml"
             shutil.move(temp_file.name, target_path)
         except Exception:
             # Clean up the temporary file if something went wrong
@@ -326,7 +326,7 @@ class PlanService:
     def load_plan(self, project_id: str, plan_id: str) -> Optional[Plan]:
         """Load a Plan from disk."""
         plan_dir = self._get_flow_dir(project_id, plan_id)
-        plan_path = plan_dir / "plan.yaml"
+        plan_path = plan_dir / "plan.yml"
 
         if not plan_path.exists():
             return None
@@ -403,7 +403,7 @@ class PlanService:
     def load_plan_instance(self, project_id: str, plan_id: str, instance_id: str) -> Optional[PlanInstance]:
         """Load a PlanInstance from disk."""
         plan_dir = self._get_flow_dir(project_id, plan_id)
-        plan_instance_path = plan_dir / "plan_instance.yaml"
+        plan_instance_path = plan_dir / "plan_instance.yml"
 
         if not plan_instance_path.exists():
             return None
@@ -465,7 +465,7 @@ class PlanService:
     def get_all_instances_for_plan(self, project_id: str, plan_id: str) -> List[PlanInstance]:
         """Get all PlanInstances for a specific plan."""
         plan_dir = self._get_flow_dir(project_id, plan_id)
-        plan_instance_path = plan_dir / "plan_instance.yaml"
+        plan_instance_path = plan_dir / "plan_instance.yml"
 
         instances = []
         if plan_instance_path.exists():

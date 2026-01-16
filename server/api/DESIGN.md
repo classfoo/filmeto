@@ -189,7 +189,7 @@ Each plugin is an independent Python project:
 server/plugins/
 └── text2image_comfyui/
     ├── requirements.txt          # Plugin dependencies
-    ├── plugin.yaml              # Plugin metadata
+    ├── plugin.yml              # Plugin metadata
     ├── main.py                  # Entry point
     ├── src/
     │   ├── __init__.py
@@ -342,7 +342,7 @@ class PluginProcess:
     
     async def start(self):
         """Start the plugin process"""
-        # 1. Load plugin.yaml for config
+        # 1. Load plugin.yml for config
         # 2. Create virtual environment if needed
         # 3. Install requirements
         # 4. Start process with python main.py
@@ -520,7 +520,7 @@ class TimeoutError(TaskError):
 
 ## Configuration
 
-### Plugin Configuration (plugin.yaml)
+### Plugin Configuration (plugin.yml)
 
 ```yaml
 name: text2image_comfyui

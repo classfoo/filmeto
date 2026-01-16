@@ -28,7 +28,7 @@ def debug_project_creation():
             expected_project_path = os.path.join(temp_dir, "projects", project_name)
             print(f"Expected project path exists: {os.path.exists(expected_project_path)}")
             print(f"Timeline dir exists: {os.path.exists(os.path.join(expected_project_path, 'timeline'))}")
-            print(f"Project config exists: {os.path.exists(os.path.join(expected_project_path, 'project.yaml'))}")
+            print(f"Project config exists: {os.path.exists(os.path.join(expected_project_path, 'project.yml'))}")
         except Exception as e:
             print(f"Error creating project: {e}")
             import traceback

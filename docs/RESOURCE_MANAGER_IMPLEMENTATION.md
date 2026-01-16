@@ -63,8 +63,8 @@ app/data/project.py
 #### Initialization
 - Accepts project_path as dependency
 - Creates resources directory structure (images/, videos/, audio/, others/)
-- Loads resources/resource_index.yaml or creates empty index
-- Automatically migrates old resource_index.yaml from project root to resources/ if needed
+- Loads resources/resource_index.yml or creates empty index
+- Automatically migrates old resource_index.yml from project root to resources/ if needed
 - Maintains in-memory indexes for O(1) lookups
 
 #### Core Operations

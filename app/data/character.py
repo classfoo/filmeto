@@ -146,7 +146,7 @@ class CharacterManager:
         self.project_path = project_path
         self.resource_manager = resource_manager
         self.characters_dir = os.path.join(project_path, 'characters')
-        self.config_path = os.path.join(self.characters_dir, 'config.yaml')
+        self.config_path = os.path.join(self.characters_dir, 'config.yml')
         
         # In-memory index: character_name -> Character
         self._characters: Dict[str, Character] = {}
@@ -170,7 +170,7 @@ class CharacterManager:
     
     def _load_characters(self):
         """Load all characters from disk"""
-        # 1. Try loading from central config.yaml
+        # 1. Try loading from central config.yml
         if os.path.exists(self.config_path):
             try:
                 data = load_yaml(self.config_path)
@@ -187,16 +187,16 @@ class CharacterManager:
         if os.path.exists(self.characters_dir):
             migrated_count = 0
             for item in os.listdir(self.characters_dir):
-                if item == 'config.yaml': continue
+                if item == 'config.yml': continue
                 character_dir = os.path.join(self.characters_dir, item)
                 if os.path.isdir(character_dir):
-                    config_path = os.path.join(character_dir, 'config.yaml')
+                    config_path = os.path.join(character_dir, 'config.yml')
                     if os.path.exists(config_path):
                         try:
                             data = load_yaml(config_path)
                             if data:
                                 character = Character(data, self.project_path)
-                                
+
                                 # Migrate resources to ResourceManager
                                 if self.resource_manager:
                                     updated_resources = {}
@@ -216,7 +216,7 @@ class CharacterManager:
                                             # Keep the old path if file not found, though it might be broken
                                             updated_resources[res_type] = rel_path
                                     character.resources = updated_resources
-                                
+
                                 self._characters[character.name] = character
                                 migrated_count += 1
                                 logger.info(f"📦 Migrated actor: {character.name}")
@@ -231,8 +231,8 @@ class CharacterManager:
                 # Note: We should only do this if we are SURE all resources are migrated
 
     def _save_all_characters(self) -> bool:
-        """Save all characters to the central config.yaml
-        
+        """Save all characters to the central config.yml
+
         Returns:
             True if successful, False otherwise
         """

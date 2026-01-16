@@ -58,7 +58,7 @@ class Task:
         self.timeline_item_task_manager = timeline_item_task_manager
         self.project_task_manager = project_task_manager
         self.path = path
-        self.config_path = os.path.join(self.path, "config.yaml")
+        self.config_path = os.path.join(self.path, "config.yml")
         self.options = options or {}
         
         # Extract properties from options
@@ -314,7 +314,7 @@ class TimelineItemTaskManager:
 
             task_fold_path = os.path.join(self.tasks_path, str(num))
             os.makedirs(task_fold_path, exist_ok=True)
-            save_yaml(os.path.join(task_fold_path, "config.yaml"), options)
+            save_yaml(os.path.join(task_fold_path, "config.yml"), options)
 
             task = Task(self, project_task_manager, task_fold_path, options)
             self.tasks[str(num)] = task
@@ -356,7 +356,7 @@ class TimelineItemTaskManager:
                 task_dir_path = os.path.join(self.tasks_path, task_dir_name)
                 
                 # Load config file for the task
-                config_path = os.path.join(task_dir_path, "config.yaml")
+                config_path = os.path.join(task_dir_path, "config.yml")
                 options = {}
                 if os.path.exists(config_path):
                     options = load_yaml(config_path) or {}

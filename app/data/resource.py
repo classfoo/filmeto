@@ -89,7 +89,7 @@ class ResourceManager:
         """
         self.project_path = project_path
         self.resources_dir = os.path.join(project_path, 'resources')
-        self.index_file = os.path.join(self.resources_dir, 'resource_index.yaml')
+        self.index_file = os.path.join(self.resources_dir, 'resource_index.yml')
         
         # In-memory indexes
         self._resources_by_name: Dict[str, Resource] = {}
@@ -118,30 +118,30 @@ class ResourceManager:
         os.makedirs(os.path.join(self.resources_dir, 'others'), exist_ok=True)
     
     def _migrate_index_if_needed(self):
-        """Migrate resource_index.yaml from project root to resources directory if it exists in old location"""
-        old_index_file = os.path.join(self.project_path, 'resource_index.yaml')
-        
+        """Migrate resource_index.yml from project root to resources directory if it exists in old location"""
+        old_index_file = os.path.join(self.project_path, 'resource_index.yml')
+
         # Check if old index file exists and new one doesn't
         if os.path.exists(old_index_file) and not os.path.exists(self.index_file):
             try:
                 # Move the file to new location
                 shutil.move(old_index_file, self.index_file)
-                logger.info(f"✅ Migrated resource_index.yaml from project root to resources directory")
+                logger.info(f"✅ Migrated resource_index.yml from project root to resources directory")
             except Exception as e:
-                logger.warning(f"⚠️ Warning: Could not migrate resource_index.yaml: {e}")
+                logger.warning(f"⚠️ Warning: Could not migrate resource_index.yml: {e}")
                 # If move fails, try copying instead
                 try:
                     shutil.copy2(old_index_file, self.index_file)
-                    logger.info(f"✅ Copied resource_index.yaml to resources directory")
+                    logger.info(f"✅ Copied resource_index.yml to resources directory")
                 except Exception as e2:
-                    logger.error(f"❌ Error copying resource_index.yaml: {e2}")
+                    logger.error(f"❌ Error copying resource_index.yml: {e2}")
         elif os.path.exists(old_index_file) and os.path.exists(self.index_file):
             # Both exist - keep the new one, remove the old one
             try:
                 os.remove(old_index_file)
-                logger.info(f"✅ Removed old resource_index.yaml from project root (new one already exists)")
+                logger.info(f"✅ Removed old resource_index.yml from project root (new one already exists)")
             except Exception as e:
-                logger.warning(f"⚠️ Warning: Could not remove old resource_index.yaml: {e}")
+                logger.warning(f"⚠️ Warning: Could not remove old resource_index.yml: {e}")
     
     def _load_index(self):
         """Load resource index from YAML file"""

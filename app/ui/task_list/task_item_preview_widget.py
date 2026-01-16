@@ -70,7 +70,7 @@ class TaskItemPreviewWidget(QWidget):
                 widget.setParent(None)
                 widget.deleteLater()
         
-        # Get resource paths from task config.yaml
+        # Get resource paths from task config.yml
         result_files = []
         try:
             # Load task config

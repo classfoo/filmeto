@@ -1,7 +1,7 @@
 """
 Unit test to reproduce the actor data loading issue in the demo project.
 
-This test verifies that actor data is properly loaded from the config.yaml file
+This test verifies that actor data is properly loaded from the config.yml file
 when a workspace with the demo project is initialized.
 """
 
@@ -27,7 +27,7 @@ class TestCharacterLoadingIssue(unittest.TestCase):
         self.demo_project_path = os.path.join(self.workspace_path, "projects", self.demo_project_name)
 
     def test_character_data_loading_from_demo_project(self):
-        """Test that actor data is properly loaded from the demo project's config.yaml"""
+        """Test that actor data is properly loaded from the demo project's config.yml"""
 
         # Initialize workspace with the demo project
         workspace = Workspace(self.workspace_path, self.demo_project_name, load_data=True)
@@ -38,7 +38,7 @@ class TestCharacterLoadingIssue(unittest.TestCase):
         # Check if characters are loaded (this should pass if the issue is fixed)
         characters = character_manager.list_characters()
 
-        # The demo project should have at least 10 characters based on the config.yaml
+        # The demo project should have at least 10 characters based on the config.yml
         # (may be more if test characters were created in previous runs)
         expected_character_count = 10
         self.assertGreaterEqual(len(characters), expected_character_count,

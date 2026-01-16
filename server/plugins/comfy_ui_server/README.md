@@ -106,7 +106,7 @@ Then send a test request via stdin:
 This demo plugin serves as a template for creating your own plugins:
 
 1. Copy the plugin directory structure
-2. Update `plugin.yaml` with your plugin metadata
+2. Update `plugin.yml` with your plugin metadata
 3. Implement the `execute_task` method in your main plugin class
 4. Use `progress_callback` to report progress
 5. Return results in the standard format

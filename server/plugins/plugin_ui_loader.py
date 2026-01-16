@@ -49,7 +49,7 @@ class PluginUILoader:
             Path to plugin directory or None if not found
         """
         # Try to match by plugin name as stored in plugin config
-        # We need to scan plugin.yaml files to find matching names
+        # We need to scan plugin.yml files to find matching names
         if not self.plugins_dir.exists():
             return None
         
@@ -57,8 +57,8 @@ class PluginUILoader:
             if not plugin_dir.is_dir() or plugin_dir.name.startswith('_'):
                 continue
             
-            # Check if this directory has a plugin.yaml with matching name
-            config_file = plugin_dir / "plugin.yaml"
+            # Check if this directory has a plugin.yml with matching name
+            config_file = plugin_dir / "plugin.yml"
             if config_file.exists():
                 import yaml
                 try:
@@ -220,7 +220,7 @@ class PluginUILoader:
     
     def get_plugin_info_from_code(self, plugin_name: str) -> Optional[Dict[str, Any]]:
         """
-        Get plugin info by loading the plugin class directly (not from plugin.yaml).
+        Get plugin info by loading the plugin class directly (not from plugin.yml).
         
         This can be useful for getting runtime plugin information.
         

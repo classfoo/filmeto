@@ -117,13 +117,13 @@
 project/
   characters/
     CharacterName1/
-      config.yaml
+      config.yml
       resources/
         main_view.png
         front_view.png
         ...
     CharacterName2/
-      config.yaml
+      config.yml
       resources/
         ...
 ```

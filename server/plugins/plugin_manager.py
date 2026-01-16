@@ -32,7 +32,7 @@ class ToolInfo:
 
 @dataclass
 class PluginInfo:
-    """Plugin metadata from plugin.yaml"""
+    """Plugin metadata from plugin.yml"""
     name: str
     version: str
     description: str
@@ -287,8 +287,8 @@ class PluginManager:
             if not plugin_dir.is_dir() or plugin_dir.name.startswith('_'):
                 continue
 
-            # Look for plugin.yaml
-            config_file = plugin_dir / "plugin.yaml"
+            # Look for plugin.yml
+            config_file = plugin_dir / "plugin.yml"
             if not config_file.exists():
                 continue
 

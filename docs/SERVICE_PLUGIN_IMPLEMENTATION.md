@@ -73,7 +73,7 @@ December 11, 2025
 #### 7. ComfyUI Service Plugin (`app/plugins/services/comfyui/`)
 - **Files**:
   - `comfyui_service.py`: Full implementation
-  - `comfyui_config.yaml`: Configuration schema
+  - `comfyui_config.yml`: Configuration schema
   - `__init__.py`: Module initialization
 - **Capabilities**:
   - Text to Image
@@ -88,7 +88,7 @@ December 11, 2025
 #### 8. Bailian Service Plugin (`app/plugins/services/bailian/`)
 - **Files**:
   - `bailian_service.py`: Lightweight implementation
-  - `bailian_config.yaml`: Configuration schema
+  - `bailian_config.yml`: Configuration schema
   - `__init__.py`: Module initialization
 - **Capabilities**:
   - Text to Image
@@ -100,7 +100,7 @@ December 11, 2025
 #### 9. Gemini Service Plugin (`app/plugins/services/gemini/`)
 - **Files**:
   - `gemini_service.py`: Skeleton implementation
-  - `gemini_config.yaml`: Configuration schema
+  - `gemini_config.yml`: Configuration schema
   - `__init__.py`: Module initialization
 - **Capabilities**:
   - Text to Image
@@ -136,15 +136,15 @@ app/
 │       ├── comfyui/
 │       │   ├── __init__.py
 │       │   ├── comfyui_service.py
-│       │   └── comfyui_config.yaml
+│       │   └── comfyui_config.yml
 │       ├── bailian/
 │       │   ├── __init__.py
 │       │   ├── bailian_service.py
-│       │   └── bailian_config.yaml
+│       │   └── bailian_config.yml
 │       └── gemini/
 │           ├── __init__.py
 │           ├── gemini_service.py
-│           └── gemini_config.yaml
+│           └── gemini_config.yml
 └── ui/
     └── settings/
         ├── plugin_grid_widget.py           # Grid display

@@ -51,13 +51,13 @@
 project/
   characters/
     CharacterName1/
-      config.yaml          # 角色配置文件
+      config.yml          # 角色配置文件
       resources/           # 资源文件目录
         main_view.png
         front_view.png
         ...
     CharacterName2/
-      config.yaml
+      config.yml
       resources/
         ...
 ```

@@ -32,8 +32,8 @@ def test_project_path_structure():
         # Verify that the project directory exists
         assert os.path.exists(expected_project_path), f"Project directory does not exist: {expected_project_path}"
         
-        # Verify that the project.yaml file exists
-        project_config_path = os.path.join(expected_project_path, "project.yaml")
+        # Verify that the project.yml file exists
+        project_config_path = os.path.join(expected_project_path, "project.yml")
         assert os.path.exists(project_config_path), f"Project config does not exist: {project_config_path}"
         
         # Test creating another project to ensure ProjectManager works correctly

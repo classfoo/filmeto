@@ -27,7 +27,7 @@ app/data/
 
 workspace/{project_name}/
 └── prompts/                    # Template storage directory
-    ├── template_*.yaml         # Individual template files
+    ├── template_*.yml         # Individual template files
     └── ...
 ```
 

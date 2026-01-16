@@ -53,7 +53,7 @@ class ServerConfig:
     updated_at: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for YAML serialization"""
+        """Convert to dictionary for YML serialization"""
         return {
             "name": self.name,
             "server_type": self.server_type,
@@ -70,7 +70,7 @@ class ServerConfig:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ServerConfig':
-        """Create from dictionary loaded from YAML"""
+        """Create from dictionary loaded from YML"""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at)
@@ -98,14 +98,14 @@ class ServerConfig:
         )
     
     def save_to_file(self, file_path: str):
-        """Save configuration to YAML file"""
+        """Save configuration to YML file"""
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'w', encoding='utf-8') as f:
             yaml.dump(self.to_dict(), f, allow_unicode=True, sort_keys=False)
     
     @classmethod
     def load_from_file(cls, file_path: str) -> 'ServerConfig':
-        """Load configuration from YAML file"""
+        """Load configuration from YML file"""
         with open(file_path, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
         return cls.from_dict(data)
@@ -318,7 +318,7 @@ class ServerManager:
         self.workspace_path = Path(workspace_path)
         self._workspace_path = self.workspace_path  # Store for comparison later
         self.servers_dir = self.workspace_path / "servers"
-        self.router_config_path = self.servers_dir / "server_router.yaml"
+        self.router_config_path = self.servers_dir / "server_router.yml"
 
         # Initialize plugin manager (for subprocess execution)
         if plugin_manager is None:
@@ -382,7 +382,7 @@ class ServerManager:
         """Initialize default servers (local and filmeto) if they don't exist"""
         # Default local server
         local_server_dir = self.servers_dir / "local"
-        local_config_path = local_server_dir / "server.yaml"
+        local_config_path = local_server_dir / "server.yml"
 
         if not local_config_path.exists():
             local_config = ServerConfig(
@@ -398,7 +398,7 @@ class ServerManager:
 
         # Default filmeto server
         filmeto_server_dir = self.servers_dir / "filmeto"
-        filmeto_config_path = filmeto_server_dir / "server.yaml"
+        filmeto_config_path = filmeto_server_dir / "server.yml"
 
         if not filmeto_config_path.exists():
             filmeto_config = ServerConfig(
@@ -442,7 +442,7 @@ class ServerManager:
             if plugin_dir.name in ["local", "filmeto"]:
                 continue
 
-            config_path = plugin_dir / "server.yaml"
+            config_path = plugin_dir / "server.yml"
             if config_path.exists():
                 try:
                     # Try to load the config
@@ -465,11 +465,11 @@ class ServerManager:
         for server_dir in self.servers_dir.iterdir():
             if not server_dir.is_dir():
                 continue
-            
-            config_path = server_dir / "server.yaml"
+
+            config_path = server_dir / "server.yml"
             if not config_path.exists():
                 continue
-            
+
             try:
                 config = ServerConfig.load_from_file(str(config_path))
                 server = Server(config, self.plugin_manager, self.workspace_path)
@@ -530,7 +530,7 @@ class ServerManager:
         
         # Save configuration
         server_dir = self.servers_dir / config.name
-        config_path = server_dir / "server.yaml"
+        config_path = server_dir / "server.yml"
         config.save_to_file(str(config_path))
         
         # Create server instance
@@ -583,7 +583,7 @@ class ServerManager:
         
         # Save configuration
         server_dir = self.servers_dir / name
-        config_path = server_dir / "server.yaml"
+        config_path = server_dir / "server.yml"
         config.save_to_file(str(config_path))
         
         # Update server instance

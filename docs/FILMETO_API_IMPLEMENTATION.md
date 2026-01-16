@@ -133,7 +133,7 @@
 
 - **功能**: 生成带文本的彩色渐变图片
 - **文件结构**:
-  - `plugin.yaml`: 插件配置
+  - `plugin.yml`: 插件配置
   - `requirements.txt`: 依赖（Pillow）
   - `main.py`: 主实现
   - `README.md`: 文档
@@ -266,7 +266,7 @@ filmeto/
 │   │   ├── base_plugin.py             # 插件基类
 │   │   ├── plugin_manager.py          # 插件管理器
 │   │   └── text2image_demo/           # 示例插件
-│   │       ├── plugin.yaml
+│   │       ├── plugin.yml
 │   │       ├── requirements.txt
 │   │       ├── main.py
 │   │       ├── outputs/               # 生成的文件
@@ -397,7 +397,7 @@ python main.py
 ### 创建新插件
 
 1. 复制 `text2image_demo` 目录
-2. 修改 `plugin.yaml`
+2. 修改 `plugin.yml`
 3. 实现 `execute_task()` 方法
 4. 添加依赖到 `requirements.txt`
 

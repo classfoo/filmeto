@@ -45,8 +45,8 @@ class SettingGroup:
 class Settings:
     """
     Global settings management class.
-    
-    Loads and manages configuration from settings.yaml file in workspace directory.
+
+    Loads and manages configuration from settings.yml file in workspace directory.
     Supports grouped settings with validation and type-safe access.
     """
     
@@ -59,10 +59,10 @@ class Settings:
             defer_load: If True, defer loading settings until first access
         """
         self.workspace_path = workspace_path
-        self.settings_file = os.path.join(workspace_path, "settings.yaml")
+        self.settings_file = os.path.join(workspace_path, "settings.yml")
         self.template_file = os.path.join(
-            os.path.dirname(__file__), 
-            "settings_template.yaml"
+            os.path.dirname(__file__),
+            "settings_template.yml"
         )
         
         # Internal data structures
@@ -91,7 +91,7 @@ class Settings:
             logger.info(f"⏱️  [Settings] Deferred settings loading completed in {load_time:.2f}ms")
     
     def load(self):
-        """Load settings from YAML file or create from template if not exists"""
+        """Load settings from YML file or create from template if not exists"""
         # Ensure workspace directory exists
         os.makedirs(self.workspace_path, exist_ok=True)
         
@@ -132,7 +132,7 @@ class Settings:
             raise FileNotFoundError(f"Settings template not found: {self.template_file}")
     
     def _parse_settings(self, data: Dict):
-        """Parse settings YAML data into internal structures"""
+        """Parse settings YML data into internal structures"""
         self.schema.clear()
         self.values.clear()
         self._groups.clear()
@@ -367,8 +367,8 @@ class Settings:
     
     def save(self) -> bool:
         """
-        Save current settings to YAML file.
-        
+        Save current settings to YML file.
+
         Returns:
             True if successful, False otherwise
         """

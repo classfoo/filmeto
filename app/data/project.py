@@ -53,7 +53,7 @@ class Project:
         self.workspace = workspace
         self.project_path = project_path
         self.project_name = project_name
-        self.config = load_yaml(os.path.join(self.project_path, "project.yaml")) or {}
+        self.config = load_yaml(os.path.join(self.project_path, "project.yml")) or {}
 
         # Initialize Timeline first (needed by task manager)
         self.timeline = Timeline(self.workspace, self, os.path.join(self.project_path, 'timeline'))
@@ -184,7 +184,7 @@ class Project:
             self._update_task_config_with_resources(task, registered_resources)
 
     def _update_task_config_with_resources(self, task, registered_resources: List[Dict]):
-        """Update task config.yaml with resource information"""
+        """Update task config.yml with resource information"""
         try:
             task_config = load_yaml(task.config_path) or {}
             task_config['status'] = 'success'
@@ -201,9 +201,9 @@ class Project:
             save_yaml(task.config_path, task_config)
             task.options.update(task_config)
 
-            logger.info(f"✅ Updated task config.yaml with resource paths for task {task.task_id}")
+            logger.info(f"✅ Updated task config.yml with resource paths for task {task.task_id}")
         except Exception as e:
-            logger.error(f"❌ Error updating task config.yaml: {e}")
+            logger.error(f"❌ Error updating task config.yml: {e}")
             import traceback
             traceback.print_exc()
 
@@ -285,7 +285,7 @@ class Project:
         if 'timeline_item_durations' not in self.config:
             self.config['timeline_item_durations'] = {}
         self.config['timeline_item_durations'][str(item_index)] = duration
-        save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
+        save_yaml(os.path.join(self.project_path, "project.yml"), self.config)
 
     def has_item_duration(self, item_index: int) -> bool:
         """Check if duration is set for a specific timeline item"""
@@ -306,7 +306,7 @@ class Project:
     def _flush_config(self):
         """Flush pending config changes to disk"""
         if self._pending_save:
-            save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
+            save_yaml(os.path.join(self.project_path, "project.yml"), self.config)
             self._pending_save = False
 
     def update_config(self, key: str, value: Any, debounced: bool = False):
@@ -323,7 +323,7 @@ class Project:
             self._pending_save = True
             self._save_timer.start()
         else:
-            save_yaml(os.path.join(self.project_path, "project.yaml"), self.config)
+            save_yaml(os.path.join(self.project_path, "project.yml"), self.config)
 
     # ==================== Resource accessors ====================
 
@@ -395,7 +395,7 @@ class ProjectManager:
         for item in items:
             project_path = os.path.join(self.projects_dir, item)
             if os.path.isdir(project_path):
-                project_config_path = os.path.join(project_path, "project.yaml")
+                project_config_path = os.path.join(project_path, "project.yml")
                 if os.path.exists(project_config_path):
                     try:
                         project_start = time.time()
@@ -473,7 +473,7 @@ class ProjectManager:
             "timeline_duration": 0.0,
             "timeline_item_durations": {}
         }
-        save_yaml(os.path.join(project_path, "project.yaml"), project_config)
+        save_yaml(os.path.join(project_path, "project.yml"), project_config)
 
         # Create directory structure
         os.makedirs(os.path.join(project_path, "timeline"), exist_ok=True)

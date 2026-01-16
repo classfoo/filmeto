@@ -4,7 +4,7 @@
 
 ### Adding New Settings
 
-To add new settings to the application, simply edit the `settings_template.yaml` file:
+To add new settings to the application, simply edit the `settings_template.yml` file:
 
 ```yaml
 groups:
@@ -57,7 +57,7 @@ settings.reset_to_defaults()
 
 ### Example: Adding a Theme Setting
 
-1. Edit `app/data/settings_template.yaml`:
+1. Edit `app/data/settings_template.yml`:
 
 ```yaml
 groups:
@@ -176,7 +176,7 @@ validation:
 Settings are stored as YAML:
 ```
 workspace_path/
-└── settings.yaml
+└── settings.yml
 ```
 
 You can manually edit this file, but changes require app restart to take effect.
@@ -185,18 +185,18 @@ You can manually edit this file, but changes require app restart to take effect.
 
 **Settings not saving:**
 - Check file permissions on workspace directory
-- Verify settings.yaml is not read-only
+- Verify settings.yml is not read-only
 
 **Invalid settings:**
 - Settings widget shows validation errors
-- Check constraints in settings_template.yaml
+- Check constraints in settings_template.yml
 
 **Settings reset on startup:**
-- Verify settings.yaml exists in workspace directory
+- Verify settings.yml exists in workspace directory
 - Check for errors in YAML syntax
 
 **Missing settings:**
-- App creates settings.yaml from template if missing
+- App creates settings.yml from template if missing
 - Corrupted file is backed up and recreated
 
 ## Advanced: Custom Field Types

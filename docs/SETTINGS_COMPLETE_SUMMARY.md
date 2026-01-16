@@ -15,7 +15,7 @@ All tasks from the design document have been successfully implemented and tested
 ```
 app/data/
 ├── settings.py (14.3 KB)          # Core Settings class with validation
-└── settings_template.yaml (2.2 KB) # Default configuration template
+└── settings_template.yml (2.2 KB) # Default configuration template
 
 app/ui/settings/
 ├── __init__.py (116 B)            # Package exports
@@ -120,7 +120,7 @@ is_dirty()                     # Check for unsaved changes
 └─────────────────────────────────────┘
 ```
 
-### 4. Settings Template (app/data/settings_template.yaml)
+### 4. Settings Template (app/data/settings_template.yml)
 
 **Groups:** 3  
 **Total Fields:** 9  
@@ -246,7 +246,7 @@ validation:
 ## Error Handling
 
 ### File Operations
-- ✅ Missing settings.yaml → Create from template
+- ✅ Missing settings.yml → Create from template
 - ✅ Corrupted YAML → Backup and recreate
 - ✅ Permission denied → Show error dialog
 - ✅ Template missing → Raise FileNotFoundError
@@ -326,7 +326,7 @@ python test_settings.py
 ## Maintenance Notes
 
 ### Adding New Settings
-1. Edit `app/data/settings_template.yaml`
+1. Edit `app/data/settings_template.yml`
 2. Add group or field with proper schema
 3. No code changes required
 4. Settings automatically available in UI
@@ -337,7 +337,7 @@ python test_settings.py
 3. Update type mapping in factory
 
 ### Troubleshooting
-- Check `test_workspace/settings.yaml` for file structure
+- Check `test_workspace/settings.yml` for file structure
 - Enable debug logging in Settings class
 - Use test script for isolated testing
 

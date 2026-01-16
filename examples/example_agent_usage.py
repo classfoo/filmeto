@@ -232,7 +232,7 @@ async def example_error_handling():
         print(f"Agent: {response}")
     except Exception as e:
         print(f"❌ Error: {e}")
-        print("Make sure to set your OpenAI API key in settings.yaml")
+        print("Make sure to set your OpenAI API key in settings.yml")
 
 
 async def example_settings_configuration():

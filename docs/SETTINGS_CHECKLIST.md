@@ -67,7 +67,7 @@
 
 ### ✅ Settings Template Requirements
 
-- [x] **Template file created** at `app/data/settings_template.yaml`
+- [x] **Template file created** at `app/data/settings_template.yml`
 - [x] **Default groups defined**
   - [x] General (language, auto_save_interval, show_tooltips)
   - [x] Rendering (quality, enable_gpu, max_threads)
@@ -141,7 +141,7 @@
 ### ✅ Error Handling Requirements
 
 - [x] **File operation errors**
-  - [x] settings.yaml not found → Create from template
+  - [x] settings.yml not found → Create from template
   - [x] Invalid YAML syntax → Backup and recreate
   - [x] Permission denied → Show error dialog
   - [x] Template missing → Raise exception
@@ -247,7 +247,7 @@ Beyond the design document requirements:
 | File | Lines | Purpose |
 |------|-------|---------|
 | settings.py | 437 | Core Settings class |
-| settings_template.yaml | 91 | Default configuration |
+| settings_template.yml | 91 | Default configuration |
 | settings_widget.py | 515 | Main UI widget |
 | field_widget_factory.py | 372 | Widget factory |
 | workspace.py | +8 | Integration |

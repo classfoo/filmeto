@@ -202,7 +202,7 @@
 │  Workspace                                                       │
 │  └── project/                                                    │
 │      ├── agent/                                                  │
-│      │   ├── conversations_index.yaml                           │
+│      │   ├── conversations_index.yml                           │
 │      │   │   ├── conversations: []                              │
 │      │   │   │   ├── conversation_id                            │
 │      │   │   │   ├── title                                      │

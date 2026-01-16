@@ -195,7 +195,7 @@ All styling is inline using QSS for maximum flexibility:
 
 Templates stored in:
 ```
-workspace/{project_name}/prompts/template_{uuid}.yaml
+workspace/{project_name}/prompts/template_{uuid}.yml
 ```
 
 Format:

@@ -127,7 +127,7 @@ class BaseService(ABC):
         Default implementation assumes config file is in same directory as service.
         """
         module_path = Path(__file__).parent.parent / "plugins" / "services" / cls.get_service_name()
-        config_file = module_path / f"{cls.get_service_name()}_config.yaml"
+        config_file = module_path / f"{cls.get_service_name()}_config.yml"
         return str(config_file)
 
     @abstractmethod

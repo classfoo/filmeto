@@ -58,8 +58,8 @@ app/
 workspace/
 └── {project_name}/
     └── prompts/                       # Template storage directory
-        ├── template_001.yaml
-        ├── template_002.yaml
+        ├── template_001.yml
+        ├── template_002.yml
         └── ...
 ```
 
@@ -271,13 +271,13 @@ graph TD
 **Directory Structure:**
 ```
 workspace/{project_name}/prompts/
-├── template_{uuid_1}.yaml
-├── template_{uuid_2}.yaml
+├── template_{uuid_1}.yml
+├── template_{uuid_2}.yml
 └── ...
 ```
 
 **File Naming Convention**:
-- Pattern: `template_{uuid}.yaml`
+- Pattern: `template_{uuid}.yml`
 - UUID Generation: Use Python's `uuid.uuid4()` for unique identifiers
 - One template per file for atomic operations
 
@@ -293,7 +293,7 @@ usage_count: 5
 ### Template Operations
 
 **Load Templates:**
-1. Scan `prompts/` directory for `.yaml` files
+1. Scan `prompts/` directory for `.yml` files
 2. Parse each file using `yaml_utils.load_yaml()`
 3. Validate required fields (id, icon, text)
 4. Return sorted list (by usage_count descending, then created_at)
@@ -303,7 +303,7 @@ usage_count: 5
 2. If duplicate found, return False with error message
 3. Generate new UUID for template ID
 4. Create YAML structure with current timestamp
-5. Save to `prompts/template_{uuid}.yaml`
+5. Save to `prompts/template_{uuid}.yml`
 6. Return True on success
 
 **Delete Template:**

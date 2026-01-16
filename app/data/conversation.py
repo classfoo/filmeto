@@ -193,7 +193,7 @@ class ConversationManager:
         os.makedirs(self.conversations_path, exist_ok=True)
         
         # Load or create index
-        self.index_path = os.path.join(self.agent_path, "conversations_index.yaml")
+        self.index_path = os.path.join(self.agent_path, "conversations_index.yml")
         self.index = self._load_index()
     
     def _load_index(self) -> Dict[str, Any]:

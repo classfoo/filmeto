@@ -15,14 +15,14 @@
 - ✅ `Conversation` 数据类：完整的对话线程管理
 - ✅ `ConversationManager`：对话的增删改查
 - ✅ 按项目组织存储：`project/agent/conversations/`
-- ✅ 对话索引管理：`conversations_index.yaml`
+- ✅ 对话索引管理：`conversations_index.yml`
 - ✅ 消息历史记录持久化（JSON 格式）
 
 **存储结构**:
 ```
 project/
 └── agent/
-    ├── conversations_index.yaml      # 对话元数据索引
+    ├── conversations_index.yml      # 对话元数据索引
     └── conversations/
         ├── conv_20260104_120000.json # 对话1
         └── conv_20260104_130000.json # 对话2
@@ -188,7 +188,7 @@ widget.update_streaming_message(message_id, content)
 ```
 project/
 ├── agent/
-│   ├── conversations_index.yaml
+│   ├── conversations_index.yml
 │   └── conversations/
 ├── characters/
 ├── resources/
@@ -293,7 +293,7 @@ export OPENAI_API_KEY="sk-..."
 
 **方法 2**: 配置文件
 ```yaml
-# workspace/settings.yaml
+# workspace/settings.yml
 openai_api_key: "sk-..."
 ```
 

@@ -86,7 +86,7 @@ class EnhancedTaskItemWidget(QWidget):
             import os
             from PySide6.QtGui import QPixmap
 
-            # Get resource paths from task config.yaml
+            # Get resource paths from task config.yml
             result_path = None
             try:
                 # Load task config

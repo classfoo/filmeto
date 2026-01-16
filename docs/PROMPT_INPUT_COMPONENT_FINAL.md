@@ -305,8 +305,8 @@ prompt_manager = workspace.get_prompt_manager()
 workspace/
 └── {project_name}/
     └── prompts/
-        ├── template_{uuid1}.yaml
-        ├── template_{uuid2}.yaml
+        ├── template_{uuid1}.yml
+        ├── template_{uuid2}.yml
         └── ...
 ```
 
