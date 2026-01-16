@@ -139,6 +139,8 @@ class FilmetoAgent:
         def make_handler(sub_agent_instance: SubAgent):
             async def handler(message: AgentMessage):
                 plan_id = message.metadata.get("plan_id") if message.metadata else None
+                # Note: In this context, we don't have direct access to on_stream_event
+                # The streaming happens through the main chat_stream method which handles events
                 async for token in sub_agent_instance.chat_stream(message.content, plan_id=plan_id):
                     metadata = {"plan_id": plan_id} if plan_id else {}
                     response = AgentMessage(
@@ -306,7 +308,7 @@ class FilmetoAgent:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[str]:
         async def response_iter():
-            async for token in sub_agent.chat_stream(message, plan_id=plan_id):
+            async for token in sub_agent.chat_stream(message, on_stream_event=on_stream_event, plan_id=plan_id):
                 response_metadata = dict(metadata or {})
                 if plan_id:
                     response_metadata.setdefault("plan_id", plan_id)

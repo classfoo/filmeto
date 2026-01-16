@@ -259,8 +259,98 @@ class AgentPanel(BasePanel):
         if not self._widgets_initialized or not self.agent_chat_component.chat_history_widget:
             return
 
-        # Forward to chat history widget
-        self.agent_chat_component.chat_history_widget.handle_stream_event(event, session)
+        # Handle different event types
+        if event.event_type == "llm_call_start":
+            # Show that an agent is calling the LLM
+            agent_name = event.data.get("sender_name", "Unknown")
+            step = event.data.get("step", 1)
+            total_steps = event.data.get("total_steps", 1)
+            message = f"🔄 {agent_name} is calling the LLM (Step {step}/{total_steps})"
+
+            # Create or update agent card for this status
+            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_llm_call"
+            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
+                message_id,
+                agent_name
+            )
+            self.agent_chat_component.chat_history_widget.update_agent_card(
+                message_id,
+                content=message,
+                append=False
+            )
+        elif event.event_type == "llm_call_end":
+            # Show that the LLM responded
+            agent_name = event.data.get("sender_name", "Unknown")
+            step = event.data.get("step", 1)
+            response_preview = event.data.get("response_preview", "")
+            message = f"✅ LLM responded to {agent_name} (Step {step}), Preview: {response_preview}"
+
+            # Create or update agent card for this status
+            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_llm_response"
+            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
+                message_id,
+                agent_name
+            )
+            self.agent_chat_component.chat_history_widget.update_agent_card(
+                message_id,
+                content=message,
+                append=False
+            )
+        elif event.event_type == "agent_thinking":
+            # Show that an agent is processing
+            agent_name = event.data.get("sender_name", "Unknown")
+            message = event.data.get("message", f"{agent_name} is processing the request...")
+
+            # Create or update agent card for this status
+            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_thinking"
+            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
+                message_id,
+                agent_name
+            )
+            self.agent_chat_component.chat_history_widget.update_agent_card(
+                message_id,
+                content=message,
+                append=False
+            )
+        elif event.event_type == "skill_execution":
+            # Show that an agent is executing a skill
+            agent_name = event.data.get("sender_name", "Unknown")
+            skill = event.data.get("skill", "Unknown")
+            observation = event.data.get("observation", "")
+            message = f"⚙️ {agent_name} is executing skill: {skill}. Observation: {observation}"
+
+            # Create or update agent card for this status
+            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_skill"
+            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
+                message_id,
+                agent_name
+            )
+            self.agent_chat_component.chat_history_widget.update_agent_card(
+                message_id,
+                content=message,
+                append=False
+            )
+        elif event.event_type == "plan_update":
+            # Show that an agent is updating a plan
+            agent_name = event.data.get("sender_name", "Unknown")
+            plan_id = event.data.get("plan_id", "Unknown")
+            observation = event.data.get("observation", "")
+            message = f"📋 {agent_name} updated plan {plan_id}. Result: {observation}"
+
+            # Create or update agent card for this status
+            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_plan"
+            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
+                message_id,
+                agent_name
+            )
+            self.agent_chat_component.chat_history_widget.update_agent_card(
+                message_id,
+                content=message,
+                append=False
+            )
+        else:
+            # For other event types, use the default handler
+            self.agent_chat_component.chat_history_widget.handle_stream_event(event, session)
 
         # Process UI updates
         QApplication.processEvents()

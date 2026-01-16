@@ -96,12 +96,21 @@ class SubAgent:
         message: str,
         on_token: Optional[Callable[[str], None]] = None,
         on_complete: Optional[Callable[[str], None]] = None,
+        on_stream_event: Optional[Callable[[Any], None]] = None,
         plan_id: Optional[str] = None,
     ) -> AsyncIterator[str]:
         if not self.llm_service.validate_config():
             error_message = "LLM service is not configured."
             if on_token:
                 on_token(error_message)
+            if on_stream_event:
+                # Send error event to UI
+                from agent.filmeto_agent import StreamEvent
+                on_stream_event(StreamEvent("error", {
+                    "content": error_message,
+                    "sender_name": self.config.name,
+                    "session_id": getattr(self, '_session_id', 'unknown')
+                }))
             yield error_message
             if on_complete:
                 on_complete(error_message)
@@ -112,21 +121,76 @@ class SubAgent:
         messages.extend(self.conversation_history)
         messages.append({"role": "user", "content": message})
 
+        # Notify UI that the agent is starting to think/process
+        if on_stream_event:
+            from agent.filmeto_agent import StreamEvent
+            on_stream_event(StreamEvent("agent_thinking", {
+                "sender_name": self.config.name,
+                "sender_id": self.config.name,
+                "message": f"{self.config.name} is processing the request...",
+                "session_id": getattr(self, '_session_id', 'unknown')
+            }))
+
         final_response = None
-        for _ in range(self.config.max_steps):
+        for step in range(self.config.max_steps):
+            # Notify UI that the agent is calling the LLM
+            if on_stream_event:
+                from agent.filmeto_agent import StreamEvent
+                on_stream_event(StreamEvent("llm_call_start", {
+                    "sender_name": self.config.name,
+                    "sender_id": self.config.name,
+                    "step": step + 1,
+                    "total_steps": self.config.max_steps,
+                    "session_id": getattr(self, '_session_id', 'unknown')
+                }))
+
             response_text = await self._complete(messages)
+
+            # Notify UI that the LLM responded
+            if on_stream_event:
+                from agent.filmeto_agent import StreamEvent
+                on_stream_event(StreamEvent("llm_call_end", {
+                    "sender_name": self.config.name,
+                    "sender_id": self.config.name,
+                    "step": step + 1,
+                    "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text,
+                    "session_id": getattr(self, '_session_id', 'unknown')
+                }))
+
             action = self._parse_action(response_text)
 
             if action.action_type == "skill":
                 observation = self._execute_skill(action)
                 messages.append({"role": "assistant", "content": response_text})
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
+
+                # Notify UI about skill execution
+                if on_stream_event:
+                    from agent.filmeto_agent import StreamEvent
+                    on_stream_event(StreamEvent("skill_execution", {
+                        "sender_name": self.config.name,
+                        "sender_id": self.config.name,
+                        "skill": action.skill,
+                        "observation": observation,
+                        "session_id": getattr(self, '_session_id', 'unknown')
+                    }))
                 continue
 
             if action.action_type == "plan_update":
                 observation = self._apply_plan_update(action, plan_id=plan_id)
                 messages.append({"role": "assistant", "content": response_text})
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
+
+                # Notify UI about plan update
+                if on_stream_event:
+                    from agent.filmeto_agent import StreamEvent
+                    on_stream_event(StreamEvent("plan_update", {
+                        "sender_name": self.config.name,
+                        "sender_id": self.config.name,
+                        "plan_id": plan_id,
+                        "observation": observation,
+                        "session_id": getattr(self, '_session_id', 'unknown')
+                    }))
                 continue
 
             final_response = action.response or response_text
