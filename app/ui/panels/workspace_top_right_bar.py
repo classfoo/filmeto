@@ -68,6 +68,7 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
         self.panel_registry = {
             'agent': ('app.ui.panels.agent.agent_panel', 'AgentPanel'),
             'chat_history': ('app.ui.panels.chat_history.chat_history_panel', 'ChatHistoryPanel'),
+            'skills': ('app.ui.panels.skills.skills_panel', 'SkillsPanel'),
         }
     
     @Slot(str)
