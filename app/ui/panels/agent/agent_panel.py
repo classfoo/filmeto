@@ -218,25 +218,25 @@ class AgentPanel(BasePanel):
             self.agent.add_ui_callback(self._stream_handler.handle_event)
 
             try:
-                # Define async callbacks to avoid the "callback must be callable: Task" error
-                async def async_on_token(token):
+                # Define synchronous callbacks that will emit Qt signals
+                def on_token(token):
                     # Use Qt signal in a thread-safe way
                     self.response_token_received.emit(token)
 
-                async def async_on_complete(response):
+                def on_complete(response):
                     # Use Qt signal in a thread-safe way
                     self.response_complete.emit(response)
 
-                async def async_on_stream_event(event):
+                def on_stream_event(event):
                     # Handle stream event synchronously
                     self._handle_stream_event_sync(event)
 
                 # Stream tokens from agent with event callback
                 async for token in self.agent.chat_stream(
                     message=message,
-                    on_token=async_on_token,
-                    on_complete=async_on_complete,
-                    on_stream_event=async_on_stream_event
+                    on_token=on_token,
+                    on_complete=on_complete,
+                    on_stream_event=on_stream_event
                 ):
                     # Tokens are handled by signal callbacks and stream events
                     pass
