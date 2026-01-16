@@ -275,11 +275,18 @@ class SubAgent:
 
     async def _complete(self, messages: List[Dict[str, str]]) -> str:
         try:
-            response = await self.llm_service.acompletion(
-                model=self.config.model,
-                messages=messages,
-                temperature=self.config.temperature,
-                stream=False,
+            # Use the sync completion method in a thread executor to avoid async conflicts
+            # This prevents the Qt async loop from interfering with LiteLLM's internal async operations
+            import asyncio
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.llm_service.completion(
+                    model=self.config.model,
+                    messages=messages,
+                    temperature=self.config.temperature,
+                    stream=False,
+                )
             )
             return _extract_response_content(response)
         except Exception as exc:
