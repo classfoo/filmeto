@@ -141,3 +141,14 @@ class ProjectStartupWidget(BaseWidget):
         """Set the project to display."""
         self.project_name = project_name
         self.project_info.set_project(project_name)
+
+        # Update the agent chat component with the new project context
+        # and clear the chat history for the new project
+        if hasattr(self, 'agent_chat_component') and self.agent_chat_component:
+            # Update the agent's project context
+            project = self.workspace.get_project()
+            if project:
+                self.agent_chat_component.update_project(project)
+
+            # Clear the chat history for the new project
+            self.agent_chat_component.chat_history_widget.clear()
