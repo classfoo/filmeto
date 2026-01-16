@@ -78,9 +78,20 @@ class MainEditorWidget(BaseTaskWidget):
         self._connect_signals()
         self._apply_styles()
         self.current_tool = None
-        self.update_current_tool(self.workspace.get_project().get_timeline().get_current_item())
+        current_timeline_item = self.workspace.get_project().get_timeline().get_current_item()
+        self.update_current_tool(current_timeline_item)
 
     def update_current_tool(self,current_timeline_item):
+        # Handle case where current_timeline_item is None
+        if current_timeline_item is None:
+            # Set default tool if available
+            if self._tools:
+                if self.current_tool is None:
+                    first_tool = list(self._tools.keys())[0]
+                    self.current_tool = first_tool
+                    self._select_tool(first_tool)
+            return
+
         if self.current_tool is None:
             self.current_tool = current_timeline_item.get_config_value("current_tool")
         else:
