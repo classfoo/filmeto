@@ -38,7 +38,15 @@ class MainWindowRightSideBar(BaseWidget):
         self.chat_history_button.clicked.connect(lambda: self._on_button_clicked('chat_history'))
         self.layout.addWidget(self.chat_history_button, alignment=Qt.AlignCenter)
         self.button_map['chat_history'] = self.chat_history_button
-        
+
+        # Skills button
+        self.skills_button = QPushButton("\ue69d", self)  # Skills icon
+        self.skills_button.setFixedSize(30, 30)
+        self.skills_button.setCheckable(True)
+        self.skills_button.clicked.connect(lambda: self._on_button_clicked('skills'))
+        self.layout.addWidget(self.skills_button, alignment=Qt.AlignCenter)
+        self.button_map['skills'] = self.skills_button
+
         self.layout.addStretch(0)
         
         # Track current selected button
