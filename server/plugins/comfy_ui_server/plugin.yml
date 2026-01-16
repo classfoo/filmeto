@@ -1,0 +1,122 @@
+name: ComfyUI
+version: 1.0.0
+description: ComfyUI integration for AI image and video generation
+author: Filmeto Team
+engine: comfyui
+
+requirements:
+  python: ">=3.9"
+  packages:
+    - pillow>=9.0.0
+
+# Define multiple tools supported by this plugin
+tools:
+  - name: text2image
+    description: Generate image from text prompt
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for generation
+
+      - name: negative_prompt
+        type: string
+        required: false
+        default: ""
+        description: Negative prompt
+
+      - name: width
+        type: integer
+        required: false
+        default: 512
+        min: 256
+        max: 2048
+        description: Image width
+
+      - name: height
+        type: integer
+        required: false
+        default: 512
+        min: 256
+        max: 2048
+        description: Image height
+
+      - name: steps
+        type: integer
+        required: false
+        default: 20
+        min: 1
+        max: 100
+        description: Number of generation steps
+
+  - name: image2image
+    description: Transform image based on text prompt
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for transformation
+
+      - name: strength
+        type: float
+        required: false
+        default: 0.7
+        min: 0.0
+        max: 1.0
+        description: Strength of transformation
+
+  - name: inpainting
+    description: Fill in masked regions of an image
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for inpainting
+
+      - name: mask_blur
+        type: integer
+        required: false
+        default: 4
+        min: 0
+        max: 64
+        description: Blur radius for mask feathering
+
+  - name: image2video
+    description: Animate image based on text prompt
+    parameters:
+      - name: prompt
+        type: string
+        required: true
+        description: Text prompt for animation
+
+      - name: input_image_path
+        type: string
+        required: true
+        description: Path to input image for animation
+
+startup:
+  timeout: 30
+  health_check: true
+
+execution:
+  timeout: 300
+  max_retries: 3
+
+# Configuration schema for creating server instances
+config_schema:
+  fields:
+    - name: endpoint
+      label: ComfyUI Endpoint
+      type: url
+      required: true
+      default: "http://localhost:8188"
+      description: ComfyUI server endpoint URL
+      placeholder: "http://localhost:8188"
+    
+    - name: timeout
+      label: Request Timeout
+      type: integer
+      required: false
+      default: 300
+      description: Request timeout in seconds
+      placeholder: "300"
