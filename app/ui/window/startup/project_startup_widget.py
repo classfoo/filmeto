@@ -46,6 +46,10 @@ class ProjectStartupWidget(BaseWidget):
         self._setup_ui()
         self._connect_signals()
         self._apply_styles()
+
+        # Set the project info if a project name is provided
+        if self.project_name:
+            self.set_project(self.project_name)
     
     def _setup_ui(self):
         """Set up the UI components."""
@@ -80,16 +84,16 @@ class ProjectStartupWidget(BaseWidget):
         self.tab_widget = QTabWidget()
         self.tab_widget.setObjectName("project_startup_tabs")
 
-        # Project info tab
-        self.project_info = ProjectInfoWidget(self.workspace)
-        self.tab_widget.addTab(self.project_info, tr("Project Info"))
-
         # Chat tab
         self.chat_tab = QWidget()
         self._setup_chat_tab(self.chat_tab)
         self.tab_widget.addTab(self.chat_tab, tr("Chat"))
 
-        # Set project info tab as default selected
+        # Project info tab
+        self.project_info = ProjectInfoWidget(self.workspace)
+        self.tab_widget.addTab(self.project_info, tr("Project Info"))
+
+        # Set chat tab as default selected
         self.tab_widget.setCurrentIndex(0)
 
         main_layout.addWidget(self.tab_widget, 1)
