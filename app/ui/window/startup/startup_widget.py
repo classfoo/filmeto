@@ -105,12 +105,12 @@ class StartupWidget(BaseWidget):
 
         # Project info tab
         self.project_info = ProjectInfoWidget(self.workspace)
-        self.tab_widget.addTab(self.project_info, tr("项目信息"))
+        self.tab_widget.addTab(self.project_info, tr("Project Info"))
 
         # Chat tab
         self.chat_tab = QWidget()
         self._setup_chat_tab(self.chat_tab)
-        self.tab_widget.addTab(self.chat_tab, tr("聊天"))
+        self.tab_widget.addTab(self.chat_tab, tr("Chat"))
 
         # Set chat tab as default selected
         self.tab_widget.setCurrentIndex(1)
@@ -178,7 +178,7 @@ class StartupWidget(BaseWidget):
         current_tab_text = self.tab_widget.tabText(current_tab_index)
 
         # If the current tab is the chat tab, send the prompt to the agent chat component
-        if current_tab_text == tr("聊天"):  # "Chat" tab
+        if current_tab_text == tr("Chat"):  # "Chat" tab
             # Make sure the agent chat component is initialized
             if hasattr(self, 'agent_chat_component') and self.agent_chat_component:
                 # Send the message to the agent chat component
