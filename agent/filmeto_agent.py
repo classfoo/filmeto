@@ -3,6 +3,7 @@ Main agent module for Filmeto application.
 Implements the FilmetoAgent class with streaming capabilities.
 """
 import json
+import logging
 import re
 import uuid
 from typing import AsyncIterator, Dict, List, Optional, Callable, Any
@@ -12,6 +13,8 @@ from agent.plan.models import Plan, PlanInstance, PlanTask, TaskStatus
 from agent.plan.service import PlanService
 from agent.sub_agent.sub_agent import SubAgent
 from agent.sub_agent.sub_agent_service import SubAgentService
+
+logger = logging.getLogger(__name__)
 
 
 _MENTION_PATTERN = re.compile(r"@([A-Za-z0-9_-]+)")
@@ -150,6 +153,7 @@ class FilmetoAgent:
                         sender_name=sub_agent_instance.config.name.capitalize(),
                         metadata=metadata,
                     )
+                    logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
                     yield response
             return handler
 
@@ -319,6 +323,7 @@ class FilmetoAgent:
                     sender_name=sub_agent.config.name.capitalize(),
                     metadata=response_metadata,
                 )
+                logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
                 yield response
 
         async for content in self._stream_agent_messages(
@@ -342,6 +347,7 @@ class FilmetoAgent:
             sender_id="system",
             sender_name="System",
         )
+        logger.info(f"❌ Sending error message: id={error_msg.message_id}, sender='system', content_preview='{message[:50]}{'...' if len(message) > 50 else ''}'")
         self.conversation_history.append(error_msg)
         if on_token:
             on_token(error_msg.content)
@@ -383,6 +389,7 @@ class FilmetoAgent:
             sender_id="user",
             sender_name="User"
         )
+        logger.info(f"📥 Created initial prompt message: id={initial_prompt.message_id}, sender='user', content_preview='{message[:50]}{'...' if len(message) > 50 else ''}'")
         
         # Create a new session
         session_id = str(uuid.uuid4())
@@ -668,5 +675,6 @@ class FilmetoAgent:
                     sender_id="system",
                     sender_name="System"
                 )
+                logger.info(f"❌ Broadcasting error message: id={error_msg.message_id}, sender='system', content_preview='{error_msg.content[:50]}{'...' if len(error_msg.content) > 50 else ''}'")
                 self.conversation_history.append(error_msg)
                 yield error_msg.content  # Yield just the content for consistency
