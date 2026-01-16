@@ -87,8 +87,8 @@ class StartupWidget(BaseWidget):
         
         # Separator
         separator = QFrame()
+        separator.setObjectName("startup_separator")
         separator.setFrameShape(QFrame.VLine)
-        separator.setStyleSheet("background-color: #3c3f41;")
         separator.setFixedWidth(1)
         content_layout.addWidget(separator)
         
@@ -152,43 +152,8 @@ class StartupWidget(BaseWidget):
     
     def _apply_styles(self):
         """Apply styles to the widget."""
-        self.setStyleSheet("""
-            QWidget#startup_widget {
-                background-color: #2b2b2b;
-            }
-            QWidget#startup_top_bar {
-                background-color: #1e1f22;
-                border-bottom: 1px solid #3c3f41;
-            }
-            QWidget#startup_right_panel {
-                background-color: #2b2b2b;
-            }
-            QTabWidget#startup_tabs {
-                background-color: #2b2b2b;
-            }
-            QTabWidget#startup_tabs::pane {
-                background-color: #2b2b2b;
-                border: none;
-            }
-            QTabWidget#startup_tabs QTabBar {
-                background-color: #2b2b2b;
-            }
-            QTabWidget#startup_tabs > QTabBar::tab {
-                background-color: #2b2b2b;
-                color: #888888;
-                padding: 8px 16px;
-                margin-right: 4px;
-                border: none;
-                border-bottom: 2px solid transparent;
-            }
-            QTabWidget#startup_tabs > QTabBar::tab:selected {
-                color: #E1E1E1;
-                border-bottom: 2px solid #4080ff;
-            }
-            QTabWidget#startup_tabs > QTabBar::tab:hover:!selected {
-                color: #AAAAAA;
-            }
-        """)
+        # Styles are now in the global stylesheet
+        pass
     
     def _on_project_selected(self, project_name: str):
         """Handle project selection from the list."""

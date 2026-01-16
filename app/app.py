@@ -54,6 +54,15 @@ def load_stylesheet(main_path):
     else:
         logger.warning(f"Warning: panel style file '{panel_style_file}' not found.")
 
+    # Load the startup styles
+    startup_style_file = "style/startup_styles.qss"
+    if os.path.exists(startup_style_file):
+        with open(startup_style_file, "r", encoding="utf-8") as f:
+            startup_styles = f.read()
+            combined_stylesheet += "\n" + startup_styles
+    else:
+        logger.warning(f"Warning: startup style file '{startup_style_file}' not found.")
+
     return combined_stylesheet
 
 def load_custom_font(main_path):
