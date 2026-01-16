@@ -112,10 +112,10 @@ class AgentChatComponent(BaseWidget):
         if not self.agent:
             if not self._initialization_in_progress:
                 # Show message that agent is initializing
-                init_message_id = self.chat_history_widget.start_streaming_message(tr("系统"))
+                init_message_id = self.chat_history_widget.start_streaming_message(tr("System"))
                 self.chat_history_widget.update_streaming_message(
                     init_message_id,
-                    tr("Agent正在初始化中，请稍候...")
+                    tr("Agent is initializing, please wait...")
                 )
 
                 # Initialize agent asynchronously
@@ -125,12 +125,12 @@ class AgentChatComponent(BaseWidget):
                 if self.agent:
                     self.chat_history_widget.update_streaming_message(
                         init_message_id,
-                        tr("Agent初始化完成")
+                        tr("Agent initialization complete")
                     )
                 else:
                     self.chat_history_widget.update_streaming_message(
                         init_message_id,
-                        tr("错误: Agent初始化失败。请确保项目已加载。")
+                        tr("Error: Agent initialization failed. Please ensure project is loaded.")
                     )
                     return
             else:
@@ -140,8 +140,8 @@ class AgentChatComponent(BaseWidget):
 
                 if not self.agent:
                     self.chat_history_widget.append_message(
-                        tr("系统"),
-                        tr("错误: Agent初始化失败。请确保项目已加载。")
+                        tr("System"),
+                        tr("Error: Agent initialization failed. Please ensure project is loaded.")
                     )
                     return
 
@@ -160,7 +160,7 @@ class AgentChatComponent(BaseWidget):
             await self._stream_response(message)
         except Exception as e:
             # If streaming fails, show error
-            error_msg = f"{tr('错误')}: {str(e)}"
+            error_msg = f"{tr('Error')}: {str(e)}"
             self.error_occurred.emit(error_msg)
 
     async def _stream_response(self, message: str):
@@ -198,7 +198,7 @@ class AgentChatComponent(BaseWidget):
 
         except Exception as e:
             # Ensure error is displayed
-            error_msg = f"{tr('错误')}: {str(e)}"
+            error_msg = f"{tr('Error')}: {str(e)}"
             self.error_occurred.emit(error_msg)
         finally:
             # Re-enable input
@@ -268,7 +268,7 @@ class AgentChatComponent(BaseWidget):
             self._current_message_id = None
         else:
             # Add error message as new system message
-            self.chat_history_widget.append_message(tr("系统"), error_message)
+            self.chat_history_widget.append_message(tr("System"), error_message)
 
         # Clear current response
         self._current_response = ""

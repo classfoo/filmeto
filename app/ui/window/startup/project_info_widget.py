@@ -33,7 +33,7 @@ class VideoPreviewWidget(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         
         # Preview placeholder
-        self.preview_label = QLabel(tr("暂无视频预览"))
+        self.preview_label = QLabel(tr("No Video Preview"))
         self.preview_label.setObjectName("video_preview_label")
         self.preview_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.preview_label)
@@ -42,9 +42,9 @@ class VideoPreviewWidget(QFrame):
         """Set the video path for preview."""
         if path:
             # TODO: Implement actual video preview
-            self.preview_label.setText(tr("视频: ") + path.split('/')[-1])
+            self.preview_label.setText(tr("Video: ") + path.split('/')[-1])
         else:
-            self.preview_label.setText(tr("暂无视频预览"))
+            self.preview_label.setText(tr("No Video Preview"))
 
 
 class StatCard(QFrame):
@@ -88,7 +88,7 @@ class BudgetProgressWidget(QFrame):
         
         # Title row
         title_row = QHBoxLayout()
-        title_label = QLabel(tr("预算使用"))
+        title_label = QLabel(tr("Budget Usage"))
         title_label.setObjectName("budget_progress_title")
         title_row.addWidget(title_label)
         title_row.addStretch()
@@ -133,7 +133,7 @@ class StoryDescriptionWidget(QFrame):
         layout.setSpacing(6)
         
         # Title
-        title_label = QLabel(tr("故事描述"))
+        title_label = QLabel(tr("Story Description"))
         title_label.setObjectName("story_description_title")
         layout.addWidget(title_label)
 
@@ -141,7 +141,7 @@ class StoryDescriptionWidget(QFrame):
         self.description_text = QTextEdit()
         self.description_text.setObjectName("story_description_text")
         self.description_text.setReadOnly(True)
-        self.description_text.setPlaceholderText(tr("暂无故事描述..."))
+        self.description_text.setPlaceholderText(tr("No story description..."))
         # Compact by default to fit in small windows; can still expand when space allows.
         self.description_text.setMinimumHeight(80)
         self.description_text.setMaximumHeight(120)
@@ -222,7 +222,7 @@ class ProjectInfoWidget(BaseWidget):
         self.project_name_label.setWordWrap(False)
         overlay_layout.addWidget(self.project_name_label)
 
-        self.edit_button = QPushButton(tr("编辑"))
+        self.edit_button = QPushButton(tr("Edit"))
         self.edit_button.setObjectName("edit_project_button")
         self.edit_button.setFixedHeight(28)
         self.edit_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -247,10 +247,10 @@ class ProjectInfoWidget(BaseWidget):
         stats_layout.setContentsMargins(0, 0, 0, 0)
         stats_layout.setSpacing(12)
 
-        self.timeline_stat = StatCard(tr("时间线项目"), "0")
+        self.timeline_stat = StatCard(tr("Timeline Items"), "0")
         stats_layout.addWidget(self.timeline_stat, 0, 0)
 
-        self.task_stat = StatCard(tr("任务数量"), "0")
+        self.task_stat = StatCard(tr("Task Count"), "0")
         stats_layout.addWidget(self.task_stat, 0, 1)
 
         side_col_layout.addWidget(stats_widget)
