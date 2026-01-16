@@ -462,5 +462,8 @@ _ACTION_INSTRUCTIONS = (
     '- {"type":"skill","skill":"skill_name","args":{...}} to call a skill.\n'
     '- {"type":"plan_update","plan_id":"plan_id","plan_update":{...}} to update a plan.\n'
     '- {"type":"final","response":"your final response"} when done.\n'
+    "When updating a plan, include fields like name, description, tasks, append_tasks, metadata.\n"
+    "Each task should include: id, name, description, agent_role, needs, parameters.\n"
+    "If you receive a message that includes your @name, treat it as your assigned task.\n"
     "Do not include additional commentary outside the JSON."
 )

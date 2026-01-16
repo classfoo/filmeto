@@ -323,6 +323,40 @@ class PlanService:
         self._save_plan_instance(plan_instance)
         return plan_instance
 
+    def sync_plan_instance(self, plan_instance: PlanInstance, plan: Plan) -> PlanInstance:
+        """
+        Sync a plan instance with the latest plan definition.
+
+        This updates mutable fields for tasks that have not started yet and
+        appends any new tasks introduced in the plan.
+        """
+        existing_tasks = {task.id: task for task in plan_instance.tasks}
+
+        for plan_task in plan.tasks:
+            if plan_task.id in existing_tasks:
+                instance_task = existing_tasks[plan_task.id]
+                if instance_task.status in {TaskStatus.CREATED, TaskStatus.READY}:
+                    instance_task.name = plan_task.name
+                    instance_task.description = plan_task.description
+                    instance_task.agent_role = plan_task.agent_role
+                    instance_task.parameters = plan_task.parameters.copy()
+                    instance_task.needs = plan_task.needs.copy()
+                continue
+
+            instance_task = PlanTask(
+                id=plan_task.id,
+                name=plan_task.name,
+                description=plan_task.description,
+                agent_role=plan_task.agent_role,
+                parameters=plan_task.parameters.copy(),
+                needs=plan_task.needs.copy(),
+                status=TaskStatus.CREATED,
+            )
+            plan_instance.tasks.append(instance_task)
+
+        self._save_plan_instance(plan_instance)
+        return plan_instance
+
     def load_plan(self, project_id: str, plan_id: str) -> Optional[Plan]:
         """Load a Plan from disk."""
         plan_dir = self._get_flow_dir(project_id, plan_id)
