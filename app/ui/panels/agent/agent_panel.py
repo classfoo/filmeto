@@ -347,18 +347,19 @@ class AgentPanel(BasePanel):
         try:
             # Lazy import heavy agent module only when needed
             from agent.filmeto_agent import FilmetoAgent
-            
+            from agent.sub_agent.sub_agent_service import SubAgentService
+
             # Get current project from workspace
             project = self.workspace.get_project()
             if not project:
                 logger.warning("⚠️ Cannot initialize agent: No project loaded")
                 return
-            
+
             # Get settings (model from settings, let FilmetoAgent read api_key internally)
             settings = self.workspace.get_settings()
             model = settings.get('ai_services.default_model', 'gpt-4o-mini') if settings else 'gpt-4o-mini'
             temperature = 0.7  # Could also make this configurable
-            
+
             # Create agent instance (it will read api_key and base_url from workspace.settings)
             self.agent = FilmetoAgent(
                 workspace=self.workspace,
@@ -367,7 +368,10 @@ class AgentPanel(BasePanel):
                 temperature=temperature,
                 streaming=True
             )
-            
+
+            # Register default agents with the agent manager
+            self._register_default_agents(project)
+
             init_time = (time.time() - init_start) * 1000
             # Check if agent has a valid LLM initialized
             if not self.agent.llm_service.validate_config():
@@ -378,6 +382,81 @@ class AgentPanel(BasePanel):
             logger.error(f"❌ Error initializing agent: {e}")
             import traceback
             traceback.print_exc()
+
+    def _register_default_agents(self, project):
+        """Register default agents with the FilmetoAgent."""
+        try:
+            # Import required modules
+            from agent.sub_agent.sub_agent_service import SubAgentService
+            from agent.chat.agent_chat_message import AgentMessage, MessageType
+            import asyncio
+
+            # Get the sub-agent service instance
+            sub_agent_service = SubAgentService()
+
+            # Load sub-agents for the project
+            sub_agents = sub_agent_service.load_project_sub_agents(project)
+
+            # Register each sub-agent as an agent with the main agent manager
+            for agent_name, sub_agent in sub_agents.items():
+                # Create a closure to capture the sub_agent_instance for the handler
+                def make_handler(sub_agent_instance):
+                    async def handler(message: AgentMessage):
+                        # Process the message using the sub-agent's chat_stream
+                        async for token in sub_agent_instance.chat_stream(message.content):
+                            response = AgentMessage(
+                                content=token,
+                                message_type=MessageType.TEXT,
+                                sender_id=sub_agent_instance.config.name,
+                                sender_name=sub_agent_instance.config.name.capitalize()
+                            )
+                            yield response
+                    return handler
+
+                handler_func = make_handler(sub_agent)
+
+                self.agent.register_agent(
+                    agent_id=sub_agent.config.name,
+                    name=sub_agent.config.name.capitalize(),
+                    role_description=sub_agent.config.description,
+                    handler_func=handler_func
+                )
+
+                logger.info(f"✅ Registered agent: {sub_agent.config.name}")
+
+            # If no sub-agents were found, register a fallback agent
+            if not sub_agents:
+                logger.warning("⚠️ No sub-agents found, registering fallback agent")
+                self._register_fallback_agent()
+
+        except Exception as e:
+            logger.error(f"❌ Error registering default agents: {e}")
+            import traceback
+            traceback.print_exc()
+            # Register a fallback agent in case of error
+            self._register_fallback_agent()
+
+    def _register_fallback_agent(self):
+        """Register a fallback agent in case the default agents fail to load."""
+        from agent.chat.agent_chat_message import AgentMessage, MessageType
+
+        async def fallback_handler(message: AgentMessage):
+            response = AgentMessage(
+                content="I'm the Filmeto AI assistant. I can help with video editing and film production tasks. However, I couldn't load the specialized agents. Please make sure your API key is configured correctly.",
+                message_type=MessageType.TEXT,
+                sender_id="fallback_agent",
+                sender_name="Filmeto Assistant"
+            )
+            yield response
+
+        self.agent.register_agent(
+            agent_id="fallback_agent",
+            name="Filmeto Assistant",
+            role_description="General purpose Filmeto AI assistant",
+            handler_func=fallback_handler
+        )
+
+        logger.info("✅ Registered fallback agent")
     
     def update_project(self, project):
         """Update agent with new project context."""
