@@ -131,17 +131,18 @@ class AgentPanel(BasePanel):
         """Handle message submission from prompt input widget."""
         if not message or self._is_processing:
             return
-        
+
         # Ensure widgets are initialized
         if not self._widgets_initialized:
             logger.warning("⚠️ Agent panel widgets not initialized yet")
             return
-        
+
         # Add user message to chat history using new card-based display
         self.chat_history_widget.add_user_message(message)
-        
+
         # Start async processing which will initialize agent if needed
-        asyncio.create_task(self._process_message_async(message))
+        # Use the standard asyncio.create_task but wrapped in a way that's compatible with Qt
+        asyncio.ensure_future(self._process_message_async(message))
     
     def _on_reference_clicked(self, ref_type: str, ref_id: str):
         """Handle reference click in chat history."""
