@@ -93,14 +93,6 @@ groups:
     label: AI Services
     icon: ""
     fields:
-      - name: openai_api_key
-        label: OpenAI API Key
-        type: text
-        default: ""
-        description: Your OpenAI API key for AI services
-        validation:
-          max_length: 500
-      
       - name: openai_host
         label: OpenAI API Host
         type: text
@@ -108,7 +100,7 @@ groups:
         description: OpenAI API base URL for LangGraph initialization
         validation:
           max_length: 500
-      
+
       - name: openai_ak_sk
         label: OpenAI Access Key/Secret Key
         type: text
@@ -116,12 +108,12 @@ groups:
         description: OpenAI AK/SK for alternative authentication (optional)
         validation:
           max_length: 500
-        
+
       - name: default_model
         label: Default AI Model
-        type: select
+        type: combo  # Custom type for combo box with custom input
         default: gpt-4o-mini
-        description: Default model for AI services
+        description: Default model for AI services (select from list or enter custom model)
         options:
           - value: gpt-4o-mini
             label: GPT-4o Mini
@@ -129,3 +121,15 @@ groups:
             label: GPT-4 Turbo
           - value: gpt-3.5-turbo
             label: GPT-3.5 Turbo
+          - value: claude-3-haiku
+            label: Claude 3 Haiku
+          - value: claude-3-sonnet
+            label: Claude 3 Sonnet
+          - value: claude-3-opus
+            label: Claude 3 Opus
+          - value: gemini-pro
+            label: Gemini Pro
+          - value: gemini-1.5-pro
+            label: Gemini 1.5 Pro
+        validation:
+          max_length: 100

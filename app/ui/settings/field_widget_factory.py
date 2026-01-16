@@ -149,6 +149,8 @@ class FieldWidgetFactory:
             return FieldWidgetFactory._create_boolean_widget(field, current_value)
         elif field_type == 'select':
             return FieldWidgetFactory._create_select_widget(field, current_value)
+        elif field_type == 'combo':
+            return FieldWidgetFactory._create_combo_widget(field, current_value)
         elif field_type == 'color':
             return FieldWidgetFactory._create_color_widget(field, current_value)
         elif field_type == 'slider':
@@ -252,20 +254,73 @@ class FieldWidgetFactory:
         return widget
     
     @staticmethod
-    def _create_select_widget(field: SettingField, current_value: Any) -> QComboBox:
-        """Create dropdown/select widget"""
+    def _create_combo_widget(field: SettingField, current_value: Any) -> QComboBox:
+        """Create editable combobox widget"""
         widget = QComboBox()
-        
+        widget.setEditable(True)  # Make the combo box editable
+
         # Populate options
         if field.options:
             for option in field.options:
                 widget.addItem(option.get('label', ''), option.get('value'))
-            
+
+            # Set current value - if it matches an option, select it; otherwise, set as text
+            index = widget.findData(current_value)
+            if index >= 0:
+                widget.setCurrentIndex(index)
+            else:
+                # If the current value is not in the predefined options, set it as the text
+                widget.setEditText(str(current_value))
+
+        widget.setStyleSheet("""
+            QComboBox {
+                padding: 6px;
+                background-color: #2d2d2d;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                color: #ffffff;
+            }
+            QComboBox:focus {
+                border: 1px solid #3498db;
+            }
+            QComboBox::drop-down {
+                border: none;
+                background-color: #3a3a3a;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 6px solid #ffffff;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #2d2d2d;
+                border: 1px solid #555555;
+                color: #ffffff;
+                selection-background-color: #3498db;
+            }
+            QComboBox QAbstractItemView:item {
+                padding: 4px;
+            }
+        """)
+
+        return widget
+
+    @staticmethod
+    def _create_select_widget(field: SettingField, current_value: Any) -> QComboBox:
+        """Create dropdown/select widget"""
+        widget = QComboBox()
+
+        # Populate options
+        if field.options:
+            for option in field.options:
+                widget.addItem(option.get('label', ''), option.get('value'))
+
             # Set current value
             index = widget.findData(current_value)
             if index >= 0:
                 widget.setCurrentIndex(index)
-        
+
         widget.setStyleSheet("""
             QComboBox {
                 padding: 6px;
@@ -294,7 +349,7 @@ class FieldWidgetFactory:
                 selection-background-color: #3498db;
             }
         """)
-        
+
         return widget
     
     @staticmethod
@@ -340,6 +395,9 @@ class FieldWidgetFactory:
             return widget.isChecked()
         elif field_type == 'select':
             return widget.currentData()
+        elif field_type == 'combo':
+            # For editable combo box, return the current text (which may be different from selected item)
+            return widget.currentText()
         elif field_type == 'color':
             return widget.get_color()
         elif field_type == 'slider':
@@ -364,6 +422,10 @@ class FieldWidgetFactory:
         elif field_type == 'boolean':
             widget.stateChanged.connect(handler)
         elif field_type == 'select':
+            widget.currentIndexChanged.connect(handler)
+        elif field_type == 'combo':
+            # For editable combo box, connect both text change and index change
+            widget.currentTextChanged.connect(handler)
             widget.currentIndexChanged.connect(handler)
         elif field_type == 'color':
             widget.color_changed.connect(handler)

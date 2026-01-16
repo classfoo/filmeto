@@ -299,6 +299,9 @@ class Settings:
                 return isinstance(value, bool)
             elif field.type == 'select':
                 return self._validate_select(value, field.options or [])
+            elif field.type == 'combo':
+                # Combo field validation is similar to text but may also validate against options
+                return self._validate_text(value, field.validation or {})
             elif field.type == 'color':
                 return self._validate_color(value, field.validation or {})
             elif field.type == 'slider':

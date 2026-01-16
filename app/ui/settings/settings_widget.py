@@ -186,34 +186,34 @@ class SettingsWidget(BaseWidget):
         label = QLabel(f"{field.label}:")
         label.setStyleSheet("color: #ffffff; font-size: 12px;")
         label.setToolTip(field.description)
-        
+
         # Get current value
         key = f"{group.name}.{field.name}"
         current_value = self.settings.get(key, field.default)
-        
+
         # Create widget using factory
         widget = FieldWidgetFactory.create_widget(field, current_value)
         widget.setFixedWidth(300)
-        
+
         # Store widget reference
         self.field_widgets[key] = widget
         self.original_values[key] = current_value
-        
-        # Connect change handler
+
+        # Connect change handler for all fields
         FieldWidgetFactory.connect_change_handler(
             widget,
             field.type,
             lambda: self._on_field_changed()
         )
-        
+
         # Create container for widget and description
         widget_container = QWidget()
         widget_layout = QVBoxLayout(widget_container)
         widget_layout.setContentsMargins(0, 0, 0, 0)
         widget_layout.setSpacing(4)
-        
+
         widget_layout.addWidget(widget)
-        
+
         # Add description label
         if field.description:
             desc_label = QLabel(field.description)
@@ -221,9 +221,9 @@ class SettingsWidget(BaseWidget):
             desc_label.setWordWrap(True)
             desc_label.setMaximumWidth(300)
             widget_layout.addWidget(desc_label)
-        
+
         widget_layout.addStretch()
-        
+
         # Add to form
         form_layout.addRow(label, widget_container)
     
