@@ -14,7 +14,6 @@ from PySide6.QtGui import QMouseEvent
 
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
-from app.ui.dialog.mac_button import MacTitleBar
 from utils.i18n_utils import tr
 from .project_list_widget import ProjectListWidget
 from .project_info_widget import ProjectInfoWidget
@@ -28,7 +27,6 @@ class ProjectStartupWidget(BaseWidget):
     Main container widget for a single project's startup view.
 
     Structure:
-    - Top: Title bar (with window controls)
     - Main area: Tab widget for switching between project info and chat
     """
 
@@ -56,28 +54,6 @@ class ProjectStartupWidget(BaseWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-
-        # Top bar with window controls
-        self.top_bar = QWidget()
-        self.top_bar.setObjectName("project_startup_top_bar")
-        self.top_bar.setFixedHeight(40)
-        top_bar_layout = QHBoxLayout(self.top_bar)
-        top_bar_layout.setContentsMargins(0, 0, 0, 0)
-        top_bar_layout.setSpacing(0)
-
-        # Mac-style title bar (window controls)
-        self.title_bar = MacTitleBar(self.window)
-        top_bar_layout.addWidget(self.title_bar)
-        top_bar_layout.addStretch()
-
-        # Enable dragging
-        self.top_bar.mousePressEvent = self._on_top_bar_mouse_press
-        self.top_bar.mouseMoveEvent = self._on_top_bar_mouse_move
-        self.top_bar.mouseReleaseEvent = self._on_top_bar_mouse_release
-        self._draggable = False
-        self._drag_start_position = None
-
-        main_layout.addWidget(self.top_bar)
 
         # Main content area: Tab widget for switching between project info and chat
         # Create tab widget for switching between project info and chat
@@ -155,19 +131,6 @@ class ProjectStartupWidget(BaseWidget):
             # For other tabs, we can implement different behaviors
             logger.info(f"Prompt submitted in non-chat tab: {prompt}")
     
-    # Window dragging support
-    def _on_top_bar_mouse_press(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton:
-            self._draggable = True
-            self._drag_start_position = event.globalPosition().toPoint() - self.window.pos()
-    
-    def _on_top_bar_mouse_move(self, event: QMouseEvent):
-        if self._draggable and self._drag_start_position:
-            self.window.move(event.globalPosition().toPoint() - self._drag_start_position)
-    
-    def _on_top_bar_mouse_release(self, event: QMouseEvent):
-        self._draggable = False
-        self._drag_start_position = None
     
     def refresh_project(self):
         """Refresh the current project info."""
