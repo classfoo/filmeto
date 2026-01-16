@@ -30,10 +30,18 @@ class AgentRole:
         self.role_description = role_description
         self.handler_func = handler_func
     
-    async def handle_message(self, message: AgentMessage) -> AsyncIterator[AgentMessage]:
+    async def handle_message(self, message: AgentMessage, on_stream_event=None) -> AsyncIterator[AgentMessage]:
         """Handle a message and yield responses."""
-        async for response in self.handler_func(message):
-            yield response
+        # Check if the handler function accepts on_stream_event parameter
+        import inspect
+        sig = inspect.signature(self.handler_func)
+        if 'on_stream_event' in sig.parameters:
+            async for response in self.handler_func(message, on_stream_event=on_stream_event):
+                yield response
+        else:
+            # Fallback for handlers that don't accept on_stream_event
+            async for response in self.handler_func(message):
+                yield response
 
 
 class AgentStreamSession:
@@ -140,11 +148,10 @@ class FilmetoAgent:
 
     def _register_sub_agent(self, sub_agent: SubAgent) -> None:
         def make_handler(sub_agent_instance: SubAgent):
-            async def handler(message: AgentMessage):
+            async def handler(message: AgentMessage, on_stream_event=None):
                 plan_id = message.metadata.get("plan_id") if message.metadata else None
-                # Note: In this context, we don't have direct access to on_stream_event
-                # The streaming happens through the main chat_stream method which handles events
-                async for token in sub_agent_instance.chat_stream(message.content, plan_id=plan_id):
+                # Pass on_stream_event to the sub_agent so it can emit events
+                async for token in sub_agent_instance.chat_stream(message.content, on_stream_event=on_stream_event, plan_id=plan_id):
                     metadata = {"plan_id": plan_id} if plan_id else {}
                     response = AgentMessage(
                         content=token,
@@ -436,7 +443,7 @@ class FilmetoAgent:
         mentioned_agent = self._resolve_mentioned_agent_role(message)
         if mentioned_agent:
             async for content in self._stream_agent_messages(
-                mentioned_agent.handle_message(initial_prompt),
+                mentioned_agent.handle_message(initial_prompt, on_stream_event=on_stream_event),
                 session_id,
                 on_token,
                 on_stream_event,
@@ -449,7 +456,7 @@ class FilmetoAgent:
         responding_agent = await self._select_responding_agent(initial_prompt)
         if responding_agent:
             async for content in self._stream_agent_messages(
-                responding_agent.handle_message(initial_prompt),
+                responding_agent.handle_message(initial_prompt, on_stream_event=on_stream_event),
                 session_id,
                 on_token,
                 on_stream_event,

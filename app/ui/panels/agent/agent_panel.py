@@ -348,6 +348,10 @@ class AgentPanel(BasePanel):
                 content=message,
                 append=False
             )
+        elif event.event_type == "agent_response":
+            # Handle agent response - this should be handled by the default handler
+            # but we'll make sure it gets processed correctly
+            self.agent_chat_component.chat_history_widget.handle_stream_event(event, session)
         else:
             # For other event types, use the default handler
             self.agent_chat_component.chat_history_widget.handle_stream_event(event, session)

@@ -386,8 +386,31 @@ class ChatHistoryWidget(BaseWidget):
                 append=False,  # Set as complete content
                 error=error_content
             )
+        elif event.event_type == "agent_response":
+            # Handle agent response events - data comes from event.data
+            content = event.data.get('content', '')
+            sender_name = event.data.get('sender_name', 'Unknown')
+            session_id = event.data.get('session_id', 'unknown')
+
+            # Create a unique message ID for this response
+            import uuid
+            message_id = f"response_{session_id}_{uuid.uuid4()}"
+
+            # Create or update the card with the content
+            card = self.get_or_create_agent_card(
+                message_id,
+                sender_name,
+                sender_name
+            )
+
+            # Update the card with the content
+            self.update_agent_card(
+                message_id,
+                content=content,
+                append=False  # Set as complete content
+            )
         elif hasattr(event, 'content') and event.content:
-            # Handle regular content events
+            # Handle regular content events (fallback for other types)
             # Create or update the card with the content
             card = self._message_cards.get(event.message_id)
             if not card:
