@@ -34,10 +34,10 @@ class SkillsPanel(BasePanel):
         self.set_panel_title(tr("Skills"))
 
         # Add refresh button to toolbar
-        self.add_toolbar_button("\ue682", self._refresh_skills, tr("刷新技能列表"))  # Refresh icon
+        self.add_toolbar_button("\ue682", self._refresh_skills, tr("Refresh Skills List"))  # Refresh icon
 
         # Add add skill button to toolbar
-        self.add_toolbar_button("\ue62e", self._add_skill, tr("添加新技能"))  # Plus icon
+        self.add_toolbar_button("\ue62e", self._add_skill, tr("Add New Skill"))  # Plus icon
 
     def load_data(self):
         """Load skills data from SkillService."""
@@ -45,7 +45,7 @@ class SkillsPanel(BasePanel):
         self.skill_service = SkillService(self.workspace)
 
         # Show loading indicator
-        self.show_loading(tr("正在加载技能..."))
+        self.show_loading(tr("Loading skills..."))
 
         # Defer loading to avoid blocking UI
         QTimer.singleShot(0, self._load_skills_async)
@@ -104,7 +104,7 @@ class SkillsPanel(BasePanel):
         except Exception as e:
             logger.error(f"Error loading skills: {e}")
             self.hide_loading()
-            QMessageBox.critical(self, tr("错误"), f"{tr('加载技能时出错')}: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"{tr('Error loading skills')}: {str(e)}")
 
     def _create_skill_widget(self, skill: Skill) -> QWidget:
         """Create a widget representing a single skill in iOS-style icon format."""
@@ -183,7 +183,7 @@ class SkillsPanel(BasePanel):
         button_layout.setContentsMargins(0, 0, 0, 0)
 
         # Edit button
-        edit_btn = QPushButton(tr("编辑"))
+        edit_btn = QPushButton(tr("Edit"))
         edit_btn.setFixedSize(40, 20)
         edit_btn.setStyleSheet("""
             QPushButton {
@@ -200,7 +200,7 @@ class SkillsPanel(BasePanel):
         button_layout.addWidget(edit_btn)
 
         # Delete button
-        delete_btn = QPushButton(tr("删除"))
+        delete_btn = QPushButton(tr("Delete"))
         delete_btn.setFixedSize(40, 20)
         delete_btn.setStyleSheet("""
             QPushButton {
@@ -240,8 +240,8 @@ class SkillsPanel(BasePanel):
         # For now, just show a message box since we don't have a form to create skills
         QMessageBox.information(
             self,
-            tr("提示"),
-            tr("添加技能功能将在后续版本中实现。目前您可以直接在项目目录下的skills文件夹中创建新的技能。")
+            tr("Information"),
+            tr("Add skill functionality will be implemented in a future version. Currently you can create new skills directly in the skills folder in the project directory.")
         )
 
     def _edit_skill(self, skill: Skill):
@@ -249,16 +249,16 @@ class SkillsPanel(BasePanel):
         # For now, just show a message box since we don't have an edit form
         QMessageBox.information(
             self,
-            tr("提示"),
-            f"{tr('编辑技能')}: {skill.name}\n\n{tr('编辑功能将在后续版本中实现。')}"
+            tr("Information"),
+            f"{tr('Editing skill')}: {skill.name}\n\n{tr('Edit functionality will be implemented in a future version.')}"
         )
 
     def _delete_skill(self, skill: Skill):
         """Delete the selected skill."""
         reply = QMessageBox.question(
             self,
-            tr("确认删除"),
-            f"{tr('确定要删除技能')} '{skill.name}' {tr('吗？此操作不可撤销。')}",
+            tr("Confirm Deletion"),
+            f"{tr('Are you sure you want to delete the skill')} '{skill.name}' {tr('? This action cannot be undone.')}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -267,8 +267,8 @@ class SkillsPanel(BasePanel):
             # For now, just show a message since we don't have a delete implementation
             QMessageBox.information(
                 self,
-                tr("提示"),
-                f"{tr('删除技能功能将在后续版本中实现。')}\n{tr('技能路径')}: {skill.skill_path}"
+                tr("Information"),
+                f"{tr('Delete skill functionality will be implemented in a future version.')}\n{tr('Skill path')}: {skill.skill_path}"
             )
 
     def on_activated(self):
