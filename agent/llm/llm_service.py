@@ -8,16 +8,24 @@ import os
 from typing import Optional, Dict, Any, AsyncIterator
 import litellm
 from app.data.settings import Settings
+from .dashscope_adapter import (
+    async_completion_with_dashscope,
+    sync_completion_with_dashscope,
+    async_embedding_with_dashscope,
+    sync_embedding_with_dashscope,
+    map_dashscope_model
+)
 
 
 class LlmService:
     """
     Service class that wraps LiteLLM functionality and integrates with system settings.
-    
+
     This class is responsible for:
     - Retrieving OpenAI settings from the system settings service
     - Initializing LiteLLM with the retrieved settings
     - Providing a clean interface to LiteLLM's functionality
+    - Supporting special handling for different AI service providers like DashScope
     """
     
     def __init__(self, workspace=None):
@@ -44,23 +52,37 @@ class LlmService:
             self.api_key = self.settings.get('ai_services.openai_api_key', os.getenv('OPENAI_API_KEY'))
             self.api_base = self.settings.get('ai_services.openai_host', os.getenv('OPENAI_BASE_URL'))
             self.default_model = self.settings.get('ai_services.default_model', 'gpt-4o-mini')
-            
+
             # Set LiteLLM configurations
             if self.api_key:
                 litellm.api_key = self.api_key
             if self.api_base:
-                litellm.api_base = self.api_base
+                # Special handling for DashScope API compatibility
+                if 'dashscope.aliyuncs.com' in self.api_base:
+                    # For DashScope, we need to configure additional settings
+                    litellm.custom_api_base = self.api_base
+                    # Set headers for DashScope if needed
+                    litellm.default_headers = {"Authorization": f"Bearer {self.api_key}"}
+                else:
+                    litellm.api_base = self.api_base
         else:
             # Fallback to environment variables if no settings service is provided
             self.api_key = os.getenv('OPENAI_API_KEY')
             self.api_base = os.getenv('OPENAI_BASE_URL', os.getenv('OPENAI_HOST'))
             self.default_model = os.getenv('DEFAULT_MODEL', 'gpt-4o-mini')
-            
+
             # Set LiteLLM configurations
             if self.api_key:
                 litellm.api_key = self.api_key
             if self.api_base:
-                litellm.api_base = self.api_base
+                # Special handling for DashScope API compatibility
+                if 'dashscope.aliyuncs.com' in self.api_base:
+                    # For DashScope, we need to configure additional settings
+                    litellm.custom_api_base = self.api_base
+                    # Set headers for DashScope if needed
+                    litellm.default_headers = {"Authorization": f"Bearer {self.api_key}"}
+                else:
+                    litellm.api_base = self.api_base
     
     def configure(self, api_key: Optional[str] = None, api_base: Optional[str] = None, 
                   default_model: Optional[str] = None, temperature: Optional[float] = None):
@@ -87,22 +109,22 @@ class LlmService:
         if temperature is not None:
             self.temperature = temperature
     
-    async def acompletion(self, 
-                         model: Optional[str] = None, 
-                         messages: Optional[list] = None, 
+    async def acompletion(self,
+                         model: Optional[str] = None,
+                         messages: Optional[list] = None,
                          temperature: Optional[float] = None,
                          stream: bool = False,
                          **kwargs) -> Any:
         """
         Async completion method that wraps LiteLLM's acompletion function.
-        
+
         Args:
             model: Model to use for completion (defaults to self.default_model)
             messages: List of messages for the conversation
             temperature: Temperature setting (defaults to self.temperature)
             stream: Whether to stream the response
             **kwargs: Additional arguments to pass to LiteLLM
-            
+
         Returns:
             Completion response from LiteLLM
         """
@@ -113,32 +135,52 @@ class LlmService:
             temperature = self.temperature
         if messages is None:
             messages = []
-        
+
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)
-        
-        # Call LiteLLM's acompletion
-        return await litellm.acompletion(
-            model=model,
-            messages=messages,
-            stream=stream,
-            **kwargs
-        )
+
+        # Check if using DashScope API and handle accordingly
+        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
+            # Use DashScope-specific adapter
+            # Extract DashScope-specific parameters from kwargs to avoid duplication
+            dashscope_kwargs = kwargs.copy()
+            if 'temperature' in dashscope_kwargs:
+                del dashscope_kwargs['temperature']
+            if 'stream' in dashscope_kwargs:
+                del dashscope_kwargs['stream']
+
+            return await async_completion_with_dashscope(
+                model=model,
+                messages=messages,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                temperature=temperature,
+                stream=stream,
+                **dashscope_kwargs
+            )
+        else:
+            # Call LiteLLM's acompletion normally
+            return await litellm.acompletion(
+                model=model,
+                messages=messages,
+                stream=stream,
+                **kwargs
+            )
     
-    def completion(self, 
-                   model: Optional[str] = None, 
-                   messages: Optional[list] = None, 
+    def completion(self,
+                   model: Optional[str] = None,
+                   messages: Optional[list] = None,
                    temperature: Optional[float] = None,
                    **kwargs) -> Any:
         """
         Sync completion method that wraps LiteLLM's completion function.
-        
+
         Args:
             model: Model to use for completion (defaults to self.default_model)
             messages: List of messages for the conversation
             temperature: Temperature setting (defaults to self.temperature)
             **kwargs: Additional arguments to pass to LiteLLM
-            
+
         Returns:
             Completion response from LiteLLM
         """
@@ -149,84 +191,133 @@ class LlmService:
             temperature = self.temperature
         if messages is None:
             messages = []
-        
+
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)
-        
-        # Call LiteLLM's completion
-        return litellm.completion(
-            model=model,
-            messages=messages,
-            **kwargs
-        )
+
+        # Check if using DashScope API and handle accordingly
+        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
+            # Use DashScope-specific adapter
+            # Extract DashScope-specific parameters from kwargs to avoid duplication
+            dashscope_kwargs = kwargs.copy()
+            if 'temperature' in dashscope_kwargs:
+                del dashscope_kwargs['temperature']
+
+            return sync_completion_with_dashscope(
+                model=model,
+                messages=messages,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                temperature=temperature,
+                **dashscope_kwargs
+            )
+        else:
+            # Call LiteLLM's completion normally
+            return litellm.completion(
+                model=model,
+                messages=messages,
+                **kwargs
+            )
     
-    async def aembedding(self, 
-                        model: str, 
+    async def aembedding(self,
+                        model: str,
                         input_text: str) -> Any:
         """
         Async embedding method that wraps LiteLLM's aembedding function.
-        
+
         Args:
             model: Model to use for embeddings
             input_text: Text to generate embeddings for
-            
+
         Returns:
             Embedding response from LiteLLM
         """
-        return await litellm.aembedding(
-            model=model,
-            input=input_text
-        )
-    
-    def embedding(self, 
-                  model: str, 
+        # Check if using DashScope API and handle accordingly
+        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
+            # Use DashScope-specific adapter
+            return await async_embedding_with_dashscope(
+                model=model,
+                input_text=input_text,
+                api_key=self.api_key,
+                api_base=self.api_base
+            )
+        else:
+            return await litellm.aembedding(
+                model=model,
+                input=input_text
+            )
+
+    def embedding(self,
+                  model: str,
                   input_text: str) -> Any:
         """
         Sync embedding method that wraps LiteLLM's embedding function.
-        
+
         Args:
             model: Model to use for embeddings
             input_text: Text to generate embeddings for
-            
+
         Returns:
             Embedding response from LiteLLM
         """
-        return litellm.embedding(
-            model=model,
-            input=input_text
-        )
+        # Check if using DashScope API and handle accordingly
+        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
+            # Use DashScope-specific adapter
+            return sync_embedding_with_dashscope(
+                model=model,
+                input_text=input_text,
+                api_key=self.api_key,
+                api_base=self.api_base
+            )
+        else:
+            return litellm.embedding(
+                model=model,
+                input=input_text
+            )
     
-    async def atranscription(self, 
-                            model: str, 
+    async def atranscription(self,
+                            model: str,
                             audio_file_path: str) -> Any:
         """
         Async transcription method that wraps LiteLLM's atranscription function.
-        
+
         Args:
             model: Model to use for transcription
             audio_file_path: Path to the audio file to transcribe
-            
+
         Returns:
             Transcription response from LiteLLM
         """
+        # Check if using DashScope API and handle accordingly
+        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
+            # Note: DashScope might not support transcription via compatible mode
+            # So we'll use the standard method but could extend with DashScope-specific implementation later
+            pass  # Fall through to standard implementation
+
         return await litellm.atranscription(
             model=model,
             file=audio_file_path
         )
-    
-    def transcription(self, 
-                      model: str, 
+
+    def transcription(self,
+                      model: str,
                       audio_file_path: str) -> Any:
         """
         Sync transcription method that wraps LiteLLM's transcription function.
-        
+
         Args:
             model: Model to use for transcription
             audio_file_path: Path to the audio file to transcribe
-            
+
         Returns:
             Transcription response from LiteLLM
         """
+        # Check if using DashScope API and handle accordingly
+        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
+            # Note: DashScope might not support transcription via compatible mode
+            # So we'll use the standard method but could extend with DashScope-specific implementation later
+            pass  # Fall through to standard implementation
+
         return litellm.transcription(
             model=model,
             file=audio_file_path

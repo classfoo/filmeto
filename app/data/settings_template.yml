@@ -97,7 +97,7 @@ groups:
         label: OpenAI API Host
         type: text
         default: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        description: OpenAI API base URL for LangGraph initialization
+        description: OpenAI API base URL for LangGraph initialization (use https://dashscope.aliyuncs.com/compatible-mode/v1 for Alibaba Cloud DashScope)
         validation:
           max_length: 500
 
