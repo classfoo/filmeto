@@ -233,17 +233,9 @@ class ProjectInfoWidget(BaseWidget):
         # Slightly smaller margins so content fits better in ~400x400 containers
         main_layout.setContentsMargins(12, 0, 12, 0)
         main_layout.setSpacing(0)
-        
-        # Tab widget
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setObjectName("project_tabs")
-        
-        # Basic info tab
-        basic_tab = QWidget()
-        self._setup_basic_tab(basic_tab)
-        self.tab_widget.addTab(basic_tab, tr("基础信息"))
-        
-        main_layout.addWidget(self.tab_widget)
+
+        # Just the basic info tab content (no more tabs)
+        self._setup_basic_tab(self)
     
     def _setup_basic_tab(self, tab: QWidget):
         """Set up the basic info tab."""
@@ -265,7 +257,7 @@ class ProjectInfoWidget(BaseWidget):
                 background-color: transparent;
             }
         """)
-        
+
         content = QWidget()
         content.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(content)
@@ -342,10 +334,10 @@ class ProjectInfoWidget(BaseWidget):
         stats_layout = QGridLayout(stats_widget)
         stats_layout.setContentsMargins(0, 0, 0, 0)
         stats_layout.setSpacing(12)
-        
+
         self.timeline_stat = StatCard(tr("时间线项目"), "0")
         stats_layout.addWidget(self.timeline_stat, 0, 0)
-        
+
         self.task_stat = StatCard(tr("任务数量"), "0")
         stats_layout.addWidget(self.task_stat, 0, 1)
 
@@ -357,18 +349,19 @@ class ProjectInfoWidget(BaseWidget):
 
         top_row_layout.addWidget(side_col, 2)
         layout.addWidget(top_row)
-        
+
         # Story description
         self.story_widget = StoryDescriptionWidget()
         layout.addWidget(self.story_widget)
-        
+
         layout.addStretch()
-        
+
         scroll_area.setWidget(content)
-        
+
         tab_layout = QVBoxLayout(tab)
         tab_layout.setContentsMargins(0, 0, 0, 0)
         tab_layout.addWidget(scroll_area)
+
     
     def _apply_styles(self):
         """Apply styles to the widget."""
@@ -376,38 +369,13 @@ class ProjectInfoWidget(BaseWidget):
             QWidget#project_info_widget {
                 background-color: #2b2b2b;
             }
-            QTabWidget#project_tabs {
-                background-color: #2b2b2b;
-            }
-            QTabWidget#project_tabs::pane {
-                background-color: #2b2b2b;
-                border: none;
-            }
-            QTabWidget#project_tabs QTabBar {
-                background-color: #2b2b2b;
-            }
-            QTabWidget#project_tabs > QTabBar::tab {
-                background-color: #2b2b2b;
-                color: #888888;
-                padding: 8px 16px;
-                margin-right: 4px;
-                border: none;
-                border-bottom: 2px solid transparent;
-            }
-            QTabWidget#project_tabs > QTabBar::tab:selected {
-                color: #E1E1E1;
-                border-bottom: 2px solid #4080ff;
-            }
-            QTabWidget#project_tabs > QTabBar::tab:hover:!selected {
-                color: #AAAAAA;
-            }
             QWidget#video_overlay {
                 background-color: rgba(0, 0, 0, 0.35);
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
             }
         """)
-    
+
     def set_project(self, project_name: str):
         """Set the project to display."""
         self._current_project_name = project_name

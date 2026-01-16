@@ -92,47 +92,63 @@ class StartupWidget(BaseWidget):
         separator.setFixedWidth(1)
         content_layout.addWidget(separator)
         
-        # Right panel: Project info + Prompt
+        # Right panel: Tab widget for switching between project info and chat
         right_panel = QWidget()
         right_panel.setObjectName("startup_right_panel")
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
-        
-        # Project info area (takes most of the space)
+
+        # Create tab widget for switching between project info and chat
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setObjectName("startup_tabs")
+
+        # Project info tab
         self.project_info = ProjectInfoWidget(self.workspace)
-        right_layout.addWidget(self.project_info, 1)
-        
-        # Prompt input area (at the bottom)
-        prompt_container = QWidget()
-        prompt_container.setObjectName("startup_prompt_container")
-        prompt_layout = QVBoxLayout(prompt_container)
-        prompt_layout.setContentsMargins(16, 8, 16, 16)
-        
-        self.prompt_widget = AgentPromptWidget(self.workspace)
-        self.prompt_widget.set_placeholder("请输入您的需求或问题...")
-        prompt_layout.addWidget(self.prompt_widget)
-        
-        right_layout.addWidget(prompt_container)
-        
+        self.tab_widget.addTab(self.project_info, tr("项目信息"))
+
+        # Chat tab
+        self.chat_tab = QWidget()
+        self._setup_chat_tab(self.chat_tab)
+        self.tab_widget.addTab(self.chat_tab, tr("聊天"))
+
+        # Set chat tab as default selected
+        self.tab_widget.setCurrentIndex(1)
+
+        right_layout.addWidget(self.tab_widget, 1)
+
         content_layout.addWidget(right_panel, 1)
         
         main_layout.addWidget(content_widget, 1)
     
+    def _setup_chat_tab(self, tab: QWidget):
+        """Set up the chat tab."""
+        # Import the agent chat component
+        from app.ui.chat.agent_chat_component import AgentChatComponent
+
+        # Create the agent chat component
+        self.agent_chat_component = AgentChatComponent(self.workspace, tab)
+
+        # Set up the layout for the chat tab
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.agent_chat_component)
+
     def _connect_signals(self):
         """Connect signals between components."""
         # Project selection changes
         self.project_list.project_selected.connect(self._on_project_selected)
-        
+
         # Edit project (from list or info widget)
         self.project_list.project_edit.connect(self._on_edit_project)
         self.project_info.edit_project.connect(self._on_edit_project)
-        
+
         # New project created
         self.project_list.project_created.connect(self._on_project_created)
-        
-        # Prompt submitted
-        self.prompt_widget.prompt_submitted.connect(self._on_prompt_submitted)
+
+        # Connect prompt submission to the agent chat component
+        # We'll connect to the agent chat component directly instead of the old prompt widget
+        # The agent chat component has its own prompt widget
     
     def _apply_styles(self):
         """Apply styles to the widget."""
@@ -147,8 +163,30 @@ class StartupWidget(BaseWidget):
             QWidget#startup_right_panel {
                 background-color: #2b2b2b;
             }
-            QWidget#startup_prompt_container {
+            QTabWidget#startup_tabs {
                 background-color: #2b2b2b;
+            }
+            QTabWidget#startup_tabs::pane {
+                background-color: #2b2b2b;
+                border: none;
+            }
+            QTabWidget#startup_tabs QTabBar {
+                background-color: #2b2b2b;
+            }
+            QTabWidget#startup_tabs > QTabBar::tab {
+                background-color: #2b2b2b;
+                color: #888888;
+                padding: 8px 16px;
+                margin-right: 4px;
+                border: none;
+                border-bottom: 2px solid transparent;
+            }
+            QTabWidget#startup_tabs > QTabBar::tab:selected {
+                color: #E1E1E1;
+                border-bottom: 2px solid #4080ff;
+            }
+            QTabWidget#startup_tabs > QTabBar::tab:hover:!selected {
+                color: #AAAAAA;
             }
         """)
     
@@ -170,10 +208,19 @@ class StartupWidget(BaseWidget):
     
     def _on_prompt_submitted(self, prompt: str):
         """Handle prompt submission."""
-        # TODO: Handle prompt submission in startup mode
-        # This could be used to interact with an AI assistant
-        # for project-level operations
-        logger.info(f"Prompt submitted: {prompt}")
+        # Get the current tab index
+        current_tab_index = self.tab_widget.currentIndex()
+        current_tab_text = self.tab_widget.tabText(current_tab_index)
+
+        # If the current tab is the chat tab, send the prompt to the agent chat component
+        if current_tab_text == tr("聊天"):  # "Chat" tab
+            # Make sure the agent chat component is initialized
+            if hasattr(self, 'agent_chat_component') and self.agent_chat_component:
+                # Send the message to the agent chat component
+                self.agent_chat_component._on_message_submitted(prompt)
+        else:
+            # For other tabs, we can implement different behaviors
+            logger.info(f"Prompt submitted in non-chat tab: {prompt}")
     
     # Window dragging support
     def _on_top_bar_mouse_press(self, event: QMouseEvent):
