@@ -33,13 +33,28 @@ class TimingContext:
 
 def load_stylesheet(main_path):
     """loading QSS style files"""
-    style_file = "style/dark_style.qss"
-    if os.path.exists(style_file):
-        with open(style_file, "r", encoding="utf-8") as f:
-            return f.read()
+    import os
+
+    # Load the main dark style
+    main_style_file = "style/dark_style.qss"
+    combined_stylesheet = ""
+
+    if os.path.exists(main_style_file):
+        with open(main_style_file, "r", encoding="utf-8") as f:
+            combined_stylesheet = f.read()
     else:
-        logger.warning(f"Warning: style file '{style_file}' not found, use default.")
-        return ""
+        logger.warning(f"Warning: style file '{main_style_file}' not found, use default.")
+
+    # Load the panel styles
+    panel_style_file = "style/panel_styles.qss"
+    if os.path.exists(panel_style_file):
+        with open(panel_style_file, "r", encoding="utf-8") as f:
+            panel_styles = f.read()
+            combined_stylesheet += "\n" + panel_styles
+    else:
+        logger.warning(f"Warning: panel style file '{panel_style_file}' not found.")
+
+    return combined_stylesheet
 
 def load_custom_font(main_path):
     """

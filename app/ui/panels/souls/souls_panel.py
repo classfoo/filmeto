@@ -73,11 +73,6 @@ class SoulsPanel(BasePanel):
             # Create content widget for scroll area
             content_widget = QWidget()
             content_widget.setObjectName("soulsGridContainer")
-            content_widget.setStyleSheet("""
-                QWidget#soulsGridContainer {
-                    background-color: #252526;
-                }
-            """)
 
             # Create grid layout for souls
             grid_layout = QGridLayout(content_widget)
@@ -117,18 +112,6 @@ class SoulsPanel(BasePanel):
         container = QWidget()
         container.setObjectName("soulCard")
         container.setFixedWidth(250)  # Fixed width for card-like appearance
-        container.setStyleSheet("""
-            QWidget#soulCard {
-                background-color: #3C3C3C;
-                border-radius: 12px;
-                border: 1px solid #454545;
-                padding: 10px;
-            }
-            QWidget#soulCard:hover {
-                background-color: #454545;
-                border: 1px solid #555555;
-            }
-        """)
 
         # Main layout for the soul card
         layout = QVBoxLayout(container)
@@ -137,31 +120,16 @@ class SoulsPanel(BasePanel):
 
         # Soul name label
         name_label = QLabel()
+        name_label.setObjectName("soulNameLabel")
         name_label.setAlignment(Qt.AlignCenter)
-        name_label.setStyleSheet("""
-            QLabel {
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
-                margin-bottom: 8px;
-            }
-        """)
         name_label.setText(soul.name)
         layout.addWidget(name_label)
 
         # Placeholder for soul image/photo
         photo_frame = QLabel()
+        photo_frame.setObjectName("soulPhotoFrame")
         photo_frame.setAlignment(Qt.AlignCenter)
         photo_frame.setFixedSize(100, 100)
-        photo_frame.setStyleSheet("""
-            QLabel {
-                background-color: #2D2D2D;
-                border-radius: 8px;
-                color: #AAAAAA;
-                font-family: "iconfont";
-                font-size: 24px;
-            }
-        """)
         photo_frame.setText("\ue704")  # Default avatar icon
         layout.addWidget(photo_frame)
 
@@ -172,15 +140,9 @@ class SoulsPanel(BasePanel):
 
         # Short description label
         desc_label = QLabel()
+        desc_label.setObjectName("soulDescLabel")
         desc_label.setAlignment(Qt.AlignCenter)
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet("""
-            QLabel {
-                color: #AAAAAA;
-                font-size: 10px;
-                margin-top: 4px;
-            }
-        """)
         # Get description from knowledge if available
         desc_text = soul.knowledge[:60] + "..." if soul.knowledge and len(soul.knowledge) > 60 else (soul.knowledge or tr("No description"))
         desc_label.setText(desc_text)
@@ -193,35 +155,11 @@ class SoulsPanel(BasePanel):
 
         # View/Edit button
         view_btn = QPushButton(tr("View"))
-        view_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #007ACC;
-                color: white;
-                border-radius: 4px;
-                font-size: 9px;
-                padding: 4px;
-            }
-            QPushButton:hover {
-                background-color: #0088EE;
-            }
-        """)
         view_btn.clicked.connect(lambda: self._view_soul_details(soul))
         button_layout.addWidget(view_btn)
 
         # Delete button
         delete_btn = QPushButton(tr("Delete"))
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #CC0000;
-                color: white;
-                border-radius: 4px;
-                font-size: 9px;
-                padding: 4px;
-            }
-            QPushButton:hover {
-                background-color: #EE0000;
-            }
-        """)
         delete_btn.clicked.connect(lambda: self._delete_soul(soul))
         button_layout.addWidget(delete_btn)
 
@@ -236,31 +174,22 @@ class SoulsPanel(BasePanel):
         """Create a radar chart showing soul abilities."""
         # Create a custom widget to draw the radar chart
         radar_widget = QWidget()
-        radar_widget.setStyleSheet("background: transparent;")
-        
+
         # For now, we'll create a simple placeholder
         # In a real implementation, we would parse the soul's metadata to get ability values
         abilities = [tr("Wisdom"), tr("Strength"), tr("Charisma"), tr("Agility"), tr("Endurance"), tr("Perception")]
 
         # Create a simple radar chart representation
         chart_label = QLabel()
+        chart_label.setObjectName("radarChartLabel")
         chart_label.setAlignment(Qt.AlignCenter)
         chart_label.setText(tr("Hexagonal Ability Chart"))
-        chart_label.setStyleSheet("""
-            QLabel {
-                background-color: #2D2D2D;
-                border-radius: 8px;
-                color: #AAAAAA;
-                font-size: 10px;
-                padding: 4px;
-            }
-        """)
-        
+
         # Add to layout
         layout = QVBoxLayout(radar_widget)
         layout.addWidget(chart_label)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         return radar_widget
 
     def _clear_content(self):
@@ -367,16 +296,8 @@ class SoulDetailsDialog(QDialog):
 
         # Placeholder for radar chart
         radar_placeholder = QLabel(tr("Ability radar chart will be implemented in a future version"))
+        radar_placeholder.setObjectName("radarChartPlaceholder")
         radar_placeholder.setAlignment(Qt.AlignCenter)
-        radar_placeholder.setStyleSheet("""
-            QLabel {
-                background-color: #2D2D2D;
-                border-radius: 8px;
-                padding: 20px;
-                color: #AAAAAA;
-                font-size: 12px;
-            }
-        """)
         abilities_layout.addWidget(radar_placeholder)
 
         tab_widget.addTab(abilities_tab, tr("Abilities Chart"))

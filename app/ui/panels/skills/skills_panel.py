@@ -68,11 +68,6 @@ class SkillsPanel(BasePanel):
             # Create content widget for scroll area
             content_widget = QWidget()
             content_widget.setObjectName("skillsGridContainer")
-            content_widget.setStyleSheet("""
-                QWidget#skillsGridContainer {
-                    background-color: #252526;
-                }
-            """)
 
             # Create grid layout for skills
             grid_layout = QGridLayout(content_widget)
@@ -112,17 +107,6 @@ class SkillsPanel(BasePanel):
         container = QWidget()
         container.setObjectName("skillItem")
         container.setFixedSize(120, 150)  # Fixed size like iOS app icons
-        container.setStyleSheet("""
-            QWidget#skillItem {
-                background-color: #3C3C3C;
-                border-radius: 12px;
-                border: 1px solid #454545;
-            }
-            QWidget#skillItem:hover {
-                background-color: #454545;
-                border: 1px solid #555555;
-            }
-        """)
 
         # Main layout for the skill item
         layout = QVBoxLayout(container)
@@ -133,46 +117,24 @@ class SkillsPanel(BasePanel):
         icon_label = QLabel()
         icon_label.setAlignment(Qt.AlignCenter)
         icon_label.setFixedSize(60, 60)
-        icon_label.setStyleSheet("""
-            QLabel {
-                background-color: #2D2D2D;
-                border-radius: 30px;
-                color: #AAAAAA;
-                font-family: "iconfont";
-                font-size: 24px;
-            }
-        """)
         icon_label.setText("\ue704")  # Default skill icon
         layout.addWidget(icon_label)
 
         # Skill name label
         name_label = QLabel()
+        name_label.setObjectName("skillNameLabel")
         name_label.setAlignment(Qt.AlignCenter)
         name_label.setWordWrap(True)
         name_label.setMaximumWidth(100)
-        name_label.setStyleSheet("""
-            QLabel {
-                color: #FFFFFF;
-                font-size: 12px;
-                font-weight: bold;
-                margin-top: 4px;
-            }
-        """)
         name_label.setText(skill.name[:15] + "..." if len(skill.name) > 15 else skill.name)
         layout.addWidget(name_label)
 
         # Description label
         desc_label = QLabel()
+        desc_label.setObjectName("skillDescLabel")
         desc_label.setAlignment(Qt.AlignCenter)
         desc_label.setWordWrap(True)
         desc_label.setMaximumWidth(100)
-        desc_label.setStyleSheet("""
-            QLabel {
-                color: #AAAAAA;
-                font-size: 10px;
-                margin-top: 2px;
-            }
-        """)
         desc_text = skill.description[:30] + "..." if len(skill.description) > 30 else skill.description
         desc_label.setText(desc_text)
         layout.addWidget(desc_label)
@@ -185,34 +147,12 @@ class SkillsPanel(BasePanel):
         # Edit button
         edit_btn = QPushButton(tr("Edit"))
         edit_btn.setFixedSize(40, 20)
-        edit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #007ACC;
-                color: white;
-                border-radius: 4px;
-                font-size: 9px;
-            }
-            QPushButton:hover {
-                background-color: #0088EE;
-            }
-        """)
         edit_btn.clicked.connect(lambda: self._edit_skill(skill))
         button_layout.addWidget(edit_btn)
 
         # Delete button
         delete_btn = QPushButton(tr("Delete"))
         delete_btn.setFixedSize(40, 20)
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #CC0000;
-                color: white;
-                border-radius: 4px;
-                font-size: 9px;
-            }
-            QPushButton:hover {
-                background-color: #EE0000;
-            }
-        """)
         delete_btn.clicked.connect(lambda: self._delete_skill(skill))
         button_layout.addWidget(delete_btn)
 
