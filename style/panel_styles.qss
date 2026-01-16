@@ -1,0 +1,207 @@
+/* Skills Panel Styles */
+
+/* Skills Grid Container */
+QWidget#skillsGridContainer {
+    background-color: #252526;
+}
+
+/* Individual Skill Item */
+QWidget#skillItem {
+    background-color: #3C3C3C;
+    border-radius: 12px;
+    border: 1px solid #454545;
+}
+
+QWidget#skillItem:hover {
+    background-color: #454545;
+    border: 1px solid #555555;
+}
+
+/* Skill Item Icon */
+QWidget#skillItem QLabel {
+    background-color: #2D2D2D;
+    border-radius: 30px;
+    color: #AAAAAA;
+    font-family: "iconfont";
+    font-size: 24px;
+}
+
+/* Skill Item Name Label */
+QWidget#skillItem QLabel[objectName="skillNameLabel"] {
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 4px;
+}
+
+/* Skill Item Description Label */
+QWidget#skillItem QLabel[objectName="skillDescLabel"] {
+    color: #AAAAAA;
+    font-size: 10px;
+    margin-top: 2px;
+}
+
+/* Skill Item Buttons */
+QWidget#skillItem QPushButton {
+    border-radius: 4px;
+    font-size: 9px;
+    padding: 4px;
+}
+
+QWidget#skillItem QPushButton[text="Edit"] {
+    background-color: #007ACC;
+    color: white;
+}
+
+QWidget#skillItem QPushButton[text="Delete"] {
+    background-color: #CC0000;
+    color: white;
+}
+
+QWidget#skillItem QPushButton[text="Edit"]:hover {
+    background-color: #0088EE;
+}
+
+QWidget#skillItem QPushButton[text="Delete"]:hover {
+    background-color: #EE0000;
+}
+
+/* Souls Panel Styles */
+
+/* Souls Grid Container */
+QWidget#soulsGridContainer {
+    background-color: #252526;
+}
+
+/* Individual Soul Card */
+QWidget#soulCard {
+    background-color: #3C3C3C;
+    border-radius: 12px;
+    border: 1px solid #454545;
+    padding: 10px;
+}
+
+QWidget#soulCard:hover {
+    background-color: #454545;
+    border: 1px solid #555555;
+}
+
+/* Soul Card Name Label */
+QWidget#soulCard QLabel[objectName="soulNameLabel"] {
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+/* Soul Card Photo Frame */
+QWidget#soulCard QLabel[objectName="soulPhotoFrame"] {
+    background-color: #2D2D2D;
+    border-radius: 8px;
+    color: #AAAAAA;
+    font-family: "iconfont";
+    font-size: 24px;
+}
+
+/* Soul Card Description Label */
+QWidget#soulCard QLabel[objectName="soulDescLabel"] {
+    color: #AAAAAA;
+    font-size: 10px;
+    margin-top: 4px;
+}
+
+/* Soul Card Buttons */
+QWidget#soulCard QPushButton {
+    border-radius: 4px;
+    font-size: 9px;
+    padding: 4px;
+}
+
+QWidget#soulCard QPushButton[text="View"] {
+    background-color: #007ACC;
+    color: white;
+}
+
+QWidget#soulCard QPushButton[text="Delete"] {
+    background-color: #CC0000;
+    color: white;
+}
+
+QWidget#soulCard QPushButton[text="View"]:hover {
+    background-color: #0088EE;
+}
+
+QWidget#soulCard QPushButton[text="Delete"]:hover {
+    background-color: #EE0000;
+}
+
+/* Soul Details Dialog Styles */
+QDialog#soulDetailsDialog {
+    background-color: #252526;
+}
+
+QDialog#soulDetailsDialog QTabWidget::pane {
+    background-color: #252526;
+    border: 1px solid #454545;
+}
+
+QDialog#soulDetailsDialog QTabWidget::tab-bar {
+    left: 5px;
+}
+
+QDialog#soulDetailsDialog QTabBar::tab {
+    background-color: #3C3C3C;
+    color: #FFFFFF;
+    padding: 6px;
+    margin-right: 2px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+QDialog#soulDetailsDialog QTabBar::tab:selected {
+    background-color: #454545;
+}
+
+QDialog#soulDetailsDialog QTextEdit {
+    background-color: #2D2D2D;
+    color: #FFFFFF;
+    border: 1px solid #454545;
+    border-radius: 4px;
+}
+
+QDialog#soulDetailsDialog QLineEdit {
+    background-color: #2D2D2D;
+    color: #FFFFFF;
+    border: 1px solid #454545;
+    border-radius: 4px;
+}
+
+QDialog#soulDetailsDialog QPushButton {
+    background-color: #007ACC;
+    color: white;
+    border-radius: 4px;
+    padding: 6px;
+}
+
+QDialog#soulDetailsDialog QPushButton[text="Close"],
+QDialog#soulDetailsDialog QPushButton[text="Save"] {
+    background-color: #3C3C3C;
+}
+
+QDialog#soulDetailsDialog QPushButton:hover {
+    background-color: #0088EE;
+}
+
+QDialog#soulDetailsDialog QPushButton[text="Close"]:hover,
+QDialog#soulDetailsDialog QPushButton[text="Save"]:hover {
+    background-color: #454545;
+}
+
+/* Radar Chart Placeholder */
+QWidget#radarChartPlaceholder {
+    background-color: #2D2D2D;
+    border-radius: 8px;
+    padding: 20px;
+    color: #AAAAAA;
+    font-size: 12px;
+}
