@@ -156,7 +156,8 @@ class LayerManager:
         if layer and layer.id in self.layers:
             # Emit the layer_changed signal to notify observers
             if self.timeline_item:
-                if self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
+                current_item = self.timeline_item.timeline.get_current_item()
+                if current_item and self.timeline_item.index == current_item.index:
                     self.layer_changed.send(self, layer=layer, change_type='modified')
 
     def add_layer(self, layer_type: LayerType = LayerType.IMAGE) -> Layer:
@@ -293,8 +294,10 @@ class LayerManager:
         self._save_layers()
         # Emit the general layer_changed signal only if the current timeline_item 
         # in this layer manager is the currently selected timeline_item
-        if self.timeline_item and self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
-            self.layer_changed.send(self, layer=layer, change_type='added')
+        if self.timeline_item:
+            current_item = self.timeline_item.timeline.get_current_item()
+            if current_item and self.timeline_item.index == current_item.index:
+                self.layer_changed.send(self, layer=layer, change_type='added')
         return layer
 
     def remove_layer(self, layer_id: int) -> bool:
@@ -326,9 +329,10 @@ class LayerManager:
             del self.layers[layer_id]
             self._save_layers()
 
-            # Emit the general layer_changed signal only if the current timeline_item 
+            # Emit the general layer_changed signal only if the current timeline_item
             # in this layer manager is the currently selected timeline_item
-            if self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
+            current_item = self.timeline_item.timeline.get_current_item()
+            if current_item and self.timeline_item.index == current_item.index:
                 self.layer_changed.send(self, layer=layer, change_type='removed')
             
             return True
@@ -344,11 +348,12 @@ class LayerManager:
             layer = self.layers[layer_id]
             layer.visible = not layer.visible
             self._save_layers()
-            # Emit the general layer_changed signal only if the current timeline_item 
+            # Emit the general layer_changed signal only if the current timeline_item
             # in this layer manager is the currently selected timeline_item
-            if self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
+            current_item = self.timeline_item.timeline.get_current_item()
+            if current_item and self.timeline_item.index == current_item.index:
                 self.layer_changed.send(self, layer=layer, change_type='modified')
-            
+
             return layer.visible
         return None
 
@@ -362,11 +367,12 @@ class LayerManager:
             layer = self.layers[layer_id]
             layer.locked = not layer.locked
             self._save_layers()
-            # Emit the general layer_changed signal only if the current timeline_item 
+            # Emit the general layer_changed signal only if the current timeline_item
             # in this layer manager is the currently selected timeline_item
-            if self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
+            current_item = self.timeline_item.timeline.get_current_item()
+            if current_item and self.timeline_item.index == current_item.index:
                 self.layer_changed.send(self, layer=layer, change_type='modified')
-            
+
             return layer.locked
         return None
 
@@ -404,9 +410,10 @@ class LayerManager:
 
         # 移动图层（在保存时调整顺序）
         self._save_layers()
-        # Emit the general layer_changed signal only if the current timeline_item 
+        # Emit the general layer_changed signal only if the current timeline_item
         # in this layer manager is the currently selected timeline_item
-        if self.timeline_item.index == self.timeline_item.timeline.get_current_item().index:
+        current_item = self.timeline_item.timeline.get_current_item()
+        if current_item and self.timeline_item.index == current_item.index:
             layer_obj = self.layers[layer_id]
             self.layer_changed.send(self, layer=layer_obj, change_type='reordered')
         
