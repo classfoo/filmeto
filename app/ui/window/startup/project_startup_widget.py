@@ -72,6 +72,9 @@ class ProjectStartupWidget(BaseWidget):
         # Set chat tab as default selected
         self.tab_widget.setCurrentIndex(0)
 
+        # Connect tab change signal to handle refreshing project info when switching to the project info tab
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+
         main_layout.addWidget(self.tab_widget, 1)
     
     def _setup_chat_tab(self, tab: QWidget):
@@ -95,6 +98,12 @@ class ProjectStartupWidget(BaseWidget):
         # Connect prompt submission to the agent chat component
         # We'll connect to the agent chat component directly instead of the old prompt widget
         # The agent chat component has its own prompt widget
+
+    def _on_tab_changed(self, index):
+        """Handle tab change event."""
+        # When switching to the project info tab, refresh the project info
+        if self.tab_widget.tabText(index) == tr("Project Info") and self.project_name:
+            self.project_info.set_project(self.project_name)
     
     def _apply_styles(self):
         """Apply styles to the widget."""

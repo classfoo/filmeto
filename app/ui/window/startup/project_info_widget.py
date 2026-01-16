@@ -178,9 +178,9 @@ class ProjectInfoWidget(BaseWidget):
         main_layout.setSpacing(0)
 
         # Just the basic info tab content (no more tabs)
-        self._setup_basic_tab(self)
+        self._setup_basic_tab()
     
-    def _setup_basic_tab(self, tab: QWidget):
+    def _setup_basic_tab(self):
         """Set up the basic info tab."""
         scroll_area = QScrollArea()
         scroll_area.setObjectName("project_info_scroll_area")
@@ -270,9 +270,10 @@ class ProjectInfoWidget(BaseWidget):
 
         scroll_area.setWidget(content)
 
-        tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(0, 0, 0, 0)
-        tab_layout.addWidget(scroll_area)
+        # 将滚动区域添加到当前widget的布局中
+        main_layout = self.layout()  # 获取当前widget的布局
+        if main_layout:
+            main_layout.addWidget(scroll_area)
 
     
     def _apply_styles(self):
