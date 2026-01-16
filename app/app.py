@@ -35,7 +35,7 @@ def load_stylesheet(main_path):
     """loading QSS style files"""
     import os
 
-    # Load the main dark style
+    # Load the main dark style which now contains all styles
     main_style_file = "style/dark_style.qss"
     combined_stylesheet = ""
 
@@ -44,24 +44,6 @@ def load_stylesheet(main_path):
             combined_stylesheet = f.read()
     else:
         logger.warning(f"Warning: style file '{main_style_file}' not found, use default.")
-
-    # Load the panel styles
-    panel_style_file = "style/panel_styles.qss"
-    if os.path.exists(panel_style_file):
-        with open(panel_style_file, "r", encoding="utf-8") as f:
-            panel_styles = f.read()
-            combined_stylesheet += "\n" + panel_styles
-    else:
-        logger.warning(f"Warning: panel style file '{panel_style_file}' not found.")
-
-    # Load the startup styles
-    startup_style_file = "style/startup_styles.qss"
-    if os.path.exists(startup_style_file):
-        with open(startup_style_file, "r", encoding="utf-8") as f:
-            startup_styles = f.read()
-            combined_stylesheet += "\n" + startup_styles
-    else:
-        logger.warning(f"Warning: startup style file '{startup_style_file}' not found.")
 
     return combined_stylesheet
 

@@ -160,3 +160,517 @@ QSplitter::handle{
     border: 1px solid #505254;
     border-left: none;
 }
+
+/* Skills Panel Styles */
+
+/* Skills Grid Container */
+QWidget#skillsGridContainer {
+    background-color: #252526;
+}
+
+/* Individual Skill Item */
+QWidget#skillItem {
+    background-color: #3C3C3C;
+    border-radius: 12px;
+    border: 1px solid #454545;
+}
+
+QWidget#skillItem:hover {
+    background-color: #454545;
+    border: 1px solid #555555;
+}
+
+/* Skill Item Icon */
+QWidget#skillItem QLabel {
+    background-color: #2D2D2D;
+    border-radius: 30px;
+    color: #AAAAAA;
+    font-family: "iconfont";
+    font-size: 24px;
+}
+
+/* Skill Item Name Label */
+QWidget#skillItem QLabel[objectName="skillNameLabel"] {
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 4px;
+}
+
+/* Skill Item Description Label */
+QWidget#skillItem QLabel[objectName="skillDescLabel"] {
+    color: #AAAAAA;
+    font-size: 10px;
+    margin-top: 2px;
+}
+
+/* Skill Item Buttons */
+QWidget#skillItem QPushButton {
+    border-radius: 4px;
+    font-size: 9px;
+    padding: 4px;
+}
+
+QWidget#skillItem QPushButton[text="Edit"] {
+    background-color: #007ACC;
+    color: white;
+}
+
+QWidget#skillItem QPushButton[text="Delete"] {
+    background-color: #CC0000;
+    color: white;
+}
+
+QWidget#skillItem QPushButton[text="Edit"]:hover {
+    background-color: #0088EE;
+}
+
+QWidget#skillItem QPushButton[text="Delete"]:hover {
+    background-color: #EE0000;
+}
+
+/* Souls Panel Styles */
+
+/* Souls Grid Container */
+QWidget#soulsGridContainer {
+    background-color: #252526;
+}
+
+/* Individual Soul Card */
+QWidget#soulCard {
+    background-color: #3C3C3C;
+    border-radius: 12px;
+    border: 1px solid #454545;
+    padding: 10px;
+}
+
+QWidget#soulCard:hover {
+    background-color: #454545;
+    border: 1px solid #555555;
+}
+
+/* Soul Card Name Label */
+QWidget#soulCard QLabel[objectName="soulNameLabel"] {
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+/* Soul Card Photo Frame */
+QWidget#soulCard QLabel[objectName="soulPhotoFrame"] {
+    background-color: #2D2D2D;
+    border-radius: 8px;
+    color: #AAAAAA;
+    font-family: "iconfont";
+    font-size: 24px;
+}
+
+/* Soul Card Description Label */
+QWidget#soulCard QLabel[objectName="soulDescLabel"] {
+    color: #AAAAAA;
+    font-size: 10px;
+    margin-top: 4px;
+}
+
+/* Soul Card Buttons */
+QWidget#soulCard QPushButton {
+    border-radius: 4px;
+    font-size: 9px;
+    padding: 4px;
+}
+
+QWidget#soulCard QPushButton[text="View"] {
+    background-color: #007ACC;
+    color: white;
+}
+
+QWidget#soulCard QPushButton[text="Delete"] {
+    background-color: #CC0000;
+    color: white;
+}
+
+QWidget#soulCard QPushButton[text="View"]:hover {
+    background-color: #0088EE;
+}
+
+QWidget#soulCard QPushButton[text="Delete"]:hover {
+    background-color: #EE0000;
+}
+
+/* Soul Details Dialog Styles */
+QDialog#soulDetailsDialog {
+    background-color: #252526;
+}
+
+QDialog#soulDetailsDialog QTabWidget::pane {
+    background-color: #252526;
+    border: 1px solid #454545;
+}
+
+QDialog#soulDetailsDialog QTabWidget::tab-bar {
+    left: 5px;
+}
+
+QDialog#soulDetailsDialog QTabBar::tab {
+    background-color: #3C3C3C;
+    color: #FFFFFF;
+    padding: 6px;
+    margin-right: 2px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+QDialog#soulDetailsDialog QTabBar::tab:selected {
+    background-color: #454545;
+}
+
+QDialog#soulDetailsDialog QTextEdit {
+    background-color: #2D2D2D;
+    color: #FFFFFF;
+    border: 1px solid #454545;
+    border-radius: 4px;
+}
+
+QDialog#soulDetailsDialog QLineEdit {
+    background-color: #2D2D2D;
+    color: #FFFFFF;
+    border: 1px solid #454545;
+    border-radius: 4px;
+}
+
+QDialog#soulDetailsDialog QPushButton {
+    background-color: #007ACC;
+    color: white;
+    border-radius: 4px;
+    padding: 6px;
+}
+
+QDialog#soulDetailsDialog QPushButton[text="Close"],
+QDialog#soulDetailsDialog QPushButton[text="Save"] {
+    background-color: #3C3C3C;
+}
+
+QDialog#soulDetailsDialog QPushButton:hover {
+    background-color: #0088EE;
+}
+
+QDialog#soulDetailsDialog QPushButton[text="Close"]:hover,
+QDialog#soulDetailsDialog QPushButton[text="Save"]:hover {
+    background-color: #454545;
+}
+
+/* Radar Chart Placeholder */
+QWidget#radarChartPlaceholder {
+    background-color: #2D2D2D;
+    border-radius: 8px;
+    padding: 20px;
+    color: #AAAAAA;
+    font-size: 12px;
+}
+
+/* Startup Window Styles */
+
+/* Project Info Widget */
+QWidget#project_info_widget {
+    background-color: #2b2b2b;
+}
+
+QWidget#video_overlay {
+    background-color: rgba(0, 0, 0, 0.35);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+/* Video Preview Widget */
+QFrame#video_preview {
+    background-color: #1e1f22;
+    border-radius: 8px;
+}
+
+QFrame#video_preview QLabel {
+    background-color: #1e1f22;
+    color: #666666;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Stat Card Widget */
+QFrame#stat_card {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+    border: 1px solid #3c3f41;
+}
+
+QFrame#stat_card QLabel {
+    color: #888888;
+    font-size: 12px;
+}
+
+QFrame#stat_card QLabel[valueLabel] {
+    color: #E1E1E1;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Budget Progress Widget */
+QFrame#budget_progress {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+    border: 1px solid #3c3f41;
+}
+
+QFrame#budget_progress QLabel[titleLabel] {
+    color: #888888;
+    font-size: 12px;
+}
+
+QFrame#budget_progress QLabel {
+    color: #E1E1E1;
+    font-size: 14px;
+}
+
+QFrame#budget_progress QProgressBar {
+    background-color: #3c3f41;
+    border-radius: 4px;
+}
+
+QFrame#budget_progress QProgressBar::chunk {
+    background-color: #4080ff;
+    border-radius: 4px;
+}
+
+/* Story Description Widget */
+QFrame#story_description {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+    border: 1px solid #3c3f41;
+}
+
+QFrame#story_description QLabel[titleLabel] {
+    color: #888888;
+    font-size: 12px;
+}
+
+QFrame#story_description QTextEdit {
+    background-color: #1e1f22;
+    border: none;
+    border-radius: 6px;
+    color: #E1E1E1;
+    padding: 8px;
+    font-size: 14px;
+}
+
+/* Project Info Overlay */
+QWidget#video_overlay {
+    background-color: rgba(0, 0, 0, 0.35);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+/* Edit Project Button */
+QPushButton#edit_project_button {
+    background-color: rgba(64, 128, 255, 0.95);
+    border: none;
+    border-radius: 6px;
+    color: #FFFFFF;
+    padding: 5px 10px;
+    font-size: 13px;
+}
+
+QPushButton#edit_project_button:hover {
+    background-color: rgba(80, 144, 255, 0.95);
+}
+
+QPushButton#edit_project_button:pressed {
+    background-color: rgba(48, 112, 238, 0.95);
+}
+
+/* Startup Widget */
+QWidget#startup_widget {
+    background-color: #2b2b2b;
+}
+
+QWidget#startup_top_bar {
+    background-color: #1e1f22;
+    border-bottom: 1px solid #3c3f41;
+}
+
+QWidget#startup_right_panel {
+    background-color: #2b2b2b;
+}
+
+/* Startup Tabs */
+QTabWidget#startup_tabs {
+    background-color: #2b2b2b;
+    border: 1px solid #3c3f41;
+    border-radius: 4px;
+}
+
+QTabWidget#startup_tabs::pane {
+    background-color: #2b2b2b;
+    border: none;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    margin-top: 0;
+}
+
+QTabWidget#startup_tabs QTabBar {
+    background-color: #2b2b2b;
+}
+
+QTabWidget#startup_tabs QTabBar::tab {
+    background-color: #2d2d2d;
+    color: #888888;
+    padding: 8px 16px;
+    margin-right: 2px;
+    border: 1px solid #3c3f41;
+    border-bottom: 2px solid #3c3f41;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom: none;
+    min-width: 100px;
+    text-align: center;
+}
+
+QTabWidget#startup_tabs QTabBar::tab:selected {
+    color: #E1E1E1;
+    background-color: #3c3f41;
+    border: 1px solid #3c3f41;
+    border-bottom: 2px solid #4080ff; /* 使用品牌蓝色作为选中指示器 */
+    font-weight: 500;
+}
+
+QTabWidget#startup_tabs QTabBar::tab:hover:!selected {
+    color: #CCCCCC;
+    background-color: #353535;
+    border: 1px solid #454545;
+    border-bottom: 2px solid #454545;
+}
+
+/* Scroll Areas */
+QScrollArea#project_info_scroll_area {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea#project_info_scroll_area::viewport {
+    background-color: transparent;
+}
+
+QScrollArea#project_info_scroll_area > QWidget {
+    background-color: transparent;
+}
+
+QScrollArea#project_info_scroll_area > QWidget > QWidget {
+    background-color: transparent;
+}
+
+QWidget#project_info_scroll_content {
+    background-color: transparent;
+}
+
+/* Video Preview Label */
+QLabel#video_preview_label {
+    background-color: #1e1f22;
+    color: #666666;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Stat Card Labels */
+QLabel#stat_card_title {
+    color: #888888;
+    font-size: 12px;
+}
+
+QLabel#stat_card_value {
+    color: #E1E1E1;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Budget Progress Labels */
+QLabel#budget_progress_title {
+    color: #888888;
+    font-size: 12px;
+}
+
+QLabel#budget_progress_text {
+    color: #E1E1E1;
+    font-size: 14px;
+}
+
+QLabel#budget_percentage_label {
+    color: #4080ff;
+    font-size: 12px;
+}
+
+/* Story Description Labels */
+QLabel#story_description_title {
+    color: #888888;
+    font-size: 12px;
+}
+
+QTextEdit#story_description_text {
+    background-color: #1e1f22;
+    border: none;
+    border-radius: 6px;
+    color: #E1E1E1;
+    padding: 8px;
+    font-size: 14px;
+}
+
+/* Project Name Label */
+QLabel#project_name_label {
+    color: #EDEDED;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* Startup Separator */
+QFrame#startup_separator {
+    background-color: #3c3f41;
+}
+
+/* Tab-like Buttons for Startup Tabs */
+QPushButton#chat_tab_button,
+QPushButton#project_info_tab_button {
+    background-color: #2d2d2d;
+    color: #888888;
+    border: 1px solid #3c3f41;
+    border-bottom: 2px solid #3c3f41;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom: none;
+    padding: 8px 16px;
+    margin-right: 2px;
+    min-width: 100px;
+    text-align: center;
+    font-size: 14px;
+}
+
+QPushButton#chat_tab_button:checked,
+QPushButton#project_info_tab_button:checked {
+    color: #E1E1E1;
+    background-color: #3c3f41;
+    border: 1px solid #3c3f41;
+    border-bottom: 2px solid #4080ff; /* 使用品牌蓝色作为选中指示器 */
+    font-weight: 500;
+}
+
+QPushButton#chat_tab_button:hover,
+QPushButton#project_info_tab_button:hover {
+    color: #CCCCCC;
+    background-color: #353535;
+    border: 1px solid #454545;
+    border-bottom: 2px solid #454545;
+}
+
+QPushButton#chat_tab_button:unchecked,
+QPushButton#project_info_tab_button:unchecked {
+    background-color: #2d2d2d;
+    color: #888888;
+}
