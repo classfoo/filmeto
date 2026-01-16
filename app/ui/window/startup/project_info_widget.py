@@ -34,23 +34,9 @@ class VideoPreviewWidget(QFrame):
         
         # Preview placeholder
         self.preview_label = QLabel(tr("暂无视频预览"))
+        self.preview_label.setObjectName("video_preview_label")
         self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setStyleSheet("""
-            QLabel {
-                background-color: #1e1f22;
-                color: #666666;
-                border-radius: 8px;
-                font-size: 14px;
-            }
-        """)
         layout.addWidget(self.preview_label)
-        
-        self.setStyleSheet("""
-            QFrame#video_preview {
-                background-color: #1e1f22;
-                border-radius: 8px;
-            }
-        """)
     
     def set_video_path(self, path: str):
         """Set the video path for preview."""
@@ -75,21 +61,13 @@ class StatCard(QFrame):
         
         # Title
         title_label = QLabel(title)
-        title_label.setStyleSheet("color: #888888; font-size: 12px;")
+        title_label.setObjectName("stat_card_title")
         layout.addWidget(title_label)
-        
+
         # Value
         self.value_label = QLabel(value)
-        self.value_label.setStyleSheet("color: #E1E1E1; font-size: 24px; font-weight: bold;")
+        self.value_label.setObjectName("stat_card_value")
         layout.addWidget(self.value_label)
-        
-        self.setStyleSheet("""
-            QFrame#stat_card {
-                background-color: #2d2d2d;
-                border-radius: 8px;
-                border: 1px solid #3c3f41;
-            }
-        """)
     
     def set_value(self, value: str):
         """Update the value."""
@@ -111,12 +89,12 @@ class BudgetProgressWidget(QFrame):
         # Title row
         title_row = QHBoxLayout()
         title_label = QLabel(tr("预算使用"))
-        title_label.setStyleSheet("color: #888888; font-size: 12px;")
+        title_label.setObjectName("budget_progress_title")
         title_row.addWidget(title_label)
         title_row.addStretch()
-        
+
         self.budget_text = QLabel("$0 / $0")
-        self.budget_text.setStyleSheet("color: #E1E1E1; font-size: 14px;")
+        self.budget_text.setObjectName("budget_progress_text")
         title_row.addWidget(self.budget_text)
         layout.addLayout(title_row)
         
@@ -124,30 +102,12 @@ class BudgetProgressWidget(QFrame):
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(8)
         self.progress_bar.setTextVisible(False)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                background-color: #3c3f41;
-                border-radius: 4px;
-            }
-            QProgressBar::chunk {
-                background-color: #4080ff;
-                border-radius: 4px;
-            }
-        """)
         layout.addWidget(self.progress_bar)
-        
+
         # Percentage
         self.percentage_label = QLabel("0%")
-        self.percentage_label.setStyleSheet("color: #4080ff; font-size: 12px;")
+        self.percentage_label.setObjectName("budget_percentage_label")
         layout.addWidget(self.percentage_label)
-        
-        self.setStyleSheet("""
-            QFrame#budget_progress {
-                background-color: #2d2d2d;
-                border-radius: 8px;
-                border: 1px solid #3c3f41;
-            }
-        """)
     
     def set_budget(self, used: float, total: float):
         """Update the budget progress."""
@@ -174,36 +134,19 @@ class StoryDescriptionWidget(QFrame):
         
         # Title
         title_label = QLabel(tr("故事描述"))
-        title_label.setStyleSheet("color: #888888; font-size: 12px;")
+        title_label.setObjectName("story_description_title")
         layout.addWidget(title_label)
-        
+
         # Description text
         self.description_text = QTextEdit()
+        self.description_text.setObjectName("story_description_text")
         self.description_text.setReadOnly(True)
         self.description_text.setPlaceholderText(tr("暂无故事描述..."))
         # Compact by default to fit in small windows; can still expand when space allows.
         self.description_text.setMinimumHeight(80)
         self.description_text.setMaximumHeight(120)
         self.description_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.description_text.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1f22;
-                border: none;
-                border-radius: 6px;
-                color: #E1E1E1;
-                padding: 8px;
-                font-size: 14px;
-            }
-        """)
         layout.addWidget(self.description_text)
-        
-        self.setStyleSheet("""
-            QFrame#story_description {
-                background-color: #2d2d2d;
-                border-radius: 8px;
-                border: 1px solid #3c3f41;
-            }
-        """)
     
     def set_description(self, text: str):
         """Set the story description."""
@@ -240,26 +183,12 @@ class ProjectInfoWidget(BaseWidget):
     def _setup_basic_tab(self, tab: QWidget):
         """Set up the basic info tab."""
         scroll_area = QScrollArea()
+        scroll_area.setObjectName("project_info_scroll_area")
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setStyleSheet("""
-            QScrollArea {
-                background-color: transparent;
-                border: none;
-            }
-            QScrollArea::viewport {
-                background-color: transparent;
-            }
-            QScrollArea > QWidget {
-                background-color: transparent;
-            }
-            QScrollArea > QWidget > QWidget {
-                background-color: transparent;
-            }
-        """)
 
         content = QWidget()
-        content.setStyleSheet("background-color: transparent;")
+        content.setObjectName("project_info_scroll_content")
         layout = QVBoxLayout(content)
         layout.setContentsMargins(0, 12, 0, 12)
         layout.setSpacing(12)
@@ -291,7 +220,6 @@ class ProjectInfoWidget(BaseWidget):
         self.project_name_label.setObjectName("project_name_label")
         self.project_name_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.project_name_label.setWordWrap(False)
-        self.project_name_label.setStyleSheet("color: #EDEDED; font-size: 16px; font-weight: bold;")
         overlay_layout.addWidget(self.project_name_label)
 
         self.edit_button = QPushButton(tr("编辑"))
@@ -299,22 +227,6 @@ class ProjectInfoWidget(BaseWidget):
         self.edit_button.setFixedHeight(28)
         self.edit_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.edit_button.clicked.connect(self._on_edit_clicked)
-        self.edit_button.setStyleSheet("""
-            QPushButton#edit_project_button {
-                background-color: rgba(64, 128, 255, 0.95);
-                border: none;
-                border-radius: 6px;
-                color: #FFFFFF;
-                padding: 5px 10px;
-                font-size: 13px;
-            }
-            QPushButton#edit_project_button:hover {
-                background-color: rgba(80, 144, 255, 0.95);
-            }
-            QPushButton#edit_project_button:pressed {
-                background-color: rgba(48, 112, 238, 0.95);
-            }
-        """)
         overlay_layout.addWidget(self.edit_button)
 
         video_stack.addWidget(overlay)
@@ -365,16 +277,8 @@ class ProjectInfoWidget(BaseWidget):
     
     def _apply_styles(self):
         """Apply styles to the widget."""
-        self.setStyleSheet("""
-            QWidget#project_info_widget {
-                background-color: #2b2b2b;
-            }
-            QWidget#video_overlay {
-                background-color: rgba(0, 0, 0, 0.35);
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-            }
-        """)
+        # Styles are now in the global stylesheet
+        pass
 
     def set_project(self, project_name: str):
         """Set the project to display."""

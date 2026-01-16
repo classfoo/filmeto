@@ -1,0 +1,247 @@
+/* Startup Window Styles */
+
+/* Project Info Widget */
+QWidget#project_info_widget {
+    background-color: #2b2b2b;
+}
+
+QWidget#video_overlay {
+    background-color: rgba(0, 0, 0, 0.35);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+/* Video Preview Widget */
+QFrame#video_preview {
+    background-color: #1e1f22;
+    border-radius: 8px;
+}
+
+QFrame#video_preview QLabel {
+    background-color: #1e1f22;
+    color: #666666;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Stat Card Widget */
+QFrame#stat_card {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+    border: 1px solid #3c3f41;
+}
+
+QFrame#stat_card QLabel {
+    color: #888888;
+    font-size: 12px;
+}
+
+QFrame#stat_card QLabel[valueLabel] {
+    color: #E1E1E1;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Budget Progress Widget */
+QFrame#budget_progress {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+    border: 1px solid #3c3f41;
+}
+
+QFrame#budget_progress QLabel[titleLabel] {
+    color: #888888;
+    font-size: 12px;
+}
+
+QFrame#budget_progress QLabel {
+    color: #E1E1E1;
+    font-size: 14px;
+}
+
+QFrame#budget_progress QProgressBar {
+    background-color: #3c3f41;
+    border-radius: 4px;
+}
+
+QFrame#budget_progress QProgressBar::chunk {
+    background-color: #4080ff;
+    border-radius: 4px;
+}
+
+/* Story Description Widget */
+QFrame#story_description {
+    background-color: #2d2d2d;
+    border-radius: 8px;
+    border: 1px solid #3c3f41;
+}
+
+QFrame#story_description QLabel[titleLabel] {
+    color: #888888;
+    font-size: 12px;
+}
+
+QFrame#story_description QTextEdit {
+    background-color: #1e1f22;
+    border: none;
+    border-radius: 6px;
+    color: #E1E1E1;
+    padding: 8px;
+    font-size: 14px;
+}
+
+/* Project Info Overlay */
+QWidget#video_overlay {
+    background-color: rgba(0, 0, 0, 0.35);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+/* Edit Project Button */
+QPushButton#edit_project_button {
+    background-color: rgba(64, 128, 255, 0.95);
+    border: none;
+    border-radius: 6px;
+    color: #FFFFFF;
+    padding: 5px 10px;
+    font-size: 13px;
+}
+
+QPushButton#edit_project_button:hover {
+    background-color: rgba(80, 144, 255, 0.95);
+}
+
+QPushButton#edit_project_button:pressed {
+    background-color: rgba(48, 112, 238, 0.95);
+}
+
+/* Startup Widget */
+QWidget#startup_widget {
+    background-color: #2b2b2b;
+}
+
+QWidget#startup_top_bar {
+    background-color: #1e1f22;
+    border-bottom: 1px solid #3c3f41;
+}
+
+QWidget#startup_right_panel {
+    background-color: #2b2b2b;
+}
+
+/* Startup Tabs */
+QTabWidget#startup_tabs {
+    background-color: #2b2b2b;
+}
+
+QTabWidget#startup_tabs::pane {
+    background-color: #2b2b2b;
+    border: none;
+}
+
+QTabWidget#startup_tabs QTabBar {
+    background-color: #2b2b2b;
+}
+
+QTabWidget#startup_tabs > QTabBar::tab {
+    background-color: #2b2b2b;
+    color: #888888;
+    padding: 8px 16px;
+    margin-right: 4px;
+    border: none;
+    border-bottom: 2px solid transparent;
+}
+
+QTabWidget#startup_tabs > QTabBar::tab:selected {
+    color: #E1E1E1;
+    border-bottom: 2px solid #4080ff;
+}
+
+QTabWidget#startup_tabs > QTabBar::tab:hover:!selected {
+    color: #AAAAAA;
+}
+
+/* Scroll Areas */
+QScrollArea#project_info_scroll_area {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea#project_info_scroll_area::viewport {
+    background-color: transparent;
+}
+
+QScrollArea#project_info_scroll_area > QWidget {
+    background-color: transparent;
+}
+
+QScrollArea#project_info_scroll_area > QWidget > QWidget {
+    background-color: transparent;
+}
+
+QWidget#project_info_scroll_content {
+    background-color: transparent;
+}
+
+/* Video Preview Label */
+QLabel#video_preview_label {
+    background-color: #1e1f22;
+    color: #666666;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Stat Card Labels */
+QLabel#stat_card_title {
+    color: #888888;
+    font-size: 12px;
+}
+
+QLabel#stat_card_value {
+    color: #E1E1E1;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Budget Progress Labels */
+QLabel#budget_progress_title {
+    color: #888888;
+    font-size: 12px;
+}
+
+QLabel#budget_progress_text {
+    color: #E1E1E1;
+    font-size: 14px;
+}
+
+QLabel#budget_percentage_label {
+    color: #4080ff;
+    font-size: 12px;
+}
+
+/* Story Description Labels */
+QLabel#story_description_title {
+    color: #888888;
+    font-size: 12px;
+}
+
+QTextEdit#story_description_text {
+    background-color: #1e1f22;
+    border: none;
+    border-radius: 6px;
+    color: #E1E1E1;
+    padding: 8px;
+    font-size: 14px;
+}
+
+/* Project Name Label */
+QLabel#project_name_label {
+    color: #EDEDED;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* Startup Separator */
+QFrame#startup_separator {
+    background-color: #3c3f41;
+}
