@@ -38,10 +38,10 @@ class SoulsPanel(BasePanel):
         self.set_panel_title(tr("Souls"))
 
         # Add refresh button to toolbar
-        self.add_toolbar_button("\ue682", self._refresh_souls, tr("刷新灵魂列表"))  # Refresh icon
+        self.add_toolbar_button("\ue682", self._refresh_souls, tr("Refresh Souls List"))  # Refresh icon
 
         # Add add soul button to toolbar
-        self.add_toolbar_button("\ue62e", self._add_soul, tr("添加新灵魂"))  # Plus icon
+        self.add_toolbar_button("\ue62e", self._add_soul, tr("Add New Soul"))  # Plus icon
 
     def load_data(self):
         """Load souls data from SoulService."""
@@ -50,7 +50,7 @@ class SoulsPanel(BasePanel):
         self.soul_service = SoulService()
 
         # Show loading indicator
-        self.show_loading(tr("正在加载灵魂..."))
+        self.show_loading(tr("Loading souls..."))
 
         # Defer loading to avoid blocking UI
         QTimer.singleShot(0, self._load_souls_async)
@@ -109,7 +109,7 @@ class SoulsPanel(BasePanel):
         except Exception as e:
             logger.error(f"Error loading souls: {e}")
             self.hide_loading()
-            QMessageBox.critical(self, tr("错误"), f"{tr('加载灵魂时出错')}: {str(e)}")
+            QMessageBox.critical(self, tr("Error"), f"{tr('Error loading souls')}: {str(e)}")
 
     def _create_soul_widget(self, soul: Soul) -> QWidget:
         """Create a widget representing a single soul in character card format."""
@@ -182,7 +182,7 @@ class SoulsPanel(BasePanel):
             }
         """)
         # Get description from knowledge if available
-        desc_text = soul.knowledge[:60] + "..." if soul.knowledge and len(soul.knowledge) > 60 else (soul.knowledge or tr("暂无描述"))
+        desc_text = soul.knowledge[:60] + "..." if soul.knowledge and len(soul.knowledge) > 60 else (soul.knowledge or tr("No description"))
         desc_label.setText(desc_text)
         layout.addWidget(desc_label)
 
@@ -192,7 +192,7 @@ class SoulsPanel(BasePanel):
         button_layout.setContentsMargins(0, 8, 0, 0)
 
         # View/Edit button
-        view_btn = QPushButton(tr("查看"))
+        view_btn = QPushButton(tr("View"))
         view_btn.setStyleSheet("""
             QPushButton {
                 background-color: #007ACC;
@@ -209,7 +209,7 @@ class SoulsPanel(BasePanel):
         button_layout.addWidget(view_btn)
 
         # Delete button
-        delete_btn = QPushButton(tr("删除"))
+        delete_btn = QPushButton(tr("Delete"))
         delete_btn.setStyleSheet("""
             QPushButton {
                 background-color: #CC0000;
@@ -240,12 +240,12 @@ class SoulsPanel(BasePanel):
         
         # For now, we'll create a simple placeholder
         # In a real implementation, we would parse the soul's metadata to get ability values
-        abilities = ["智慧", "力量", "魅力", "敏捷", "耐力", "感知"]
-        
+        abilities = [tr("Wisdom"), tr("Strength"), tr("Charisma"), tr("Agility"), tr("Endurance"), tr("Perception")]
+
         # Create a simple radar chart representation
         chart_label = QLabel()
         chart_label.setAlignment(Qt.AlignCenter)
-        chart_label.setText("六边形能力图")
+        chart_label.setText(tr("Hexagonal Ability Chart"))
         chart_label.setStyleSheet("""
             QLabel {
                 background-color: #2D2D2D;
@@ -280,8 +280,8 @@ class SoulsPanel(BasePanel):
         # For now, just show a message box since we don't have a form to create souls
         QMessageBox.information(
             self,
-            tr("提示"),
-            tr("添加灵魂功能将在后续版本中实现。目前您可以直接在项目目录下的souls文件夹中创建新的灵魂定义。")
+            tr("Information"),
+            tr("Add soul functionality will be implemented in a future version. Currently you can create new souls directly in the souls folder in the project directory.")
         )
 
     def _view_soul_details(self, soul: Soul):
@@ -293,8 +293,8 @@ class SoulsPanel(BasePanel):
         """Delete the selected soul."""
         reply = QMessageBox.question(
             self,
-            tr("确认删除"),
-            f"{tr('确定要删除灵魂')} '{soul.name}' {tr('吗？此操作不可撤销。')}",
+            tr("Confirm Deletion"),
+            f"{tr('Are you sure you want to delete the soul')} '{soul.name}' {tr('? This action cannot be undone.')}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -303,8 +303,8 @@ class SoulsPanel(BasePanel):
             # For now, just show a message since we don't have a delete implementation
             QMessageBox.information(
                 self,
-                tr("提示"),
-                f"{tr('删除灵魂功能将在后续版本中实现。')}\n{tr('灵魂路径')}: {soul.description_file}"
+                tr("Information"),
+                f"{tr('Delete soul functionality will be implemented in a future version.')}\n{tr('Soul path')}: {soul.description_file}"
             )
 
     def on_activated(self):
@@ -321,7 +321,7 @@ class SoulDetailsDialog(QDialog):
     def __init__(self, soul: Soul, parent=None):
         super().__init__(parent)
         self.soul = soul
-        self.setWindowTitle(f"{tr('灵魂详情')} - {soul.name}")
+        self.setWindowTitle(f"{tr('Soul Details')} - {soul.name}")
         self.resize(600, 500)
 
         self._setup_ui()
@@ -340,15 +340,15 @@ class SoulDetailsDialog(QDialog):
         # Name
         self.name_edit = QLineEdit(self.soul.name)
         self.name_edit.setReadOnly(True)  # For now, make it read-only
-        basic_layout.addRow(tr("名称:"), self.name_edit)
+        basic_layout.addRow(tr("Name:"), self.name_edit)
 
         # Skills
         self.skills_edit = QTextEdit()
         self.skills_edit.setPlainText(", ".join(self.soul.skills))
         self.skills_edit.setMaximumHeight(80)
-        basic_layout.addRow(tr("技能:"), self.skills_edit)
+        basic_layout.addRow(tr("Skills:"), self.skills_edit)
 
-        tab_widget.addTab(basic_tab, tr("基本信息"))
+        tab_widget.addTab(basic_tab, tr("Basic Information"))
 
         # Knowledge Tab
         knowledge_tab = QWidget()
@@ -359,14 +359,14 @@ class SoulDetailsDialog(QDialog):
         self.knowledge_edit.setReadOnly(True)  # For now, make it read-only
         knowledge_layout.addWidget(self.knowledge_edit)
 
-        tab_widget.addTab(knowledge_tab, tr("知识库"))
+        tab_widget.addTab(knowledge_tab, tr("Knowledge Base"))
 
         # Abilities/Radar Chart Tab
         abilities_tab = QWidget()
         abilities_layout = QVBoxLayout(abilities_tab)
 
         # Placeholder for radar chart
-        radar_placeholder = QLabel(tr("能力雷达图将在后续版本中实现"))
+        radar_placeholder = QLabel(tr("Ability radar chart will be implemented in a future version"))
         radar_placeholder.setAlignment(Qt.AlignCenter)
         radar_placeholder.setStyleSheet("""
             QLabel {
@@ -379,18 +379,18 @@ class SoulDetailsDialog(QDialog):
         """)
         abilities_layout.addWidget(radar_placeholder)
 
-        tab_widget.addTab(abilities_tab, tr("能力图"))
+        tab_widget.addTab(abilities_tab, tr("Abilities Chart"))
 
         layout.addWidget(tab_widget)
 
         # Buttons
         button_layout = QHBoxLayout()
 
-        self.edit_button = QPushButton(tr("编辑"))
+        self.edit_button = QPushButton(tr("Edit"))
         self.edit_button.clicked.connect(self._toggle_edit_mode)
         button_layout.addWidget(self.edit_button)
 
-        close_button = QPushButton(tr("关闭"))
+        close_button = QPushButton(tr("Close"))
         close_button.clicked.connect(self.accept)
         button_layout.addWidget(close_button)
 
@@ -410,11 +410,11 @@ class SoulDetailsDialog(QDialog):
         self.name_edit.setReadOnly(not editable)
         
         if editable:
-            self.edit_button.setText(tr("保存"))
+            self.edit_button.setText(tr("Save"))
             self.edit_button.clicked.disconnect()
             self.edit_button.clicked.connect(self._save_changes)
         else:
-            self.edit_button.setText(tr("编辑"))
+            self.edit_button.setText(tr("Edit"))
             self.edit_button.clicked.disconnect()
             self.edit_button.clicked.connect(self._toggle_edit_mode)
 
@@ -423,7 +423,7 @@ class SoulDetailsDialog(QDialog):
         # For now, just show a message since we don't have save implementation
         QMessageBox.information(
             self,
-            tr("提示"),
-            tr("保存功能将在后续版本中实现。")
+            tr("Information"),
+            tr("Save functionality will be implemented in a future version.")
         )
         self._set_edit_mode(False)
