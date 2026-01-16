@@ -142,30 +142,16 @@ class StartupWindow(LeftPanelDialog):
         # Add project list widget, it will stretch vertically
         self.left_content_layout.addWidget(self.project_list, 1)
         
-        # Right work area: Project info + Prompt input
-        right_container = QWidget()
-        right_container.setObjectName("startup_right_container")
-        right_layout = QVBoxLayout(right_container)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
-        
-        # Project info area (takes most of the space)
-        self.project_info = ProjectInfoWidget(self.workspace)
-        right_layout.addWidget(self.project_info, 1)
-        
-        # Prompt input area (at the bottom)
-        prompt_container = QWidget()
-        prompt_container.setObjectName("startup_prompt_container")
-        prompt_layout = QVBoxLayout(prompt_container)
-        prompt_layout.setContentsMargins(16, 8, 16, 16)
-        
-        self.prompt_widget = AgentPromptWidget(self.workspace)
-        self.prompt_widget.set_placeholder("请输入您的需求或问题...")
-        prompt_layout.addWidget(self.prompt_widget)
-        
-        right_layout.addWidget(prompt_container)
-        
-        self.set_right_work_widget(right_container)
+        # Right work area: Using ProjectStartupWidget which contains the tab functionality
+        from app.ui.window.startup.project_startup_widget import ProjectStartupWidget
+        # Initialize with the selected project from the project list
+        selected_project = self.project_list.get_selected_project()
+        self.startup_widget = ProjectStartupWidget(self, self.workspace, selected_project)
+
+        # Connect the enter_edit_mode signal from the startup widget
+        self.startup_widget.enter_edit_mode.connect(self._on_edit_project_from_widget)
+
+        self.set_right_work_widget(self.startup_widget)
         
         # Connect signals
         self._connect_signals()
@@ -175,18 +161,14 @@ class StartupWindow(LeftPanelDialog):
     
     def _connect_signals(self):
         """Connect signals between components."""
-        # Project selection changes
-        self.project_list.project_selected.connect(self._on_project_selected)
-        
-        # Edit project (from list or info widget)
-        self.project_list.project_edit.connect(self._on_edit_project)
-        self.project_info.edit_project.connect(self._on_edit_project)
-        
-        # New project created
-        self.project_list.project_created.connect(self._on_project_created)
-        
-        # Prompt submitted
-        self.prompt_widget.prompt_submitted.connect(self._on_prompt_submitted)
+        # Project selection changes - update the ProjectStartupWidget to show the selected project
+        self.project_list.project_selected.connect(self._on_project_selected_in_list)
+
+        # Edit project (from list) - these will now be handled by the ProjectStartupWidget
+        self.project_list.project_edit.connect(self.startup_widget._on_edit_project)
+
+        # New project created - update the ProjectStartupWidget
+        self.project_list.project_created.connect(self._on_project_created_in_list)
     
     def _apply_styles(self):
         """Apply styles to the widget."""
@@ -199,51 +181,42 @@ class StartupWindow(LeftPanelDialog):
             }
         """)
     
-    def _on_project_selected(self, project_name: str):
+    def _on_project_selected_in_list(self, project_name: str):
         """Handle project selection from the list."""
-        self.project_info.set_project(project_name)
-    
+        # Update the ProjectStartupWidget to show the selected project
+        self.startup_widget.set_project(project_name)
+
+    def _on_project_created_in_list(self, project_name: str):
+        """Handle new project creation."""
+        # Update the ProjectStartupWidget to show the new project
+        self.startup_widget.set_project(project_name)
+
     def _on_edit_project(self, project_name: str):
         """Handle edit project request."""
         # Switch to the project and enter edit mode
         self.workspace.switch_project(project_name)
         self.enter_edit_mode.emit(project_name)
     
-    def _on_project_created(self, project_name: str):
-        """Handle new project creation."""
-        # The project list already updates itself
-        # Just update the info display
-        self.project_info.set_project(project_name)
-    
-    def _on_prompt_submitted(self, prompt: str):
-        """Handle prompt submission."""
-        # Get selected project or use default
-        project_name = self.get_selected_project()
-        if not project_name:
-            # If no project selected, use the current project
-            project_name = self.workspace.project_name
-        
-        # Store prompt to be set in agent panel after entering edit mode
-        self._pending_prompt = prompt
-        
-        # Enter edit mode with the project
+    def _on_edit_project_from_widget(self, project_name: str):
+        """Handle edit project request from the startup widget."""
+        # Switch to the project and enter edit mode
+        self.workspace.switch_project(project_name)
         self.enter_edit_mode.emit(project_name)
     
     def refresh_projects(self):
         """Refresh the project list."""
-        if self.project_list:
-            self.project_list.refresh()
-            
-            # Update project info if there's a selected project
-            selected = self.project_list.get_selected_project()
-            if selected:
-                self.project_info.set_project(selected)
-    
+        # Refresh the project list in the left panel
+        self.project_list.refresh()
+
+        # Also refresh the project info in the startup widget
+        selected_project = self.project_list.get_selected_project()
+        if selected_project:
+            self.startup_widget.set_project(selected_project)
+
     def get_selected_project(self) -> str:
         """Get the currently selected project name."""
-        if self.project_list:
-            return self.project_list.get_selected_project()
-        return None
+        # Get the selected project from the project list
+        return self.project_list.get_selected_project()
     
     def keyPressEvent(self, event: QKeyEvent):
         """Handle keyboard shortcuts."""

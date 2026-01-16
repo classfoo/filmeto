@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Startup Widget
+Project Startup Widget
 
-This is the main container widget for the startup/home mode.
-It combines the project list (left panel) with the project info workspace (right panel).
+This is the main container widget for a single project's startup view.
+It focuses on a single project with tabs for project info and chat.
 """
 import logging
 from PySide6.QtWidgets import (
@@ -23,27 +23,26 @@ from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 logger = logging.getLogger(__name__)
 
 
-class StartupWidget(BaseWidget):
+class ProjectStartupWidget(BaseWidget):
     """
-    Main startup mode container widget.
-    
+    Main container widget for a single project's startup view.
+
     Structure:
     - Top: Title bar (with window controls)
-    - Main area (horizontal split):
-      - Left: Project list panel
-      - Right: Project info workspace + Prompt input
+    - Main area: Tab widget for switching between project info and chat
     """
-    
+
     enter_edit_mode = Signal(str)  # Emits project name when entering edit mode
-    
-    def __init__(self, window, workspace: Workspace, parent=None):
+
+    def __init__(self, window, workspace: Workspace, project_name: str = None, parent=None):
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
-        
+
         self.window = window
-        self.setObjectName("startup_widget")
-        
+        self.project_name = project_name
+        self.setObjectName("project_startup_widget")
+
         self._setup_ui()
         self._connect_signals()
         self._apply_styles()
@@ -53,56 +52,33 @@ class StartupWidget(BaseWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        
+
         # Top bar with window controls
         self.top_bar = QWidget()
-        self.top_bar.setObjectName("startup_top_bar")
+        self.top_bar.setObjectName("project_startup_top_bar")
         self.top_bar.setFixedHeight(40)
         top_bar_layout = QHBoxLayout(self.top_bar)
         top_bar_layout.setContentsMargins(0, 0, 0, 0)
         top_bar_layout.setSpacing(0)
-        
+
         # Mac-style title bar (window controls)
         self.title_bar = MacTitleBar(self.window)
         top_bar_layout.addWidget(self.title_bar)
         top_bar_layout.addStretch()
-        
+
         # Enable dragging
         self.top_bar.mousePressEvent = self._on_top_bar_mouse_press
         self.top_bar.mouseMoveEvent = self._on_top_bar_mouse_move
         self.top_bar.mouseReleaseEvent = self._on_top_bar_mouse_release
         self._draggable = False
         self._drag_start_position = None
-        
-        main_layout.addWidget(self.top_bar)
-        
-        # Main content area (horizontal layout)
-        content_widget = QWidget()
-        content_layout = QHBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(0)
-        
-        # Left panel: Project list
-        self.project_list = ProjectListWidget(self.workspace)
-        content_layout.addWidget(self.project_list)
-        
-        # Separator
-        separator = QFrame()
-        separator.setObjectName("startup_separator")
-        separator.setFrameShape(QFrame.VLine)
-        separator.setFixedWidth(1)
-        content_layout.addWidget(separator)
-        
-        # Right panel: Tab widget for switching between project info and chat
-        right_panel = QWidget()
-        right_panel.setObjectName("startup_right_panel")
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
 
+        main_layout.addWidget(self.top_bar)
+
+        # Main content area: Tab widget for switching between project info and chat
         # Create tab widget for switching between project info and chat
         self.tab_widget = QTabWidget()
-        self.tab_widget.setObjectName("startup_tabs")
+        self.tab_widget.setObjectName("project_startup_tabs")
 
         # Project info tab
         self.project_info = ProjectInfoWidget(self.workspace)
@@ -113,14 +89,10 @@ class StartupWidget(BaseWidget):
         self._setup_chat_tab(self.chat_tab)
         self.tab_widget.addTab(self.chat_tab, tr("Chat"))
 
-        # Set chat tab as default selected
-        self.tab_widget.setCurrentIndex(1)
+        # Set project info tab as default selected
+        self.tab_widget.setCurrentIndex(0)
 
-        right_layout.addWidget(self.tab_widget, 1)
-
-        content_layout.addWidget(right_panel, 1)
-        
-        main_layout.addWidget(content_widget, 1)
+        main_layout.addWidget(self.tab_widget, 1)
     
     def _setup_chat_tab(self, tab: QWidget):
         """Set up the chat tab."""
@@ -137,15 +109,8 @@ class StartupWidget(BaseWidget):
 
     def _connect_signals(self):
         """Connect signals between components."""
-        # Project selection changes
-        self.project_list.project_selected.connect(self._on_project_selected)
-
-        # Edit project (from list or info widget)
-        self.project_list.project_edit.connect(self._on_edit_project)
+        # Edit project (from info widget)
         self.project_info.edit_project.connect(self._on_edit_project)
-
-        # New project created
-        self.project_list.project_created.connect(self._on_project_created)
 
         # Connect prompt submission to the agent chat component
         # We'll connect to the agent chat component directly instead of the old prompt widget
@@ -156,21 +121,19 @@ class StartupWidget(BaseWidget):
         # Styles are now in the global stylesheet
         pass
     
-    def _on_project_selected(self, project_name: str):
-        """Handle project selection from the list."""
-        self.project_info.set_project(project_name)
-    
-    def _on_edit_project(self, project_name: str):
+    def _on_edit_project(self, project_name: str = None):
         """Handle edit project request."""
+        # Use the provided project name or the one set during initialization
+        project_to_edit = project_name or self.project_name
+
         # Switch to the project and enter edit mode
-        self.workspace.switch_project(project_name)
-        self.enter_edit_mode.emit(project_name)
-    
-    def _on_project_created(self, project_name: str):
-        """Handle new project creation."""
-        # The project list already updates itself
-        # Just update the info display
-        self.project_info.set_project(project_name)
+        if project_to_edit:
+            self.workspace.switch_project(project_to_edit)
+            self.enter_edit_mode.emit(project_to_edit)
+        else:
+            # If no project name is provided, emit the signal anyway
+            # This allows the caller to determine the project to edit
+            self.enter_edit_mode.emit(self.workspace.project_name)
     
     def _on_prompt_submitted(self, prompt: str):
         """Handle prompt submission."""
@@ -202,15 +165,12 @@ class StartupWidget(BaseWidget):
         self._draggable = False
         self._drag_start_position = None
     
-    def refresh_projects(self):
-        """Refresh the project list."""
-        self.project_list.refresh()
-        
-        # Update project info if there's a selected project
-        selected = self.project_list.get_selected_project()
-        if selected:
-            self.project_info.set_project(selected)
-    
-    def get_selected_project(self) -> str:
-        """Get the currently selected project name."""
-        return self.project_list.get_selected_project()
+    def refresh_project(self):
+        """Refresh the current project info."""
+        if self.project_name:
+            self.project_info.set_project(self.project_name)
+
+    def set_project(self, project_name: str):
+        """Set the project to display."""
+        self.project_name = project_name
+        self.project_info.set_project(project_name)

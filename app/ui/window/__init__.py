@@ -11,7 +11,7 @@ from app.ui.window.edit.edit_widget import EditWidget
 
 # Startup mode components
 from .startup import (
-    StartupWidget,
+    ProjectStartupWidget,
     ProjectListWidget,
     ProjectInfoWidget,
 )
@@ -31,7 +31,7 @@ __all__ = [
     'MainWindowWorkspace',
     'MainWindowHLayout',
     'EditWidget',
-    'StartupWidget',
+    'ProjectStartupWidget',
     'ProjectListWidget',
     'ProjectInfoWidget',
     'StartupWindow',

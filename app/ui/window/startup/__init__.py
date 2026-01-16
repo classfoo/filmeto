@@ -7,12 +7,12 @@ which is displayed when the application opens and allows users to browse
 and manage projects.
 """
 
-from .startup_widget import StartupWidget
+from .project_startup_widget import ProjectStartupWidget
 from .project_list_widget import ProjectListWidget
 from .project_info_widget import ProjectInfoWidget
 
 __all__ = [
-    'StartupWidget',
+    'ProjectStartupWidget',
     'ProjectListWidget',
     'ProjectInfoWidget',
 ]
