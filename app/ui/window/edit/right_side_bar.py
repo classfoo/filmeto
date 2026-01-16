@@ -47,10 +47,11 @@ class MainWindowRightSideBar(BaseWidget):
         self.layout.addWidget(self.skills_button, alignment=Qt.AlignCenter)
         self.button_map['skills'] = self.skills_button
 
-        # Souls button
-        self.souls_button = QPushButton("\ue6a3", self)  # Souls icon
+        # Soul Panel button
+        self.souls_button = QPushButton("\ue6a3", self)  # Soul Panel icon
         self.souls_button.setFixedSize(30, 30)
         self.souls_button.setCheckable(True)
+        self.souls_button.setToolTip("Soul Panel")  # Add tooltip for clarity
         self.souls_button.clicked.connect(lambda: self._on_button_clicked('souls'))
         self.layout.addWidget(self.souls_button, alignment=Qt.AlignCenter)
         self.button_map['souls'] = self.souls_button

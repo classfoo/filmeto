@@ -7,7 +7,7 @@ It combines the project list (left panel) with the project info workspace (right
 """
 import logging
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QFrame, QTabWidget
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
@@ -15,6 +15,7 @@ from PySide6.QtGui import QMouseEvent
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.dialog.mac_button import MacTitleBar
+from utils.i18n_utils import tr
 from .project_list_widget import ProjectListWidget
 from .project_info_widget import ProjectInfoWidget
 from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
