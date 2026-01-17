@@ -72,6 +72,12 @@ When a user sends a message:
 - Includes names, titles, and skill sets for informed decision-making
 - Clear instructions that agent_role can be either name or title
 
+### Crew Member Sorting by Importance
+- Crew members are automatically sorted by their importance in film production
+- Order: Producer → Director → Screenwriter → Cinematographer → Editor → Sound Designer → VFX Supervisor → Storyboard Artist
+- This ensures the most critical roles appear first when listing crew members
+- The `CrewTitle` enum in `crew_title.py` defines the importance hierarchy
+
 ### Streaming Architecture
 - Real-time message streaming with event callbacks
 - Support for UI integration with streaming events

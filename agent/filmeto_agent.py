@@ -12,6 +12,7 @@ from agent.llm.llm_service import LlmService
 from agent.plan.models import Plan, PlanInstance, PlanTask, TaskStatus
 from agent.plan.service import PlanService
 from agent.crew.crew_member import CrewMember
+from agent.crew.crew_title import sort_crew_members_by_title_importance
 from agent.crew.crew_service import CrewService
 
 logger = logging.getLogger(__name__)
@@ -119,8 +120,8 @@ class FilmetoAgent:
         return self.agents.get(agent_id)
 
     def list_agents(self) -> List[CrewMember]:
-        """List all registered agents."""
-        return list(self.agents.values())
+        """List all registered agents, sorted by crew title importance."""
+        return sort_crew_members_by_title_importance(list(self.agents.values()))
 
     def _ensure_crew_members_loaded(self, refresh: bool = False) -> Dict[str, CrewMember]:
         if not self.project:

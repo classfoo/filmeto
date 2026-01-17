@@ -5,6 +5,7 @@ from threading import Lock
 from typing import Dict, List, Optional, Any
 
 from agent.crew.crew_member import CrewMember
+from agent.crew.crew_title import sort_crew_members_by_title_importance
 from agent.soul.soul_service import SoulService
 
 
@@ -294,7 +295,8 @@ class CrewService:
         return agents.get(name)
 
     def list_crew_members(self, project: Any) -> List[CrewMember]:
-        return list(self.load_project_crew_members(project).values())
+        crew_members = self.load_project_crew_members(project)
+        return sort_crew_members_by_title_importance(crew_members)
 
     def refresh_project_crew_members(self, project: Any) -> Dict[str, CrewMember]:
         return self.load_project_crew_members(project, refresh=True)
