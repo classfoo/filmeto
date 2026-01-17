@@ -8,6 +8,7 @@ import os
 from typing import Optional, Dict, Any, AsyncIterator
 import litellm
 from app.data.settings import Settings
+from utils.i18n_utils import translation_manager
 from .dashscope_adapter import (
     async_completion_with_dashscope,
     sync_completion_with_dashscope,
@@ -41,6 +42,15 @@ class LlmService:
         self.api_base = None
         self.default_model = 'gpt-4o-mini'
         self.temperature = 0.7
+        self.language_prompts = {
+            'zh_CN': '请使用中文回答。',
+            'en_US': 'Please respond in English.',
+            'ja_JP': '日本語で返答してください。',
+            'ko_KR': '한국어로 대답해 주세요.',
+            'fr_FR': 'Veuillez répondre en français.',
+            'de_DE': 'Bitte antworten Sie auf Deutsch.',
+            'es_ES': 'Por favor, responda en español.'
+        }
 
         # Initialize the service
         self._initialize_from_settings()
@@ -83,6 +93,56 @@ class LlmService:
                     litellm.default_headers = {"Authorization": f"Bearer {self.api_key}"}
                 else:
                     litellm.api_base = self.api_base
+
+    def get_current_language(self) -> str:
+        """
+        Get the current language from the translation manager.
+
+        Returns:
+            Current language code (e.g., 'zh_CN', 'en_US')
+        """
+        return translation_manager.get_current_language()
+
+    def _inject_language_prompt(self, messages: list) -> list:
+        """
+        Inject language instruction as system prompt if not already present.
+
+        Args:
+            messages: List of messages to potentially modify
+
+        Returns:
+            Modified list of messages with language prompt injected if needed
+        """
+        if not messages:
+            return messages
+
+        # Get current language
+        current_language = self.get_current_language()
+        language_instruction = self.language_prompts.get(current_language, '')
+
+        if not language_instruction:
+            # No language instruction defined for this language
+            return messages
+
+        # Check if there's already a system message
+        has_system_message = any(msg.get('role') == 'system' for msg in messages)
+
+        if has_system_message:
+            # If there's already a system message, we'll append our language instruction
+            # to the first system message we find
+            for msg in messages:
+                if msg.get('role') == 'system':
+                    current_content = msg.get('content', '')
+                    if language_instruction not in current_content:
+                        msg['content'] = f"{current_content}\n\n{language_instruction}".strip()
+                    break
+        else:
+            # If there's no system message, insert one at the beginning
+            messages = [
+                {"role": "system", "content": language_instruction}
+            ] + messages
+
+        return messages
     
     def configure(self, api_key: Optional[str] = None, api_base: Optional[str] = None, 
                   default_model: Optional[str] = None, temperature: Optional[float] = None):
@@ -135,6 +195,9 @@ class LlmService:
             temperature = self.temperature
         if messages is None:
             messages = []
+
+        # Inject language prompt based on current language setting
+        messages = self._inject_language_prompt(messages)
 
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)
@@ -191,6 +254,9 @@ class LlmService:
             temperature = self.temperature
         if messages is None:
             messages = []
+
+        # Inject language prompt based on current language setting
+        messages = self._inject_language_prompt(messages)
 
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)

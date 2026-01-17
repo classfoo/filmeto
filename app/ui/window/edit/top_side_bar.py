@@ -196,7 +196,13 @@ class MainWindowTopSideBar(BaseWidget):
         """Switch application language"""
         if translation_manager.switch_language(language_code):
             # Language changed signal will trigger _on_language_changed
-            pass
+            # Also update the current project's language setting
+            current_project = self.workspace.get_project()
+            if current_project:
+                try:
+                    current_project.update_config('language', language_code)
+                except Exception as e:
+                    logger.error(f"Failed to update project language setting: {e}")
 
     def _on_language_changed(self, language_code):
         """Called when language changes - update all UI text"""
