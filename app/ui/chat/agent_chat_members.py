@@ -17,6 +17,9 @@ from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
 from app.ui.components.avatar_widget import AvatarWidget
 from utils.i18n_utils import tr
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CrewMemberListItem(QWidget):
@@ -188,15 +191,15 @@ class AgentChatMembersWidget(BaseWidget):
     def _update_member_list(self):
         """Update the list widget with current members."""
         self.list_widget.clear()
-        
+
         for member in self.members:
             # Create custom widget for the list item
             item_widget = CrewMemberListItem(member)
-            
+
             # Create list item and set the custom widget
             list_item = QListWidgetItem()
             list_item.setData(Qt.UserRole, member)
-            
+
             # Add to list
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, item_widget)
