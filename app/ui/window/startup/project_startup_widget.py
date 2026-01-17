@@ -3,11 +3,11 @@
 Project Startup Widget
 
 This is the main container widget for a single project's startup view.
-It focuses on a single project with only chat functionality.
+It focuses on a single project with both chat and crew member functionality.
 """
 import logging
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout
+    QWidget, QVBoxLayout, QHBoxLayout
 )
 from PySide6.QtCore import Signal
 
@@ -23,7 +23,8 @@ class ProjectStartupWidget(BaseWidget):
     Main container widget for a single project's startup view.
 
     Structure:
-    - Main area: Chat functionality only
+    - Left side: Crew member list
+    - Right side: Chat functionality
     """
 
     enter_edit_mode = Signal(str)  # Emits project name when entering edit mode
@@ -47,17 +48,34 @@ class ProjectStartupWidget(BaseWidget):
 
     def _setup_ui(self):
         """Set up the UI components."""
-        main_layout = QVBoxLayout(self)
+        main_layout = QHBoxLayout(self)  # Changed to QHBoxLayout for side-by-side layout
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Create the chat component directly without tabs
+        # Create the chat component (left side)
         self.chat_tab = QWidget()
         self._setup_chat_tab(self.chat_tab)
+        main_layout.addWidget(self.chat_tab, 1)  # Give chat area expanding space
 
-        # Add the chat component to the main layout
-        main_layout.addWidget(self.chat_tab)
-    
+        # Create the crew members component (right side)
+        self.members_widget = QWidget()
+        self._setup_members_component(self.members_widget)
+        self.members_widget.setMinimumWidth(300)  # Set minimum width for members list
+        main_layout.addWidget(self.members_widget)
+
+    def _setup_members_component(self, widget: QWidget):
+        """Set up the crew members component."""
+        # Import the agent chat members component
+        from app.ui.chat.agent_chat_members import AgentChatMembersWidget
+
+        # Create the agent chat members component
+        self.agent_chat_members_component = AgentChatMembersWidget(self.workspace, widget)
+
+        # Set up the layout for the members component
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.agent_chat_members_component)
+
     def _setup_chat_tab(self, tab: QWidget):
         """Set up the chat tab."""
         # Import the agent chat component
@@ -122,3 +140,31 @@ class ProjectStartupWidget(BaseWidget):
 
             # Clear the chat history for the new project
             self.agent_chat_component.chat_history_widget.clear()
+
+        # Update the agent chat members component with the new project context
+        if hasattr(self, 'agent_chat_members_component') and self.agent_chat_members_component:
+            # Load crew members for the project
+            self._load_crew_members()
+
+    def _load_crew_members(self):
+        """Load and display crew members for the current project."""
+        # Get the current project
+        project = self.workspace.get_project()
+        if not project:
+            return
+
+        # Get the crew members for the project
+        try:
+            from agent.crew import CrewService
+
+            # Initialize crew service
+            crew_service = CrewService()
+
+            # Get all crew members for the project
+            crew_members = crew_service.list_crew_members(project)
+
+            # Set the members in the members component
+            if hasattr(self, 'agent_chat_members_component') and self.agent_chat_members_component:
+                self.agent_chat_members_component.set_members(crew_members)
+        except Exception as e:
+            logger.error(f"Error loading crew members: {e}")

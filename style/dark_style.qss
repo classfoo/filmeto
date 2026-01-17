@@ -674,3 +674,61 @@ QPushButton#project_info_tab_button:unchecked {
     background-color: #2d2d2d;
     color: #888888;
 }
+
+/* Agent Chat Members Widget */
+QWidget#agent_chat_members_widget {
+    background-color: #2b2b2b;
+}
+
+QListWidget#agent_chat_members_list {
+    background-color: #2b2b2b;
+    alternate-background-color: #2d2d2d;
+    color: #ffffff;
+    border: none;
+    outline: none;
+}
+
+QListWidget#agent_chat_members_list::item {
+    background-color: #2b2b2b;
+    border-bottom: 1px solid #333333;
+    padding: 5px;
+}
+
+QListWidget#agent_chat_members_list::item:selected {
+    background-color: #3a3a3a;
+    color: #ffffff;
+}
+
+QListWidget#agent_chat_members_list::item:hover {
+    background-color: #353535;
+}
+
+QToolBar#agent_chat_members_toolbar {
+    background-color: #363636;
+    border: none;
+    padding: 5px;
+}
+
+QLineEdit#agent_chat_members_search {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px;
+    color: #ffffff;
+}
+
+QPushButton#agent_chat_members_add_button {
+    background-color: #4a4a4a;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #ffffff;
+}
+
+QPushButton#agent_chat_members_add_button:hover {
+    background-color: #5a5a5a;
+}
+
+QPushButton#agent_chat_members_add_button:pressed {
+    background-color: #3a3a3a;
+}

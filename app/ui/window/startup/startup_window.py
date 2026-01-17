@@ -105,9 +105,9 @@ class StartupWindow(LeftPanelDialog):
     
     def _get_window_size(self):
         """Get the stored size for startup window."""
-        # Startup window always uses default 800x600 size
+        # Startup window now uses larger 1200x900 size
         # This ensures consistent startup experience
-        return 800, 600
+        return 1200, 900
     
     def closeEvent(self, event):
         """Handle close event to save current window size."""
