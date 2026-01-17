@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Any
 from agent.crew.crew_member import CrewMember
 from agent.crew.crew_title import sort_crew_members_by_title_importance
 from agent.soul.soul_service import SoulService
+from utils.i18n_utils import translation_manager
 
 
 class CrewService:
@@ -31,6 +32,9 @@ class CrewService:
         self._project_agents: Dict[str, Dict[str, CrewMember]] = {}
         self._initialized = True
 
+        # Connect to language change signal to reload crew members when language changes
+        translation_manager.language_changed.connect(self._on_language_changed)
+
     def initialize_project_crew_members(self, project: Any) -> List[str]:
         """
         Ensure the project's crew directory exists and seeded from system defaults.
@@ -49,8 +53,23 @@ class CrewService:
         soul_service = SoulService()
         all_souls = soul_service.get_all_souls()
 
-        # Get all crew titles from system directory
-        system_dir = Path(__file__).parent / "system"
+        # Determine the language-specific system directory
+        current_language = translation_manager.get_current_language()
+        system_base_dir = Path(__file__).parent / "system"
+
+        # Use language-specific directory if available, otherwise fallback to base directory
+        if current_language == "zh_CN":
+            system_dir = system_base_dir / "zh_CN"
+        elif current_language == "en_US":
+            system_dir = system_base_dir / "en_US"
+        else:
+            # Default to English if language not supported
+            system_dir = system_base_dir / "en_US"
+
+        # Fallback to base directory if language-specific directory doesn't exist
+        if not system_dir.exists():
+            system_dir = system_base_dir
+
         if not system_dir.exists():
             return []
 
@@ -289,6 +308,16 @@ class CrewService:
 
         self._project_agents[project_key] = agents
         return agents
+
+    def _on_language_changed(self, language_code: str):
+        """Handle language change by clearing cached crew members so they reload with new language"""
+        # Clear the cache to force reloading with new language
+        self._project_agents.clear()
+
+        # Log the language change
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Language changed to {language_code}, crew members will reload on next access")
 
     def get_crew_member(self, project: Any, name: str) -> Optional[CrewMember]:
         agents = self.load_project_crew_members(project)
