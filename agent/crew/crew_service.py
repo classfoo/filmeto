@@ -83,39 +83,46 @@ class CrewService:
             # Randomly select a soul from matching souls
             selected_soul = random.choice(matching_souls) if matching_souls else None
 
+            # Get crew title metadata
+            from .crew_title import CrewTitle
+            crew_title_metadata = CrewTitle.get_crew_title_metadata(crew_title)
+
             # Prepare crew member data
             if selected_soul:
                 # Create metadata for the crew member
                 soul_name_for_filename = selected_soul.name.replace(' ', '_').replace('-', '_').lower()
                 name_from_soul_meta = selected_soul.metadata.get('name', soul_name_for_filename) if selected_soul.metadata else soul_name_for_filename
 
+                # Set up the crew member data with attributes from both crew title and soul
+                # Soul attributes take priority over crew title attributes
                 crew_member_data = {
                     'name': name_from_soul_meta,
                     'soul': selected_soul.name,
                     'crew_title': crew_title,
-                    'description': selected_soul.metadata.get('description', ''),
-                    'skills': selected_soul.metadata.get('skills', []),
-                    'model': selected_soul.metadata.get('model', 'gpt-4o-mini'),
-                    'temperature': selected_soul.metadata.get('temperature', 0.4),
-                    'max_steps': selected_soul.metadata.get('max_steps', 5),
-                    'color': selected_soul.metadata.get('color', '#4a90e2'),
-                    'icon': selected_soul.metadata.get('icon', '🤖'),
-                    'prompt': selected_soul.knowledge if selected_soul.knowledge else ''
+                    'description': selected_soul.metadata.get('description', crew_title_metadata.get('description', '')),
+                    'skills': selected_soul.metadata.get('skills', crew_title_metadata.get('skills', [])),
+                    'model': selected_soul.metadata.get('model', crew_title_metadata.get('model', 'gpt-4o-mini')),
+                    'temperature': selected_soul.metadata.get('temperature', crew_title_metadata.get('temperature', 0.4)),
+                    'max_steps': selected_soul.metadata.get('max_steps', crew_title_metadata.get('max_steps', 5)),
+                    'color': selected_soul.metadata.get('color', crew_title_metadata.get('color', '#4a90e2')),  # Soul color takes priority
+                    'icon': selected_soul.metadata.get('icon', crew_title_metadata.get('icon', '🤖')),      # Soul icon takes priority
+                    'prompt': selected_soul.knowledge if selected_soul.knowledge else crew_title_metadata.get('prompt', '')
                 }
             else:
                 # If no soul is found, create a basic crew member with just the title
+                # Use crew title metadata as fallback
                 crew_member_data = {
                     'name': crew_title.replace('_', ' ').title(),
                     'crew_title': crew_title,
-                    'description': f'{crew_title.replace("_", " ").title()} for the film project',
+                    'description': crew_title_metadata.get('description', f'{crew_title.replace("_", " ").title()} for the film project'),
                     'soul': '',
-                    'skills': [],
-                    'model': 'gpt-4o-mini',
-                    'temperature': 0.4,
-                    'max_steps': 5,
-                    'color': '#4a90e2',
-                    'icon': '🤖',
-                    'prompt': ''
+                    'skills': crew_title_metadata.get('skills', []),
+                    'model': crew_title_metadata.get('model', 'gpt-4o-mini'),
+                    'temperature': crew_title_metadata.get('temperature', 0.4),
+                    'max_steps': crew_title_metadata.get('max_steps', 5),
+                    'color': crew_title_metadata.get('color', '#4a90e2'),  # Use crew title color as fallback
+                    'icon': crew_title_metadata.get('icon', '🤖'),        # Use crew title icon as fallback
+                    'prompt': crew_title_metadata.get('prompt', '')
                 }
 
             # Use the write_project_crew_member method to create the file
