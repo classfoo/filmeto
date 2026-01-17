@@ -40,11 +40,12 @@ class AgentAvatarWidget(QWidget):
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Draw circular background
+        # Draw rounded rectangle background
         bg_color = QColor(self.color)
-        path = QPainterPath()
-        path.addEllipse(0, 0, self.size, self.size)
-        painter.fillPath(path, bg_color)
+        painter.setBrush(bg_color)
+        painter.setPen(QPen(bg_color))
+        # Draw rounded rectangle with corner radius of size//4
+        painter.drawRoundedRect(0, 0, self.size, self.size, self.size//4, self.size//4)
 
         # Draw icon
         icon_char = self.icon_char
@@ -495,12 +496,15 @@ class AgentMessageCard(QFrame):
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
-        # Avatar - using a default color and icon for now
+        # Determine color based on agent type
+        agent_color = self._get_agent_color(self.agent_message.sender_id)
+
+        # Avatar - using agent-specific color and icon
         self.avatar = AgentAvatarWidget(
             self.agent_message.sender_name or self.agent_message.sender_id,
-            color="#4a90d9",
+            color=agent_color,
             icon_char="🤖",
-            size=28,
+            size=42,
             parent=header_row
         )
         header_layout.addWidget(self.avatar)
@@ -539,7 +543,7 @@ class AgentMessageCard(QFrame):
         # Content area with padding to account for avatar width
         content_area = QWidget(self)
         content_layout = QVBoxLayout(content_area)
-        avatar_width = 28  # Same as avatar size
+        avatar_width = 42  # Same as avatar size
         # Add margins to content area to ensure spacing on both sides
         content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
 
@@ -573,6 +577,28 @@ class AgentMessageCard(QFrame):
 
         # Apply card styling
         self._apply_style()
+
+    def _get_agent_color(self, agent_id: str) -> str:
+        """Get the color for the agent based on its type."""
+        # Default colors for different agent types
+        default_colors = {
+            "director": "#4a90e2",      # Blue
+            "producer": "#7b68ee",      # Medium purple
+            "screenwriter": "#32cd32",   # Lime green
+            "cinematographer": "#ff6347", # Tomato red
+            "editor": "#ffa500",         # Orange
+            "sound_designer": "#9370db", # Medium purple
+            "vfx_supervisor": "#00ced1", # Dark turquoise
+            "storyboard_artist": "#ff69b4", # Hot pink
+            "system": "#808080",         # Gray
+            "user": "#35373a",           # Dark gray
+        }
+
+        # Convert agent_id to lowercase for comparison
+        agent_id_lower = agent_id.lower()
+
+        # Return the color for this agent, or default to blue if not found
+        return default_colors.get(agent_id_lower, "#4a90e2")
 
     def _apply_style(self):
         """Apply card styling."""
@@ -708,8 +734,8 @@ class UserMessageCard(QFrame):
         """)
         header_layout.addWidget(name_label)
 
-        # Avatar
-        avatar = AgentAvatarWidget("You", color="#35373a", icon_char="👤", size=28, parent=header_row)
+        # Avatar - using user-specific color
+        avatar = AgentAvatarWidget("You", color="#35373a", icon_char="👤", size=42, parent=header_row)
         header_layout.addWidget(avatar)
 
         layout.addWidget(header_row)
@@ -717,7 +743,7 @@ class UserMessageCard(QFrame):
         # Content area with padding to account for avatar width
         content_area = QWidget(self)
         content_layout = QVBoxLayout(content_area)
-        avatar_width = 28  # Same as avatar size
+        avatar_width = 42  # Same as avatar size
         # Add margins to content area to ensure spacing on both sides
         content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
 

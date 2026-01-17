@@ -23,6 +23,7 @@ class SubAgentConfig:
     model: str = "gpt-4o-mini"
     temperature: float = 0.4
     max_steps: int = 5
+    color: str = "#4a90e2"  # Default color for the agent's icon
     metadata: Dict[str, Any] = field(default_factory=dict)
     config_path: Optional[str] = None
 
@@ -39,6 +40,7 @@ class SubAgentConfig:
         model = metadata.get("model", "gpt-4o-mini")
         temperature = float(metadata.get("temperature", 0.4))
         max_steps = int(metadata.get("max_steps", 5))
+        color = metadata.get("color", "#4a90e2")  # Get color from metadata, default to blue
 
         return cls(
             name=name,
@@ -49,6 +51,7 @@ class SubAgentConfig:
             model=model,
             temperature=temperature,
             max_steps=max_steps,
+            color=color,
             metadata=metadata,
             config_path=file_path,
         )
