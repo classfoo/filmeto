@@ -21,6 +21,49 @@ class CrewTitle(Enum):
     STORYBOARD_ARTIST = "storyboard_artist"
     OTHER = "other"
 
+    def get_title_display(self, lang_code: str = "en") -> str:
+        """Get the display title for the crew position in the specified language."""
+        titles = {
+            "director": {
+                "en": "Director",
+                "zh": "导演"
+            },
+            "cinematographer": {
+                "en": "Cinematographer",
+                "zh": "摄影师"
+            },
+            "editor": {
+                "en": "Editor",
+                "zh": "剪辑师"
+            },
+            "producer": {
+                "en": "Producer",
+                "zh": "制片人"
+            },
+            "screenwriter": {
+                "en": "Screenwriter",
+                "zh": "编剧"
+            },
+            "storyboard_artist": {
+                "en": "Storyboard Artist",
+                "zh": "故事板艺术家"
+            },
+            "vfx_supervisor": {
+                "en": "VFX Supervisor",
+                "zh": "视觉特效总监"
+            },
+            "sound_designer": {
+                "en": "Sound Designer",
+                "zh": "声音设计师"
+            },
+            "other": {
+                "en": "Other",
+                "zh": "其他"
+            }
+        }
+
+        return titles[self.value].get(lang_code, titles[self.value]["en"])
+
     @classmethod
     def get_importance_order(cls) -> List[str]:
         """
