@@ -83,13 +83,13 @@ class CrewService:
             # Randomly select a soul from matching souls
             selected_soul = random.choice(matching_souls) if matching_souls else None
 
-            # Create crew member content with the selected soul
+            # Prepare crew member data
             if selected_soul:
                 # Create metadata for the crew member
                 soul_name_for_filename = selected_soul.name.replace(' ', '_').replace('-', '_').lower()
                 name_from_soul_meta = selected_soul.metadata.get('name', soul_name_for_filename) if selected_soul.metadata else soul_name_for_filename
 
-                metadata = {
+                crew_member_data = {
                     'name': name_from_soul_meta,
                     'soul': selected_soul.name,
                     'crew_title': crew_title,
@@ -99,23 +99,12 @@ class CrewService:
                     'temperature': selected_soul.metadata.get('temperature', 0.4),
                     'max_steps': selected_soul.metadata.get('max_steps', 5),
                     'color': selected_soul.metadata.get('color', '#4a90e2'),
-                    'icon': selected_soul.metadata.get('icon', '🤖')
+                    'icon': selected_soul.metadata.get('icon', '🤖'),
+                    'prompt': selected_soul.knowledge if selected_soul.knowledge else ''
                 }
-
-                # Generate the filename based on the crew title
-                new_filename = f"{crew_title}.md"
-                target_file = crew_members_dir / new_filename
-                if target_file.exists():
-                    continue
-
-                # Write the content to the target file using the utility function
-                from utils.md_with_meta_utils import write_md_with_meta
-                write_md_with_meta(target_file, metadata, selected_soul.knowledge if selected_soul.knowledge else '')
-
-                initialized_files.append(str(target_file))
             else:
                 # If no soul is found, create a basic crew member with just the title
-                metadata = {
+                crew_member_data = {
                     'name': crew_title.replace('_', ' ').title(),
                     'crew_title': crew_title,
                     'description': f'{crew_title.replace("_", " ").title()} for the film project',
@@ -125,20 +114,14 @@ class CrewService:
                     'temperature': 0.4,
                     'max_steps': 5,
                     'color': '#4a90e2',
-                    'icon': '🤖'
+                    'icon': '🤖',
+                    'prompt': ''
                 }
 
-                # Generate the filename based on the crew title
-                new_filename = f"{crew_title}.md"
-                target_file = crew_members_dir / new_filename
-                if target_file.exists():
-                    continue
-
-                # Write the content to the target file using the utility function
-                from utils.md_with_meta_utils import write_md_with_meta
-                write_md_with_meta(target_file, metadata, '')
-
-                initialized_files.append(str(target_file))
+            # Use the write_project_crew_member method to create the file
+            file_path = self.write_project_crew_member(project, crew_member_data)
+            if file_path and file_path not in initialized_files:
+                initialized_files.append(file_path)
 
         return initialized_files
 
