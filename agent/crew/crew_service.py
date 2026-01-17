@@ -5,7 +5,7 @@ from threading import Lock
 from typing import Dict, List, Optional, Any
 
 from agent.crew.crew_member import CrewMember
-from agent.crew.crew_title import sort_crew_members_by_title_importance
+from agent.crew.crew_title import sort_crew_members_by_title_importance, CrewTitle
 from agent.soul.soul_service import SoulService
 from utils.i18n_utils import translation_manager
 
@@ -53,35 +53,42 @@ class CrewService:
         soul_service = SoulService()
         all_souls = soul_service.get_all_souls()
 
-        # Determine the language-specific system directory
-        current_language = translation_manager.get_current_language()
-        system_base_dir = Path(__file__).parent / "system"
+        # Get crew titles using the dedicated method instead of directly accessing system directory
+        crew_title_objects = self.get_crew_titles()
 
-        # Use language-specific directory if available, otherwise fallback to base directory
-        if current_language == "zh_CN":
-            system_dir = system_base_dir / "zh_CN"
-        elif current_language == "en_US":
-            system_dir = system_base_dir / "en_US"
-        else:
-            # Default to English if language not supported
-            system_dir = system_base_dir / "en_US"
-
-        # Fallback to base directory if language-specific directory doesn't exist
-        if not system_dir.exists():
-            system_dir = system_base_dir
-
-        if not system_dir.exists():
+        if not crew_title_objects:
             return []
 
         initialized_files = []
 
         # Create crew members based on crew titles with randomly assigned matching souls
-        for system_file in system_dir.glob("*.md"):
-            # Extract crew title from filename (without extension)
-            crew_title = system_file.stem
+        for crew_title_obj in crew_title_objects:
+            # Use the crew title name from the object
+            crew_title = crew_title_obj.title
+
+            # Determine the language-specific system directory for this specific file
+            current_language = translation_manager.get_current_language()
+            system_base_dir = Path(__file__).parent / "system"
+
+            # Use language-specific directory if available, otherwise fallback to base directory
+            if current_language == "zh_CN":
+                system_dir = system_base_dir / "zh_CN"
+            elif current_language == "en_US":
+                system_dir = system_base_dir / "en_US"
+            else:
+                # Default to English if language not supported
+                system_dir = system_base_dir / "en_US"
+
+            # Fallback to base directory if language-specific directory doesn't exist
+            if not system_dir.exists():
+                system_dir = system_base_dir
+
+            # Define the path to the system file for this crew title
+            system_file_path = system_dir / f"{crew_title}.md"
+            # Note: No need for existence check since we got the title from the same directory
 
             # Read the original crew member file to check if it already specifies a soul
-            with open(system_file, 'r', encoding='utf-8') as f:
+            with open(system_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
             # Parse the frontmatter to check for existing soul
@@ -184,10 +191,10 @@ class CrewService:
                             content = f"---\n{new_yaml_str}\n---{content[end_marker_idx+3:]}"
 
                 # Generate the new filename based on the original system crew member file name
-                new_filename = system_file.name
+                new_filename = system_file_path.name
             else:
                 # If no soul is selected, use the original filename
-                new_filename = system_file.name
+                new_filename = system_file_path.name
 
             target_file = crew_members_dir / new_filename
             if target_file.exists():
@@ -322,6 +329,48 @@ class CrewService:
     def get_crew_member(self, project: Any, name: str) -> Optional[CrewMember]:
         agents = self.load_project_crew_members(project)
         return agents.get(name)
+
+    def get_crew_titles(self) -> List['CrewTitle']:
+        """
+        Get all available crew titles from the system directory based on current language.
+        This allows for dynamic crew titles based on the language-specific files.
+
+        Returns:
+            List of CrewTitle objects in the order they appear in the system directory
+        """
+        from utils.i18n_utils import translation_manager
+        from .crew_title import CrewTitle  # Import here to avoid circular import
+
+        # Determine the language-specific system directory
+        current_language = translation_manager.get_current_language()
+        system_base_dir = Path(__file__).parent / "system"
+
+        # Use language-specific directory if available, otherwise fallback to base directory
+        if current_language == "zh_CN":
+            system_dir = system_base_dir / "zh_CN"
+        elif current_language == "en_US":
+            system_dir = system_base_dir / "en_US"
+        else:
+            # Default to English if language not supported
+            system_dir = system_base_dir / "en_US"
+
+        # Fallback to base directory if language-specific directory doesn't exist
+        if not system_dir.exists():
+            system_dir = system_base_dir
+
+        if not system_dir.exists():
+            return []
+
+        # Get all crew titles as CrewTitle objects from the filenames (without extension)
+        crew_titles = []
+        for system_file in system_dir.glob("*.md"):
+            crew_title_name = system_file.stem
+            # Create a CrewTitle object for each title
+            crew_title_obj = CrewTitle.create_from_title(crew_title_name)
+            if crew_title_obj and crew_title_obj.title:  # Only add if successfully created
+                crew_titles.append(crew_title_obj)
+
+        return crew_titles
 
     def list_crew_members(self, project: Any) -> List[CrewMember]:
         crew_members = self.load_project_crew_members(project)
