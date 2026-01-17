@@ -207,64 +207,9 @@ class CrewService:
             initialized_files.append(str(target_file))
         return initialized_files
 
-    def load_project_crew_members_with_backward_compatibility(self, project: Any, refresh: bool = False) -> Dict[str, CrewMember]:
-        """
-        Load crew members for a project with backward compatibility for old sub_agents directory.
-        """
-        project_key = _resolve_project_key(project)
-        if not project_key:
-            return {}
-
-        if not refresh and project_key in self._project_agents:
-            return self._project_agents[project_key]
-
-        project_path = _resolve_project_path(project)
-        if not project_path:
-            return {}
-
-        # First, initialize new crew_members directory
-        self.initialize_project_crew_members(project)
-
-        # Check for new crew_members directory first
-        crew_members_dir = Path(project_path) / "agent" / "crew_members"
-        if not crew_members_dir.exists():
-            self._project_agents[project_key] = {}
-            return {}
-
-        # Also check for old sub_agents directory for backward compatibility
-        old_sub_agents_dir = Path(project_path) / "agent" / "sub_agents"
-
-        workspace = getattr(project, "workspace", None)
-        agents: Dict[str, CrewMember] = {}
-
-        # Load from new directory first
-        for config_path in crew_members_dir.glob("*.md"):
-            agent = CrewMember(
-                config_path=str(config_path),
-                workspace=workspace,
-                project=project,
-            )
-            agents[agent.config.name] = agent
-
-        # Then load from old directory if it exists, but don't overwrite new ones
-        if old_sub_agents_dir.exists():
-            for config_path in old_sub_agents_dir.glob("*.md"):
-                agent_name = config_path.stem  # Get the filename without extension
-                if agent_name not in agents:  # Only add if not already loaded from new directory
-                    agent = CrewMember(
-                        config_path=str(config_path),
-                        workspace=workspace,
-                        project=project,
-                    )
-                    agents[agent.config.name] = agent
-
-        self._project_agents[project_key] = agents
-        return agents
-
     def load_project_crew_members(self, project: Any, refresh: bool = False) -> Dict[str, CrewMember]:
         """
         Load crew members for a project, initializing defaults if needed.
-        Includes backward compatibility for old sub_agents directory.
         """
         project_key = _resolve_project_key(project)
         if not project_key:
@@ -281,17 +226,15 @@ class CrewService:
 
         # Check for new crew_members directory
         crew_members_dir = Path(project_path) / "agent" / "crew_members"
-        # Also check for old sub_agents directory for backward compatibility
-        old_sub_agents_dir = Path(project_path) / "agent" / "sub_agents"
 
-        if not crew_members_dir.exists() and not old_sub_agents_dir.exists():
+        if not crew_members_dir.exists():
             self._project_agents[project_key] = {}
             return {}
 
         workspace = getattr(project, "workspace", None)
-        agents: Dict[str, CrewMember] = {}
+        members: Dict[str, CrewMember] = {}
 
-        # Load from new directory first if it exists
+        # Load from new directory
         if crew_members_dir.exists():
             for config_path in crew_members_dir.glob("*.md"):
                 agent = CrewMember(
@@ -299,22 +242,10 @@ class CrewService:
                     workspace=workspace,
                     project=project,
                 )
-                agents[agent.config.name] = agent
+                members[agent.config.name] = agent
 
-        # Then load from old directory if it exists, but don't overwrite new ones
-        if old_sub_agents_dir.exists():
-            for config_path in old_sub_agents_dir.glob("*.md"):
-                agent_name = config_path.stem  # Get the filename without extension
-                if agent_name not in agents:  # Only add if not already loaded from new directory
-                    agent = CrewMember(
-                        config_path=str(config_path),
-                        workspace=workspace,
-                        project=project,
-                    )
-                    agents[agent.config.name] = agent
-
-        self._project_agents[project_key] = agents
-        return agents
+        self._project_agents[project_key] = members
+        return members
 
     def _on_language_changed(self, language_code: str):
         """Handle language change by clearing cached crew members so they reload with new language"""
@@ -382,7 +313,6 @@ class CrewService:
     def get_project_crew_members(self, project: Any) -> Dict[str, 'CrewMember']:
         """
         Get all crew members for a project.
-        Includes backward compatibility for old sub_agents directory.
 
         Args:
             project: The project to get crew members for
