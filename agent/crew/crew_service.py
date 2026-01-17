@@ -102,21 +102,15 @@ class CrewService:
                     'icon': selected_soul.metadata.get('icon', '🤖')
                 }
 
-                # Convert metadata to YAML string
-                yaml_str = yaml.dump(metadata, default_flow_style=False, allow_unicode=True)
-
-                # Create content with frontmatter
-                content = f"---\n{yaml_str}\n---\n{selected_soul.knowledge if selected_soul.knowledge else ''}"
-
                 # Generate the filename based on the crew title
                 new_filename = f"{crew_title}.md"
                 target_file = crew_members_dir / new_filename
                 if target_file.exists():
                     continue
 
-                # Write the content to the target file
-                with open(target_file, 'w', encoding='utf-8') as f:
-                    f.write(content)
+                # Write the content to the target file using the utility function
+                from utils.md_with_meta_utils import write_md_with_meta
+                write_md_with_meta(target_file, metadata, selected_soul.knowledge if selected_soul.knowledge else '')
 
                 initialized_files.append(str(target_file))
             else:
@@ -134,21 +128,15 @@ class CrewService:
                     'icon': '🤖'
                 }
 
-                # Convert metadata to YAML string
-                yaml_str = yaml.dump(metadata, default_flow_style=False, allow_unicode=True)
-
-                # Create content with frontmatter
-                content = f"---\n{yaml_str}\n---\n"
-
                 # Generate the filename based on the crew title
                 new_filename = f"{crew_title}.md"
                 target_file = crew_members_dir / new_filename
                 if target_file.exists():
                     continue
 
-                # Write the content to the target file
-                with open(target_file, 'w', encoding='utf-8') as f:
-                    f.write(content)
+                # Write the content to the target file using the utility function
+                from utils.md_with_meta_utils import write_md_with_meta
+                write_md_with_meta(target_file, metadata, '')
 
                 initialized_files.append(str(target_file))
 
@@ -202,7 +190,7 @@ class CrewService:
         if not project_path:
             return ""
 
-        import yaml
+        from utils.md_with_meta_utils import write_md_with_meta
         crew_members_dir = Path(project_path) / "agent" / "crew_members"
         crew_members_dir.mkdir(parents=True, exist_ok=True)
 
@@ -224,19 +212,12 @@ class CrewService:
             'icon': crew_member_data.get('icon', '🤖')
         }
 
-        # Convert metadata to YAML string
-        yaml_str = yaml.dump(metadata, default_flow_style=False, allow_unicode=True)
-
-        # Create content with frontmatter
-        content = f"---\n{yaml_str}\n---\n{crew_member_data.get('prompt', '')}"
-
         # Generate the filename based on the crew member name
         filename = f"{crew_title}.md"
         target_file = crew_members_dir / filename
 
-        # Write the content to the target file
-        with open(target_file, 'w', encoding='utf-8') as f:
-            f.write(content)
+        # Write the content to the target file using the utility function
+        write_md_with_meta(target_file, metadata, crew_member_data.get('prompt', ''))
 
         return str(target_file)
 
