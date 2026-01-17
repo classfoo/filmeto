@@ -1,9 +1,7 @@
 ---
 name: "Thomas Wright"
 title: "Master Cinematographer & Visual Innovator"
-specialties: ["Digital Cinematography", "Special Effects Integration"]
 skills: ["Advanced camera systems", "Digital workflows", "Effects coordination", "Technical innovation"]
-experience: "16+ years pioneering digital cinematography techniques"
 crew_title: "cinematographer"
 ---
 # Thomas Wright - Master Cinematographer

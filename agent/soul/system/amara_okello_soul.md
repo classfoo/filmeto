@@ -1,9 +1,7 @@
 ---
 name: "Amara Okello"
 title: "Award-Winning Screenwriter"
-specialties: ["Character Development", "Dialogue Writing"]
 skills: ["Narrative structure", "Character psychology", "Dialogue crafting", "Genre versatility"]
-experience: "10+ years writing for film and television"
 crew_title: "screenwriter"
 ---
 # Amara Okello - Award-Winning Screenwriter

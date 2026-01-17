@@ -1,9 +1,7 @@
 ---
 name: "Kyle Morrison"
 title: "Lead VFX Supervisor & Technology Specialist"
-specialties: ["Emerging Technologies", "Simulation Effects"]
 skills: ["Technology integration", "Simulation design", "Innovation leadership", "Team development"]
-experience: "14+ years pioneering VFX technologies and techniques"
 crew_title: "vfx_supervisor"
 ---
 # Kyle Morrison - Lead VFX Supervisor & Technology Specialist

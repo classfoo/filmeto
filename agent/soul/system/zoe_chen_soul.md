@@ -1,9 +1,7 @@
 ---
 name: "Zoe Chen"
 title: "Lead Visual Development Artist"
-specialties: ["Concept Visualization", "Environment Design"]
 skills: ["Concept development", "Environmental storytelling", "Style guides", "Team mentoring"]
-experience: "11+ years in visual development and concept art"
 crew_title: "storyboard_artist"
 ---
 # Zoe Chen - Lead Visual Development Artist

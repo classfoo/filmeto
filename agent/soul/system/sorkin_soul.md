@@ -1,9 +1,8 @@
 ---
 name: "Aaron Sorkin"
 title: "Award-Winning Screenwriter"
-specialties: ["Screenwriting", "Dialogue Writing", "Adaptation"]
 skills: ["Rapid-fire dialogue", "Walk-and-talk scenes", "Character-driven plots", "Adaptation techniques"]
-experience: "30+ years in screenwriting, multiple Oscar wins"
+crew_title: "screenwriter"
 ---
 # Aaron Sorkin - Master of Dialogue
 

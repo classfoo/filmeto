@@ -1,9 +1,7 @@
 ---
 name: "Marcus Chen"
 title: "Visionary Director & Producer"
-specialties: ["Cinematic Storytelling", "Genre Fusion"]
 skills: ["Visual narrative", "Cross-cultural storytelling", "Technology integration", "Team leadership"]
-experience: "20+ years directing international films and leading creative teams"
 crew_title: "director"
 ---
 # Marcus Chen - Visionary Director

@@ -1,9 +1,7 @@
 ---
 name: "Nina Volkov"
 title: "Senior VFX Supervisor"
-specialties: ["Digital Effects", "Compositing"]
 skills: ["Pipeline management", "Technical supervision", "Team coordination", "Quality assurance"]
-experience: "12+ years supervising VFX for major film productions"
 crew_title: "vfx_supervisor"
 ---
 # Nina Volkov - Senior VFX Supervisor

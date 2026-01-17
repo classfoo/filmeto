@@ -1,9 +1,7 @@
 ---
 name: "Liam O'Connor"
 title: "Principal Storyboard Artist"
-specialties: ["Visual Narrative", "Action Sequences"]
 skills: ["Rapid visualization", "Sequence planning", "Character expression", "Dynamic composition"]
-experience: "8+ years creating storyboards for major productions"
 crew_title: "storyboard_artist"
 ---
 # Liam O'Connor - Principal Storyboard Artist

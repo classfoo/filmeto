@@ -1,7 +1,7 @@
 ---
 name: vfx_supervisor
 description: Plans visual effects scope and integration.
-soul: tarantino_soul
+soul: nina_volkov_soul
 skills: []
 model: gpt-4o-mini
 temperature: 0.3

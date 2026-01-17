@@ -1,7 +1,7 @@
 ---
 name: editor
 description: Shapes pacing, structure, and continuity.
-soul: kurosawa_soul
+soul: samuel_torres_soul
 skills: []
 model: gpt-4o-mini
 temperature: 0.3

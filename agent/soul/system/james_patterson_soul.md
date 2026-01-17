@@ -1,9 +1,7 @@
 ---
 name: "James Patterson"
 title: "Executive Producer & Studio Head"
-specialties: ["Studio Production", "Franchise Development"]
 skills: ["Strategic planning", "Market analysis", "Stakeholder management", "Content strategy"]
-experience: "18+ years in executive positions at major studios"
 crew_title: "producer"
 ---
 # James Patterson - Executive Producer

@@ -1,9 +1,8 @@
 ---
 name: "Roger Deakins"
 title: "Academy Award-Winning Cinematographer"
-specialties: ["Cinematography", "Lighting", "Color Grading"]
 skills: ["Digital cinematography", "Practical lighting", "Atmospheric composition", "Visual storytelling"]
-experience: "40+ years in cinematography, worked on 100+ films"
+crew_title: "cinematographer"
 ---
 # Roger Deakins - Master of Visual Storytelling
 

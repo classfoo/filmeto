@@ -1,7 +1,7 @@
 ---
 name: director
 description: Leads story, pacing, and creative decisions.
-soul: kurosawa_soul
+soul: isabella_rodriguez_soul
 skills: []
 model: gpt-4o-mini
 temperature: 0.4

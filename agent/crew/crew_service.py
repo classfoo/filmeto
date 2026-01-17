@@ -1,9 +1,11 @@
 import shutil
+import random
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Optional, Any
 
 from agent.crew.crew_member import CrewMember
+from agent.soul.soul_service import SoulService
 
 
 class CrewService:
@@ -31,7 +33,10 @@ class CrewService:
     def initialize_project_crew_members(self, project: Any) -> List[str]:
         """
         Ensure the project's crew directory exists and seeded from system defaults.
+        Creates default crew members based on crew titles with randomly assigned matching souls.
         """
+        import yaml
+
         project_path = _resolve_project_path(project)
         if not project_path:
             return []
@@ -39,16 +44,139 @@ class CrewService:
         crew_members_dir = Path(project_path) / "agent" / "crew_members"
         crew_members_dir.mkdir(parents=True, exist_ok=True)
 
+        # Get all available souls
+        soul_service = SoulService()
+        all_souls = soul_service.get_all_souls()
+
+        # Get all crew titles from system directory
         system_dir = Path(__file__).parent / "system"
         if not system_dir.exists():
             return []
 
         initialized_files = []
+
+        # Create crew members based on crew titles with randomly assigned matching souls
         for system_file in system_dir.glob("*.md"):
-            target_file = crew_members_dir / system_file.name
+            # Extract crew title from filename (without extension)
+            crew_title = system_file.stem
+
+            # Read the original crew member file to check if it already specifies a soul
+            with open(system_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Parse the frontmatter to check for existing soul
+            original_soul = None
+            original_name = crew_title  # Default to crew_title if no name found in frontmatter
+
+            if content.startswith('---'):
+                end_marker_idx = content.find('---', 3)
+                if end_marker_idx != -1:
+                    yaml_str = content[3:end_marker_idx].strip()
+
+                    try:
+                        metadata = yaml.safe_load(yaml_str)
+                        if metadata:
+                            original_soul = metadata.get('soul')
+                            original_name = metadata.get('name', crew_title)
+                    except yaml.YAMLError:
+                        pass  # If YAML parsing fails, continue with defaults
+
+            # If the crew member already has a specific soul assigned, use it
+            if original_soul:
+                # First try exact match
+                selected_soul = next((soul for soul in all_souls if soul.name == original_soul), None)
+
+                # If no exact match, try to find by comparing the soul name in different formats
+                if not selected_soul:
+                    # Normalize the original_soul name to compare with soul names
+                    normalized_original = original_soul.replace('_', ' ').replace('-', ' ').strip().lower()
+                    selected_soul = next((soul for soul in all_souls
+                                         if soul.name.lower() == normalized_original or
+                                            soul.name.replace(' ', '_').replace('-', '_').lower() == original_soul.lower()), None)
+
+                # If still no match, fall back to matching by crew title
+                if not selected_soul:
+                    matching_souls = [soul for soul in all_souls if
+                                      soul.metadata and soul.metadata.get('crew_title') == crew_title]
+
+                    if matching_souls:
+                        selected_soul = random.choice(matching_souls)
+            else:
+                # Find souls that match the crew title
+                matching_souls = [soul for soul in all_souls if
+                                  soul.metadata and soul.metadata.get('crew_title') == crew_title]
+
+                # If no matching souls found, use any soul with the crew title in its name
+                if not matching_souls:
+                    matching_souls = [soul for soul in all_souls if
+                                      crew_title in soul.name.lower() or
+                                      (soul.metadata and crew_title in soul.metadata.get('name', '').lower())]
+
+                # If still no matching souls, use all souls
+                if not matching_souls:
+                    matching_souls = all_souls
+
+                # Randomly select a soul from matching souls
+                selected_soul = random.choice(matching_souls) if matching_souls else None
+
+            # Create new content with the selected soul
+            if selected_soul:
+                # Update the soul field in the metadata
+                if content.startswith('---'):
+                    end_marker_idx = content.find('---', 3)
+                    if end_marker_idx != -1:
+                        yaml_str = content[3:end_marker_idx].strip()
+
+                        try:
+                            metadata = yaml.safe_load(yaml_str)
+                            if metadata is None:
+                                metadata = {}
+
+                            # Update the soul in metadata
+                            metadata['soul'] = selected_soul.name
+
+                            # Use the name from the soul's metadata if available, otherwise keep original name
+                            if selected_soul.metadata and 'name' in selected_soul.metadata:
+                                metadata['name'] = selected_soul.metadata['name']
+                            else:
+                                # Fallback to the processed soul name if no name in metadata
+                                soul_name_for_filename = selected_soul.name.replace(' ', '_').replace('-', '_').lower()
+                                metadata['name'] = soul_name_for_filename
+
+                            # Preserve the crew title in the metadata
+                            metadata['crew_title'] = crew_title
+
+                            # Convert back to YAML string
+                            new_yaml_str = yaml.dump(metadata, default_flow_style=False, allow_unicode=True)
+
+                            # Reconstruct the content with updated metadata
+                            content = f"---\n{new_yaml_str}\n---{content[end_marker_idx+3:]}"
+                        except yaml.YAMLError:
+                            # If YAML parsing fails, just add soul to metadata
+                            soul_name_for_filename = selected_soul.name.replace(' ', '_').replace('-', '_').lower()
+                            name_from_soul_meta = selected_soul.metadata.get('name', soul_name_for_filename) if selected_soul.metadata else soul_name_for_filename
+                            metadata = {
+                                'name': name_from_soul_meta,
+                                'soul': selected_soul.name,
+                                'crew_title': crew_title
+                            }
+                            new_yaml_str = yaml.dump(metadata, default_flow_style=False, allow_unicode=True)
+                            content = f"---\n{new_yaml_str}\n---{content[end_marker_idx+3:]}"
+
+                # Generate the new filename based on the original system crew member file name
+                new_filename = system_file.name
+            else:
+                # If no soul is selected, use the original filename
+                new_filename = system_file.name
+
+            target_file = crew_members_dir / new_filename
             if target_file.exists():
                 continue
-            shutil.copy2(system_file, target_file)
+
+            # Write the updated content to the target file
+            with open(target_file, 'w', encoding='utf-8') as f:
+                f.write(content)
+
             initialized_files.append(str(target_file))
         return initialized_files
 

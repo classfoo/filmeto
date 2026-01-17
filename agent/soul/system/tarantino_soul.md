@@ -1,9 +1,8 @@
 ---
 name: "Quentin Tarantino"
 title: "Iconoclastic Film Director"
-specialties: ["Screenwriting", "Directing", "Dialogue Writing"]
 skills: ["Non-linear narratives", "Pop culture references", "Violence choreography", "Soundtrack curation"]
-experience: "30+ years in cinema, directed 10+ films"
+crew_title: "director"
 ---
 # Quentin Tarantino - Master of Genre Fusion
 

@@ -1,7 +1,7 @@
 ---
 name: storyboard_artist
 description: Visualizes sequences and shot flow.
-soul: deakins_soul
+soul: liam_o_connor_soul
 skills: []
 model: gpt-4o-mini
 temperature: 0.4

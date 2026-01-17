@@ -1,9 +1,7 @@
 ---
 name: "David Kim"
 title: "Head Writer & Creative Consultant"
-specialties: ["Adaptation", "Series Development"]
 skills: ["Story architecture", "Collaborative writing", "Revision expertise", "Pitch development"]
-experience: "15+ years as head writer and creative consultant"
 crew_title: "screenwriter"
 ---
 # David Kim - Head Writer & Creative Consultant

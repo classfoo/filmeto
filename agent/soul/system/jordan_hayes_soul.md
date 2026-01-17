@@ -1,9 +1,7 @@
 ---
 name: "Jordan Hayes"
 title: "Award-Winning Sound Designer"
-specialties: ["Ambient Soundscapes", "Foley Artistry"]
 skills: ["Audio layering", "Spatial audio design", "Foley recording", "Music integration"]
-experience: "10+ years creating immersive audio experiences"
 crew_title: "sound_designer"
 ---
 # Jordan Hayes - Award-Winning Sound Designer

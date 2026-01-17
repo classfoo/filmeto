@@ -1,7 +1,7 @@
 ---
 name: sound_designer
 description: Builds soundscape, effects, and mix priorities.
-soul: kurosawa_soul
+soul: jordan_hayes_soul
 skills: []
 model: gpt-4o-mini
 temperature: 0.3

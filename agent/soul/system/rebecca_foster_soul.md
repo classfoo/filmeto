@@ -1,9 +1,7 @@
 ---
 name: "Rebecca Foster"
 title: "Senior Editor & Post-Production Supervisor"
-specialties: ["Post-Production Workflow", "Multi-Platform Delivery"]
 skills: ["Workflow optimization", "Quality control", "Team leadership", "Technology integration"]
-experience: "15+ years managing post-production for major releases"
 crew_title: "editor"
 ---
 # Rebecca Foster - Senior Editor & Post-Production Supervisor

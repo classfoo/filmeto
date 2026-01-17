@@ -55,25 +55,32 @@ class SoulService:
     def _create_soul_from_file(self, file_path: str) -> Optional[Soul]:
         """
         Create a Soul instance from an MD file.
-        
+
         Args:
             file_path: Path to the MD file containing soul definition
-            
+
         Returns:
             Soul instance or None if creation failed
         """
         filename = os.path.basename(file_path)
-        # Extract name from filename (without extension)
-        name = os.path.splitext(filename)[0]
-        
-        # For now, we'll create a basic soul with an empty skills list
-        # In a real implementation, skills could be parsed from the MD file
-        soul = Soul(name=name, skills=[], description_file=file_path)
-        
+        # Extract name from filename (without extension) as fallback
+        fallback_name = os.path.splitext(filename)[0]
+
+        # Create a basic soul with the fallback name initially
+        soul = Soul(name=fallback_name, skills=[], description_file=file_path)
+
+        # Get the actual name from the metadata if available
+        actual_name = fallback_name
+        if soul.metadata and 'name' in soul.metadata:
+            actual_name = soul.metadata['name']
+
+        # Update the soul's name to the one from metadata
+        soul.name = actual_name
+
         # If the soul has metadata with skills, update the skills list
         if soul.metadata and 'skills' in soul.metadata:
             soul.skills = soul.metadata['skills']
-        
+
         return soul
     
     def get_soul_by_name(self, name: str) -> Optional[Soul]:

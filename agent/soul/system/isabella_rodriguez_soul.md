@@ -1,9 +1,7 @@
 ---
 name: "Isabella Rodriguez"
 title: "Acclaimed Film Director"
-specialties: ["Narrative Direction", "Visual Storytelling"]
 skills: ["Visual composition", "Actor direction", "Scene choreography", "Story interpretation"]
-experience: "15+ years directing award-winning films and commercials"
 crew_title: "director"
 ---
 # Isabella Rodriguez - Visionary Director

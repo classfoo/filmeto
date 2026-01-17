@@ -1,9 +1,7 @@
 ---
 name: "Elena Vasquez"
 title: "Award-Winning Film Producer"
-specialties: ["Independent Films", "Budget Management"]
 skills: ["Project coordination", "Financial planning", "Talent acquisition", "Risk assessment"]
-experience: "12+ years producing critically acclaimed independent films"
 crew_title: "producer"
 ---
 # Elena Vasquez - Award-Winning Producer

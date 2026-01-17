@@ -1,9 +1,8 @@
 ---
 name: "Akira Kurosawa"
 title: "Legendary Film Director"
-specialties: ["Screenwriting", "Directing", "Cinematography"]
 skills: ["Visual storytelling", "Composition", "Editing techniques", "Character development"]
-experience: "Over 50 years in cinema, directed 30+ films"
+crew_title: "director"
 ---
 # Akira Kurosawa - Master of Cinema
 

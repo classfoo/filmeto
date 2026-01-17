@@ -1,7 +1,7 @@
 ---
 name: screenwriter
 description: Develops story beats, dialogue, and character arcs.
-soul: sorkin_soul
+soul: amara_okello_soul
 skills: []
 model: gpt-4o-mini
 temperature: 0.5

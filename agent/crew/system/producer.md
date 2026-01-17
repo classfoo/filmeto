@@ -1,7 +1,7 @@
 ---
 name: producer
 description: Owns budget, schedule, and delivery risks.
-soul: tarantino_soul
+soul: elena_vasquez_soul
 skills: []
 model: gpt-4o-mini
 temperature: 0.3

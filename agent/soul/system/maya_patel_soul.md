@@ -1,9 +1,7 @@
 ---
 name: "Maya Patel"
 title: "Lead Audio Director & Sound Supervisor"
-specialties: ["Audio Direction", "Voice Integration"]
 skills: ["Audio supervision", "Voice recording", "Mixing techniques", "Team coordination"]
-experience: "13+ years directing audio for film and interactive media"
 crew_title: "sound_designer"
 ---
 # Maya Patel - Lead Audio Director & Sound Supervisor

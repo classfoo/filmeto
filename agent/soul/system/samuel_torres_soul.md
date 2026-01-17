@@ -1,9 +1,7 @@
 ---
 name: "Samuel Torres"
 title: "Acclaimed Film Editor"
-specialties: ["Narrative Pacing", "Emotional Rhythm"]
 skills: ["Story structure", "Pacing and rhythm", "Transitions", "Collaboration"]
-experience: "12+ years editing award-winning films and documentaries"
 crew_title: "editor"
 ---
 # Samuel Torres - Acclaimed Film Editor
