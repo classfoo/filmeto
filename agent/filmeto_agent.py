@@ -21,27 +21,6 @@ _MENTION_PATTERN = re.compile(r"@([A-Za-z0-9_-]+)")
 _PRODUCER_NAME = "producer"
 
 
-class AgentRole:
-    """Represents an agent with a specific role in the conversation."""
-    
-    def __init__(self, agent_id: str, name: str, role_description: str, handler_func: Callable):
-        self.agent_id = agent_id
-        self.name = name
-        self.role_description = role_description
-        self.handler_func = handler_func
-    
-    async def handle_message(self, message: AgentMessage, on_stream_event=None) -> AsyncIterator[AgentMessage]:
-        """Handle a message and yield responses."""
-        # Check if the handler function accepts on_stream_event parameter
-        import inspect
-        sig = inspect.signature(self.handler_func)
-        if 'on_stream_event' in sig.parameters:
-            async for response in self.handler_func(message, on_stream_event=on_stream_event):
-                yield response
-        else:
-            # Fallback for handlers that don't accept on_stream_event
-            async for response in self.handler_func(message):
-                yield response
 
 
 class AgentStreamSession:
@@ -87,7 +66,7 @@ class FilmetoAgent:
         self.model = model
         self.temperature = temperature
         self.streaming = streaming
-        self.agents: Dict[str, AgentRole] = {}
+        self.agents: Dict[str, CrewMember] = {}
         self.conversation_history: List[AgentMessage] = []
         self.ui_callbacks = []
         self.current_session: Optional[AgentStreamSession] = None
@@ -114,6 +93,8 @@ class FilmetoAgent:
     def register_agent(self, agent_id: str, name: str, role_description: str, handler_func: Callable):
         """
         Register a new agent with a specific role.
+        This method is deprecated since we're moving to direct CrewMember usage.
+        Use _register_crew_member instead which directly adds CrewMembers to agents dict.
 
         Args:
             agent_id: Unique identifier for the agent
@@ -121,13 +102,23 @@ class FilmetoAgent:
             role_description: Description of the agent's role
             handler_func: Async function that handles messages and yields responses
         """
-        self.agents[agent_id] = AgentRole(agent_id, name, role_description, handler_func)
+        # Create a minimal CrewMember-like object for backward compatibility
+        from unittest.mock import Mock
+        mock_config = Mock()
+        mock_config.name = name
+        mock_config.description = role_description
 
-    def get_agent(self, agent_id: str) -> Optional[AgentRole]:
+        mock_agent = Mock()
+        mock_agent.config = mock_config
+        mock_agent.chat_stream = handler_func
+
+        self.agents[agent_id] = mock_agent
+
+    def get_agent(self, agent_id: str) -> Optional[CrewMember]:
         """Get an agent by ID."""
         return self.agents.get(agent_id)
 
-    def list_agents(self) -> List[AgentRole]:
+    def list_agents(self) -> List[CrewMember]:
         """List all registered agents."""
         return list(self.agents.values())
 
@@ -155,29 +146,8 @@ class FilmetoAgent:
         return crew_members
 
     def _register_crew_member(self, crew_member: CrewMember) -> None:
-        def make_handler(crew_member_instance: CrewMember):
-            async def handler(message: AgentMessage, on_stream_event=None):
-                plan_id = message.metadata.get("plan_id") if message.metadata else None
-                # Pass on_stream_event to the crew so it can emit events
-                async for token in crew_member_instance.chat_stream(message.content, on_stream_event=on_stream_event, plan_id=plan_id):
-                    metadata = {"plan_id": plan_id} if plan_id else {}
-                    response = AgentMessage(
-                        content=token,
-                        message_type=MessageType.TEXT,
-                        sender_id=crew_member_instance.config.name,
-                        sender_name=crew_member_instance.config.name.capitalize(),
-                        metadata=metadata,
-                    )
-                    logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
-                    yield response
-            return handler
-
-        self.register_agent(
-            agent_id=crew_member.config.name,
-            name=crew_member.config.name.capitalize(),
-            role_description=crew_member.config.description,
-            handler_func=make_handler(crew_member),
-        )
+        # Directly add the CrewMember to the agents dictionary
+        self.agents[crew_member.config.name] = crew_member
 
     def _extract_mentions(self, content: str) -> List[str]:
         if not content:
@@ -192,11 +162,19 @@ class FilmetoAgent:
                 return crew_member
         return None
 
-    def _resolve_mentioned_agent_role(self, content: str) -> Optional[AgentRole]:
+    def _resolve_mentioned_agent_role(self, content: str) -> Optional[CrewMember]:
         for mention in self._extract_mentions(content):
             candidate = mention.lower()
             for agent in self.agents.values():
-                if agent.agent_id.lower() == candidate or agent.name.lower() == candidate:
+                # Check against both the agent's name and any aliases in metadata
+                if (hasattr(agent, 'config') and
+                    (agent.config.name.lower() == candidate or
+                     agent.config.name.lower().capitalize() == candidate)):
+                    return agent
+                # Also check for crew_title in metadata
+                if (hasattr(agent, 'config') and
+                    agent.config.metadata and
+                    agent.config.metadata.get('crew_title', '').lower() == candidate):
                     return agent
         return None
 
@@ -484,11 +462,14 @@ class FilmetoAgent:
 
         mentioned_agent = self._resolve_mentioned_agent_role(message)
         if mentioned_agent:
-            async for content in self._stream_agent_messages(
-                mentioned_agent.handle_message(initial_prompt, on_stream_event=on_stream_event),
-                session_id,
-                on_token,
-                on_stream_event,
+            async for content in self._stream_crew_member(
+                mentioned_agent,
+                initial_prompt.content,
+                plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
+                session_id=session_id,
+                on_token=on_token,
+                on_stream_event=on_stream_event,
+                metadata=initial_prompt.metadata
             ):
                 yield content
             if on_complete:
@@ -498,46 +479,28 @@ class FilmetoAgent:
         # Prioritize producer if available and no specific agent is mentioned
         producer_agent = self._get_producer_crew_member()
         if producer_agent and not mentioned_crew_member:
-            # Create a temporary AgentRole for the producer crew member
-            def make_handler(crew_member_instance: CrewMember):
-                async def handler(message: AgentMessage, on_stream_event=None):
-                    plan_id = message.metadata.get("plan_id") if message.metadata else None
-                    # Pass on_stream_event to the crew so it can emit events
-                    async for token in crew_member_instance.chat_stream(message.content, on_stream_event=on_stream_event, plan_id=plan_id):
-                        metadata = {"plan_id": plan_id} if plan_id else {}
-                        response = AgentMessage(
-                            content=token,
-                            message_type=MessageType.TEXT,
-                            sender_id=crew_member_instance.config.name,
-                            sender_name=crew_member_instance.config.name.capitalize(),
-                            metadata=metadata,
-                        )
-                        logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
-                        yield response
-                return handler
-
-            producer_role = AgentRole(
-                agent_id=producer_agent.config.name,
-                name=producer_agent.config.name.capitalize(),
-                role_description=producer_agent.config.description,
-                handler_func=make_handler(producer_agent)
-            )
-
-            async for content in self._stream_agent_messages(
-                producer_role.handle_message(initial_prompt, on_stream_event=on_stream_event),
-                session_id,
-                on_token,
-                on_stream_event,
+            # Stream directly from the producer crew member
+            async for content in self._stream_crew_member(
+                producer_agent,
+                initial_prompt.content,
+                plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
+                session_id=session_id,
+                on_token=on_token,
+                on_stream_event=on_stream_event,
+                metadata=initial_prompt.metadata
             ):
                 yield content
         else:
             responding_agent = await self._select_responding_agent(initial_prompt)
             if responding_agent:
-                async for content in self._stream_agent_messages(
-                    responding_agent.handle_message(initial_prompt, on_stream_event=on_stream_event),
-                    session_id,
-                    on_token,
-                    on_stream_event,
+                async for content in self._stream_crew_member(
+                    responding_agent,
+                    initial_prompt.content,
+                    plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
+                    session_id=session_id,
+                    on_token=on_token,
+                    on_stream_event=on_stream_event,
+                    metadata=initial_prompt.metadata
                 ):
                     yield content
             else:
@@ -696,7 +659,7 @@ class FilmetoAgent:
             if updated_plan:
                 plan_instance = self.plan_service.sync_plan_instance(plan_instance, updated_plan)
 
-    async def _select_responding_agent(self, message: AgentMessage) -> Optional[AgentRole]:
+    async def _select_responding_agent(self, message: AgentMessage) -> Optional[CrewMember]:
         """
         Select which agent should respond to a message based on content or routing rules.
 
@@ -704,7 +667,7 @@ class FilmetoAgent:
             message: The message to route
 
         Returns:
-            AgentRole: The selected agent or None if no agent should respond
+            CrewMember: The selected agent or None if no agent should respond
         """
         mentioned_agent = self._resolve_mentioned_agent_role(message.content)
         if mentioned_agent:
@@ -716,7 +679,9 @@ class FilmetoAgent:
 
         content_lower = message.content.lower()
         for agent in self.agents.values():
-            if agent.name.lower() in content_lower or agent.agent_id.lower() in content_lower:
+            if (hasattr(agent, 'config') and
+                (agent.config.name.lower() in content_lower or
+                 agent.config.name.lower().capitalize() in content_lower)):
                 return agent
 
         if self.agents:
@@ -750,12 +715,24 @@ class FilmetoAgent:
         """
         for agent in self.agents.values():
             try:
-                async for response in agent.handle_message(message):
+                # Create a temporary stream to collect the agent's response
+                async def agent_response_stream():
+                    async for token in agent.chat_stream(message.content, on_stream_event=None, plan_id=None):
+                        response = AgentMessage(
+                            content=token,
+                            message_type=MessageType.TEXT,
+                            sender_id=agent.config.name,
+                            sender_name=agent.config.name.capitalize(),
+                            metadata={}
+                        )
+                        yield response
+
+                async for response in agent_response_stream():
                     self.conversation_history.append(response)
                     yield response.content  # Yield just the content for consistency
             except Exception as e:
                 error_msg = AgentMessage(
-                    content=f"Error in agent {agent.name}: {str(e)}",
+                    content=f"Error in agent {agent.config.name if hasattr(agent, 'config') else 'Unknown'}: {str(e)}",
                     message_type=MessageType.ERROR,
                     sender_id="system",
                     sender_name="System"

@@ -1,85 +1,167 @@
 # Filmeto Agent System
 
-The Filmeto Agent system provides AI-powered conversational capabilities for the Filmeto application. It implements a multi-agent architecture with streaming message capabilities.
+The Filmeto Agent system provides AI-powered conversational capabilities for the Filmeto application. It implements a multi-agent architecture with streaming message capabilities, centered around a crew-based system with a producer orchestrating workflows.
 
-## Components
+## Architecture Overview
 
-### AgentMessage
-- Defines the standardized message format used throughout the system
+The agent system follows a crew-based architecture where:
+- **Crew Members** are the core AI agents with specific roles, skills, and personalities
+- **Producer** acts as the orchestrator, creating execution plans and delegating tasks
+- **FilmetoAgent** serves as the central coordinator managing the entire system
+
+## Core Components
+
+### FilmetoAgent
+The main orchestrator class that:
+- Manages all crew members in the system
+- Handles message routing and streaming
+- Coordinates plan execution
+- Maintains conversation history
+- Provides the main interface for external systems
+
+### CrewMember
+Represents individual AI agents with:
+- Configuration (name, description, model, temperature, etc.)
+- Skills and capabilities
+- Personality (soul) integration
+- LLM interaction capabilities
+- Conversation history management
+
+### AgentMessage & MessageType
+- Standardized message format used throughout the system
 - Supports multiple content types (text, code, image, video, audio, file, command, error, system, tool_call, tool_response)
 - Includes metadata, timestamps, and sender information
 
-### MessageType Enum
-- Enumerates all supported message types
-- Enables different card types in the UI based on message type
+### StreamEvent
+Handles real-time streaming events for UI integration, including:
+- Agent thinking indicators
+- LLM call start/end notifications
+- Skill execution updates
+- Plan updates
+- Error events
 
-### AgentRole
-- Represents an individual agent with specific capabilities
-- Contains a handler function that processes messages and generates responses
+## Crew-Based Workflow
 
-### FilmetoAgent (Singleton)
-- Central manager for all agents in the system
-- Provides streaming conversation interface
-- Manages conversation history
-- Routes messages to appropriate agents
-- Supports broadcasting messages to all agents
+### 1. Crew Member Registration
+- Crew members are loaded from project configuration files
+- Each crew member has a name, title (crew_title), description, skills, and personality (soul)
+- Both names and titles are indexed for flexible referencing
 
-## Usage
+### 2. Producer Orchestration
+When a user sends a message:
+- If a specific crew member is mentioned (e.g., `@director`, `@producer`), that member responds
+- If no specific member is mentioned, the producer takes priority
+- The producer creates execution plans with detailed tasks for crew members
+- Tasks specify which crew member should handle them (by name or title)
 
-### Registering Agents
+### 3. Plan Execution
+- Plans contain ordered tasks with dependencies
+- Each task specifies an `agent_role` (which can be a crew member's name or title)
+- Tasks are executed when dependencies are satisfied
+- Crew members execute tasks and update plan state as needed
+
+## Key Features
+
+### Flexible Agent Referencing
+- Crew members can be referenced by either their specific name or role title
+- Example: `@elena_vasquez` or `@producer` both work to reach the same agent
+- Enhanced lookup system supports both naming conventions
+
+### Detailed Producer Context
+- Producer receives comprehensive information about all crew members
+- Includes names, titles, and skill sets for informed decision-making
+- Clear instructions that agent_role can be either name or title
+
+### Streaming Architecture
+- Real-time message streaming with event callbacks
+- Support for UI integration with streaming events
+- Asynchronous processing throughout the system
+
+### Skill Integration
+- Crew members can execute specific skills/tools
+- Skills are configured per crew member
+- Skill execution is tracked and reported through streaming events
+
+### Plan Management
+- Dynamic plan creation and execution
+- Task dependencies and readiness checking
+- Plan updates during execution
+- State management for ongoing workflows
+
+## Usage Patterns
+
+### Basic Interaction
 ```python
-from agent import FilmetoAgent, AgentMessage, MessageType
+from agent.filmeto_agent import FilmetoAgent
 
-async def my_agent_handler(message: AgentMessage) -> AsyncIterator[AgentMessage]:
-    # Process the message and yield responses
-    response = AgentMessage(
-        content="Response content",
-        message_type=MessageType.TEXT,
-        sender_id="my_agent",
-        sender_name="My Agent"
-    )
-    yield response
+# Initialize the agent system with a project
+agent = FilmetoAgent(project=your_project)
 
-# Get the singleton instance
-agent_manager = FilmetoAgent()
-
-# Register an agent
-agent_manager.register_agent(
-    "my_agent_id",
-    "My Agent Name",
-    "Description of what this agent does",
-    my_agent_handler
-)
+# Stream responses to a message
+async for response in agent.chat_stream("Create a video project"):
+    print(response)
 ```
 
-### Starting a Conversation
-```python
-initial_message = AgentMessage(
-    content="Hello, agents!",
-    message_type=MessageType.TEXT,
-    sender_id="user",
-    sender_name="User"
-)
-
-async for message in agent_manager.start_conversation(initial_message):
-    # Process each message in the stream
-    print(f"[{message.sender_name}]: {message.content}")
+### Crew Member Mentioning
+```
+"Hey @director, what do you think about this scene?"
+"Can you @producer create a plan for this project?"
 ```
 
-## Streaming Interface
+### Plan Creation Flow
+1. User sends request to producer (either directly or implicitly)
+2. Producer analyzes request and crew capabilities
+3. Producer creates execution plan with specific tasks
+4. Tasks are assigned to appropriate crew members
+5. Crew members execute tasks and report back
+6. Plan is updated dynamically as work progresses
 
-The agent system provides an asynchronous iterator interface for streaming responses:
+## System Integration
 
-```python
-async def chat_stream(self, initial_prompt: AgentMessage) -> AsyncIterator[AgentMessage]:
+### UI Integration
+- Stream events enable real-time UI updates
+- Different message types render as appropriate UI components
+- Agent status indicators (thinking, processing, etc.)
+
+### Project Context
+- Crew members are loaded per project
+- Project-specific configurations and skills
+- Isolated agent contexts per project
+
+### LLM Service Integration
+- Configurable LLM providers and models
+- Per-member model and temperature settings
+- Error handling and fallback mechanisms
+
+## Configuration
+
+Crew members are defined in markdown files with frontmatter configuration:
+
+```markdown
+---
+name: producer
+description: Owns budget, schedule, and delivery risks.
+soul: elena_vasquez_soul
+skills: [planning, coordination]
+model: gpt-4o-mini
+temperature: 0.3
+max_steps: 5
+color: "#7b68ee"
+icon: "💼"
+---
+You are the Producer. Focus on feasibility, staffing, budgets, and production logistics.
 ```
 
-This allows the UI (AgentPanel) to receive messages in real-time as they are generated, displaying them as cards in the conversation.
+## Error Handling
 
-## Agent Panel Integration
+- Graceful degradation when LLM services are unavailable
+- Detailed error reporting through message system
+- Plan execution continues with error handling
+- Fallback mechanisms for missing crew members
 
-The AgentPanel should:
-1. Initialize the FilmetoAgent when the first prompt is sent
-2. Handle the streaming responses and update the conversation UI
-3. Render different card types based on the MessageType
-4. Support multi-agent conversations by leveraging the routing capabilities
+## Extensibility
+
+- New crew members can be added by creating configuration files
+- Skills can be extended per crew member
+- Custom souls (personalities) can be defined
+- Model and behavior parameters are configurable per member
