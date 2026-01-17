@@ -7,7 +7,7 @@ import os
 import logging
 from pathlib import Path
 
-from agent.sub_agent.sub_agent import SubAgent
+from agent.crew.crew_member import CrewMember
 from agent.llm.llm_service import LlmService
 from app.data.project import Project
 from app.data.workspace import Workspace
@@ -79,8 +79,8 @@ You are a film director. Help with directing films.
             workspace=workspace
         )
         
-        # Initialize the sub_agent
-        sub_agent = SubAgent(
+        # Initialize the crew
+        crew_member = CrewMember(
             config_path=str(director_config),
             workspace=workspace,
             project=project
@@ -102,7 +102,7 @@ You are a film director. Help with directing films.
                 return True  # Assume it's configured for testing
         
         # Replace the LLM service with our mock
-        sub_agent.llm_service = MockLlmService()
+        crew_member.llm_service = MockLlmService()
         
         # Test utility functions that create messages
         print("\n1. Testing utility functions...")
@@ -130,11 +130,11 @@ You are a film director. Help with directing films.
             })
         
         # Test the chat_stream method which creates messages
-        print("\n2. Testing sub_agent chat_stream...")
+        print("\n2. Testing crew chat_stream...")
         response_tokens = []
         
         try:
-            async for token in sub_agent.chat_stream(
+            async for token in crew_member.chat_stream(
                 message="Test message",
                 on_stream_event=mock_on_stream_event
             ):
@@ -142,9 +142,9 @@ You are a film director. Help with directing films.
         
             print(f"   Received {len(response_tokens)} response tokens")
             
-            # Get logs after sub_agent execution
+            # Get logs after crew execution
             log_contents_after = log_capture_string.getvalue()
-            print(f"   Total log contents after sub_agent execution: {len(log_contents_after)} characters")
+            print(f"   Total log contents after crew execution: {len(log_contents_after)} characters")
             
             # Look for specific log messages
             logs = log_contents_after.split('\n')

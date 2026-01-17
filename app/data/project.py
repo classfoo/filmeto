@@ -496,9 +496,9 @@ class ProjectManager:
         self.projects[project_name] = project
 
         try:
-            from agent.sub_agent import SubAgentService
+            from agent.crew import CrewService
 
-            SubAgentService().initialize_project_sub_agents(project)
+            CrewService().initialize_project_sub_agents(project)
         except Exception as exc:
             logger.warning(f"Failed to initialize sub_agents for project {project_name}: {exc}")
 

@@ -50,8 +50,8 @@ class ChatHistoryWidget(BaseWidget):
         self._scroll_timer.timeout.connect(self._scroll_to_bottom)
 
         # Sub-agent metadata cache
-        self._sub_agent_metadata: Dict[str, Dict[str, Any]] = {}
-        self._load_sub_agent_metadata()
+        self._crew_member_metadata: Dict[str, Dict[str, Any]] = {}
+        self._load_crew_member_metadata()
 
         # Connect to project switched signal to refresh metadata when project changes
         if self.workspace:
@@ -63,36 +63,36 @@ class ChatHistoryWidget(BaseWidget):
 
         self._setup_ui()
 
-    def refresh_sub_agent_metadata(self):
-        """Refresh sub-agent metadata when project changes."""
-        self._load_sub_agent_metadata()
+    def refresh_crew_member_metadata(self):
+        """Refresh crew member metadata when project changes."""
+        self._load_crew_member_metadata()
 
     def _on_project_switched(self, project_name: str):
         """Handle project switched event."""
-        print(f"Project switched to: {project_name}, refreshing sub-agent metadata")
-        self.refresh_sub_agent_metadata()
+        print(f"Project switched to: {project_name}, refreshing crew member metadata")
+        self.refresh_crew_member_metadata()
 
-    def _load_sub_agent_metadata(self):
-        """Load sub-agent metadata including color configurations."""
+    def _load_crew_member_metadata(self):
+        """Load crew member metadata including color configurations."""
         try:
             # Import here to avoid circular imports
-            from agent.sub_agent.sub_agent_service import SubAgentService
+            from agent.crew.crew_service import CrewService
 
             # Get the current project
             project = self.workspace.get_project()
             if project:
-                # Initialize sub-agent service
-                sub_agent_service = SubAgentService()
+                # Initialize crew member service
+                crew_member_service = CrewService()
 
-                # Load sub-agent metadata for the project
-                self._sub_agent_metadata = sub_agent_service.get_project_sub_agent_metadata(project)
-                print(f"Loaded sub-agent metadata for project: {len(self._sub_agent_metadata)} agents")
+                # Load crew member metadata for the project
+                self._crew_member_metadata = crew_member_service.get_project_crew_member_metadata(project)
+                print(f"Loaded crew member metadata for project: {len(self._crew_member_metadata)} agents")
             else:
-                print("No project found, clearing sub-agent metadata")
-                self._sub_agent_metadata = {}
+                print("No project found, clearing crew member metadata")
+                self._crew_member_metadata = {}
         except Exception as e:
-            print(f"Error loading sub-agent metadata: {e}")
-            self._sub_agent_metadata = {}
+            print(f"Error loading crew member metadata: {e}")
+            self._crew_member_metadata = {}
 
     def _create_circular_icon(
         self,
@@ -240,18 +240,18 @@ class ChatHistoryWidget(BaseWidget):
 
             # Get the color and icon for this agent from metadata
             # Ensure metadata is loaded
-            if not self._sub_agent_metadata:
-                self._load_sub_agent_metadata()
+            if not self._crew_member_metadata:
+                self._load_crew_member_metadata()
 
             agent_color = "#4a90e2"  # Default color
             agent_icon = "🤖"  # Default icon
 
             # Normalize the sender to lowercase to match metadata keys
             normalized_sender = sender.lower()
-            if normalized_sender in self._sub_agent_metadata:
-                agent_color = self._sub_agent_metadata[normalized_sender].get('color', '#4a90e2')
+            if normalized_sender in self._crew_member_metadata:
+                agent_color = self._crew_member_metadata[normalized_sender].get('color', '#4a90e2')
                 # Get the icon from metadata, default to "🤖" if not specified
-                agent_icon = self._sub_agent_metadata[normalized_sender].get('icon', '🤖')
+                agent_icon = self._crew_member_metadata[normalized_sender].get('icon', '🤖')
             else:
                 # For user messages, we typically don't want to use sub-agent colors
                 # But if sender happens to match a sub-agent name, we'll use that color
@@ -362,20 +362,20 @@ class ChatHistoryWidget(BaseWidget):
 
         # Get the color and icon for this agent from metadata
         # Ensure metadata is loaded
-        if not self._sub_agent_metadata:
-            self._load_sub_agent_metadata()
+        if not self._crew_member_metadata:
+            self._load_crew_member_metadata()
 
         agent_color = "#4a90e2"  # Default color
         agent_icon = "🤖"  # Default icon
 
         # Normalize the agent_name to lowercase to match metadata keys
         normalized_agent_name = agent_name.lower()
-        if normalized_agent_name in self._sub_agent_metadata:
-            agent_color = self._sub_agent_metadata[normalized_agent_name].get('color', '#4a90e2')
+        if normalized_agent_name in self._crew_member_metadata:
+            agent_color = self._crew_member_metadata[normalized_agent_name].get('color', '#4a90e2')
             # Get the icon from metadata, default to "🤖" if not specified
-            agent_icon = self._sub_agent_metadata[normalized_agent_name].get('icon', '🤖')
+            agent_icon = self._crew_member_metadata[normalized_agent_name].get('icon', '🤖')
         else:
-            print(f"Warning: No metadata found for agent {normalized_agent_name}, available: {list(self._sub_agent_metadata.keys())}")
+            print(f"Warning: No metadata found for agent {normalized_agent_name}, available: {list(self._crew_member_metadata.keys())}")
 
         card = AgentMessageCard(
             agent_message=agent_message,

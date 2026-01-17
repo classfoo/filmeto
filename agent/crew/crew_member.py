@@ -14,7 +14,7 @@ from agent.soul.soul_service import SoulService
 
 
 @dataclass
-class SubAgentConfig:
+class CrewMemberConfig:
     name: str
     description: str = ""
     soul: Optional[str] = None
@@ -29,7 +29,7 @@ class SubAgentConfig:
     config_path: Optional[str] = None
 
     @classmethod
-    def from_markdown(cls, file_path: str) -> "SubAgentConfig":
+    def from_markdown(cls, file_path: str) -> "CrewMemberConfig":
         with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
 
@@ -61,7 +61,7 @@ class SubAgentConfig:
 
 
 @dataclass
-class SubAgentAction:
+class CrewMemberAction:
     action_type: str
     response: Optional[str] = None
     skill: Optional[str] = None
@@ -72,9 +72,9 @@ class SubAgentAction:
     raw: Optional[str] = None
 
 
-class SubAgent:
+class CrewMember:
     """
-    A ReAct-style sub-agent driven by LLM and skill execution.
+    A ReAct-style crew member driven by LLM and skill execution.
     """
 
     def __init__(
@@ -87,7 +87,7 @@ class SubAgent:
         soul_service: Optional[SoulService] = None,
         plan_service: Optional[PlanService] = None,
     ):
-        self.config = SubAgentConfig.from_markdown(config_path)
+        self.config = CrewMemberConfig.from_markdown(config_path)
         self.workspace = workspace
         self.project = project
         self.project_id = _resolve_project_id(project)
@@ -227,8 +227,8 @@ class SubAgent:
 
     def _build_system_prompt(self, plan_id: Optional[str] = None) -> str:
         prompt_sections = [
-            "You are a ReAct-style sub-agent.",
-            f"Sub-agent name: {self.config.name}.",
+            "You are a ReAct-style crew member.",
+            f"Crew member name: {self.config.name}.",
         ]
         if self.config.description:
             prompt_sections.append(f"Role description: {self.config.description}")
@@ -298,17 +298,17 @@ class SubAgent:
         except Exception as exc:
             return f"Error calling LLM: {exc}"
 
-    def _parse_action(self, response_text: str) -> SubAgentAction:
+    def _parse_action(self, response_text: str) -> CrewMemberAction:
         payload = _extract_json_payload(response_text)
         if not payload:
-            return SubAgentAction(action_type="final", response=response_text, raw=response_text)
+            return CrewMemberAction(action_type="final", response=response_text, raw=response_text)
 
         action_type = payload.get("type") or payload.get("action") or "final"
         action_type = str(action_type).strip().lower()
         if action_type not in {"final", "skill", "plan_update"}:
             action_type = "final"
 
-        return SubAgentAction(
+        return CrewMemberAction(
             action_type=action_type,
             response=payload.get("response") or payload.get("final"),
             skill=payload.get("skill") or payload.get("tool"),
@@ -319,7 +319,7 @@ class SubAgent:
             raw=response_text,
         )
 
-    def _execute_skill(self, action: SubAgentAction) -> str:
+    def _execute_skill(self, action: CrewMemberAction) -> str:
         if not action.skill:
             return "No skill specified in action."
         skill = self.skill_service.get_skill(action.skill)
@@ -333,7 +333,7 @@ class SubAgent:
         result = self.skill_service.execute_skill_script(action.skill, script_name, *args)
         return result if result is not None else f"Skill '{action.skill}' execution returned no output."
 
-    def _apply_plan_update(self, action: SubAgentAction, plan_id: Optional[str]) -> str:
+    def _apply_plan_update(self, action: CrewMemberAction, plan_id: Optional[str]) -> str:
         if not self.project_id:
             return "Project id is missing for plan update."
 
@@ -513,7 +513,7 @@ def _task_from_dict(data: Dict[str, Any]) -> PlanTask:
         id=task_id,
         name=data.get("name", "Task"),
         description=data.get("description", ""),
-        agent_role=data.get("agent_role", "sub_agent"),
+        agent_role=data.get("agent_role", "crew"),
         parameters=data.get("parameters", {}),
         needs=data.get("needs", []),
         status=status,

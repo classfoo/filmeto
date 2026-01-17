@@ -3,12 +3,12 @@ from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Optional, Any
 
-from agent.sub_agent.sub_agent import SubAgent
+from agent.crew.crew_member import CrewMember
 
 
-class SubAgentService:
+class CrewService:
     """
-    Singleton service to manage sub-agents per project.
+    Singleton service to manage crew members per project.
     """
 
     _instance = None
@@ -18,26 +18,26 @@ class SubAgentService:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(SubAgentService, cls).__new__(cls)
+                    cls._instance = super(CrewService, cls).__new__(cls)
                     cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
         if self._initialized:
             return
-        self._project_agents: Dict[str, Dict[str, SubAgent]] = {}
+        self._project_agents: Dict[str, Dict[str, CrewMember]] = {}
         self._initialized = True
 
-    def initialize_project_sub_agents(self, project: Any) -> List[str]:
+    def initialize_project_crew_members(self, project: Any) -> List[str]:
         """
-        Ensure the project's sub_agent directory exists and seeded from system defaults.
+        Ensure the project's crew directory exists and seeded from system defaults.
         """
         project_path = _resolve_project_path(project)
         if not project_path:
             return []
 
-        sub_agents_dir = Path(project_path) / "agent" / "sub_agents"
-        sub_agents_dir.mkdir(parents=True, exist_ok=True)
+        crew_members_dir = Path(project_path) / "agent" / "crew_members"
+        crew_members_dir.mkdir(parents=True, exist_ok=True)
 
         system_dir = Path(__file__).parent / "system"
         if not system_dir.exists():
@@ -45,16 +45,16 @@ class SubAgentService:
 
         initialized_files = []
         for system_file in system_dir.glob("*.md"):
-            target_file = sub_agents_dir / system_file.name
+            target_file = crew_members_dir / system_file.name
             if target_file.exists():
                 continue
             shutil.copy2(system_file, target_file)
             initialized_files.append(str(target_file))
         return initialized_files
 
-    def load_project_sub_agents(self, project: Any, refresh: bool = False) -> Dict[str, SubAgent]:
+    def load_project_crew_members(self, project: Any, refresh: bool = False) -> Dict[str, CrewMember]:
         """
-        Load sub-agents for a project, initializing defaults if needed.
+        Load crew members for a project, initializing defaults if needed.
         """
         project_key = _resolve_project_key(project)
         if not project_key:
@@ -67,17 +67,17 @@ class SubAgentService:
         if not project_path:
             return {}
 
-        self.initialize_project_sub_agents(project)
+        self.initialize_project_crew_members(project)
 
-        sub_agents_dir = Path(project_path) / "agent" / "sub_agents"
-        if not sub_agents_dir.exists():
+        crew_members_dir = Path(project_path) / "agent" / "crew_members"
+        if not crew_members_dir.exists():
             self._project_agents[project_key] = {}
             return {}
 
         workspace = getattr(project, "workspace", None)
-        agents: Dict[str, SubAgent] = {}
-        for config_path in sub_agents_dir.glob("*.md"):
-            agent = SubAgent(
+        agents: Dict[str, CrewMember] = {}
+        for config_path in crew_members_dir.glob("*.md"):
+            agent = CrewMember(
                 config_path=str(config_path),
                 workspace=workspace,
                 project=project,
@@ -87,27 +87,27 @@ class SubAgentService:
         self._project_agents[project_key] = agents
         return agents
 
-    def get_sub_agent(self, project: Any, name: str) -> Optional[SubAgent]:
-        agents = self.load_project_sub_agents(project)
+    def get_crew_member(self, project: Any, name: str) -> Optional[CrewMember]:
+        agents = self.load_project_crew_members(project)
         return agents.get(name)
 
-    def list_sub_agents(self, project: Any) -> List[SubAgent]:
-        return list(self.load_project_sub_agents(project).values())
+    def list_crew_members(self, project: Any) -> List[CrewMember]:
+        return list(self.load_project_crew_members(project).values())
 
-    def refresh_project_sub_agents(self, project: Any) -> Dict[str, SubAgent]:
-        return self.load_project_sub_agents(project, refresh=True)
+    def refresh_project_crew_members(self, project: Any) -> Dict[str, CrewMember]:
+        return self.load_project_crew_members(project, refresh=True)
 
-    def get_project_sub_agent_metadata(self, project: Any) -> Dict[str, Dict[str, Any]]:
+    def get_project_crew_member_metadata(self, project: Any) -> Dict[str, Dict[str, Any]]:
         """
-        Get metadata for all sub-agents in a project, including color configuration.
+        Get metadata for all crew members in a project, including color configuration.
 
         Args:
-            project: The project to get sub-agent metadata for
+            project: The project to get crew member metadata for
 
         Returns:
             Dictionary mapping agent names to their metadata (including color)
         """
-        agents = self.load_project_sub_agents(project)
+        agents = self.load_project_crew_members(project)
         metadata = {}
 
         for name, agent in agents.items():

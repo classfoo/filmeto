@@ -1,20 +1,20 @@
 """
-Test script to verify the async conflict fix for sub_agent
+Test script to verify the async conflict fix for crew
 """
 import asyncio
 import tempfile
 import os
 from pathlib import Path
 
-from agent.sub_agent.sub_agent import SubAgent
+from agent.crew.crew_member import CrewMember
 from agent.llm.llm_service import LlmService
 from app.data.project import Project
 from app.data.workspace import Workspace
 
 
 async def test_sub_agent_with_fixed_async():
-    """Test sub_agent with the fixed async implementation"""
-    print("Testing sub_agent with fixed async implementation...")
+    """Test crew with the fixed async implementation"""
+    print("Testing crew with fixed async implementation...")
     
     # Create a temporary project for testing
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -52,8 +52,8 @@ You are a film director. Help with directing films.
             workspace=workspace
         )
         
-        # Initialize the sub_agent
-        sub_agent = SubAgent(
+        # Initialize the crew
+        crew_member = CrewMember(
             config_path=str(director_config),
             workspace=workspace,
             project=project
@@ -75,7 +75,7 @@ You are a film director. Help with directing films.
                 return True  # Assume it's configured for testing
         
         # Replace the LLM service with our mock
-        sub_agent.llm_service = MockLlmService()
+        crew_member.llm_service = MockLlmService()
         
         # Variables to capture events
         captured_events = []
@@ -92,7 +92,7 @@ You are a film director. Help with directing films.
         response_tokens = []
         
         try:
-            async for token in sub_agent.chat_stream(
+            async for token in crew_member.chat_stream(
                 message="Test message",
                 on_stream_event=mock_on_stream_event
             ):

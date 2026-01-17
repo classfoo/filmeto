@@ -1,20 +1,20 @@
 """
-Test script to verify sub_agent event streaming functionality
+Test script to verify crew event streaming functionality
 """
 import asyncio
 import tempfile
 import os
 from pathlib import Path
 
-from agent.sub_agent.sub_agent import SubAgent
+from agent.crew.crew_member import CrewMember
 from agent.llm.llm_service import LlmService
 from app.data.project import Project
 from app.data.workspace import Workspace
 
 
 async def test_sub_agent_events():
-    """Test sub_agent event streaming functionality"""
-    print("Testing sub_agent event streaming...")
+    """Test crew event streaming functionality"""
+    print("Testing crew event streaming...")
     
     # Create a temporary project for testing
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -52,8 +52,8 @@ You are a film director. Help with directing films.
             workspace=workspace
         )
         
-        # Initialize the sub_agent
-        sub_agent = SubAgent(
+        # Initialize the crew
+        crew_member = CrewMember(
             config_path=str(director_config),
             workspace=workspace,
             project=project
@@ -76,7 +76,7 @@ You are a film director. Help with directing films.
                 return True  # Assume it's configured for testing
         
         # Replace the LLM service with our mock
-        sub_agent.llm_service = MockLlmService()
+        crew_member.llm_service = MockLlmService()
         
         # Variables to capture events
         captured_events = []
@@ -93,7 +93,7 @@ You are a film director. Help with directing films.
         response_tokens = []
         
         try:
-            async for token in sub_agent.chat_stream(
+            async for token in crew_member.chat_stream(
                 message="Test message",
                 on_stream_event=mock_on_stream_event
             ):
@@ -183,14 +183,14 @@ You are a film director. Help with directing films.
                 model="gpt-4o-mini"
             )
             
-            # Verify that sub_agents were loaded
-            print(f"Loaded sub_agents: {list(agent.sub_agents.keys())}")
+            # Verify that crew members were loaded
+            print(f"Loaded crew members: {list(agent.crew_members.keys())}")
             
-            if "director" in agent.sub_agents:
-                print("✅ SUCCESS: Sub-agent loaded correctly in FilmetoAgent")
+            if "director" in agent.crew_members:
+                print("✅ SUCCESS: Crew member loaded correctly in FilmetoAgent")
                 return True
             else:
-                print("❌ FAILURE: Sub-agent not loaded in FilmetoAgent")
+                print("❌ FAILURE: Crew member not loaded in FilmetoAgent")
                 return False
                 
     except Exception as e:
@@ -201,7 +201,7 @@ You are a film director. Help with directing films.
 
 
 if __name__ == "__main__":
-    print("Running sub_agent event streaming tests...\n")
+    print("Running crew event streaming tests...\n")
     
     success1 = asyncio.run(test_sub_agent_events())
     success2 = test_filmeto_agent_integration()

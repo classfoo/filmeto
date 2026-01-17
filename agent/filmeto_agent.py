@@ -11,8 +11,8 @@ from agent.chat.agent_chat_message import AgentMessage, MessageType
 from agent.llm.llm_service import LlmService
 from agent.plan.models import Plan, PlanInstance, PlanTask, TaskStatus
 from agent.plan.service import PlanService
-from agent.sub_agent.sub_agent import SubAgent
-from agent.sub_agent.sub_agent_service import SubAgentService
+from agent.crew.crew_member import CrewMember
+from agent.crew.crew_service import CrewService
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class FilmetoAgent:
         temperature=0.7,
         streaming=True,
         llm_service: Optional[LlmService] = None,
-        sub_agent_service: Optional[SubAgentService] = None,
+        crew_member_service: Optional[CrewService] = None,
         plan_service: Optional[PlanService] = None,
     ):
         """Initialize the FilmetoAgent instance."""
@@ -92,14 +92,14 @@ class FilmetoAgent:
         self.ui_callbacks = []
         self.current_session: Optional[AgentStreamSession] = None
         self.llm_service = llm_service or LlmService(workspace)
-        self.sub_agent_service = sub_agent_service or SubAgentService()
+        self.crew_member_service = crew_member_service or CrewService()
         self.plan_service = plan_service or PlanService()
-        self.sub_agents: Dict[str, SubAgent] = {}
-        self._sub_agent_lookup: Dict[str, SubAgent] = {}
+        self.crew_members: Dict[str, CrewMember] = {}
+        self._crew_member_lookup: Dict[str, CrewMember] = {}
 
         # Initialize the agent
         self._init_agent()
-        self._ensure_sub_agents_loaded()
+        self._ensure_crew_members_loaded()
     
     def _init_agent(self):
         """Initialize the agent using LlmService."""
@@ -131,33 +131,33 @@ class FilmetoAgent:
         """List all registered agents."""
         return list(self.agents.values())
 
-    def _ensure_sub_agents_loaded(self, refresh: bool = False) -> Dict[str, SubAgent]:
+    def _ensure_crew_members_loaded(self, refresh: bool = False) -> Dict[str, CrewMember]:
         if not self.project:
-            self.sub_agents = {}
-            self._sub_agent_lookup = {}
+            self.crew_members = {}
+            self._crew_member_lookup = {}
             return {}
 
-        sub_agents = self.sub_agent_service.load_project_sub_agents(self.project, refresh=refresh)
-        self.sub_agents = sub_agents
-        self._sub_agent_lookup = {name.lower(): agent for name, agent in sub_agents.items()}
+        crew_members = self.crew_member_service.load_project_crew_members(self.project, refresh=refresh)
+        self.crew_members = crew_members
+        self._crew_member_lookup = {name.lower(): agent for name, agent in crew_members.items()}
 
-        for sub_agent in sub_agents.values():
-            self._register_sub_agent(sub_agent)
+        for crew_member in crew_members.values():
+            self._register_crew_member(crew_member)
 
-        return sub_agents
+        return crew_members
 
-    def _register_sub_agent(self, sub_agent: SubAgent) -> None:
-        def make_handler(sub_agent_instance: SubAgent):
+    def _register_crew_member(self, crew_member: CrewMember) -> None:
+        def make_handler(crew_member_instance: CrewMember):
             async def handler(message: AgentMessage, on_stream_event=None):
                 plan_id = message.metadata.get("plan_id") if message.metadata else None
-                # Pass on_stream_event to the sub_agent so it can emit events
-                async for token in sub_agent_instance.chat_stream(message.content, on_stream_event=on_stream_event, plan_id=plan_id):
+                # Pass on_stream_event to the crew so it can emit events
+                async for token in crew_member_instance.chat_stream(message.content, on_stream_event=on_stream_event, plan_id=plan_id):
                     metadata = {"plan_id": plan_id} if plan_id else {}
                     response = AgentMessage(
                         content=token,
                         message_type=MessageType.TEXT,
-                        sender_id=sub_agent_instance.config.name,
-                        sender_name=sub_agent_instance.config.name.capitalize(),
+                        sender_id=crew_member_instance.config.name,
+                        sender_name=crew_member_instance.config.name.capitalize(),
                         metadata=metadata,
                     )
                     logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
@@ -165,10 +165,10 @@ class FilmetoAgent:
             return handler
 
         self.register_agent(
-            agent_id=sub_agent.config.name,
-            name=sub_agent.config.name.capitalize(),
-            role_description=sub_agent.config.description,
-            handler_func=make_handler(sub_agent),
+            agent_id=crew_member.config.name,
+            name=crew_member.config.name.capitalize(),
+            role_description=crew_member.config.description,
+            handler_func=make_handler(crew_member),
         )
 
     def _extract_mentions(self, content: str) -> List[str]:
@@ -176,12 +176,12 @@ class FilmetoAgent:
             return []
         return [match.group(1) for match in _MENTION_PATTERN.finditer(content)]
 
-    def _resolve_mentioned_sub_agent(self, content: str) -> Optional[SubAgent]:
+    def _resolve_mentioned_crew_member(self, content: str) -> Optional[CrewMember]:
         for mention in self._extract_mentions(content):
             candidate = mention.lower()
-            sub_agent = self._sub_agent_lookup.get(candidate)
-            if sub_agent:
-                return sub_agent
+            crew_member = self._crew_member_lookup.get(candidate)
+            if crew_member:
+                return crew_member
         return None
 
     def _resolve_mentioned_agent_role(self, content: str) -> Optional[AgentRole]:
@@ -192,8 +192,8 @@ class FilmetoAgent:
                     return agent
         return None
 
-    def _get_producer_sub_agent(self) -> Optional[SubAgent]:
-        return self._sub_agent_lookup.get(_PRODUCER_NAME)
+    def _get_producer_crew_member(self) -> Optional[CrewMember]:
+        return self._crew_member_lookup.get(_PRODUCER_NAME)
 
     def _resolve_project_id(self) -> Optional[str]:
         project = self.project
@@ -218,13 +218,13 @@ class FilmetoAgent:
         return text[: limit - 3].rstrip() + "..."
 
     def _build_producer_message(self, user_message: str, plan_id: str, retry: bool = False) -> str:
-        available = ", ".join(sorted(self.sub_agents.keys())) or "none"
+        available = ", ".join(sorted(self.crew_members.keys())) or "none"
         header = "The current plan has no tasks. Update it now." if retry else "Create a production plan."
         return "\n".join([
             f"{header}",
             f"User request: {user_message}",
             f"Plan id: {plan_id}",
-            f"Available sub-agents: {available}",
+            f"Available crew members: {available}",
             "Use plan_update to set name, description, and tasks.",
             "Each task must include: id, name, description, agent_role, needs, parameters.",
             "After updating the plan, respond with a final summary and next steps.",
@@ -308,9 +308,9 @@ class FilmetoAgent:
                 }))
             yield response.content
 
-    async def _stream_sub_agent(
+    async def _stream_crew_member(
         self,
-        sub_agent: SubAgent,
+        crew_member: CrewMember,
         message: str,
         plan_id: Optional[str],
         session_id: str,
@@ -319,15 +319,15 @@ class FilmetoAgent:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[str]:
         async def response_iter():
-            async for token in sub_agent.chat_stream(message, on_stream_event=on_stream_event, plan_id=plan_id):
+            async for token in crew_member.chat_stream(message, on_stream_event=on_stream_event, plan_id=plan_id):
                 response_metadata = dict(metadata or {})
                 if plan_id:
                     response_metadata.setdefault("plan_id", plan_id)
                 response = AgentMessage(
                     content=token,
                     message_type=MessageType.TEXT,
-                    sender_id=sub_agent.config.name,
-                    sender_name=sub_agent.config.name.capitalize(),
+                    sender_id=crew_member.config.name,
+                    sender_name=crew_member.config.name.capitalize(),
                     metadata=response_metadata,
                 )
                 logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
@@ -409,12 +409,12 @@ class FilmetoAgent:
         if on_stream_event:
             on_stream_event(StreamEvent("user_message", {"content": message, "session_id": session_id}))
 
-        self._ensure_sub_agents_loaded()
+        self._ensure_crew_members_loaded()
 
-        mentioned_sub_agent = self._resolve_mentioned_sub_agent(message)
-        if mentioned_sub_agent and mentioned_sub_agent.config.name.lower() != _PRODUCER_NAME:
-            async for content in self._stream_sub_agent(
-                mentioned_sub_agent,
+        mentioned_crew_member = self._resolve_mentioned_crew_member(message)
+        if mentioned_crew_member and mentioned_crew_member.config.name.lower() != _PRODUCER_NAME:
+            async for content in self._stream_crew_member(
+                mentioned_crew_member,
                 message,
                 plan_id=None,
                 session_id=session_id,
@@ -426,7 +426,7 @@ class FilmetoAgent:
                 on_complete(message)
             return
 
-        producer_agent = self._get_producer_sub_agent()
+        producer_agent = self._get_producer_crew_member()
         if producer_agent:
             async for content in self._handle_producer_flow(
                 initial_prompt=initial_prompt,
@@ -478,14 +478,14 @@ class FilmetoAgent:
     async def _handle_producer_flow(
         self,
         initial_prompt: AgentMessage,
-        producer_agent: SubAgent,
+        producer_agent: CrewMember,
         session_id: str,
         on_token: Optional[Callable[[str], None]],
         on_stream_event: Optional[Callable[[StreamEvent], None]],
     ) -> AsyncIterator[str]:
         project_id = self._resolve_project_id()
         if not project_id:
-            async for content in self._stream_sub_agent(
+            async for content in self._stream_crew_member(
                 producer_agent,
                 initial_prompt.content,
                 plan_id=None,
@@ -498,7 +498,7 @@ class FilmetoAgent:
 
         plan = self._create_plan(project_id, initial_prompt.content)
         if not plan:
-            async for content in self._stream_sub_agent(
+            async for content in self._stream_crew_member(
                 producer_agent,
                 initial_prompt.content,
                 plan_id=None,
@@ -511,7 +511,7 @@ class FilmetoAgent:
 
         producer_message = self._build_producer_message(initial_prompt.content, plan.id)
         producer_response = None
-        async for content in self._stream_sub_agent(
+        async for content in self._stream_crew_member(
             producer_agent,
             producer_message,
             plan_id=plan.id,
@@ -530,7 +530,7 @@ class FilmetoAgent:
         if not plan or not plan.tasks:
             retry_message = self._build_producer_message(initial_prompt.content, plan.id, retry=True)
             retry_response = None
-            async for content in self._stream_sub_agent(
+            async for content in self._stream_crew_member(
                 producer_agent,
                 retry_message,
                 plan_id=plan.id,
@@ -588,9 +588,9 @@ class FilmetoAgent:
 
             for task in ready_tasks:
                 self.plan_service.mark_task_running(plan_instance, task.id)
-                target_agent = self._sub_agent_lookup.get(task.agent_role.lower())
+                target_agent = self._crew_member_lookup.get(task.agent_role.lower())
                 if not target_agent:
-                    error_message = f"Sub-agent '{task.agent_role}' not found for task {task.id}."
+                    error_message = f"Crew member '{task.agent_role}' not found for task {task.id}."
                     self.plan_service.mark_task_failed(plan_instance, task.id, error_message)
                     async for content in self._stream_error_message(
                         error_message,
@@ -602,7 +602,7 @@ class FilmetoAgent:
                     continue
 
                 task_message = self._build_task_message(task, plan.id)
-                async for content in self._stream_sub_agent(
+                async for content in self._stream_crew_member(
                     target_agent,
                     task_message,
                     plan_id=plan.id,

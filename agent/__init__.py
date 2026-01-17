@@ -12,7 +12,7 @@ from .utils import (
 )
 from .llm.llm_service import LlmService
 from .skill.skill_service import SkillService
-from .sub_agent import SubAgent, SubAgentConfig, SubAgentService
+from .crew import SubAgent, SubAgentConfig, CrewService
 
 __all__ = [
     "FilmetoAgent",
@@ -20,7 +20,7 @@ __all__ = [
     "SkillService",
     "SubAgent",
     "SubAgentConfig",
-    "SubAgentService",
+    "CrewService",
     "AgentMessage",
     "MessageType",
     "create_text_message",
