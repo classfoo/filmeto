@@ -93,13 +93,13 @@ class AgentPanel(BasePanel):
 
         # Import widgets locally to defer expensive imports
         import_start = time.time()
-        from app.ui.chat.agent_chat_component import AgentChatComponent
+        from app.ui.chat.agent_chat import AgentChatWidget
         import_time = (time.time() - import_start) * 1000
         logger.info(f"⏱️  Import AgentChatComponent: {import_time:.2f}ms")
 
         # Agent chat component (contains both chat history and prompt input)
         chat_start = time.time()
-        self.agent_chat_component = AgentChatComponent(self.workspace, self)
+        self.agent_chat_component = AgentChatWidget(self.workspace, self)
         chat_time = (time.time() - chat_start) * 1000
         logger.info(f"⏱️  AgentChatComponent created: {chat_time:.2f}ms")
 

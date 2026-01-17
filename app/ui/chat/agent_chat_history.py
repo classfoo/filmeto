@@ -18,9 +18,9 @@ from utils.i18n_utils import tr
 # Lazy imports - defer heavy imports until first use
 if TYPE_CHECKING:
     from app.data.workspace import Workspace
-    from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
+    from app.ui.chat.agent_chat_message_card import AgentMessageCard, UserMessageCard
 
-class ChatHistoryWidget(BaseWidget):
+class AgentChatHistoryWidget(BaseWidget):
     """Chat history component for displaying multi-agent conversation messages.
 
     Features:
@@ -215,7 +215,7 @@ class ChatHistoryWidget(BaseWidget):
             return None
 
         # Lazy import when first needed
-        from app.ui.chat.agent_message_card import AgentMessageCard, UserMessageCard
+        from app.ui.chat.agent_chat_message_card import AgentMessageCard, UserMessageCard
         from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage, MessageType
 
         is_user, icon_char, bg_color, alignment, use_iconfont = self._get_sender_info(sender)
@@ -280,7 +280,7 @@ class ChatHistoryWidget(BaseWidget):
             return
 
         # Lazy import when first needed
-        from app.ui.chat.agent_message_card import AgentMessageCard
+        from app.ui.chat.agent_chat_message_card import AgentMessageCard
 
         last_widget = self.messages[-1]
         if isinstance(last_widget, AgentMessageCard):
@@ -329,7 +329,7 @@ class ChatHistoryWidget(BaseWidget):
     def add_user_message(self, content: str):
         """Add a user message card."""
         # Lazy import when first needed
-        from app.ui.chat.agent_message_card import UserMessageCard
+        from app.ui.chat.agent_chat_message_card import UserMessageCard
         
         card = UserMessageCard(content, self.messages_container)
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, card)
@@ -348,7 +348,7 @@ class ChatHistoryWidget(BaseWidget):
             return self._message_cards[message_id]
 
         # Lazy import when first needed
-        from app.ui.chat.agent_message_card import AgentMessageCard
+        from app.ui.chat.agent_chat_message_card import AgentMessageCard
         from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage, MessageType
 
         # Create an empty AgentMessage

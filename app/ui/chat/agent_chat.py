@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication
 from agent.filmeto_agent import StreamEvent, AgentStreamSession
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
-from app.ui.chat.chat_history_widget import ChatHistoryWidget
+from app.ui.chat.agent_chat_history import AgentChatHistoryWidget
 from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 from utils.i18n_utils import tr
 
@@ -37,7 +37,7 @@ class StreamEventHandler(QObject):
         self.stream_event_received.emit(event, session)
 
 
-class AgentChatComponent(BaseWidget):
+class AgentChatWidget(BaseWidget):
     """Agent chat component combining prompt input and chat history."""
 
     # Signals for async operations
@@ -78,7 +78,7 @@ class AgentChatComponent(BaseWidget):
         layout.setSpacing(0)
 
         # Chat history component (top, takes most space)
-        self.chat_history_widget = ChatHistoryWidget(self.workspace, self)
+        self.chat_history_widget = AgentChatHistoryWidget(self.workspace, self)
         layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
 
         # Prompt input component (bottom, fixed height)

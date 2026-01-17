@@ -11,7 +11,7 @@ from agent.llm.llm_service import LlmService
 from app.data.project import Project
 from app.data.workspace import Workspace
 from agent.filmeto_agent import FilmetoAgent, StreamEvent
-from app.ui.chat.chat_history_widget import ChatHistoryWidget
+from app.ui.chat.agent_chat_history import AgentChatHistoryWidget
 from app.data.workspace import Workspace as AppWorkspace
 
 
@@ -214,7 +214,7 @@ def test_chat_history_widget_handle_stream_event():
             workspace = AppWorkspace(workspace_path=temp_dir, project_name="test")
             
             # Create a ChatHistoryWidget instance
-            widget = ChatHistoryWidget(workspace)
+            widget = AgentChatHistoryWidget(workspace)
             
             # Create a mock StreamEvent for agent_response
             from agent.filmeto_agent import StreamEvent
