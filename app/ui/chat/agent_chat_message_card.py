@@ -465,38 +465,28 @@ class AgentMessageCard(QFrame):
         name_layout.setContentsMargins(0, 0, 0, 0)
         name_layout.setSpacing(0)
 
-        # Horizontal layout to put name and crew title on the same line
-        name_and_title_layout = QHBoxLayout()
-        name_and_title_layout.setContentsMargins(0, 0, 0, 0)
-        name_and_title_layout.setSpacing(5)
-
+        # Display name
         self.name_label = QLabel(self.agent_message.sender_name or self.agent_message.sender_id, name_widget)
         self.name_label.setStyleSheet("""
             QLabel {
                 color: #4a90d9;
-                font-size: 12px;
+                font-size: 14px;  /* Increased font size */
                 font-weight: bold;
             }
         """)
-        name_and_title_layout.addWidget(self.name_label)
+        name_layout.addWidget(self.name_label)
 
-        # Add crew title with colored block
+        # Add crew title with colored block in place of the role/ID label
         crew_title_widget = self._create_crew_title_widget()
         if crew_title_widget:
-            name_and_title_layout.addWidget(crew_title_widget)
+            # Create a horizontal layout for the crew title to align it to the right
+            crew_title_layout = QHBoxLayout()
+            #crew_title_layout.addStretch()  # Push the crew title to the right
+            crew_title_layout.addWidget(crew_title_widget)
+            crew_title_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Add the horizontal layout to the vertical layout
-        name_layout.addLayout(name_and_title_layout)
-
-        # Role/ID label
-        role_label = QLabel(self.agent_message.sender_id, name_widget)
-        role_label.setStyleSheet("""
-            QLabel {
-                color: #888888;
-                font-size: 10px;
-            }
-        """)
-        name_layout.addWidget(role_label)
+            # Add the crew title layout in place of the role label
+            name_layout.addLayout(crew_title_layout)
 
         header_layout.addWidget(name_widget)
         header_layout.addStretch()
@@ -542,39 +532,33 @@ class AgentMessageCard(QFrame):
         self._apply_style()
 
     def _create_crew_title_widget(self):
-        """Create a widget to display the crew title with a colored block."""
+        """Create a widget to display the crew title with text inside the colored block."""
         if not self.crew_member_metadata or 'crew_title' not in self.crew_member_metadata:
             return None
 
         crew_title = self.crew_member_metadata['crew_title']
 
-        # Create a horizontal layout for the colored block and title
-        title_widget = QWidget()
-        title_layout = QHBoxLayout(title_widget)
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(4)
-
-        # Create the colored block
-        color_block = QLabel()
-        color_block.setFixedSize(10, 10)  # Small square block
-        color_block.setStyleSheet(f"background-color: {self.agent_color}; border-radius: 2px;")
-
-        # Create the title label
-        title_label = QLabel(crew_title.replace('_', ' ').title())
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #ffffff;
-                font-size: 10px;
-                font-weight: normal;
-            }
+        # Create the colored block with text inside
+        title_text = crew_title.replace('_', ' ').title()
+        color_block_with_text = QLabel(title_text)
+        color_block_with_text.setAlignment(Qt.AlignCenter)
+        color_block_with_text.setStyleSheet(f"""
+            QLabel {{
+                background-color: {self.agent_color};
+                color: white;
+                font-size: 9px;
+                font-weight: bold;
+                border-radius: 3px;
+                padding: 3px 8px;  /* Adjust padding for better appearance */
+            }}
         """)
 
-        # Add widgets to layout
-        title_layout.addWidget(color_block)
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()  # Add stretch to prevent expansion
+        # Adjust the width based on the text content
+        font_metrics = color_block_with_text.fontMetrics()
+        text_width = font_metrics.horizontalAdvance(title_text) + 16  # Add some extra space
+        color_block_with_text.setFixedWidth(max(text_width, 60))  # Minimum width of 60
 
-        return title_widget
+        return color_block_with_text
 
     def _apply_style(self):
         """Apply card styling."""
