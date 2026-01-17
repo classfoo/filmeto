@@ -139,7 +139,15 @@ class FilmetoAgent:
 
         crew_members = self.crew_member_service.load_project_crew_members(self.project, refresh=refresh)
         self.crew_members = crew_members
-        self._crew_member_lookup = {name.lower(): agent for name, agent in crew_members.items()}
+        # Create lookup with both name and crew_title as keys
+        self._crew_member_lookup = {}
+        for name, agent in crew_members.items():
+            # Add the agent by its name (current behavior)
+            self._crew_member_lookup[name.lower()] = agent
+            # Add the agent by its crew title (if available in metadata)
+            crew_title = agent.config.metadata.get('crew_title')
+            if crew_title:
+                self._crew_member_lookup[crew_title.lower()] = agent
 
         for crew_member in crew_members.values():
             self._register_crew_member(crew_member)
@@ -218,15 +226,32 @@ class FilmetoAgent:
         return text[: limit - 3].rstrip() + "..."
 
     def _build_producer_message(self, user_message: str, plan_id: str, retry: bool = False) -> str:
-        available = ", ".join(sorted(self.crew_members.keys())) or "none"
+        # Build detailed crew member information including name, title, and skills
+        crew_details = []
+        for name, crew_member in self.crew_members.items():
+            crew_info = f"- Name: {name}"
+            crew_title = crew_member.config.metadata.get('crew_title')
+            if crew_title:
+                crew_info += f", Title: {crew_title}"
+            if crew_member.config.skills:
+                skills = ", ".join(crew_member.config.skills)
+                crew_info += f", Skills: [{skills}]"
+            else:
+                crew_info += ", Skills: [none]"
+            crew_details.append(crew_info)
+
+        crew_details_str = "\n".join(crew_details) if crew_details else "No crew members available."
+
         header = "The current plan has no tasks. Update it now." if retry else "Create a production plan."
         return "\n".join([
             f"{header}",
             f"User request: {user_message}",
             f"Plan id: {plan_id}",
-            f"Available crew members: {available}",
+            "Available crew members (with titles and skills):",
+            crew_details_str,
             "Use plan_update to set name, description, and tasks.",
             "Each task must include: id, name, description, agent_role, needs, parameters.",
+            "The agent_role can be either the crew member's name or their title.",
             "After updating the plan, respond with a final summary and next steps.",
         ])
 
@@ -470,23 +495,59 @@ class FilmetoAgent:
                 on_complete(message)
             return
 
-        responding_agent = await self._select_responding_agent(initial_prompt)
-        if responding_agent:
+        # Prioritize producer if available and no specific agent is mentioned
+        producer_agent = self._get_producer_crew_member()
+        if producer_agent and not mentioned_crew_member:
+            # Create a temporary AgentRole for the producer crew member
+            def make_handler(crew_member_instance: CrewMember):
+                async def handler(message: AgentMessage, on_stream_event=None):
+                    plan_id = message.metadata.get("plan_id") if message.metadata else None
+                    # Pass on_stream_event to the crew so it can emit events
+                    async for token in crew_member_instance.chat_stream(message.content, on_stream_event=on_stream_event, plan_id=plan_id):
+                        metadata = {"plan_id": plan_id} if plan_id else {}
+                        response = AgentMessage(
+                            content=token,
+                            message_type=MessageType.TEXT,
+                            sender_id=crew_member_instance.config.name,
+                            sender_name=crew_member_instance.config.name.capitalize(),
+                            metadata=metadata,
+                        )
+                        logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
+                        yield response
+                return handler
+
+            producer_role = AgentRole(
+                agent_id=producer_agent.config.name,
+                name=producer_agent.config.name.capitalize(),
+                role_description=producer_agent.config.description,
+                handler_func=make_handler(producer_agent)
+            )
+
             async for content in self._stream_agent_messages(
-                responding_agent.handle_message(initial_prompt, on_stream_event=on_stream_event),
+                producer_role.handle_message(initial_prompt, on_stream_event=on_stream_event),
                 session_id,
                 on_token,
                 on_stream_event,
             ):
                 yield content
         else:
-            async for content in self._stream_error_message(
-                "No suitable agent found to handle this request.",
-                session_id,
-                on_token,
-                on_stream_event,
-            ):
-                yield content
+            responding_agent = await self._select_responding_agent(initial_prompt)
+            if responding_agent:
+                async for content in self._stream_agent_messages(
+                    responding_agent.handle_message(initial_prompt, on_stream_event=on_stream_event),
+                    session_id,
+                    on_token,
+                    on_stream_event,
+                ):
+                    yield content
+            else:
+                async for content in self._stream_error_message(
+                    "No suitable agent found to handle this request.",
+                    session_id,
+                    on_token,
+                    on_stream_event,
+                ):
+                    yield content
 
         # Call on_complete callback if provided
         if on_complete:
