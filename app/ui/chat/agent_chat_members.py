@@ -64,11 +64,11 @@ class CrewMemberListItem(QWidget):
         # First, try to get the crew_title from metadata
         crew_title_value = self.crew_member.config.metadata.get('crew_title')
         if crew_title_value:
-            # Try to find a matching CrewTitle
-            for title in CrewTitle:
-                if title.value == crew_title_value:
-                    return title.get_title_display()
-            # If no matching enum found, return the crew_title as is
+            # Create a temporary CrewTitle instance to get the display title
+            title_instance = CrewTitle.create_from_title(crew_title_value)
+            if title_instance and title_instance.title:
+                return title_instance.get_title_display()
+            # If no matching title found, return the crew_title as is
             return crew_title_value.replace('_', ' ').title()
 
         # Fallback: Try to map the crew member's name to a CrewTitle
@@ -84,15 +84,15 @@ class CrewMemberListItem(QWidget):
             elif name_upper == "SOUND_DESIGNER":
                 name_upper = "SOUND_DESIGNER"
 
-            # Try to find a matching CrewTitle
-            for title in CrewTitle:
-                if title.name == name_upper:
-                    return title.get_title_display()
+            # Try to create a CrewTitle instance from the name
+            title_instance = CrewTitle.create_from_title(name_upper.lower())
+            if title_instance and title_instance.title:
+                return title_instance.get_title_display()
 
-            # If no exact match, try to match by value
-            for title in CrewTitle:
-                if title.value == self.crew_member.config.name.lower():
-                    return title.get_title_display()
+            # If no exact match, try to match by lowercase name
+            title_instance = CrewTitle.create_from_title(self.crew_member.config.name.lower())
+            if title_instance and title_instance.title:
+                return title_instance.get_title_display()
 
             # If no match found, return the name as is
             return self.crew_member.config.name.title()
