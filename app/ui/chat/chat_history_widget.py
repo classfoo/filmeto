@@ -53,7 +53,24 @@ class ChatHistoryWidget(BaseWidget):
         self._sub_agent_metadata: Dict[str, Dict[str, Any]] = {}
         self._load_sub_agent_metadata()
 
+        # Connect to project switched signal to refresh metadata when project changes
+        if self.workspace:
+            try:
+                self.workspace.connect_project_switched(self._on_project_switched)
+            except AttributeError:
+                # In case the workspace doesn't have this method
+                pass
+
         self._setup_ui()
+
+    def refresh_sub_agent_metadata(self):
+        """Refresh sub-agent metadata when project changes."""
+        self._load_sub_agent_metadata()
+
+    def _on_project_switched(self, project_name: str):
+        """Handle project switched event."""
+        print(f"Project switched to: {project_name}, refreshing sub-agent metadata")
+        self.refresh_sub_agent_metadata()
 
     def _load_sub_agent_metadata(self):
         """Load sub-agent metadata including color configurations."""
@@ -69,8 +86,13 @@ class ChatHistoryWidget(BaseWidget):
 
                 # Load sub-agent metadata for the project
                 self._sub_agent_metadata = sub_agent_service.get_project_sub_agent_metadata(project)
+                print(f"Loaded sub-agent metadata for project: {len(self._sub_agent_metadata)} agents")
+            else:
+                print("No project found, clearing sub-agent metadata")
+                self._sub_agent_metadata = {}
         except Exception as e:
             print(f"Error loading sub-agent metadata: {e}")
+            self._sub_agent_metadata = {}
 
     def _create_circular_icon(
         self,
@@ -217,9 +239,17 @@ class ChatHistoryWidget(BaseWidget):
             )
 
             # Get the color for this agent from metadata
+            # Ensure metadata is loaded
+            if not self._sub_agent_metadata:
+                self._load_sub_agent_metadata()
+
             agent_color = "#4a90e2"  # Default color
             if sender in self._sub_agent_metadata:
                 agent_color = self._sub_agent_metadata[sender].get('color', '#4a90e2')
+            else:
+                # For user messages, we typically don't want to use sub-agent colors
+                # But if sender happens to match a sub-agent name, we'll use that color
+                print(f"Note: Sender '{sender}' not found in sub-agent metadata (this is normal for user messages)")
 
             card = AgentMessageCard(
                 agent_message=agent_message,
@@ -324,9 +354,15 @@ class ChatHistoryWidget(BaseWidget):
         )
 
         # Get the color for this agent from metadata
+        # Ensure metadata is loaded
+        if not self._sub_agent_metadata:
+            self._load_sub_agent_metadata()
+
         agent_color = "#4a90e2"  # Default color
         if agent_name in self._sub_agent_metadata:
             agent_color = self._sub_agent_metadata[agent_name].get('color', '#4a90e2')
+        else:
+            print(f"Warning: No metadata found for agent {agent_name}, available: {list(self._sub_agent_metadata.keys())}")
 
         card = AgentMessageCard(
             agent_message=agent_message,
