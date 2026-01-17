@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 class ChatHistoryWidget(BaseWidget):
     """Chat history component for displaying multi-agent conversation messages.
-    
+
     Features:
     - Group-chat style presentation with multiple agent cards
     - Streaming content updates per agent
@@ -30,17 +30,17 @@ class ChatHistoryWidget(BaseWidget):
     - Concurrent agent execution visualization
     - Dynamic card updates during streaming
     """
-    
+
     # Signals
     reference_clicked = Signal(str, str)  # ref_type, ref_id
     message_complete = Signal(str, str)  # message_id, agent_name
-    
+
     def __init__(self, workspace: 'Workspace', parent=None):
         """Initialize the chat history widget."""
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
-        
+
         # Message tracking
         self.messages: List[QWidget] = []  # All message widgets
         self._message_cards: Dict[str, AgentMessageCard] = {}  # message_id -> card
@@ -48,9 +48,30 @@ class ChatHistoryWidget(BaseWidget):
         self._scroll_timer = QTimer()
         self._scroll_timer.setSingleShot(True)
         self._scroll_timer.timeout.connect(self._scroll_to_bottom)
-        
+
+        # Sub-agent metadata cache
+        self._sub_agent_metadata: Dict[str, Dict[str, Any]] = {}
+        self._load_sub_agent_metadata()
+
         self._setup_ui()
-    
+
+    def _load_sub_agent_metadata(self):
+        """Load sub-agent metadata including color configurations."""
+        try:
+            # Import here to avoid circular imports
+            from agent.sub_agent.sub_agent_service import SubAgentService
+
+            # Get the current project
+            project = self.workspace.get_project()
+            if project:
+                # Initialize sub-agent service
+                sub_agent_service = SubAgentService()
+
+                # Load sub-agent metadata for the project
+                self._sub_agent_metadata = sub_agent_service.get_project_sub_agent_metadata(project)
+        except Exception as e:
+            print(f"Error loading sub-agent metadata: {e}")
+
     def _create_circular_icon(
         self,
         icon_char: str,
@@ -195,8 +216,14 @@ class ChatHistoryWidget(BaseWidget):
                 message_id=message_id
             )
 
+            # Get the color for this agent from metadata
+            agent_color = "#4a90e2"  # Default color
+            if sender in self._sub_agent_metadata:
+                agent_color = self._sub_agent_metadata[sender].get('color', '#4a90e2')
+
             card = AgentMessageCard(
                 agent_message=agent_message,
+                agent_color=agent_color,  # Pass the color to the card
                 parent=self.messages_container
             )
 
@@ -296,8 +323,14 @@ class ChatHistoryWidget(BaseWidget):
             message_id=message_id
         )
 
+        # Get the color for this agent from metadata
+        agent_color = "#4a90e2"  # Default color
+        if agent_name in self._sub_agent_metadata:
+            agent_color = self._sub_agent_metadata[agent_name].get('color', '#4a90e2')
+
         card = AgentMessageCard(
             agent_message=agent_message,
+            agent_color=agent_color,  # Pass the color to the card
             parent=self.messages_container
         )
 

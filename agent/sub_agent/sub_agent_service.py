@@ -97,6 +97,34 @@ class SubAgentService:
     def refresh_project_sub_agents(self, project: Any) -> Dict[str, SubAgent]:
         return self.load_project_sub_agents(project, refresh=True)
 
+    def get_project_sub_agent_metadata(self, project: Any) -> Dict[str, Dict[str, Any]]:
+        """
+        Get metadata for all sub-agents in a project, including color configuration.
+
+        Args:
+            project: The project to get sub-agent metadata for
+
+        Returns:
+            Dictionary mapping agent names to their metadata (including color)
+        """
+        agents = self.load_project_sub_agents(project)
+        metadata = {}
+
+        for name, agent in agents.items():
+            metadata[name] = {
+                'name': agent.config.name,
+                'description': agent.config.description,
+                'color': agent.config.color,  # This is the color we added earlier
+                'soul': agent.config.soul,
+                'skills': agent.config.skills,
+                'model': agent.config.model,
+                'temperature': agent.config.temperature,
+                'max_steps': agent.config.max_steps,
+                'config_path': agent.config.config_path,
+            }
+
+        return metadata
+
 
 def _resolve_project_path(project: Any) -> Optional[str]:
     if project is None:
