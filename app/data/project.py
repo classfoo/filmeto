@@ -489,7 +489,7 @@ class ProjectManager:
         agent_path = os.path.join(project_path, "agent")
         os.makedirs(agent_path, exist_ok=True)
         os.makedirs(os.path.join(agent_path, "conversations"), exist_ok=True)
-        os.makedirs(os.path.join(agent_path, "sub_agents"), exist_ok=True)
+        os.makedirs(os.path.join(agent_path, "crew_members"), exist_ok=True)
 
         # Create project instance
         project = Project(self.workspace_root_path, project_path, project_name)
@@ -498,9 +498,9 @@ class ProjectManager:
         try:
             from agent.crew import CrewService
 
-            CrewService().initialize_project_sub_agents(project)
+            CrewService().initialize_project_crew_members(project)
         except Exception as exc:
-            logger.warning(f"Failed to initialize sub_agents for project {project_name}: {exc}")
+            logger.warning(f"Failed to initialize crew_members for project {project_name}: {exc}")
 
         return project
     

@@ -27,11 +27,11 @@ async def test_agent_response_display():
         # Initialize a minimal project structure
         agent_dir = project_path / "agent"
         agent_dir.mkdir()
-        sub_agents_dir = agent_dir / "sub_agents"
-        sub_agents_dir.mkdir()
+        crew_members_dir = agent_dir / "crew_members"
+        crew_members_dir.mkdir()
         
         # Create a simple director agent config
-        director_config = sub_agents_dir / "director.md"
+        director_config = crew_members_dir / "director.md"
         director_config.write_text("""---
 name: director
 description: Film director agent

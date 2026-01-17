@@ -27,18 +27,18 @@ def verify_all_colors():
         (project_path / "characters").mkdir()
         (project_path / "agent").mkdir()
         (project_path / "agent" / "conversations").mkdir()
-        (project_path / "agent" / "sub_agents").mkdir()
+        (project_path / "agent" / "crew_members").mkdir()
         
         project = Project(workspace, str(project_path), "test_project")
         
-        # Initialize sub_agents
-        sub_agent_service = CrewService()
-        sub_agent_service.initialize_project_sub_agents(project)
+        # Initialize crew_members
+        crew_member_service = CrewService()
+        crew_member_service.initialize_project_crew_members(project)
         
         # Get metadata
-        metadata = sub_agent_service.get_project_sub_agent_metadata(project)
+        metadata = crew_member_service.get_project_crew_member_metadata(project)
         
-        print(f"\nFound {len(metadata)} sub_agents with color configurations:")
+        print(f"\nFound {len(metadata)} crew_members with color configurations:")
         
         # Print each agent and its color
         for agent_name, agent_data in metadata.items():
@@ -60,7 +60,7 @@ def verify_all_colors():
                 print(f"  ✅ {agent} has color: {metadata[agent]['color']}")
         
         if all_have_colors and len(metadata) >= len(expected_agents):
-            print(f"\n🎉 Success! All {len(expected_agents)} sub_agents have color configurations.")
+            print(f"\n🎉 Success! All {len(expected_agents)} crew_members have color configurations.")
             print("Colors are properly loaded from the configuration files and will be displayed in the UI.")
             return True
         else:

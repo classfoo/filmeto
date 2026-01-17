@@ -28,7 +28,7 @@ def test_sub_agent_icons():
         (project_path / "characters").mkdir()
         (project_path / "agent").mkdir()
         (project_path / "agent" / "conversations").mkdir()
-        (project_path / "agent" / "sub_agents").mkdir()
+        (project_path / "agent" / "crew_members").mkdir()
         
         # Create project instance
         project = Project(workspace, str(project_path), "test_project")
@@ -39,7 +39,7 @@ def test_sub_agent_icons():
         # Load crew metadata
         metadata = sub_agent_service.get_project_sub_agent_metadata(project)
         
-        print(f"Loaded metadata for {len(metadata)} sub_agents:")
+        print(f"Loaded metadata for {len(metadata)} crew_members:")
         
         # Define expected icons for each crew
         expected_icons = {

@@ -38,7 +38,7 @@ def test_sub_agent_colors_in_conversation():
         window.setWindowTitle("Sub-Agent Color Test in Conversation Flow")
         window.resize(800, 600)
         
-        # Test adding messages from different sub_agents
+        # Test adding messages from different crew_members
         test_agents = [
             "director",
             "cinematographer", 
@@ -50,7 +50,7 @@ def test_sub_agent_colors_in_conversation():
             "vfx_supervisor"
         ]
         
-        print("Adding messages from different sub_agents...")
+        print("Adding messages from different crew_members...")
         for i, agent_name in enumerate(test_agents):
             # Create a message ID
             import uuid
@@ -73,7 +73,7 @@ def test_sub_agent_colors_in_conversation():
         timer.timeout.connect(app.quit)
         timer.start(10000)  # Close after 10 seconds
         
-        print("Chat history widget test window opened. Shows messages from all sub_agents with their respective colors.")
+        print("Chat history widget test window opened. Shows messages from all crew_members with their respective colors.")
         print("Each crew should display with its configured color.")
         
         # Start the event loop

@@ -32,7 +32,7 @@ def test_all_sub_agent_colors():
         (project_path / "characters").mkdir()
         (project_path / "agent").mkdir()
         (project_path / "agent" / "conversations").mkdir()
-        (project_path / "agent" / "sub_agents").mkdir()
+        (project_path / "agent" / "crew_members").mkdir()
         
         # Create project instance
         project = Project(workspace, str(project_path), "test_project")
@@ -43,7 +43,7 @@ def test_all_sub_agent_colors():
         # Load crew metadata
         metadata = sub_agent_service.get_project_sub_agent_metadata(project)
         
-        print(f"Loaded metadata for {len(metadata)} sub_agents:")
+        print(f"Loaded metadata for {len(metadata)} crew_members:")
         
         # Define expected colors for each crew
         expected_colors = {
@@ -112,14 +112,14 @@ async def test_chat_history_widget_colors():
         (project_path / "characters").mkdir()
         (project_path / "agent").mkdir()
         (project_path / "agent" / "conversations").mkdir()
-        (project_path / "agent" / "sub_agents").mkdir()
+        (project_path / "agent" / "crew_members").mkdir()
         
         # Create project instance
         project = Project(workspace, str(project_path), "test_project")
         
-        # Initialize the project's sub_agents
-        sub_agent_service = CrewService()
-        sub_agent_service.initialize_project_sub_agents(project)
+        # Initialize the project's crew_members
+        crew_member_service = CrewService()
+        crew_member_service.initialize_project_crew_members(project)
         
         # Create the chat history widget
         chat_widget = ChatHistoryWidget(workspace)
@@ -132,7 +132,7 @@ async def test_chat_history_widget_colors():
         window.setWindowTitle("Sub-Agent Color Test")
         window.resize(800, 600)
         
-        # Add messages from different sub_agents to test their colors
+        # Add messages from different crew_members to test their colors
         test_agents = [
             "director",
             "cinematographer", 
@@ -144,7 +144,7 @@ async def test_chat_history_widget_colors():
             "vfx_supervisor"
         ]
         
-        print("Adding messages from different sub_agents...")
+        print("Adding messages from different crew_members...")
         for i, agent_name in enumerate(test_agents):
             message_id = f"test_msg_{i}"
             card = chat_widget.get_or_create_agent_card(message_id, agent_name)
@@ -167,7 +167,7 @@ async def test_chat_history_widget_colors():
         timer.timeout.connect(app.quit)
         timer.start(10000)  # Close after 10 seconds
         
-        print("Chat history widget test window opened. Shows messages from all sub_agents with their respective colors.")
+        print("Chat history widget test window opened. Shows messages from all crew_members with their respective colors.")
         print("Close the window or wait 10 seconds to continue...")
         
         # Start the event loop

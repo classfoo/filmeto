@@ -12,14 +12,12 @@ from .utils import (
 )
 from .llm.llm_service import LlmService
 from .skill.skill_service import SkillService
-from .crew import SubAgent, SubAgentConfig, CrewService
+from .crew import CrewService
 
 __all__ = [
     "FilmetoAgent",
     "LlmService",
     "SkillService",
-    "SubAgent",
-    "SubAgentConfig",
     "CrewService",
     "AgentMessage",
     "MessageType",

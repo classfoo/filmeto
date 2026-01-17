@@ -125,7 +125,7 @@ def test_project_language_setting():
         (project_path / "characters").mkdir()
         (project_path / "agent").mkdir()
         (project_path / "agent" / "conversations").mkdir()
-        (project_path / "agent" / "sub_agents").mkdir()
+        (project_path / "agent" / "crew_members").mkdir()
         
         # Create project
         project = Project(workspace, str(project_path), "test_project")
