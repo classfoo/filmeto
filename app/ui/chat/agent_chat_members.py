@@ -15,6 +15,7 @@ from PySide6.QtGui import QIcon, QPixmap, QAction
 from agent.crew import CrewMember, CrewMemberConfig, CrewTitle
 from app.data.workspace import Workspace
 from app.ui.base_widget import BaseWidget
+from app.ui.components.avatar_widget import AvatarWidget
 from utils.i18n_utils import tr
 
 
@@ -33,11 +34,13 @@ class CrewMemberListItem(QWidget):
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(8)
 
-        # Icon label
-        self.icon_label = QLabel()
-        self.icon_label.setText(self.crew_member.config.icon)
-        self.icon_label.setStyleSheet("font-size: 20px;")
-        layout.addWidget(self.icon_label)
+        # Avatar widget
+        self.avatar_widget = AvatarWidget(
+            icon=self.crew_member.config.icon,
+            color=self.crew_member.config.color,
+            size=24  # Smaller size for list items
+        )
+        layout.addWidget(self.avatar_widget)
 
         # Name label
         self.name_label = QLabel(self.crew_member.config.name.title())

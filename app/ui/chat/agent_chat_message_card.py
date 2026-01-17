@@ -13,67 +13,13 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QFont, QPen
 
 from app.ui.base_widget import BaseWidget
+from app.ui.components.avatar_widget import AvatarWidget
 from agent.chat.agent_chat_message import AgentMessage, StructureContent, ContentType
 
 if TYPE_CHECKING:
     from app.data.workspace import Workspace
 
 
-class AgentAvatarWidget(QWidget):
-    """Avatar widget for agent display."""
-
-    def __init__(self, agent_name: str, color: str = "#4a90e2", icon_char: str = "🤖", size: int = 32, parent=None):
-        """Initialize avatar widget."""
-        super().__init__(parent)
-        self.agent_name = agent_name
-        self.color = color
-        self.icon_char = icon_char
-        self.size = size
-        self.setFixedSize(size, size)
-        self._create_avatar()
-
-    def _create_avatar(self):
-        """Create the avatar pixmap."""
-        pixmap = QPixmap(self.size, self.size)
-        pixmap.fill(Qt.transparent)
-
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        # Draw rounded rectangle background
-        bg_color = QColor(self.color)
-        painter.setBrush(bg_color)
-        painter.setPen(QPen(bg_color))
-        # Draw rounded rectangle with corner radius of size//4
-        painter.drawRoundedRect(0, 0, self.size, self.size, self.size//4, self.size//4)
-
-        # Draw icon
-        icon_char = self.icon_char
-        if len(icon_char) == 1 and ord(icon_char) < 128:
-            # Regular letter
-            font = QFont()
-            font.setPointSize(self.size // 2)
-            font.setBold(True)
-            painter.setFont(font)
-        else:
-            # Emoji or iconfont
-            font = QFont()
-            font.setPointSize(self.size // 2 - 2)
-            painter.setFont(font)
-
-        painter.setPen(QPen(QColor("#ffffff")))
-        painter.drawText(0, 0, self.size, self.size, Qt.AlignCenter, icon_char)
-
-        painter.end()
-
-        # Set as background
-        self.pixmap = pixmap
-
-    def paintEvent(self, event):
-        """Paint the avatar."""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.drawPixmap(0, 0, self.pixmap)
 
 
 class TextContentWidget(QWidget):
@@ -502,11 +448,11 @@ class AgentMessageCard(QFrame):
 
         # Use the agent-specific color and icon passed to the constructor
         # Avatar - using agent-specific color and icon
-        self.avatar = AgentAvatarWidget(
-            self.agent_message.sender_name or self.agent_message.sender_id,
+        self.avatar = AvatarWidget(
+            icon=self.agent_icon,
             color=self.agent_color,
-            icon_char=self.agent_icon,
             size=42,
+            shape="rounded_rect",  # Match the original style
             parent=header_row
         )
         header_layout.addWidget(self.avatar)
@@ -715,7 +661,7 @@ class UserMessageCard(QFrame):
         header_layout.addWidget(name_label)
 
         # Avatar - using user-specific color
-        avatar = AgentAvatarWidget("You", color="#35373a", icon_char="👤", size=42, parent=header_row)
+        avatar = AvatarWidget(icon="👤", color="#35373a", size=42, shape="rounded_rect", parent=header_row)
         header_layout.addWidget(avatar)
 
         layout.addWidget(header_row)
