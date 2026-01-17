@@ -135,6 +135,15 @@ class ProjectStartupWidget(BaseWidget):
         if hasattr(self, 'agent_chat_component') and self.agent_chat_component:
             # Update the agent's project context
             project = self.workspace.get_project()
+            if not project and project_name:
+                # If project is not loaded but name is provided, try to load it
+                try:
+                    project = self.workspace.project_manager.get_project(project_name)
+                    if project:
+                        self.workspace.set_current_project(project_name)
+                except Exception as e:
+                    logger.error(f"Error loading project {project_name}: {e}")
+
             if project:
                 self.agent_chat_component.update_project(project)
 

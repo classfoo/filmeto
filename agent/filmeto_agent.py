@@ -99,7 +99,7 @@ class FilmetoAgent:
 
         # Initialize the agent
         self._init_agent()
-        self._ensure_crew_members_loaded()
+        # Note: _ensure_crew_members_loaded will be called in the chat_stream method when needed
     
     def _init_agent(self):
         """Initialize the agent using LlmService."""
@@ -382,13 +382,30 @@ class FilmetoAgent:
     async def chat_stream(self, message: str, on_token=None, on_complete=None, on_stream_event=None):
         """
         Stream responses for a chat conversation with the agents.
-        
+
         Args:
             message: The message to process
             on_token: Callback for each token received
             on_complete: Callback when response is complete
             on_stream_event: Callback for stream events
         """
+        # Ensure project is loaded if not provided but workspace exists
+        if not self.project and self.workspace:
+            # Ensure projects are loaded in the workspace
+            if hasattr(self.workspace, 'project_manager') and self.workspace.project_manager:
+                self.workspace.project_manager.ensure_projects_loaded()
+
+            # Try to get the current project from workspace
+            self.project = self.workspace.get_project()
+
+            # If still no project, try to get the first available project
+            if not self.project:
+                project_list = self.workspace.get_projects()
+                if project_list:
+                    # Use the first project in the list as default
+                    first_project_name = next(iter(project_list))
+                    self.project = project_list[first_project_name]
+
         # Create an AgentMessage from the string
         initial_prompt = AgentMessage(
             content=message,
@@ -397,14 +414,14 @@ class FilmetoAgent:
             sender_name="User"
         )
         logger.info(f"📥 Created initial prompt message: id={initial_prompt.message_id}, sender='user', content_preview='{message[:50]}{'...' if len(message) > 50 else ''}'")
-        
+
         # Create a new session
         session_id = str(uuid.uuid4())
         self.current_session = AgentStreamSession(session_id, message)
-        
+
         # Add the initial prompt to history
         self.conversation_history.append(initial_prompt)
-        
+
         # Send a stream event for the user message
         if on_stream_event:
             on_stream_event(StreamEvent("user_message", {"content": message, "session_id": session_id}))
