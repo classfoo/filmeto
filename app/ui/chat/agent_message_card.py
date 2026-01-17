@@ -539,9 +539,10 @@ class AgentMessageCard(QFrame):
         # Content area with padding to account for avatar width
         content_area = QWidget(self)
         content_layout = QVBoxLayout(content_area)
-        content_layout.setContentsMargins(0, 0, 0, 0)  # No margins for the content area itself
-
         avatar_width = 28  # Same as avatar size
+        # Add margins to content area to ensure spacing on both sides
+        content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
+
         self.content_label = QLabel(self.agent_message.content, content_area)
         self.content_label.setObjectName("message_content")
         self.content_label.setWordWrap(True)
@@ -550,7 +551,7 @@ class AgentMessageCard(QFrame):
             QLabel#message_content {
                 color: #e1e1e1;
                 font-size: 13px;
-                padding: 4px 28px; /* 28px is the avatar width */
+                padding: 4px 0px; /* No horizontal padding since it's handled by the layout margins */
                 background-color: #2b2d30; /* Similar to agent background but subtle */
                 border-radius: 5px;
             }
@@ -560,7 +561,7 @@ class AgentMessageCard(QFrame):
         # Structured content container with same padding
         self.structured_container = QWidget(content_area)
         self.structured_layout = QVBoxLayout(self.structured_container)
-        self.structured_layout.setContentsMargins(avatar_width, 4, avatar_width, 0)  # Left and right margins same as avatar width
+        self.structured_layout.setContentsMargins(0, 4, 0, 0)  # No extra margins since handled by parent
         self.structured_layout.setSpacing(6)
         content_layout.addWidget(self.structured_container)
 
@@ -716,9 +717,10 @@ class UserMessageCard(QFrame):
         # Content area with padding to account for avatar width
         content_area = QWidget(self)
         content_layout = QVBoxLayout(content_area)
-        content_layout.setContentsMargins(0, 0, 0, 0)  # No margins for the content area itself
-
         avatar_width = 28  # Same as avatar size
+        # Add margins to content area to ensure spacing on both sides
+        content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
+
         content_label = QLabel(content, content_area)
         content_label.setObjectName("user_content")
         content_label.setWordWrap(True)
@@ -727,7 +729,7 @@ class UserMessageCard(QFrame):
             QLabel#user_content {
                 color: #e1e1e1;
                 font-size: 13px;
-                padding: 8px 28px; /* 28px is the avatar width */
+                padding: 8px 0px; /* No horizontal padding since it's handled by the layout margins */
                 background-color: #35373a;
                 border-radius: 5px;
             }
