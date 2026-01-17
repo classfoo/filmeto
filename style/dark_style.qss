@@ -721,8 +721,11 @@ QPushButton#agent_chat_members_add_button {
     background-color: #4a4a4a;
     border: 1px solid #555555;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 4px;
     color: #ffffff;
+    font-family: "iconfont";
+    min-width: 24px;
+    min-height: 24px;
 }
 
 QPushButton#agent_chat_members_add_button:hover {

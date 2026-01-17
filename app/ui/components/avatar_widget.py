@@ -37,21 +37,23 @@ class AvatarWidget(QWidget):
             # Draw circle
             painter.drawEllipse(0, 0, self.size, self.size)
         else:  # rounded_rect
-            # Draw rounded rectangle with corner radius of size//4
-            painter.drawRoundedRect(0, 0, self.size, self.size, self.size//4, self.size//4)
+            # Calculate corner radius based on size to ensure proper display for small icons
+            # Use a minimum radius of 2 and maximum of size//3 to prevent overly rounded corners
+            corner_radius = max(2, min(self.size // 3, self.size // 4))
+            painter.drawRoundedRect(0, 0, self.size, self.size, corner_radius, corner_radius)
 
         # Draw icon
         icon_char = self.icon
         if len(icon_char) == 1 and ord(icon_char) < 128:
             # Regular letter
             font = QFont()
-            font.setPointSize(self.size // 2)
+            font.setPointSize(max(8, self.size // 2))  # Ensure minimum font size
             font.setBold(True)
             painter.setFont(font)
         else:
             # Emoji or iconfont
             font = QFont()
-            font.setPointSize(self.size // 2 - 2)
+            font.setPointSize(max(6, self.size // 2 - 2))  # Ensure minimum font size
             painter.setFont(font)
 
         painter.setPen(QPen(QColor("#ffffff")))

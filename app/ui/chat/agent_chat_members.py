@@ -31,7 +31,7 @@ class CrewMemberListItem(QWidget):
     def _setup_ui(self):
         """Set up the UI for the crew member item."""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(8, 6, 8, 6)  # Increased vertical margins for better spacing
         layout.setSpacing(8)
 
         # Avatar widget
@@ -51,6 +51,9 @@ class CrewMemberListItem(QWidget):
         self.position_label = QLabel(self._get_position_title())
         self.position_label.setStyleSheet("color: #cccccc; font-size: 12px;")
         layout.addWidget(self.position_label)
+
+        # Set minimum height to ensure full icon visibility
+        self.setMinimumHeight(40)
         
     def _get_position_title(self) -> str:
         """Get the position title for the crew member."""
@@ -127,9 +130,10 @@ class AgentChatMembersWidget(BaseWidget):
         self.toolbar.addWidget(spacer)
 
         # Add member button
-        self.add_member_button = QPushButton(tr("Add Member"))
+        self.add_member_button = QPushButton("")  # Plus icon from iconfont
         self.add_member_button.setObjectName("agent_chat_members_add_button")
         self.add_member_button.clicked.connect(self.add_member_requested.emit)
+        self.add_member_button.setToolTip(tr("Add Member"))
         self.toolbar.addWidget(self.add_member_button)
 
         # List widget for crew members
