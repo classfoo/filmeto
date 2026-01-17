@@ -536,8 +536,13 @@ class AgentMessageCard(QFrame):
 
         main_layout.addWidget(header_row)
 
-        # Content label
-        self.content_label = QLabel(self.agent_message.content, self)
+        # Content area with padding to account for avatar width
+        content_area = QWidget(self)
+        content_layout = QVBoxLayout(content_area)
+        content_layout.setContentsMargins(0, 0, 0, 0)  # No margins for the content area itself
+
+        avatar_width = 28  # Same as avatar size
+        self.content_label = QLabel(self.agent_message.content, content_area)
         self.content_label.setObjectName("message_content")
         self.content_label.setWordWrap(True)
         self.content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
@@ -545,17 +550,21 @@ class AgentMessageCard(QFrame):
             QLabel#message_content {
                 color: #e1e1e1;
                 font-size: 13px;
-                padding: 4px 0px;
+                padding: 4px 28px; /* 28px is the avatar width */
+                background-color: #2b2d30; /* Similar to agent background but subtle */
+                border-radius: 5px;
             }
         """)
-        main_layout.addWidget(self.content_label)
+        content_layout.addWidget(self.content_label)
 
-        # Structured content container
-        self.structured_container = QWidget(self)
+        # Structured content container with same padding
+        self.structured_container = QWidget(content_area)
         self.structured_layout = QVBoxLayout(self.structured_container)
-        self.structured_layout.setContentsMargins(0, 4, 0, 0)
+        self.structured_layout.setContentsMargins(avatar_width, 4, avatar_width, 0)  # Left and right margins same as avatar width
         self.structured_layout.setSpacing(6)
-        main_layout.addWidget(self.structured_container)
+        content_layout.addWidget(self.structured_container)
+
+        main_layout.addWidget(content_area)
 
         # Add structured content widgets based on the agent_message
         for structure_content in self.agent_message.structured_content:
@@ -568,9 +577,7 @@ class AgentMessageCard(QFrame):
         """Apply card styling."""
         self.setStyleSheet("""
             QFrame#agent_message_card {
-                background-color: #2b2d30;
-                border-left: 3px solid #4a90d9;
-                border-radius: 6px;
+                background-color: transparent;
                 margin: 2px 0px;
             }
         """)
@@ -706,8 +713,13 @@ class UserMessageCard(QFrame):
 
         layout.addWidget(header_row)
 
-        # Content
-        content_label = QLabel(content, self)
+        # Content area with padding to account for avatar width
+        content_area = QWidget(self)
+        content_layout = QVBoxLayout(content_area)
+        content_layout.setContentsMargins(0, 0, 0, 0)  # No margins for the content area itself
+
+        avatar_width = 28  # Same as avatar size
+        content_label = QLabel(content, content_area)
         content_label.setObjectName("user_content")
         content_label.setWordWrap(True)
         content_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -715,12 +727,14 @@ class UserMessageCard(QFrame):
             QLabel#user_content {
                 color: #e1e1e1;
                 font-size: 13px;
-                padding: 8px;
+                padding: 8px 28px; /* 28px is the avatar width */
                 background-color: #35373a;
                 border-radius: 5px;
             }
         """)
-        layout.addWidget(content_label)
+        content_layout.addWidget(content_label)
+
+        layout.addWidget(content_area)
 
         self.setStyleSheet("""
             QFrame#user_message_card {
