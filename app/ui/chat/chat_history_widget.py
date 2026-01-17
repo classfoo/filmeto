@@ -244,12 +244,14 @@ class ChatHistoryWidget(BaseWidget):
                 self._load_sub_agent_metadata()
 
             agent_color = "#4a90e2"  # Default color
-            if sender in self._sub_agent_metadata:
-                agent_color = self._sub_agent_metadata[sender].get('color', '#4a90e2')
+            # Normalize the sender to lowercase to match metadata keys
+            normalized_sender = sender.lower()
+            if normalized_sender in self._sub_agent_metadata:
+                agent_color = self._sub_agent_metadata[normalized_sender].get('color', '#4a90e2')
             else:
                 # For user messages, we typically don't want to use sub-agent colors
                 # But if sender happens to match a sub-agent name, we'll use that color
-                print(f"Note: Sender '{sender}' not found in sub-agent metadata (this is normal for user messages)")
+                print(f"Note: Sender '{normalized_sender}' not found in sub-agent metadata (this is normal for user messages)")
 
             card = AgentMessageCard(
                 agent_message=agent_message,
@@ -359,10 +361,12 @@ class ChatHistoryWidget(BaseWidget):
             self._load_sub_agent_metadata()
 
         agent_color = "#4a90e2"  # Default color
-        if agent_name in self._sub_agent_metadata:
-            agent_color = self._sub_agent_metadata[agent_name].get('color', '#4a90e2')
+        # Normalize the agent_name to lowercase to match metadata keys
+        normalized_agent_name = agent_name.lower()
+        if normalized_agent_name in self._sub_agent_metadata:
+            agent_color = self._sub_agent_metadata[normalized_agent_name].get('color', '#4a90e2')
         else:
-            print(f"Warning: No metadata found for agent {agent_name}, available: {list(self._sub_agent_metadata.keys())}")
+            print(f"Warning: No metadata found for agent {normalized_agent_name}, available: {list(self._sub_agent_metadata.keys())}")
 
         card = AgentMessageCard(
             agent_message=agent_message,
@@ -468,7 +472,7 @@ class ChatHistoryWidget(BaseWidget):
             # Create or update the card with the content
             card = self.get_or_create_agent_card(
                 message_id,
-                sender_name,
+                sender_name,  # This will be normalized in get_or_create_agent_card
                 sender_name
             )
 
