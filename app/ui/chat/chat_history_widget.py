@@ -238,16 +238,20 @@ class ChatHistoryWidget(BaseWidget):
                 message_id=message_id
             )
 
-            # Get the color for this agent from metadata
+            # Get the color and icon for this agent from metadata
             # Ensure metadata is loaded
             if not self._sub_agent_metadata:
                 self._load_sub_agent_metadata()
 
             agent_color = "#4a90e2"  # Default color
+            agent_icon = "🤖"  # Default icon
+
             # Normalize the sender to lowercase to match metadata keys
             normalized_sender = sender.lower()
             if normalized_sender in self._sub_agent_metadata:
                 agent_color = self._sub_agent_metadata[normalized_sender].get('color', '#4a90e2')
+                # Get the icon from metadata, default to "🤖" if not specified
+                agent_icon = self._sub_agent_metadata[normalized_sender].get('icon', '🤖')
             else:
                 # For user messages, we typically don't want to use sub-agent colors
                 # But if sender happens to match a sub-agent name, we'll use that color
@@ -256,6 +260,7 @@ class ChatHistoryWidget(BaseWidget):
             card = AgentMessageCard(
                 agent_message=agent_message,
                 agent_color=agent_color,  # Pass the color to the card
+                agent_icon=agent_icon,    # Pass the icon to the card
                 parent=self.messages_container
             )
 
@@ -355,22 +360,27 @@ class ChatHistoryWidget(BaseWidget):
             message_id=message_id
         )
 
-        # Get the color for this agent from metadata
+        # Get the color and icon for this agent from metadata
         # Ensure metadata is loaded
         if not self._sub_agent_metadata:
             self._load_sub_agent_metadata()
 
         agent_color = "#4a90e2"  # Default color
+        agent_icon = "🤖"  # Default icon
+
         # Normalize the agent_name to lowercase to match metadata keys
         normalized_agent_name = agent_name.lower()
         if normalized_agent_name in self._sub_agent_metadata:
             agent_color = self._sub_agent_metadata[normalized_agent_name].get('color', '#4a90e2')
+            # Get the icon from metadata, default to "🤖" if not specified
+            agent_icon = self._sub_agent_metadata[normalized_agent_name].get('icon', '🤖')
         else:
             print(f"Warning: No metadata found for agent {normalized_agent_name}, available: {list(self._sub_agent_metadata.keys())}")
 
         card = AgentMessageCard(
             agent_message=agent_message,
             agent_color=agent_color,  # Pass the color to the card
+            agent_icon=agent_icon,    # Pass the icon to the card
             parent=self.messages_container
         )
 

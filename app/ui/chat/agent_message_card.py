@@ -461,12 +461,14 @@ class AgentMessageCard(QFrame):
         self,
         agent_message: AgentMessage,
         parent=None,
-        agent_color: str = "#4a90e2"  # Default color
+        agent_color: str = "#4a90e2",  # Default color
+        agent_icon: str = "🤖"  # Default icon
     ):
         """Initialize agent message card."""
         super().__init__(parent)
         self.agent_message = agent_message
         self.agent_color = agent_color  # Store the agent-specific color
+        self.agent_icon = agent_icon  # Store the agent-specific icon
 
         # For backward compatibility
         self._is_thinking = False
@@ -498,12 +500,12 @@ class AgentMessageCard(QFrame):
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
-        # Use the agent-specific color passed to the constructor
+        # Use the agent-specific color and icon passed to the constructor
         # Avatar - using agent-specific color and icon
         self.avatar = AgentAvatarWidget(
             self.agent_message.sender_name or self.agent_message.sender_id,
             color=self.agent_color,
-            icon_char="🤖",
+            icon_char=self.agent_icon,
             size=42,
             parent=header_row
         )

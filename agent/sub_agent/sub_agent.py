@@ -24,6 +24,7 @@ class SubAgentConfig:
     temperature: float = 0.4
     max_steps: int = 5
     color: str = "#4a90e2"  # Default color for the agent's icon
+    icon: str = "🤖"  # Default icon for the agent
     metadata: Dict[str, Any] = field(default_factory=dict)
     config_path: Optional[str] = None
 
@@ -41,6 +42,7 @@ class SubAgentConfig:
         temperature = float(metadata.get("temperature", 0.4))
         max_steps = int(metadata.get("max_steps", 5))
         color = metadata.get("color", "#4a90e2")  # Get color from metadata, default to blue
+        icon = metadata.get("icon", "🤖")  # Get icon from metadata, default to robot
 
         return cls(
             name=name,
@@ -52,6 +54,7 @@ class SubAgentConfig:
             temperature=temperature,
             max_steps=max_steps,
             color=color,
+            icon=icon,
             metadata=metadata,
             config_path=file_path,
         )

@@ -115,6 +115,7 @@ class SubAgentService:
                 'name': agent.config.name,
                 'description': agent.config.description,
                 'color': agent.config.color,  # This is the color we added earlier
+                'icon': agent.config.icon,   # This is the icon we added
                 'soul': agent.config.soul,
                 'skills': agent.config.skills,
                 'model': agent.config.model,
