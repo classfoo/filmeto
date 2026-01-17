@@ -25,7 +25,7 @@ def test_both_languages():
         workspace_path.mkdir()
         
         # Create a test project
-        project = Project(str(workspace_path), "test_project", "Test Project")
+        project = Project(str(workspace_path), "../test_project", "Test Project")
         
         # Test with Chinese language first
         print("\n1. Testing with Chinese language...")

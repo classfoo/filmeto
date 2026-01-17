@@ -69,7 +69,7 @@ def test_with_temp_project():
         print("\n4. Testing with Chinese language in project...")
         translation_manager.switch_language("zh_CN")
         
-        project_zh = Project(str(workspace_path), "test_project_zh", "Test Project ZH")
+        project_zh = Project(str(workspace_path), "../test_project_zh", "Test Project ZH")
         crew_service = CrewService()
         crew_service.initialize_project_crew_members(project_zh)
         crew_members_zh = crew_service.load_project_crew_members(project_zh)
@@ -84,7 +84,7 @@ def test_with_temp_project():
         print("\n5. Testing with English language in project...")
         translation_manager.switch_language("en_US")
         
-        project_en = Project(str(workspace_path), "test_project_en", "Test Project EN")
+        project_en = Project(str(workspace_path), "../test_project_en", "Test Project EN")
         crew_service_en = CrewService()  # Create a new instance to avoid caching
         crew_service_en.initialize_project_crew_members(project_en)
         crew_members_en = crew_service_en.load_project_crew_members(project_en)
