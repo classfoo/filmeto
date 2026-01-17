@@ -146,7 +146,7 @@ class ChatHistoryWidget(BaseWidget):
             }
         """)
         self.messages_layout = QVBoxLayout(self.messages_container)
-        self.messages_layout.setContentsMargins(10, 10, 10, 10)
+        self.messages_layout.setContentsMargins(5, 10, 5, 10)
         self.messages_layout.setSpacing(8)
         self.messages_layout.addStretch()
 

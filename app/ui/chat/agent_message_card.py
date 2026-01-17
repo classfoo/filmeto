@@ -486,7 +486,7 @@ class AgentMessageCard(QFrame):
 
         # Main layout
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setContentsMargins(5, 8, 5, 8)
         main_layout.setSpacing(6)
 
         # Header row (avatar + name)
@@ -685,7 +685,7 @@ class UserMessageCard(QFrame):
     def _setup_ui(self, content: str):
         """Set up UI."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(5, 8, 5, 8)
         layout.setSpacing(6)
 
         # Header row
