@@ -58,11 +58,21 @@ class CrewMemberListItem(QWidget):
         
     def _get_position_title(self) -> str:
         """Get the position title for the crew member."""
-        # Try to map the crew member's name to a CrewTitle
+        # First, try to get the crew_title from metadata
+        crew_title_value = self.crew_member.config.metadata.get('crew_title')
+        if crew_title_value:
+            # Try to find a matching CrewTitle
+            for title in CrewTitle:
+                if title.value == crew_title_value:
+                    return title.get_title_display()
+            # If no matching enum found, return the crew_title as is
+            return crew_title_value.replace('_', ' ').title()
+
+        # Fallback: Try to map the crew member's name to a CrewTitle
         try:
             # Convert the name to uppercase and replace spaces/underscores with underscores for enum lookup
             name_upper = self.crew_member.config.name.upper().replace('-', '_').replace(' ', '_')
-            
+
             # Special case handling for common variations
             if name_upper == "STORYBOARD_ARTIST":
                 name_upper = "STORYBOARD_ARTIST"
@@ -70,17 +80,17 @@ class CrewMemberListItem(QWidget):
                 name_upper = "VFX_SUPERVISOR"
             elif name_upper == "SOUND_DESIGNER":
                 name_upper = "SOUND_DESIGNER"
-            
+
             # Try to find a matching CrewTitle
             for title in CrewTitle:
                 if title.name == name_upper:
                     return title.get_title_display()
-                    
+
             # If no exact match, try to match by value
             for title in CrewTitle:
                 if title.value == self.crew_member.config.name.lower():
                     return title.get_title_display()
-                    
+
             # If no match found, return the name as is
             return self.crew_member.config.name.title()
         except:
