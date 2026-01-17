@@ -112,23 +112,9 @@ class CrewTitle:
         if not md_file_path.exists():
             return {}
 
-        # Read the file and extract metadata from frontmatter
-        with open(md_file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        if content.startswith('---'):
-            end_marker_idx = content.find('---', 3)
-            if end_marker_idx != -1:
-                yaml_str = content[3:end_marker_idx].strip()
-                try:
-                    metadata = yaml.safe_load(yaml_str)
-                    if metadata is None:
-                        metadata = {}
-                    return metadata
-                except yaml.YAMLError:
-                    pass
-
-        return {}
+        # Use the new utility function to read the metadata
+        from utils.md_with_meta_utils import get_metadata
+        return get_metadata(md_file_path)
 
     @classmethod
     def create_from_title(cls, title: str) -> 'CrewTitle':
