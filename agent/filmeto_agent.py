@@ -658,7 +658,7 @@ class FilmetoAgent:
         """Update the agent context with new project information."""
         if project:
             self.project = project
-            self._ensure_sub_agents_loaded(refresh=True)
+            self._ensure_crew_members_loaded(refresh=True)
 
     async def broadcast_message(self, message: AgentMessage) -> AsyncIterator[AgentMessage]:
         """
