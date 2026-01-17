@@ -408,13 +408,15 @@ class AgentMessageCard(QFrame):
         agent_message: AgentMessage,
         parent=None,
         agent_color: str = "#4a90e2",  # Default color
-        agent_icon: str = "🤖"  # Default icon
+        agent_icon: str = "🤖",  # Default icon
+        crew_member_metadata: Optional[Dict[str, Any]] = None  # Metadata for crew member
     ):
         """Initialize agent message card."""
         super().__init__(parent)
         self.agent_message = agent_message
         self.agent_color = agent_color  # Store the agent-specific color
         self.agent_icon = agent_icon  # Store the agent-specific icon
+        self.crew_member_metadata = crew_member_metadata  # Store crew member metadata
 
         # For backward compatibility
         self._is_thinking = False
@@ -463,6 +465,11 @@ class AgentMessageCard(QFrame):
         name_layout.setContentsMargins(0, 0, 0, 0)
         name_layout.setSpacing(0)
 
+        # Horizontal layout to put name and crew title on the same line
+        name_and_title_layout = QHBoxLayout()
+        name_and_title_layout.setContentsMargins(0, 0, 0, 0)
+        name_and_title_layout.setSpacing(5)
+
         self.name_label = QLabel(self.agent_message.sender_name or self.agent_message.sender_id, name_widget)
         self.name_label.setStyleSheet("""
             QLabel {
@@ -471,7 +478,15 @@ class AgentMessageCard(QFrame):
                 font-weight: bold;
             }
         """)
-        name_layout.addWidget(self.name_label)
+        name_and_title_layout.addWidget(self.name_label)
+
+        # Add crew title with colored block
+        crew_title_widget = self._create_crew_title_widget()
+        if crew_title_widget:
+            name_and_title_layout.addWidget(crew_title_widget)
+
+        # Add the horizontal layout to the vertical layout
+        name_layout.addLayout(name_and_title_layout)
 
         # Role/ID label
         role_label = QLabel(self.agent_message.sender_id, name_widget)
@@ -525,6 +540,41 @@ class AgentMessageCard(QFrame):
 
         # Apply card styling
         self._apply_style()
+
+    def _create_crew_title_widget(self):
+        """Create a widget to display the crew title with a colored block."""
+        if not self.crew_member_metadata or 'crew_title' not in self.crew_member_metadata:
+            return None
+
+        crew_title = self.crew_member_metadata['crew_title']
+
+        # Create a horizontal layout for the colored block and title
+        title_widget = QWidget()
+        title_layout = QHBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(4)
+
+        # Create the colored block
+        color_block = QLabel()
+        color_block.setFixedSize(10, 10)  # Small square block
+        color_block.setStyleSheet(f"background-color: {self.agent_color}; border-radius: 2px;")
+
+        # Create the title label
+        title_label = QLabel(crew_title.replace('_', ' ').title())
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 10px;
+                font-weight: normal;
+            }
+        """)
+
+        # Add widgets to layout
+        title_layout.addWidget(color_block)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()  # Add stretch to prevent expansion
+
+        return title_widget
 
     def _apply_style(self):
         """Apply card styling."""

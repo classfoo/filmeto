@@ -73,7 +73,7 @@ class AgentChatHistoryWidget(BaseWidget):
         self.refresh_crew_member_metadata()
 
     def _load_crew_member_metadata(self):
-        """Load crew member metadata including color configurations."""
+        """Load crew member objects including color configurations."""
         try:
             # Import here to avoid circular imports
             from agent.crew.crew_service import CrewService
@@ -84,14 +84,21 @@ class AgentChatHistoryWidget(BaseWidget):
                 # Initialize crew member service
                 crew_member_service = CrewService()
 
-                # Load crew member metadata for the project
-                self._crew_member_metadata = crew_member_service.get_project_crew_member_metadata(project)
-                print(f"Loaded crew member metadata for project: {len(self._crew_member_metadata)} agents")
+                # Load crew members for the project
+                crew_members = crew_member_service.get_project_crew_members(project)
+
+                # Convert to a dictionary using crew member names as keys for easy lookup
+                self._crew_member_metadata = {}
+                for name, crew_member in crew_members.items():
+                    # Use the crew member's actual name as the key (normalized to lowercase)
+                    self._crew_member_metadata[crew_member.config.name.lower()] = crew_member
+
+                print(f"Loaded crew members for project: {len(self._crew_member_metadata)} agents")
             else:
                 print("No project found, clearing crew member metadata")
                 self._crew_member_metadata = {}
         except Exception as e:
-            print(f"Error loading crew member metadata: {e}")
+            print(f"Error loading crew members: {e}")
             self._crew_member_metadata = {}
 
     def _create_circular_icon(
@@ -248,19 +255,43 @@ class AgentChatHistoryWidget(BaseWidget):
 
             # Normalize the sender to lowercase to match metadata keys
             normalized_sender = sender.lower()
-            if normalized_sender in self._crew_member_metadata:
-                agent_color = self._crew_member_metadata[normalized_sender].get('color', '#4a90e2')
-                # Get the icon from metadata, default to "🤖" if not specified
-                agent_icon = self._crew_member_metadata[normalized_sender].get('icon', '🤖')
+            sender_crew_member = self._crew_member_metadata.get(normalized_sender)
+            if sender_crew_member:
+                agent_color = sender_crew_member.config.color
+                agent_icon = sender_crew_member.config.icon
             else:
                 # For user messages, we typically don't want to use sub-agent colors
                 # But if sender happens to match a sub-agent name, we'll use that color
                 print(f"Note: Sender '{normalized_sender}' not found in sub-agent metadata (this is normal for user messages)")
+                agent_color = '#4a90e2'  # Default color
+                agent_icon = '🤖'  # Default icon
+
+            # Use the same crew member object for metadata
+            crew_member_obj = sender_crew_member
+
+            # Convert crew member object to metadata format
+            if crew_member_obj:
+                crew_member_data = {
+                    'name': crew_member_obj.config.name,
+                    'description': crew_member_obj.config.description,
+                    'color': crew_member_obj.config.color,
+                    'icon': crew_member_obj.config.icon,
+                    'soul': crew_member_obj.config.soul,
+                    'skills': crew_member_obj.config.skills,
+                    'model': crew_member_obj.config.model,
+                    'temperature': crew_member_obj.config.temperature,
+                    'max_steps': crew_member_obj.config.max_steps,
+                    'config_path': crew_member_obj.config.config_path,
+                    'crew_title': crew_member_obj.config.metadata.get('crew_title', normalized_sender)
+                }
+            else:
+                crew_member_data = {}
 
             card = AgentMessageCard(
                 agent_message=agent_message,
                 agent_color=agent_color,  # Pass the color to the card
                 agent_icon=agent_icon,    # Pass the icon to the card
+                crew_member_metadata=crew_member_data,  # Pass the crew member metadata
                 parent=self.messages_container
             )
 
@@ -370,17 +401,41 @@ class AgentChatHistoryWidget(BaseWidget):
 
         # Normalize the agent_name to lowercase to match metadata keys
         normalized_agent_name = agent_name.lower()
-        if normalized_agent_name in self._crew_member_metadata:
-            agent_color = self._crew_member_metadata[normalized_agent_name].get('color', '#4a90e2')
-            # Get the icon from metadata, default to "🤖" if not specified
-            agent_icon = self._crew_member_metadata[normalized_agent_name].get('icon', '🤖')
+        agent_crew_member = self._crew_member_metadata.get(normalized_agent_name)
+        if agent_crew_member:
+            agent_color = agent_crew_member.config.color
+            agent_icon = agent_crew_member.config.icon
         else:
             print(f"Warning: No metadata found for agent {normalized_agent_name}, available: {list(self._crew_member_metadata.keys())}")
+            agent_color = '#4a90e2'  # Default color
+            agent_icon = '🤖'  # Default icon
+
+        # Use the same crew member object for metadata
+        crew_member_obj = agent_crew_member
+
+        # Convert crew member object to metadata format
+        if crew_member_obj:
+            crew_member_data = {
+                'name': crew_member_obj.config.name,
+                'description': crew_member_obj.config.description,
+                'color': crew_member_obj.config.color,
+                'icon': crew_member_obj.config.icon,
+                'soul': crew_member_obj.config.soul,
+                'skills': crew_member_obj.config.skills,
+                'model': crew_member_obj.config.model,
+                'temperature': crew_member_obj.config.temperature,
+                'max_steps': crew_member_obj.config.max_steps,
+                'config_path': crew_member_obj.config.config_path,
+                'crew_title': crew_member_obj.config.metadata.get('crew_title', normalized_agent_name)
+            }
+        else:
+            crew_member_data = {}
 
         card = AgentMessageCard(
             agent_message=agent_message,
             agent_color=agent_color,  # Pass the color to the card
             agent_icon=agent_icon,    # Pass the icon to the card
+            crew_member_metadata=crew_member_data,  # Pass the crew member metadata
             parent=self.messages_container
         )
 
@@ -497,9 +552,10 @@ class AgentChatHistoryWidget(BaseWidget):
             # Create or update the card with the content
             card = self._message_cards.get(event.message_id)
             if not card:
+                agent_name = getattr(event, 'agent_name', 'Unknown')
                 card = self.get_or_create_agent_card(
                     event.message_id,
-                    getattr(event, 'agent_name', 'Unknown'),
+                    agent_name,
                     getattr(event, 'agent_role', None)
                 )
 

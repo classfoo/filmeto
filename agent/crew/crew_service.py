@@ -299,35 +299,18 @@ class CrewService:
     def refresh_project_crew_members(self, project: Any) -> Dict[str, CrewMember]:
         return self.load_project_crew_members(project, refresh=True)
 
-    def get_project_crew_member_metadata(self, project: Any) -> Dict[str, Dict[str, Any]]:
+    def get_project_crew_members(self, project: Any) -> Dict[str, 'CrewMember']:
         """
-        Get metadata for all crew members in a project, including color configuration.
+        Get all crew members for a project.
         Includes backward compatibility for old sub_agents directory.
 
         Args:
-            project: The project to get crew member metadata for
+            project: The project to get crew members for
 
         Returns:
-            Dictionary mapping agent names to their metadata (including color)
+            Dictionary mapping agent names to their CrewMember objects
         """
-        agents = self.load_project_crew_members(project)
-        metadata = {}
-
-        for name, agent in agents.items():
-            metadata[name] = {
-                'name': agent.config.name,
-                'description': agent.config.description,
-                'color': agent.config.color,  # This is the color we added earlier
-                'icon': agent.config.icon,   # This is the icon we added
-                'soul': agent.config.soul,
-                'skills': agent.config.skills,
-                'model': agent.config.model,
-                'temperature': agent.config.temperature,
-                'max_steps': agent.config.max_steps,
-                'config_path': agent.config.config_path,
-            }
-
-        return metadata
+        return self.load_project_crew_members(project)
 
 
 def _resolve_project_path(project: Any) -> Optional[str]:
