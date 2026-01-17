@@ -31,29 +31,30 @@ class CrewMemberListItem(QWidget):
     def _setup_ui(self):
         """Set up the UI for the crew member item."""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)  # Increased vertical margins for better spacing
-        layout.setSpacing(8)
+        layout.setContentsMargins(10, 8, 10, 8)  # Increased margins for better spacing
+        layout.setSpacing(10)  # Increased spacing between elements
+        layout.setAlignment(Qt.AlignVCenter)  # Vertically center all elements
 
         # Avatar widget
         self.avatar_widget = AvatarWidget(
             icon=self.crew_member.config.icon,
             color=self.crew_member.config.color,
-            size=24  # Smaller size for list items
+            size=28  # Slightly larger size for better visibility
         )
-        layout.addWidget(self.avatar_widget)
+        layout.addWidget(self.avatar_widget, 0, Qt.AlignVCenter)  # Align to center vertically
 
         # Name label
         self.name_label = QLabel(self.crew_member.config.name.title())
         self.name_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #ffffff;")
-        layout.addWidget(self.name_label, 1)  # Expanding
+        layout.addWidget(self.name_label, 1, Qt.AlignVCenter)  # Expanding with vertical center alignment
 
         # Position label
         self.position_label = QLabel(self._get_position_title())
         self.position_label.setStyleSheet("color: #cccccc; font-size: 12px;")
-        layout.addWidget(self.position_label)
+        layout.addWidget(self.position_label, 0, Qt.AlignVCenter)  # Align to center vertically
 
-        # Set minimum height to ensure full icon visibility
-        self.setMinimumHeight(40)
+        # Set minimum height to ensure full icon visibility and proper spacing
+        self.setMinimumHeight(50)
         
     def _get_position_title(self) -> str:
         """Get the position title for the crew member."""
@@ -140,6 +141,10 @@ class AgentChatMembersWidget(BaseWidget):
         self.list_widget = QListWidget()
         self.list_widget.setObjectName("agent_chat_members_list")
         self.list_widget.itemSelectionChanged.connect(self._on_item_selection_changed)
+        # Set spacing between items
+        self.list_widget.setSpacing(4)
+        # Set uniform item heights to ensure proper alignment
+        self.list_widget.setUniformItemSizes(True)
         layout.addWidget(self.list_widget)
         
     def _connect_signals(self):
