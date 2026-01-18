@@ -19,6 +19,7 @@ from app.ui.chat.message.link_widget import LinkWidget
 from app.ui.chat.message.table_widget import TableWidget
 # Import specialized widgets from the message subpackage
 from app.ui.chat.message.text_content_widget import TextContentWidget
+from app.ui.chat.message.structure_content_widget import StructureContentWidget
 from app.ui.components.avatar_widget import AvatarWidget
 
 if TYPE_CHECKING:
@@ -134,11 +135,9 @@ class BaseMessageCard(QFrame):
         self.bubble_layout.setContentsMargins(10, 8, 10, 8)
         self.bubble_layout.setSpacing(0)
 
-        self.content_label = QLabel(content, self.bubble_container)
-        self.content_label.setObjectName("message_content")
-        self.content_label.setWordWrap(True)
-        self.content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
-        self.content_label.setStyleSheet(f"""
+        # Replace content_label with structure_content widget
+        self.structure_content = StructureContentWidget(content, self.bubble_container)
+        self.structure_content.setStyleSheet(f"""
             QLabel#message_content {{
                 background-color: {self.background_color};
                 color: {self.text_color};
@@ -146,16 +145,10 @@ class BaseMessageCard(QFrame):
                 border-radius: 5px;
             }}
         """)
-        self.content_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
-        self.bubble_layout.addWidget(self.content_label)
+        self.bubble_layout.addWidget(self.structure_content)
         self.content_layout.addWidget(self.bubble_container)
 
-        # Structured content container with same padding
-        self.structured_container = QWidget(self.content_area)
-        self.structured_layout = QVBoxLayout(self.structured_container)
-        self.structured_layout.setContentsMargins(0, 4, 0, 0)  # No extra margins since handled by parent
-        self.structured_layout.setSpacing(6)
-        self.content_layout.addWidget(self.structured_container)
+        # No need for separate structured container since it's handled by structure_content
 
         main_layout.addWidget(self.content_area)
 
@@ -191,10 +184,10 @@ class BaseMessageCard(QFrame):
         return max(80, max_width)
 
     def _calculate_text_width(self, max_text_width: int) -> int:
-        text = self.content_label.text() or ""
+        text = self.structure_content.get_content() or ""
         if not text:
             return 0
-        font_metrics = self.content_label.fontMetrics()
+        font_metrics = self.structure_content.get_content_label().fontMetrics()
         lines = text.splitlines() or [text]
         max_line_width = 0
         for line in lines:
@@ -207,9 +200,9 @@ class BaseMessageCard(QFrame):
         max_text_width = max(0, max_width - padding)
         text_width = self._calculate_text_width(max_text_width)
         bubble_width = min(max_width, text_width + padding)
-        self.content_label.setMaximumWidth(max_text_width)
+        self.structure_content.get_content_label().setMaximumWidth(max_text_width)
         self.bubble_container.setFixedWidth(max(1, bubble_width))
-        self.structured_container.setMaximumWidth(max_width)
+        self.structure_content.setMaximumWidth(max_width)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -221,41 +214,40 @@ class BaseMessageCard(QFrame):
         widget = None
 
         if structure_content.content_type == ContentType.TEXT:
-            widget = TextContentWidget(structure_content, self.structured_container)
+            widget = TextContentWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.CODE_BLOCK:
-            widget = CodeBlockWidget(structure_content, self.structured_container)
+            widget = CodeBlockWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.TABLE:
-            widget = TableWidget(structure_content, self.structured_container)
+            widget = TableWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.LINK:
-            widget = LinkWidget(structure_content, self.structured_container)
+            widget = LinkWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.BUTTON:
-            widget = ButtonWidget(structure_content, self.structured_container)
+            widget = ButtonWidget(structure_content, self.structure_content)
         # Add more content types as needed
         else:
             # Default to text content for unrecognized types
-            widget = TextContentWidget(structure_content, self.structured_container)
+            widget = TextContentWidget(structure_content, self.structure_content)
 
         if widget:
-            self.structured_layout.addWidget(widget)
+            self.structure_content.add_structured_content_widget(widget)
 
     def set_content(self, content: str):
         """Set the content (replace)."""
-        self.content_label.setText(content)
+        self.structure_content.set_content(content)
         self._update_bubble_width()
 
     def append_content(self, content: str):
         """Append content."""
-        current_text = self.content_label.text()
-        self.content_label.setText(current_text + content)
+        self.structure_content.append_content(content)
         self._update_bubble_width()
 
     def get_content(self) -> str:
         """Get current content."""
-        return self.content_label.text()
+        return self.structure_content.get_content()
 
     def get_content_label(self):
         """Get the content label widget (for backward compatibility)."""
-        return self.content_label
+        return self.structure_content.get_content_label()
 
     def set_thinking(self, is_thinking: bool, thinking_text: str = ""):
         """Set thinking state (placeholder for backward compatibility)."""
@@ -274,7 +266,7 @@ class BaseMessageCard(QFrame):
         # Show error in content
         error_content = f"❌ Error: {error_message}"
         self.set_content(error_content)
-        self.content_label.setStyleSheet(f"""
+        self.structure_content.get_content_label().setStyleSheet(f"""
             QLabel#message_content {{
                 color: #e74c3c;
                 font-size: 13px;
@@ -287,11 +279,7 @@ class BaseMessageCard(QFrame):
 
     def clear_structured_content(self):
         """Clear all structured content."""
-        for i in reversed(range(self.structured_layout.count())):
-            widget = self.structured_layout.itemAt(i).widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
+        self.structure_content.clear_structured_content()
 
 
 class AgentMessageCard(BaseMessageCard):
@@ -368,15 +356,11 @@ class AgentMessageCard(BaseMessageCard):
     def update_from_agent_message(self, agent_message: AgentMessage):
         """Update the card from a new agent message."""
         # Update basic content
-        self.content_label.setText(agent_message.content)
+        self.structure_content.set_content(agent_message.content)
         self._update_bubble_width()
 
         # Clear existing structured content
-        for i in reversed(range(self.structured_layout.count())):
-            widget = self.structured_layout.itemAt(i).widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
+        self.clear_structured_content()
 
         # Add new structured content
         for structure_content in agent_message.structured_content:
