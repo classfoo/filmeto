@@ -470,7 +470,7 @@ class AgentMessageCard(QFrame):
         self.name_label.setStyleSheet("""
             QLabel {
                 color: #4a90d9;
-                font-size: 14px;  /* Increased font size */
+                font-size: 14px;
                 font-weight: bold;
             }
         """)
@@ -479,14 +479,8 @@ class AgentMessageCard(QFrame):
         # Add crew title with colored block in place of the role/ID label
         crew_title_widget = self._create_crew_title_widget()
         if crew_title_widget:
-            # Create a horizontal layout for the crew title to align it to the right
-            crew_title_layout = QHBoxLayout()
-            #crew_title_layout.addStretch()  # Push the crew title to the right
-            crew_title_layout.addWidget(crew_title_widget)
-            crew_title_layout.setContentsMargins(0, 0, 0, 0)
-
             # Add the crew title layout in place of the role label
-            name_layout.addLayout(crew_title_layout)
+            name_layout.addWidget(crew_title_widget)
 
         header_layout.addWidget(name_widget)
         header_layout.addStretch()
@@ -496,6 +490,7 @@ class AgentMessageCard(QFrame):
         # Content area with padding to account for avatar width
         content_area = QWidget(self)
         content_layout = QVBoxLayout(content_area)
+        content_layout.setAlignment(Qt.AlignLeft)  # Align content to the left
         avatar_width = 42  # Same as avatar size
         # Add margins to content area to ensure spacing on both sides
         content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
@@ -508,11 +503,13 @@ class AgentMessageCard(QFrame):
             QLabel#message_content {
                 color: #e1e1e1;
                 font-size: 13px;
-                padding: 4px 0px; /* No horizontal padding since it's handled by the layout margins */
-                background-color: #2b2d30; /* Similar to agent background but subtle */
+                padding: 10px 10px;
+                background-color: #2b2d30;
                 border-radius: 5px;
             }
         """)
+        # Set size policy to adapt to content width
+        self.content_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         content_layout.addWidget(self.content_label)
 
         # Structured content container with same padding
@@ -703,6 +700,7 @@ class UserMessageCard(QFrame):
         # Content area with padding to account for avatar width
         content_area = QWidget(self)
         content_layout = QVBoxLayout(content_area)
+        content_layout.setAlignment(Qt.AlignRight)  # Align content to the right for user messages
         avatar_width = 42  # Same as avatar size
         # Add margins to content area to ensure spacing on both sides
         content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
@@ -720,6 +718,8 @@ class UserMessageCard(QFrame):
                 border-radius: 5px;
             }
         """)
+        # Set size policy to adapt to content width
+        content_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         content_layout.addWidget(content_label)
 
         layout.addWidget(content_area)
