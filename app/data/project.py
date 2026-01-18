@@ -350,6 +350,28 @@ class Project:
             return current_item.get_task_manager()
         return None
 
+    def get_language(self) -> str:
+        """
+        Get the language setting for this project.
+
+        Returns:
+            Language code for the project (default: 'en_US')
+        """
+        if not self.workspace:
+            return 'en_US'
+
+        # Try to get language from project settings
+        try:
+            language = self.workspace.settings.get("general.language", "en")
+            # Convert language code to our format (en -> en_US, zh -> zh_CN)
+            if language == "zh":
+                return "zh_CN"
+            else:
+                return "en_US"
+        except:
+            # If settings are not available, default to en_US
+            return "en_US"
+
 
 class ProjectManager:
     """

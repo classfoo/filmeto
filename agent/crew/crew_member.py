@@ -10,7 +10,7 @@ from agent.llm.llm_service import LlmService
 from agent.plan.models import PlanTask, TaskStatus
 from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill
-from agent.soul.soul_service import SoulService
+from agent.soul import soul_service as soul_service_instance
 
 
 @dataclass
@@ -214,16 +214,10 @@ class CrewMember:
         if on_complete:
             on_complete(final_response)
 
-    def _build_soul_service(self, project: Optional[Any]) -> SoulService:
-        system_souls_dir = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "soul", "system"
-        )
-        project_souls_dir = None
-        if project and hasattr(project, "project_path"):
-            project_souls_dir = os.path.join(project.project_path, "agent", "souls")
-        if not project_souls_dir:
-            project_souls_dir = os.path.join(os.path.dirname(__file__), "empty_souls")
-        return SoulService(system_souls_dir=system_souls_dir, user_souls_dir=project_souls_dir)
+    def _build_soul_service(self, project: Optional[Any]) -> 'SoulService':
+        # Return the singleton instance
+        # The singleton is configured elsewhere with the workspace
+        return soul_service_instance
 
     def _build_system_prompt(self, plan_id: Optional[str] = None) -> str:
         prompt_sections = [
@@ -254,7 +248,7 @@ class CrewMember:
     def _get_soul_prompt(self) -> str:
         if not self.config.soul:
             return ""
-        soul = self.soul_service.get_soul_by_name(self.config.soul)
+        soul = self.soul_service.get_soul_by_name(self.project_id, self.config.soul)
         if not soul:
             return f"Soul '{self.config.soul}' not found."
         if soul.knowledge:
