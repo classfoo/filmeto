@@ -119,14 +119,22 @@ class BaseMessageCard(QFrame):
         main_layout.addWidget(header_row)
 
         # Content area with padding to account for avatar width
-        content_area = QWidget(self)
-        content_layout = QVBoxLayout(content_area)
-        content_layout.setAlignment(self.alignment)
+        self.content_area = QWidget(self)
+        self.content_layout = QVBoxLayout(self.content_area)
+        self.content_layout.setAlignment(self.alignment)
         avatar_width = self.avatar_size  # Same as avatar size
         # Add margins to content area to ensure spacing on both sides
-        content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
+        self.content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
+        self.content_layout.setSpacing(6)
 
-        self.content_label = QLabel(content, content_area)
+        self.bubble_container = QFrame(self.content_area)
+        self.bubble_container.setObjectName("message_bubble")
+        self.bubble_container.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+        self.bubble_layout = QVBoxLayout(self.bubble_container)
+        self.bubble_layout.setContentsMargins(10, 8, 10, 8)
+        self.bubble_layout.setSpacing(0)
+
+        self.content_label = QLabel(content, self.bubble_container)
         self.content_label.setObjectName("message_content")
         self.content_label.setWordWrap(True)
         self.content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
@@ -134,23 +142,20 @@ class BaseMessageCard(QFrame):
             QLabel#message_content {{
                 color: {self.text_color};
                 font-size: 13px;
-                padding: 10px 10px;
-                background-color: {self.background_color};
-                border-radius: 5px;
             }}
         """)
-        # Set size policy to adapt to content width (not expanding unnecessarily)
-        self.content_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        content_layout.addWidget(self.content_label)
+        self.content_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        self.bubble_layout.addWidget(self.content_label)
+        self.content_layout.addWidget(self.bubble_container)
 
         # Structured content container with same padding
-        self.structured_container = QWidget(content_area)
+        self.structured_container = QWidget(self.content_area)
         self.structured_layout = QVBoxLayout(self.structured_container)
         self.structured_layout.setContentsMargins(0, 4, 0, 0)  # No extra margins since handled by parent
         self.structured_layout.setSpacing(6)
-        content_layout.addWidget(self.structured_container)
+        self.content_layout.addWidget(self.structured_container)
 
-        main_layout.addWidget(content_area)
+        main_layout.addWidget(self.content_area)
 
         # Add structured content widgets
         for structure_content in self.structured_content_list:
@@ -167,6 +172,46 @@ class BaseMessageCard(QFrame):
                 margin: 2px 0px;
             }
         """)
+        self.bubble_container.setStyleSheet(f"""
+            QFrame#message_bubble {{
+                background-color: {self.background_color};
+                border-radius: 5px;
+            }}
+        """)
+
+    def _available_bubble_width(self) -> int:
+        total_width = max(0, self.width())
+        max_width = max(0, total_width - (self.avatar_size * 2))
+        if self.content_layout:
+            margins = self.content_layout.contentsMargins()
+            content_width = max(0, self.content_area.width() - margins.left() - margins.right())
+            max_width = min(max_width, content_width)
+        return max(80, max_width)
+
+    def _calculate_text_width(self, max_text_width: int) -> int:
+        text = self.content_label.text() or ""
+        if not text:
+            return 0
+        font_metrics = self.content_label.fontMetrics()
+        lines = text.splitlines() or [text]
+        max_line_width = 0
+        for line in lines:
+            max_line_width = max(max_line_width, font_metrics.horizontalAdvance(line))
+        return min(max_line_width, max_text_width)
+
+    def _update_bubble_width(self):
+        max_width = self._available_bubble_width()
+        padding = self.bubble_layout.contentsMargins().left() + self.bubble_layout.contentsMargins().right()
+        max_text_width = max(0, max_width - padding)
+        text_width = self._calculate_text_width(max_text_width)
+        bubble_width = min(max_width, text_width + padding)
+        self.content_label.setMaximumWidth(max_text_width)
+        self.bubble_container.setFixedWidth(max(1, bubble_width))
+        self.structured_container.setMaximumWidth(max_width)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_bubble_width()
 
 
     def add_structure_content_widget(self, structure_content: StructureContent):
@@ -194,11 +239,13 @@ class BaseMessageCard(QFrame):
     def set_content(self, content: str):
         """Set the content (replace)."""
         self.content_label.setText(content)
+        self._update_bubble_width()
 
     def append_content(self, content: str):
         """Append content."""
         current_text = self.content_label.text()
         self.content_label.setText(current_text + content)
+        self._update_bubble_width()
 
     def get_content(self) -> str:
         """Get current content."""
@@ -229,7 +276,6 @@ class BaseMessageCard(QFrame):
             QLabel#message_content {{
                 color: #e74c3c;
                 font-size: 13px;
-                padding: 4px 0px;
             }}
         """)
 
@@ -321,6 +367,7 @@ class AgentMessageCard(BaseMessageCard):
         """Update the card from a new agent message."""
         # Update basic content
         self.content_label.setText(agent_message.content)
+        self._update_bubble_width()
 
         # Clear existing structured content
         for i in reversed(range(self.structured_layout.count())):
@@ -367,12 +414,9 @@ class UserMessageCard(BaseMessageCard):
             }
         """)
 
-        # Update content label styling for user messages
-        self.content_label.setStyleSheet(f"""
-            QLabel#message_content {{
-                color: {self.text_color};
-                font-size: 13px;
-                padding: 8px 0px; /* No horizontal padding since it's handled by the layout margins */
+        # Update bubble styling for user messages
+        self.bubble_container.setStyleSheet(f"""
+            QFrame#message_bubble {{
                 background-color: {self.background_color};
                 border-radius: 5px;
             }}
