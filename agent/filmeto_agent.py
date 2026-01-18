@@ -207,11 +207,14 @@ class FilmetoAgent:
     def _build_producer_message(self, user_message: str, plan_id: str, retry: bool = False) -> str:
         # Build detailed crew member information including name, title, and skills
         crew_details = []
+        valid_agent_roles = []  # Keep track of valid agent roles for the instruction
         for name, crew_member in self.crew_members.items():
             crew_info = f"- Name: {name}"
             crew_title = crew_member.config.metadata.get('crew_title')
             if crew_title:
                 crew_info += f", Title: {crew_title}"
+                valid_agent_roles.append(crew_title)  # Add title as valid agent role
+            valid_agent_roles.append(name)  # Add name as valid agent role
             if crew_member.config.skills:
                 skills = ", ".join(crew_member.config.skills)
                 crew_info += f", Skills: [{skills}]"
@@ -220,6 +223,9 @@ class FilmetoAgent:
             crew_details.append(crew_info)
 
         crew_details_str = "\n".join(crew_details) if crew_details else "No crew members available."
+
+        # Create a list of valid agent roles for the instruction
+        valid_roles_str = ", ".join(set(valid_agent_roles)) if valid_agent_roles else "none available"
 
         header = "The current plan has no tasks. Update it now." if retry else "Create a production plan."
         return "\n".join([
@@ -230,7 +236,8 @@ class FilmetoAgent:
             crew_details_str,
             "Use plan_update to set name, description, and tasks.",
             "Each task must include: id, name, description, agent_role, needs, parameters.",
-            "The agent_role can be either the crew member's name or their title.",
+            f"The agent_role MUST be one of the following valid options: {valid_roles_str}",
+            "Using any other agent_role will cause the task to fail.",
             "After updating the plan, respond with a final summary and next steps.",
         ])
 
