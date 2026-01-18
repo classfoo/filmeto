@@ -317,7 +317,7 @@ class AgentChatHistoryWidget(BaseWidget):
         if isinstance(last_widget, AgentMessageCard):
             # Update the content in the agent_message and refresh the display
             last_widget.agent_message.content = message
-            last_widget.content_label.setText(message)
+            last_widget.set_content(message)
         else:
             # Old style widget
             for child in last_widget.findChildren(QLabel):
@@ -340,7 +340,7 @@ class AgentChatHistoryWidget(BaseWidget):
         if card:
             # Update the content in the agent_message and refresh the display
             card.agent_message.content = content
-            card.content_label.setText(content)
+            card.set_content(content)
         else:
             # Fallback to old method
             for widget in self.messages:
@@ -483,7 +483,7 @@ class AgentChatHistoryWidget(BaseWidget):
                 card.agent_message.content = content
 
         # Update the card's display
-        card.content_label.setText(card.agent_message.content)
+        card.set_content(card.agent_message.content)
 
         # For now, we're not handling thinking state in the new structure
         # But we can add structured content if provided
@@ -494,7 +494,7 @@ class AgentChatHistoryWidget(BaseWidget):
         if error:
             # Show error in content
             card.agent_message.content = f"❌ Error: {error}"
-            card.content_label.setText(card.agent_message.content)
+            card.set_content(card.agent_message.content)
 
         self._schedule_scroll()
     

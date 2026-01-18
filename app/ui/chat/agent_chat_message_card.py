@@ -141,9 +141,6 @@ class BaseMessageCard(QFrame):
         """)
         # Set size policy to adapt to content width (not expanding unnecessarily)
         self.content_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        # Set maximum width to allow content to expand up to available space
-        # This will be updated when the parent widget resizes
-        self._update_max_content_width()
         content_layout.addWidget(self.content_label)
 
         # Structured content container with same padding
@@ -162,9 +159,6 @@ class BaseMessageCard(QFrame):
         # Apply card styling
         self._apply_style()
 
-        # Connect to parent resize events to update max width
-        self._connect_parent_resize()
-
     def _apply_style(self):
         """Apply card styling."""
         self.setStyleSheet("""
@@ -174,37 +168,6 @@ class BaseMessageCard(QFrame):
             }
         """)
 
-    def _update_max_content_width(self):
-        """Update the maximum width of the content label based on available space."""
-        # The content area already has margins equal to avatar_size on each side
-        # So the available width for the content label is the width of this widget minus the margins
-        # But we need to wait until the layout is done, so we use a single shot timer
-        from PySide6.QtCore import QTimer
-        QTimer.singleShot(0, self._set_content_max_width)
-
-    def _set_content_max_width(self):
-        """Helper method to set the content label's maximum width."""
-        # Calculate the available width for content: parent width minus margins (2 * avatar_width)
-        parent_width = self.width()
-        if parent_width > 0:
-            available_width = parent_width - (2 * self.avatar_size)
-            if available_width > 0:
-                # Set the maximum width on the content label
-                self.content_label.setMaximumWidth(available_width)
-
-                # Force a layout update to apply the new maximum width
-                self.content_label.updateGeometry()
-
-    def _connect_parent_resize(self):
-        """Connect to parent resize events to update content max width."""
-        # This is a workaround since QWidget doesn't have a direct resize signal
-        # We'll override the resizeEvent method in the derived classes
-        pass
-
-    def resizeEvent(self, event):
-        """Handle resize events to update content max width."""
-        super().resizeEvent(event)
-        self._update_max_content_width()
 
     def add_structure_content_widget(self, structure_content: StructureContent):
         """Add a widget for the given StructureContent based on its type."""
@@ -240,6 +203,10 @@ class BaseMessageCard(QFrame):
     def get_content(self) -> str:
         """Get current content."""
         return self.content_label.text()
+
+    def get_content_label(self):
+        """Get the content label widget (for backward compatibility)."""
+        return self.content_label
 
     def set_thinking(self, is_thinking: bool, thinking_text: str = ""):
         """Set thinking state (placeholder for backward compatibility)."""
