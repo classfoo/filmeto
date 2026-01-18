@@ -10,7 +10,7 @@ from agent.llm.llm_service import LlmService
 from agent.plan.models import PlanTask, TaskStatus
 from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill
-from agent.soul import soul_service as soul_service_instance
+from agent.soul import soul_service as soul_service_instance, SoulService
 
 
 @dataclass
@@ -90,7 +90,7 @@ class CrewMember:
         self.config = CrewMemberConfig.from_markdown(config_path)
         self.workspace = workspace
         self.project = project
-        self.project_id = _resolve_project_id(project)
+        self.project_id = _resolve_project_id(project) or getattr(project, 'project_name', 'default_project')
         self.llm_service = llm_service or LlmService(workspace)
         self.skill_service = skill_service or SkillService(workspace)
         self.plan_service = plan_service or PlanService()

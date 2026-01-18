@@ -353,18 +353,30 @@ class Project:
     def get_language(self) -> str:
         """
         Get the language setting for this project.
+        Prioritizes the language from project.yml with key "language".
 
         Returns:
             Language code for the project (default: 'en_US')
         """
-        if not self.workspace:
+        # First, try to get language from project.yml
+        project_language = self.config.get("language")
+        if project_language:
+            # Convert language code to our format (en -> en_US, zh -> zh_CN)
+            if project_language == "zh_CN" or project_language == "zh":
+                return "zh_CN"
+            else:
+                return "en_US"
+
+        # Fallback: try to get language from workspace settings
+        if not self.workspace or not hasattr(self.workspace, 'settings'):
             return 'en_US'
 
-        # Try to get language from project settings
         try:
             language = self.workspace.settings.get("general.language", "en")
             # Convert language code to our format (en -> en_US, zh -> zh_CN)
-            if language == "zh":
+            if language == "zh_CN":
+                return "zh_CN"
+            elif language == "zh":
                 return "zh_CN"
             else:
                 return "en_US"
