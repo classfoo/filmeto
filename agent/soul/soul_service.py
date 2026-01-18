@@ -8,15 +8,17 @@ class SoulService:
     """
     Service class to manage Souls with CRUD operations.
     """
-    
-    def __init__(self, system_souls_dir: str = None, user_souls_dir: str = None):
+
+    def __init__(self, system_souls_dir: str = None, user_souls_dir: str = None, language: str = 'en_US'):
         """
         Initialize the SoulService.
-        
+
         Args:
             system_souls_dir: Directory containing system soul definitions
             user_souls_dir: Directory containing user-defined soul definitions
+            language: Language code for selecting appropriate souls (default: 'en_US')
         """
+        self.language = language
         self.system_souls_dir = system_souls_dir or os.path.join(
             os.path.dirname(__file__), 'system'
         )
@@ -25,27 +27,33 @@ class SoulService:
             'workspace', 'agent', 'skills'
         )
         self.souls: List[Soul] = []
-        
+
         # Load all souls on initialization
         self.load_system_souls()
         self.load_user_souls()
     
     def load_system_souls(self):
-        """Load all system souls from the system directory."""
-        if not os.path.exists(self.system_souls_dir):
+        """Load all system souls from the system directory based on language."""
+        # Construct path to language-specific directory
+        lang_system_dir = os.path.join(self.system_souls_dir, self.language)
+
+        if not os.path.exists(lang_system_dir):
             return
-            
-        md_files = glob.glob(os.path.join(self.system_souls_dir, '*.md'))
+
+        md_files = glob.glob(os.path.join(lang_system_dir, '*.md'))
         for md_file in md_files:
             soul = self._create_soul_from_file(md_file)
             if soul:
                 self.souls.append(soul)
     
     def load_user_souls(self):
-        """Load all user-defined souls from the user directory."""
+        """Load all user-defined souls from the user directory.
+
+        Note: User-defined souls are typically language-independent and stored in a flat structure.
+        """
         if not os.path.exists(self.user_souls_dir):
             return
-            
+
         md_files = glob.glob(os.path.join(self.user_souls_dir, '*.md'))
         for md_file in md_files:
             soul = self._create_soul_from_file(md_file)
@@ -159,10 +167,10 @@ class SoulService:
     def search_souls_by_skill(self, skill: str) -> List[Soul]:
         """
         Find all souls that have a specific skill.
-        
+
         Args:
             skill: Skill to search for
-            
+
         Returns:
             List of Soul instances that have the specified skill
         """
@@ -171,3 +179,37 @@ class SoulService:
             if skill in soul.skills:
                 matching_souls.append(soul)
         return matching_souls
+
+    def set_language(self, language: str):
+        """
+        Change the language for loading system souls.
+
+        Args:
+            language: Language code for selecting appropriate souls (e.g., 'en_US', 'zh_CN')
+        """
+        if self.language != language:
+            self.language = language
+            # Reload system souls with the new language
+            # First remove all system souls (keep only user souls)
+            user_souls = [soul for soul in self.souls if
+                         soul.description_file.startswith(self.user_souls_dir)]
+            self.souls = user_souls
+            # Then load system souls for the new language
+            self.load_system_souls()
+
+    def get_available_languages(self) -> List[str]:
+        """
+        Get a list of available languages for souls.
+
+        Returns:
+            List of available language codes
+        """
+        if not os.path.exists(self.system_souls_dir):
+            return []
+
+        languages = []
+        for item in os.listdir(self.system_souls_dir):
+            item_path = os.path.join(self.system_souls_dir, item)
+            if os.path.isdir(item_path):
+                languages.append(item)
+        return languages
