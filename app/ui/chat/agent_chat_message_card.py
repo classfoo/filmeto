@@ -140,8 +140,10 @@ class BaseMessageCard(QFrame):
         self.content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
         self.content_label.setStyleSheet(f"""
             QLabel#message_content {{
+                background-color: {self.background_color};
                 color: {self.text_color};
                 font-size: 13px;
+                border-radius: 5px;
             }}
         """)
         self.content_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
