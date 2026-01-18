@@ -8,7 +8,6 @@ updating, and deletion of screenplay scenes.
 import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
-from app.data.project import Project
 from utils.md_with_meta_utils import (
     read_md_with_meta,
     write_md_with_meta,
@@ -22,15 +21,14 @@ from .screen_play_scene import ScreenPlayScene
 class ScreenPlayManager:
     """Manages screenplays for a project."""
 
-    def __init__(self, project: Project):
+    def __init__(self, project_path: Union[str, Path]):
         """
         Initialize the ScreenPlayManager for a specific project.
 
         Args:
-            project: Project instance to manage screenplays for
+            project_path: Path to the project directory
         """
-        self.project = project
-        self.project_path = Path(project.project_path)
+        self.project_path = Path(project_path)
         self.screen_plays_dir = self.project_path / "screen_plays"
         self.screen_plays_dir.mkdir(exist_ok=True)
 
@@ -56,28 +54,45 @@ class ScreenPlayManager:
         if metadata is None:
             metadata = {}
 
-        # Ensure required Hollywood-standard metadata fields are present
-        metadata.setdefault("title", title)
-        metadata.setdefault("scene_id", scene_id)
-        metadata.setdefault("scene_number", metadata.get("scene_number", ""))
-        metadata.setdefault("location", metadata.get("location", ""))
-        metadata.setdefault("time_of_day", metadata.get("time_of_day", ""))
-        metadata.setdefault("genre", metadata.get("genre", ""))
-        metadata.setdefault("logline", metadata.get("logline", ""))
-        metadata.setdefault("characters", metadata.get("characters", []))
-        metadata.setdefault("story_beat", metadata.get("story_beat", ""))
-        metadata.setdefault("page_count", metadata.get("page_count", 0))
-        metadata.setdefault("duration_minutes", metadata.get("duration_minutes", 0))
-        metadata.setdefault("tags", metadata.get("tags", []))
-        metadata.setdefault("status", metadata.get("status", "draft"))  # draft, revised, final
-        metadata.setdefault("revision_number", metadata.get("revision_number", 1))
-        metadata.setdefault("created_at", self._get_timestamp())
-        metadata.setdefault("updated_at", self._get_timestamp())
+        # Create a ScreenPlayScene instance with the provided data
+        scene = ScreenPlayScene(
+            scene_id=scene_id,
+            title=title,
+            content=content,
+            # Override defaults with provided metadata
+            scene_number=metadata.get("scene_number", ""),
+            location=metadata.get("location", ""),
+            time_of_day=metadata.get("time_of_day", ""),
+            genre=metadata.get("genre", ""),
+            logline=metadata.get("logline", ""),
+            characters=metadata.get("characters", []),
+            story_beat=metadata.get("story_beat", ""),
+            page_count=metadata.get("page_count", 0),
+            duration_minutes=metadata.get("duration_minutes", 0),
+            tags=metadata.get("tags", []),
+            status=metadata.get("status", "draft"),
+            revision_number=metadata.get("revision_number", 1),
+            created_at=metadata.get("created_at", self._get_timestamp()),
+            updated_at=metadata.get("updated_at", self._get_timestamp())
+        )
+
+        # Get the metadata from the scene instance using to_dict
+        scene_data = scene.to_dict()
+
+        # Extract only the metadata fields (excluding scene_id, title, content)
+        metadata_for_storage = {
+            k: v for k, v in scene_data.items()
+            if k not in ["scene_id", "title", "content"]
+        }
+
+        # Ensure scene_id, title, and content are properly set
+        metadata_for_storage["scene_id"] = scene_id
+        metadata_for_storage["title"] = title
 
         scene_file_path = self.screen_plays_dir / f"{scene_id}.md"
 
         try:
-            write_md_with_meta(scene_file_path, metadata, content)
+            write_md_with_meta(scene_file_path, metadata_for_storage, content)
             return True
         except Exception:
             return False
@@ -100,7 +115,27 @@ class ScreenPlayManager:
         try:
             metadata, content = read_md_with_meta(scene_file_path)
             title = metadata.get("title", scene_id)
-            return ScreenPlayScene(scene_id, title, content, metadata)
+
+            # Extract individual meta attributes from the metadata dictionary
+            return ScreenPlayScene(
+                scene_id=scene_id,
+                title=title,
+                content=content,
+                scene_number=metadata.get("scene_number", ""),
+                location=metadata.get("location", ""),
+                time_of_day=metadata.get("time_of_day", ""),
+                genre=metadata.get("genre", ""),
+                logline=metadata.get("logline", ""),
+                characters=metadata.get("characters", []),
+                story_beat=metadata.get("story_beat", ""),
+                page_count=metadata.get("page_count", 0),
+                duration_minutes=metadata.get("duration_minutes", 0),
+                tags=metadata.get("tags", []),
+                status=metadata.get("status", "draft"),
+                revision_number=metadata.get("revision_number", 1),
+                created_at=metadata.get("created_at", ""),
+                updated_at=metadata.get("updated_at", "")
+            )
         except Exception:
             return None
 

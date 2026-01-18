@@ -22,6 +22,7 @@ from app.data.drawing import Drawing
 from app.data.resource import ResourceManager
 from app.data.character import CharacterManager
 from app.data.conversation import ConversationManager
+from app.data.screen_play import ScreenPlayManager
 from utils.yaml_utils import load_yaml, save_yaml
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class Project:
         self.resource_manager = ResourceManager(self.project_path)
         self.character_manager = CharacterManager(self.project_path, self.resource_manager)
         self.conversation_manager = ConversationManager(self.project_path)
+        self.screenplay_manager = ScreenPlayManager(self.project_path)
 
         # If load_data is True, ensure actor data is loaded
         if load_data:
@@ -342,6 +344,10 @@ class Project:
     def get_conversation_manager(self) -> ConversationManager:
         """Get the conversation manager instance"""
         return self.conversation_manager
+
+    def get_screenplay_manager(self) -> 'ScreenPlayManager':
+        """Get the screenplay manager instance"""
+        return self.screenplay_manager
 
     def get_current_timeline_item_task_manager(self) -> Optional[TimelineItemTaskManager]:
         """Get the task manager for the current timeline item"""
