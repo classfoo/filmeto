@@ -5,36 +5,28 @@ with support for structured data and visual differentiation.
 """
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QSizePolicy, QScrollArea, QTextEdit, QPushButton, QTableWidget, QTableWidgetItem
+    QSizePolicy
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QFont, QPen
 
-from app.ui.base_widget import BaseWidget
-from app.ui.components.avatar_widget import AvatarWidget
 from agent.chat.agent_chat_message import AgentMessage, StructureContent, ContentType
-
+from app.ui.chat.message.button_widget import ButtonWidget
+from app.ui.chat.message.code_block_widget import CodeBlockWidget
+from app.ui.chat.message.link_widget import LinkWidget
+from app.ui.chat.message.table_widget import TableWidget
 # Import specialized widgets from the message subpackage
 from app.ui.chat.message.text_content_widget import TextContentWidget
-from app.ui.chat.message.code_block_widget import CodeBlockWidget
-from app.ui.chat.message.table_widget import TableWidget
-from app.ui.chat.message.link_widget import LinkWidget
-from app.ui.chat.message.button_widget import ButtonWidget
+from app.ui.components.avatar_widget import AvatarWidget
 
 if TYPE_CHECKING:
-    from app.data.workspace import Workspace
+    pass
 
 
-class AgentMessageCard(QFrame):
-    """Card widget for displaying an agent message in the chat.
-
-    Features:
-    - Visual differentiation by agent
-    - Structured content display (text, code, tables, links, buttons)
-    - Collapsible for long content
-    """
+class BaseMessageCard(QFrame):
+    """Base class for message cards with shared functionality."""
 
     # Signals
     clicked = Signal(str)  # message_id
@@ -42,36 +34,37 @@ class AgentMessageCard(QFrame):
 
     def __init__(
         self,
-        agent_message: AgentMessage,
+        content: str,
+        sender_name: str,
+        icon: str,
+        color: str,
         parent=None,
-        agent_color: str = "#4a90e2",  # Default color
-        agent_icon: str = "🤖",  # Default icon
-        crew_member_metadata: Optional[Dict[str, Any]] = None  # Metadata for crew member
+        alignment: Qt.AlignmentFlag = Qt.AlignLeft,
+        background_color: str = "#2b2d30",
+        text_color: str = "#e1e1e1",
+        avatar_size: int = 42,
+        structured_content: Optional[List[StructureContent]] = None
     ):
-        """Initialize agent message card."""
+        """Initialize base message card."""
         super().__init__(parent)
-        self.agent_message = agent_message
-        self.agent_color = agent_color  # Store the agent-specific color
-        self.agent_icon = agent_icon  # Store the agent-specific icon
-        self.crew_member_metadata = crew_member_metadata  # Store crew member metadata
+        self.sender_name = sender_name
+        self.icon = icon
+        self.color = color
+        self.alignment = alignment
+        self.background_color = background_color
+        self.text_color = text_color
+        self.avatar_size = avatar_size
+        self.structured_content_list = structured_content or []
 
         # For backward compatibility
         self._is_thinking = False
         self._is_complete = False
 
-        self._setup_ui()
+        self._setup_ui(content)
 
-    @property
-    def is_thinking(self):
-        return self._is_thinking
-
-    @property
-    def is_complete(self):
-        return self._is_complete
-
-    def _setup_ui(self):
+    def _setup_ui(self, content: str):
         """Set up UI."""
-        self.setObjectName("agent_message_card")
+        self.setObjectName("base_message_card")
         self.setFrameShape(QFrame.NoFrame)
 
         # Main layout
@@ -85,65 +78,66 @@ class AgentMessageCard(QFrame):
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
-        # Use the agent-specific color and icon passed to the constructor
         # Avatar - using agent-specific color and icon
         self.avatar = AvatarWidget(
-            icon=self.agent_icon,
-            color=self.agent_color,
-            size=42,
+            icon=self.icon,
+            color=self.color,
+            size=self.avatar_size,
             shape="rounded_rect",  # Match the original style
             parent=header_row
         )
         header_layout.addWidget(self.avatar)
 
         # Name and role
-        name_widget = QWidget(header_row)
-        name_layout = QVBoxLayout(name_widget)
+        self.name_widget = QWidget(header_row)
+        name_layout = QVBoxLayout(self.name_widget)
         name_layout.setContentsMargins(0, 0, 0, 0)
         name_layout.setSpacing(0)
 
         # Display name
-        self.name_label = QLabel(self.agent_message.sender_name or self.agent_message.sender_id, name_widget)
-        self.name_label.setStyleSheet("""
-            QLabel {
-                color: #4a90d9;
+        self.name_label = QLabel(self.sender_name, self.name_widget)
+        self.name_label.setStyleSheet(f"""
+            QLabel {{
+                color: {self.color};
                 font-size: 14px;
                 font-weight: bold;
-            }
+            }}
         """)
         name_layout.addWidget(self.name_label)
 
-        # Add crew title with colored block in place of the role/ID label
-        crew_title_widget = self._create_crew_title_widget()
-        if crew_title_widget:
-            # Add the crew title layout in place of the role label
-            name_layout.addWidget(crew_title_widget)
+        # Add the name widget to the header layout
+        header_layout.addWidget(self.name_widget)
 
-        header_layout.addWidget(name_widget)
-        header_layout.addStretch()
+        # Add stretch to push everything to the left for agent messages or to the right for user messages
+        if self.alignment == Qt.AlignRight:
+            # For user messages, we want avatar on the right, so we add stretch at the beginning
+            header_layout.insertStretch(0, 1)
+        else:
+            # For agent messages, we want avatar on the left, so we add stretch at the end
+            header_layout.addStretch()
 
         main_layout.addWidget(header_row)
 
         # Content area with padding to account for avatar width
         content_area = QWidget(self)
         content_layout = QVBoxLayout(content_area)
-        content_layout.setAlignment(Qt.AlignLeft)  # Align content to the left
-        avatar_width = 42  # Same as avatar size
+        content_layout.setAlignment(self.alignment)
+        avatar_width = self.avatar_size  # Same as avatar size
         # Add margins to content area to ensure spacing on both sides
         content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
 
-        self.content_label = QLabel(self.agent_message.content, content_area)
+        self.content_label = QLabel(content, content_area)
         self.content_label.setObjectName("message_content")
         self.content_label.setWordWrap(True)
         self.content_label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
-        self.content_label.setStyleSheet("""
-            QLabel#message_content {
-                color: #e1e1e1;
+        self.content_label.setStyleSheet(f"""
+            QLabel#message_content {{
+                color: {self.text_color};
                 font-size: 13px;
                 padding: 10px 10px;
-                background-color: #2b2d30;
+                background-color: {self.background_color};
                 border-radius: 5px;
-            }
+            }}
         """)
         # Set size policy to adapt to content width
         self.content_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -158,46 +152,17 @@ class AgentMessageCard(QFrame):
 
         main_layout.addWidget(content_area)
 
-        # Add structured content widgets based on the agent_message
-        for structure_content in self.agent_message.structured_content:
+        # Add structured content widgets
+        for structure_content in self.structured_content_list:
             self.add_structure_content_widget(structure_content)
 
         # Apply card styling
         self._apply_style()
 
-    def _create_crew_title_widget(self):
-        """Create a widget to display the crew title with text inside the colored block."""
-        if not self.crew_member_metadata or 'crew_title' not in self.crew_member_metadata:
-            return None
-
-        crew_title = self.crew_member_metadata['crew_title']
-
-        # Create the colored block with text inside
-        title_text = crew_title.replace('_', ' ').title()
-        color_block_with_text = QLabel(title_text)
-        color_block_with_text.setAlignment(Qt.AlignCenter)
-        color_block_with_text.setStyleSheet(f"""
-            QLabel {{
-                background-color: {self.agent_color};
-                color: white;
-                font-size: 9px;
-                font-weight: bold;
-                border-radius: 3px;
-                padding: 3px 8px;  /* Adjust padding for better appearance */
-            }}
-        """)
-
-        # Adjust the width based on the text content
-        font_metrics = color_block_with_text.fontMetrics()
-        text_width = font_metrics.horizontalAdvance(title_text) + 16  # Add some extra space
-        color_block_with_text.setFixedWidth(max(text_width, 60))  # Minimum width of 60
-
-        return color_block_with_text
-
     def _apply_style(self):
         """Apply card styling."""
         self.setStyleSheet("""
-            QFrame#agent_message_card {
+            QFrame#base_message_card {
                 background-color: transparent;
                 margin: 2px 0px;
             }
@@ -227,17 +192,16 @@ class AgentMessageCard(QFrame):
 
     def set_content(self, content: str):
         """Set the content (replace)."""
-        self.agent_message.content = content
         self.content_label.setText(content)
 
     def append_content(self, content: str):
         """Append content."""
-        self.agent_message.content += content
-        self.content_label.setText(self.agent_message.content)
+        current_text = self.content_label.text()
+        self.content_label.setText(current_text + content)
 
     def get_content(self) -> str:
         """Get current content."""
-        return self.agent_message.content
+        return self.content_label.text()
 
     def set_thinking(self, is_thinking: bool, thinking_text: str = ""):
         """Set thinking state (placeholder for backward compatibility)."""
@@ -256,12 +220,12 @@ class AgentMessageCard(QFrame):
         # Show error in content
         error_content = f"❌ Error: {error_message}"
         self.set_content(error_content)
-        self.content_label.setStyleSheet("""
-            QLabel#message_content {
+        self.content_label.setStyleSheet(f"""
+            QLabel#message_content {{
                 color: #e74c3c;
                 font-size: 13px;
                 padding: 4px 0px;
-            }
+            }}
         """)
 
     def add_structured_content(self, structured: StructureContent):
@@ -275,6 +239,78 @@ class AgentMessageCard(QFrame):
             if widget is not None:
                 widget.setParent(None)
                 widget.deleteLater()
+
+
+class AgentMessageCard(BaseMessageCard):
+    """Card widget for displaying an agent message in the chat.
+
+    Features:
+    - Visual differentiation by agent
+    - Structured content display (text, code, tables, links, buttons)
+    - Collapsible for long content
+    """
+
+    def __init__(
+        self,
+        agent_message: AgentMessage,
+        parent=None,
+        agent_color: str = "#4a90e2",  # Default color
+        agent_icon: str = "🤖",  # Default icon
+        crew_member_metadata: Optional[Dict[str, Any]] = None  # Metadata for crew member
+    ):
+        """Initialize agent message card."""
+        self.agent_message = agent_message
+        self.agent_color = agent_color  # Store the agent-specific color
+        self.agent_icon = agent_icon  # Store the agent-specific icon
+        self.crew_member_metadata = crew_member_metadata  # Store crew member metadata
+
+        # Call parent constructor with agent-specific parameters
+        super().__init__(
+            content=agent_message.content,
+            sender_name=agent_message.sender_name or agent_message.sender_id,
+            icon=self.agent_icon,
+            color=self.agent_color,
+            parent=parent,
+            alignment=Qt.AlignLeft,
+            background_color="#2b2d30",
+            text_color="#e1e1e1",
+            structured_content=agent_message.structured_content
+        )
+
+        # Add crew title if available
+        self._add_crew_title()
+
+    def _add_crew_title(self):
+        """Add crew title to the name widget if available."""
+        if not self.crew_member_metadata or 'crew_title' not in self.crew_member_metadata:
+            return
+
+        crew_title = self.crew_member_metadata['crew_title']
+
+        # Create the colored block with text inside
+        title_text = crew_title.replace('_', ' ').title()
+        color_block_with_text = QLabel(title_text)
+        color_block_with_text.setAlignment(Qt.AlignCenter)
+        color_block_with_text.setStyleSheet(f"""
+            QLabel {{
+                background-color: {self.agent_color};
+                color: white;
+                font-size: 9px;
+                font-weight: bold;
+                border-radius: 3px;
+                padding: 3px 8px;  /* Adjust padding for better appearance */
+            }}
+        """)
+
+        # Adjust the width based on the text content
+        font_metrics = color_block_with_text.fontMetrics()
+        text_width = font_metrics.horizontalAdvance(title_text) + 16  # Add some extra space
+        color_block_with_text.setFixedWidth(max(text_width, 60))  # Minimum width of 60
+
+        # Add to the name layout - we now have a reference to name_widget
+        name_layout = self.name_widget.layout()
+        if name_layout:
+            name_layout.addWidget(color_block_with_text)
 
     def update_from_agent_message(self, agent_message: AgentMessage):
         """Update the card from a new agent message."""
@@ -292,78 +328,47 @@ class AgentMessageCard(QFrame):
         for structure_content in agent_message.structured_content:
             self.add_structure_content_widget(structure_content)
 
-
-class UserMessageCard(QFrame):
+class UserMessageCard(BaseMessageCard):
     """Card widget for displaying user messages."""
 
     def __init__(self, content: str, parent=None):
         """Initialize user message card."""
-        super().__init__(parent)
+        super().__init__(
+            content=content,
+            sender_name="You",
+            icon="👤",
+            color="#35373a",
+            parent=parent,
+            alignment=Qt.AlignRight,
+            background_color="#35373a",
+            text_color="#e1e1e1"
+        )
+
+        # Update the object name and styling for user messages
         self.setObjectName("user_message_card")
-        self._setup_ui(content)
+        self.setStyleSheet("""
+            QFrame#user_message_card {
+                background-color: transparent;
+                margin: 2px 0px;
+            }
+        """)
 
-    def _setup_ui(self, content: str):
-        """Set up UI."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 8, 5, 8)
-        layout.setSpacing(6)
-
-        # Header row
-        header_row = QWidget(self)
-        header_layout = QHBoxLayout(header_row)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(8)
-
-        # Spacer to push to right
-        header_layout.addStretch()
-
-        # Name
-        name_label = QLabel("You", header_row)
-        name_label.setStyleSheet("""
+        # Update name label styling for user messages
+        self.name_label.setStyleSheet("""
             QLabel {
                 color: #35373a;
                 font-size: 12px;
                 font-weight: bold;
             }
         """)
-        header_layout.addWidget(name_label)
 
-        # Avatar - using user-specific color
-        avatar = AvatarWidget(icon="👤", color="#35373a", size=42, shape="rounded_rect", parent=header_row)
-        header_layout.addWidget(avatar)
-
-        layout.addWidget(header_row)
-
-        # Content area with padding to account for avatar width
-        content_area = QWidget(self)
-        content_layout = QVBoxLayout(content_area)
-        content_layout.setAlignment(Qt.AlignRight)  # Align content to the right for user messages
-        avatar_width = 42  # Same as avatar size
-        # Add margins to content area to ensure spacing on both sides
-        content_layout.setContentsMargins(avatar_width, 0, avatar_width, 0)  # Left and right margins same as avatar width
-
-        content_label = QLabel(content, content_area)
-        content_label.setObjectName("user_content")
-        content_label.setWordWrap(True)
-        content_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        content_label.setStyleSheet("""
-            QLabel#user_content {
-                color: #e1e1e1;
+        # Update content label styling for user messages
+        self.content_label.setStyleSheet(f"""
+            QLabel#message_content {{
+                color: {self.text_color};
                 font-size: 13px;
                 padding: 8px 0px; /* No horizontal padding since it's handled by the layout margins */
-                background-color: #35373a;
+                background-color: {self.background_color};
                 border-radius: 5px;
-            }
-        """)
-        # Set size policy to adapt to content width
-        content_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        content_layout.addWidget(content_label)
-
-        layout.addWidget(content_area)
-
-        self.setStyleSheet("""
-            QFrame#user_message_card {
-                background-color: transparent;
-                margin: 2px 0px;
-            }
+            }}
         """)
