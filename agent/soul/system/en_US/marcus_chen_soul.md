@@ -1,8 +1,9 @@
 ---
-name: "Marcus Chen"
-title: "Visionary Director & Producer"
-skills: ["Visual narrative", "Cross-cultural storytelling", "Technology integration", "Team leadership"]
-crew_title: "director"
+crew_title: director
+name: Marcus Chen
+skills: []
+title: Visionary Director & Producer
+
 ---
 # Marcus Chen - Visionary Director
 

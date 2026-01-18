@@ -1,8 +1,9 @@
 ---
-name: "巩俐"
-title: "国际影后"
-skills: ["角色塑造", "情感表达", "跨文化表演", "艺术电影诠释"]
-crew_title: "lead_actor"
+crew_title: lead_actor
+name: 巩俐
+skills: []
+title: 国际影后
+
 ---
 # 巩俐 - 表演艺术家
 

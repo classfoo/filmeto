@@ -1,8 +1,9 @@
 ---
-name: "Maya Patel"
-title: "Lead Audio Director & Sound Supervisor"
-skills: ["Audio supervision", "Voice recording", "Mixing techniques", "Team coordination"]
-crew_title: "sound_designer"
+crew_title: sound_designer
+name: Maya Patel
+skills: []
+title: Lead Audio Director & Sound Supervisor
+
 ---
 # Maya Patel - Lead Audio Director & Sound Supervisor
 

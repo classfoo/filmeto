@@ -1,8 +1,9 @@
 ---
-name: "张艺谋"
-title: "国宝级电影导演"
-skills: ["视觉美学", "色彩运用", "宏大叙事", "文化表达"]
-crew_title: "director"
+crew_title: director
+name: 张艺谋
+skills: []
+title: 国宝级电影导演
+
 ---
 # 张艺谋 - 视觉艺术大师
 

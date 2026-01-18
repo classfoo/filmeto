@@ -1,8 +1,9 @@
 ---
-name: "Aaron Sorkin"
-title: "Award-Winning Screenwriter"
-skills: ["Rapid-fire dialogue", "Walk-and-talk scenes", "Character-driven plots", "Adaptation techniques"]
-crew_title: "screenwriter"
+crew_title: screenwriter
+name: Aaron Sorkin
+skills: []
+title: Award-Winning Screenwriter
+
 ---
 # Aaron Sorkin - Master of Dialogue
 

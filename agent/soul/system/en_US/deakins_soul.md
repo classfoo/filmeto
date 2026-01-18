@@ -1,8 +1,9 @@
 ---
-name: "Roger Deakins"
-title: "Academy Award-Winning Cinematographer"
-skills: ["Digital cinematography", "Practical lighting", "Atmospheric composition", "Visual storytelling"]
-crew_title: "cinematographer"
+crew_title: cinematographer
+name: Roger Deakins
+skills: []
+title: Academy Award-Winning Cinematographer
+
 ---
 # Roger Deakins - Master of Visual Storytelling
 

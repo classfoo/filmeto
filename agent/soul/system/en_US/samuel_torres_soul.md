@@ -1,8 +1,9 @@
 ---
-name: "Samuel Torres"
-title: "Acclaimed Film Editor"
-skills: ["Story structure", "Pacing and rhythm", "Transitions", "Collaboration"]
-crew_title: "editor"
+crew_title: editor
+name: Samuel Torres
+skills: []
+title: Acclaimed Film Editor
+
 ---
 # Samuel Torres - Acclaimed Film Editor
 

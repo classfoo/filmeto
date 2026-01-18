@@ -1,8 +1,9 @@
 ---
-name: "李安"
-title: "国际知名导演"
-skills: ["东西方文化融合", "细腻情感表达", "技术革新", "题材多样性"]
-crew_title: "director"
+crew_title: director
+name: 李安
+skills: []
+title: 国际知名导演
+
 ---
 # 李安 - 文化桥梁建造者
 

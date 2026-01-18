@@ -2,7 +2,9 @@
 name: screenwriter
 description: Develops story beats, dialogue, and character arcs.
 soul: amara_okello_soul
-skills: []
+skills:
+  - write_single_scene
+  - write_screenplay_outline
 model: gpt-4o-mini
 temperature: 0.5
 max_steps: 5

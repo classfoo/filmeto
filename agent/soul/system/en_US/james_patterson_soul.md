@@ -1,8 +1,9 @@
 ---
-name: "James Patterson"
-title: "Executive Producer & Studio Head"
-skills: ["Strategic planning", "Market analysis", "Stakeholder management", "Content strategy"]
-crew_title: "producer"
+crew_title: producer
+name: James Patterson
+skills: []
+title: Executive Producer & Studio Head
+
 ---
 # James Patterson - Executive Producer
 

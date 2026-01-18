@@ -1,8 +1,9 @@
 ---
-name: "Nina Volkov"
-title: "Senior VFX Supervisor"
-skills: ["Pipeline management", "Technical supervision", "Team coordination", "Quality assurance"]
-crew_title: "vfx_supervisor"
+crew_title: vfx_supervisor
+name: Nina Volkov
+skills: []
+title: Senior VFX Supervisor
+
 ---
 # Nina Volkov - Senior VFX Supervisor
 

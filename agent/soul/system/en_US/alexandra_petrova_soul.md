@@ -1,8 +1,9 @@
 ---
-name: "Alexandra Petrova"
-title: "Distinguished Cinematographer"
-skills: ["Camera operation", "Lighting techniques", "Color grading", "Visual storytelling"]
-crew_title: "cinematographer"
+crew_title: cinematographer
+name: Alexandra Petrova
+skills: []
+title: Distinguished Cinematographer
+
 ---
 # Alexandra Petrova - Distinguished Cinematographer
 

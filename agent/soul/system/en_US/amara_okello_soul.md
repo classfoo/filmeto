@@ -1,8 +1,11 @@
 ---
-name: "Amara Okello"
-title: "Award-Winning Screenwriter"
-skills: ["Narrative structure", "Character psychology", "Dialogue crafting", "Genre versatility"]
-crew_title: "screenwriter"
+crew_title: screenwriter
+name: Amara Okello
+skills:
+  - write_single_scene
+  - write_screenplay_outline
+title: Award-Winning Screenwriter
+
 ---
 # Amara Okello - Award-Winning Screenwriter
 

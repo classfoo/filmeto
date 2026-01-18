@@ -1,8 +1,9 @@
 ---
-name: "Kyle Morrison"
-title: "Lead VFX Supervisor & Technology Specialist"
-skills: ["Technology integration", "Simulation design", "Innovation leadership", "Team development"]
-crew_title: "vfx_supervisor"
+crew_title: vfx_supervisor
+name: Kyle Morrison
+skills: []
+title: Lead VFX Supervisor & Technology Specialist
+
 ---
 # Kyle Morrison - Lead VFX Supervisor & Technology Specialist
 

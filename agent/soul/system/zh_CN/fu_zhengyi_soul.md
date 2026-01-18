@@ -1,8 +1,9 @@
 ---
-name: "傅正义"
-title: "剪辑大师"
-skills: ["节奏控制", "情感剪辑", "叙事结构", "时空转换"]
-crew_title: "editor"
+crew_title: editor
+name: 傅正义
+skills: []
+title: 剪辑大师
+
 ---
 # 傅正义 - 剪刀手
 

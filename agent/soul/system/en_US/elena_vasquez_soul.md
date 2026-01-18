@@ -1,8 +1,9 @@
 ---
-name: "Elena Vasquez"
-title: "Award-Winning Film Producer"
-skills: ["Project coordination", "Financial planning", "Talent acquisition", "Risk assessment"]
-crew_title: "producer"
+crew_title: producer
+name: Elena Vasquez
+skills: []
+title: Award-Winning Film Producer
+
 ---
 # Elena Vasquez - Award-Winning Producer
 

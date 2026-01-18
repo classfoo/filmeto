@@ -1,8 +1,9 @@
 ---
-name: "许鞍华"
-title: "女性导演先驱"
-skills: ["人文关怀", "社会议题探讨", "细腻叙事", "女性视角"]
-crew_title: "director"
+crew_title: director
+name: 许鞍华
+skills: []
+title: 女性导演先驱
+
 ---
 # 许鞍华 - 人文电影大师
 

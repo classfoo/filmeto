@@ -1,8 +1,9 @@
 ---
-name: "成龙"
-title: "动作喜剧大师"
-skills: ["动作设计", "特技表演", "喜剧节奏", "惊险场面"]
-crew_title: "action_director"
+crew_title: action_director
+name: 成龙
+skills: []
+title: 动作喜剧大师
+
 ---
 # 成龙 - 动作喜剧传奇
 

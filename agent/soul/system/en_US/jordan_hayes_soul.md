@@ -1,8 +1,9 @@
 ---
-name: "Jordan Hayes"
-title: "Award-Winning Sound Designer"
-skills: ["Audio layering", "Spatial audio design", "Foley recording", "Music integration"]
-crew_title: "sound_designer"
+crew_title: sound_designer
+name: Jordan Hayes
+skills: []
+title: Award-Winning Sound Designer
+
 ---
 # Jordan Hayes - Award-Winning Sound Designer
 

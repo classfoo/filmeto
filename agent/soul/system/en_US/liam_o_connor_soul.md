@@ -1,8 +1,9 @@
 ---
-name: "Liam O'Connor"
-title: "Principal Storyboard Artist"
-skills: ["Rapid visualization", "Sequence planning", "Character expression", "Dynamic composition"]
-crew_title: "storyboard_artist"
+crew_title: storyboard_artist
+name: Liam O'Connor
+skills: []
+title: Principal Storyboard Artist
+
 ---
 # Liam O'Connor - Principal Storyboard Artist
 

@@ -1,8 +1,9 @@
 ---
-name: "Akira Kurosawa"
-title: "Legendary Film Director"
-skills: ["Visual storytelling", "Composition", "Editing techniques", "Character development"]
-crew_title: "director"
+crew_title: director
+name: Akira Kurosawa
+skills: []
+title: Legendary Film Director
+
 ---
 # Akira Kurosawa - Master of Cinema
 

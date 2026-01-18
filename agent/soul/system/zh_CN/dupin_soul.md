@@ -1,8 +1,9 @@
 ---
-name: "杜可风"
-title: "摄影大师"
-skills: ["视觉叙事", "光影运用", "手持摄影", "色彩调配"]
-crew_title: "cinematographer"
+crew_title: cinematographer
+name: 杜可风
+skills: []
+title: 摄影大师
+
 ---
 # 杜可风 - 光影魔术师
 

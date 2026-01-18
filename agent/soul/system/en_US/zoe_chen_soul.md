@@ -1,8 +1,9 @@
 ---
-name: "Zoe Chen"
-title: "Lead Visual Development Artist"
-skills: ["Concept development", "Environmental storytelling", "Style guides", "Team mentoring"]
-crew_title: "storyboard_artist"
+crew_title: storyboard_artist
+name: Zoe Chen
+skills: []
+title: Lead Visual Development Artist
+
 ---
 # Zoe Chen - Lead Visual Development Artist
 

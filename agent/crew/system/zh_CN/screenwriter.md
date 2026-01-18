@@ -2,7 +2,9 @@
 name: screenwriter
 description: 开发故事节拍、对话和角色弧线。
 soul: amara_okello_soul
-skills: []
+skills:
+  - write_single_scene
+  - write_screenplay_outline
 model: gpt-4o-mini
 temperature: 0.5
 max_steps: 5

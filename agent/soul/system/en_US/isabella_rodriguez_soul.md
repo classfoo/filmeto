@@ -1,8 +1,9 @@
 ---
-name: "Isabella Rodriguez"
-title: "Acclaimed Film Director"
-skills: ["Visual composition", "Actor direction", "Scene choreography", "Story interpretation"]
-crew_title: "director"
+crew_title: director
+name: Isabella Rodriguez
+skills: []
+title: Acclaimed Film Director
+
 ---
 # Isabella Rodriguez - Visionary Director
 

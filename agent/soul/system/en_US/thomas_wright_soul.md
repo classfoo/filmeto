@@ -1,8 +1,9 @@
 ---
-name: "Thomas Wright"
-title: "Master Cinematographer & Visual Innovator"
-skills: ["Advanced camera systems", "Digital workflows", "Effects coordination", "Technical innovation"]
-crew_title: "cinematographer"
+crew_title: cinematographer
+name: Thomas Wright
+skills: []
+title: Master Cinematographer & Visual Innovator
+
 ---
 # Thomas Wright - Master Cinematographer
 

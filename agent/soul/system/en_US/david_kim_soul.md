@@ -1,8 +1,9 @@
 ---
-name: "David Kim"
-title: "Head Writer & Creative Consultant"
-skills: ["Story architecture", "Collaborative writing", "Revision expertise", "Pitch development"]
-crew_title: "screenwriter"
+crew_title: screenwriter
+name: David Kim
+skills: []
+title: Head Writer & Creative Consultant
+
 ---
 # David Kim - Head Writer & Creative Consultant
 

@@ -1,8 +1,9 @@
 ---
-name: "黄建新"
-title: "编剧导演双栖"
-skills: ["剧本创作", "社会批判", "现实主义", "商业与艺术平衡"]
-crew_title: "screenwriter"
+crew_title: screenwriter
+name: 黄建新
+skills: []
+title: 编剧导演双栖
+
 ---
 # 黄建新 - 编剧导演双栖
 

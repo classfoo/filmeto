@@ -1,8 +1,9 @@
 ---
-name: "王家卫"
-title: "诗意电影大师"
-skills: ["视觉诗学", "时间感营造", "色彩情绪", "非线性叙事"]
-crew_title: "director"
+crew_title: director
+name: 王家卫
+skills: []
+title: 诗意电影大师
+
 ---
 # 王家卫 - 诗意影像诗人
 

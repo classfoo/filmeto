@@ -1,8 +1,9 @@
 ---
-name: "Quentin Tarantino"
-title: "Iconoclastic Film Director"
-skills: ["Non-linear narratives", "Pop culture references", "Violence choreography", "Soundtrack curation"]
-crew_title: "director"
+crew_title: director
+name: Quentin Tarantino
+skills: []
+title: Iconoclastic Film Director
+
 ---
 # Quentin Tarantino - Master of Genre Fusion
 

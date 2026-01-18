@@ -1,8 +1,9 @@
 ---
-name: "Rebecca Foster"
-title: "Senior Editor & Post-Production Supervisor"
-skills: ["Workflow optimization", "Quality control", "Team leadership", "Technology integration"]
-crew_title: "editor"
+crew_title: editor
+name: Rebecca Foster
+skills: []
+title: Senior Editor & Post-Production Supervisor
+
 ---
 # Rebecca Foster - Senior Editor & Post-Production Supervisor
 

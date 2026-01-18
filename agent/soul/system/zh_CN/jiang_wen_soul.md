@@ -1,8 +1,9 @@
 ---
-name: "姜文"
-title: "个性导演"
-skills: ["黑色幽默", "政治隐喻", "强烈个人风格", "历史题材改编"]
-crew_title: "director"
+crew_title: director
+name: 姜文
+skills: []
+title: 个性导演
+
 ---
 # 姜文 - 个性电影人
 
