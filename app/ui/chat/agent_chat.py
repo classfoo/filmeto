@@ -91,7 +91,7 @@ class AgentChatWidget(BaseWidget):
 
     def _on_message_submitted(self, message: str):
         """Handle message submission from prompt input widget."""
-        if not message or self._is_processing:
+        if not message:
             return
 
         # Add user message to chat history using new card-based display
@@ -145,10 +145,8 @@ class AgentChatWidget(BaseWidget):
                     )
                     return
 
-        # Disable input while processing
+        # In group chat mode, don't disable input to allow continuous messaging
         self._is_processing = True
-        if self.prompt_input_widget:
-            self.prompt_input_widget.set_enabled(False)
 
         # Reset current response - don't create a message card yet
         # The streaming events will create cards as agents start responding
@@ -201,10 +199,10 @@ class AgentChatWidget(BaseWidget):
             error_msg = f"{tr('Error')}: {str(e)}"
             self.error_occurred.emit(error_msg)
         finally:
-            # Re-enable input
+            # Reset processing state
             self._is_processing = False
-            if self.prompt_input_widget:
-                self.prompt_input_widget.set_enabled(True)
+            # Note: In group chat mode, we don't re-enable the input widget
+            # since it was never disabled
 
     def _handle_stream_event_sync(self, event: StreamEvent):
         """Handle stream event synchronously (called from agent thread)."""
@@ -247,10 +245,10 @@ class AgentChatWidget(BaseWidget):
         # Clear message ID
         self._current_message_id = None
 
-        # Re-enable input
+        # Reset processing state
         self._is_processing = False
-        if self.prompt_input_widget:
-            self.prompt_input_widget.set_enabled(True)
+        # Note: In group chat mode, we don't re-enable the input widget
+        # since it was never disabled
 
     @Slot(str)
     def _on_error(self, error_message: str):
@@ -273,10 +271,10 @@ class AgentChatWidget(BaseWidget):
         # Clear current response
         self._current_response = ""
 
-        # Re-enable input
+        # Reset processing state
         self._is_processing = False
-        if self.prompt_input_widget:
-            self.prompt_input_widget.set_enabled(True)
+        # Note: In group chat mode, we don't re-enable the input widget
+        # since it was never disabled
 
     async def _initialize_agent_async(self):
         """Initialize the agent asynchronously with current workspace and project."""
