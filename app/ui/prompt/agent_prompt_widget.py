@@ -18,11 +18,14 @@ if TYPE_CHECKING:
 class AgentPromptWidget(BaseWidget):
     """
     Common agent prompt input widget with context management.
-    
+
     This widget provides the full prompt input functionality used in agent panel,
     including context management. It can be used in both startup window and agent panel.
     """
-    
+
+    # Constants
+    DEFAULT_INPUT_ROWS = 3  # Number of rows to show by default in the input area
+
     # Signals
     prompt_submitted = Signal(str)  # Emitted when prompt is submitted
     message_submitted = Signal(str)  # Alias for prompt_submitted
@@ -198,7 +201,7 @@ class AgentPromptWidget(BaseWidget):
 
         # Calculate single line height
         self._line_height = self._calculate_line_height()
-        self._min_height = self._line_height * 1  # 1 line default
+        self._min_height = self._line_height * self.DEFAULT_INPUT_ROWS  # Default rows defined as constant
         self._max_height = self._line_height * 10  # 10 lines max
 
         # Set size policy to allow height changes
