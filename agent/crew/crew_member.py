@@ -9,7 +9,8 @@ import yaml
 from agent.llm.llm_service import LlmService
 from agent.plan.models import PlanTask, TaskStatus
 from agent.plan.service import PlanService
-from agent.skill.skill_service import SkillService, Skill
+from agent.skill.skill_service import SkillService, Skill, SkillParameter
+from agent.skill.skill_executor import SkillContext, SkillExecutor, get_skill_executor
 from agent.soul import soul_service as soul_service_instance, SoulService
 
 
@@ -262,7 +263,7 @@ class CrewMember:
 
     def _format_skills_prompt(self) -> str:
         if not self.config.skills:
-            return "Available skills: none."
+            return "Available skills: none.\nYou cannot call any skills."
 
         details = []
         missing = []
@@ -271,11 +272,20 @@ class CrewMember:
             if not skill:
                 missing.append(name)
                 continue
-            details.append(_format_skill_entry(skill))
+            details.append(_format_skill_entry_detailed(skill))
 
-        skills_section = "Available skills:\n" + "\n".join(details) if details else "Available skills: none."
+        if not details:
+            skills_section = "Available skills: none.\nYou cannot call any skills."
+        else:
+            skills_section = (
+                "## Available Skills\n\n"
+                "You have access to the following skills. Use them by responding with a JSON object.\n\n"
+                + "\n\n".join(details)
+            )
+        
         if missing:
-            skills_section += "\nMissing skill definitions: " + ", ".join(missing)
+            skills_section += f"\n\nNote: The following skills are configured but not available: {', '.join(missing)}"
+        
         return skills_section
 
     async def _complete(self, messages: List[Dict[str, str]]) -> str:
@@ -327,10 +337,31 @@ class CrewMember:
         if not skill.scripts:
             return skill.knowledge or f"Skill '{action.skill}' has no executable scripts."
 
-        script_name = action.script or os.path.basename(skill.scripts[0])
-        args = _normalize_skill_args(action.args)
-        result = self.skill_service.execute_skill_script(action.skill, script_name, *args)
-        return result if result is not None else f"Skill '{action.skill}' execution returned no output."
+        # Use in-context execution for better integration
+        args = _normalize_skill_args_dict(action.args)
+        
+        result = self.skill_service.execute_skill_in_context(
+            skill_name=action.skill,
+            workspace=self.workspace,
+            project=self.project,
+            args=args,
+            script_name=action.script
+        )
+        
+        if isinstance(result, dict):
+            if result.get("success"):
+                message = result.get("message", "Skill executed successfully.")
+                # Include additional details if available
+                if "created_scenes" in result:
+                    message += f"\nCreated scenes: {result['created_scenes']}"
+                if "outline_summary" in result:
+                    summary = "\n".join([f"  - {s['scene_id']}: {s['logline']}" for s in result['outline_summary'][:5]])
+                    message += f"\nOutline:\n{summary}"
+                return message
+            else:
+                return f"Skill execution failed: {result.get('message', result.get('error', 'Unknown error'))}"
+        
+        return str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
 
     def _execute_skill_with_structured_content(
         self,
@@ -369,34 +400,56 @@ class CrewMember:
                 "session_id": getattr(self, '_session_id', 'unknown')
             }))
 
-        script_name = action.script or os.path.basename(skill.scripts[0])
-        args = _normalize_skill_args(action.args)
+        # Use in-context execution for better integration
+        args = _normalize_skill_args_dict(action.args)
 
         # Send progress state event
         if on_stream_event:
             from agent.filmeto_agent import StreamEvent
             on_stream_event(StreamEvent("skill_progress", {
                 "skill_name": action.skill,
-                "progress_text": "Executing skill...",
+                "progress_text": f"Executing skill '{action.skill}' with args: {list(args.keys())}...",
                 "message_id": message_id,
                 "sender_name": self.config.name,
                 "session_id": getattr(self, '_session_id', 'unknown')
             }))
 
-        result = self.skill_service.execute_skill_script(action.skill, script_name, *args)
+        result = self.skill_service.execute_skill_in_context(
+            skill_name=action.skill,
+            workspace=self.workspace,
+            project=self.project,
+            args=args,
+            script_name=action.script
+        )
+
+        # Format the result message
+        if isinstance(result, dict):
+            if result.get("success"):
+                result_message = result.get("message", "Skill executed successfully.")
+                # Include additional details if available
+                if "created_scenes" in result:
+                    result_message += f"\nCreated scenes: {result['created_scenes']}"
+                if "outline_summary" in result:
+                    summary = "\n".join([f"  - {s['scene_id']}: {s['logline']}" for s in result['outline_summary'][:5]])
+                    result_message += f"\nOutline:\n{summary}"
+            else:
+                result_message = f"Skill execution failed: {result.get('message', result.get('error', 'Unknown error'))}"
+        else:
+            result_message = str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
 
         # Send end state event
         if on_stream_event:
             from agent.filmeto_agent import StreamEvent
             on_stream_event(StreamEvent("skill_end", {
                 "skill_name": action.skill,
-                "result": result if result is not None else f"Skill '{action.skill}' execution returned no output.",
+                "result": result_message,
+                "success": result.get("success", True) if isinstance(result, dict) else True,
                 "message_id": message_id,
                 "sender_name": self.config.name,
                 "session_id": getattr(self, '_session_id', 'unknown')
             }))
 
-        return result if result is not None else f"Skill '{action.skill}' execution returned no output."
+        return result_message
 
     def _apply_plan_update(self, action: CrewMemberAction, plan_id: Optional[str]) -> str:
         if not self.project_id:
@@ -519,12 +572,49 @@ def _extract_response_content(response: Any) -> str:
 
 
 def _format_skill_entry(skill: Skill) -> str:
+    """Legacy simple skill formatting."""
     description = skill.description or ""
     knowledge = skill.knowledge or ""
     return f"- {skill.name}: {description}\n  {knowledge}"
 
 
+def _format_skill_entry_detailed(skill: Skill) -> str:
+    """Format a skill entry with detailed parameters and examples for the prompt."""
+    lines = [
+        f"### {skill.name}",
+        f"**Description**: {skill.description}",
+        "",
+    ]
+    
+    # Add parameters
+    if skill.parameters:
+        lines.append("**Parameters**:")
+        for param in skill.parameters:
+            req_str = "required" if param.required else "optional"
+            default_str = f", default: {param.default}" if param.default is not None else ""
+            lines.append(f"  - `{param.name}` ({param.param_type}, {req_str}{default_str}): {param.description}")
+        lines.append("")
+    
+    # Add example call
+    lines.append("**Example call**:")
+    lines.append("```json")
+    lines.append(skill.get_example_call())
+    lines.append("```")
+    
+    # Add knowledge snippet if available
+    if skill.knowledge:
+        # Extract just the capability section
+        knowledge_preview = skill.knowledge[:300]
+        if len(skill.knowledge) > 300:
+            knowledge_preview += "..."
+        lines.append("")
+        lines.append(f"**Details**: {knowledge_preview}")
+    
+    return "\n".join(lines)
+
+
 def _normalize_skill_args(args: Any) -> List[str]:
+    """Normalize args to list of strings for CLI execution (legacy)."""
     if args is None:
         return []
     if isinstance(args, list):
@@ -536,7 +626,28 @@ def _normalize_skill_args(args: Any) -> List[str]:
     return [str(args)]
 
 
+def _normalize_skill_args_dict(args: Any) -> Dict[str, Any]:
+    """Normalize args to dictionary for in-context execution."""
+    if args is None:
+        return {}
+    if isinstance(args, dict):
+        return args
+    if isinstance(args, str):
+        # Try to parse as JSON
+        try:
+            parsed = json.loads(args)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+        return {"input": args}
+    if isinstance(args, list):
+        return {"inputs": args}
+    return {"value": args}
+
+
 def _dict_to_cli_args(values: Dict[str, Any]) -> List[str]:
+    """Convert dictionary to CLI arguments (legacy)."""
     cli_args = []
     for key, value in values.items():
         flag = f"--{str(key).replace('_', '-')}"
@@ -599,13 +710,52 @@ def _resolve_project_id(project: Optional[Any]) -> Optional[str]:
     return None
 
 
-_ACTION_INSTRUCTIONS = (
-    "Respond ONLY with a JSON object. Use one of the following action types:\n"
-    '- {"type":"skill","skill":"skill_name","args":{...}} to call a skill.\n'
-    '- {"type":"plan_update","plan_id":"plan_id","plan_update":{...}} to update a plan.\n'
-    '- {"type":"final","response":"your final response"} when done.\n'
-    "When updating a plan, include fields like name, description, tasks, append_tasks, metadata.\n"
-    "Each task should include: id, name, description, agent_role, needs, parameters.\n"
-    "If you receive a message that includes your @name, treat it as your assigned task.\n"
-    "Do not include additional commentary outside the JSON."
-)
+_ACTION_INSTRUCTIONS = """
+## Response Format
+
+You MUST respond ONLY with a JSON object. Choose one of these action types:
+
+### 1. Call a Skill
+When you need to perform an action using one of your available skills:
+```json
+{
+  "type": "skill",
+  "skill": "skill_name",
+  "args": {
+    "param1": "value1",
+    "param2": "value2"
+  }
+}
+```
+IMPORTANT: Use the exact parameter names as specified in each skill's parameters section.
+
+### 2. Update a Plan
+When you need to update the execution plan:
+```json
+{
+  "type": "plan_update",
+  "plan_id": "plan_id",
+  "plan_update": {
+    "name": "Plan Name",
+    "description": "Plan description",
+    "tasks": [...]
+  }
+}
+```
+
+### 3. Final Response
+When your task is complete and you're ready to report results:
+```json
+{
+  "type": "final",
+  "response": "Your complete response message here"
+}
+```
+
+## Important Rules
+- If you have skills available, USE THEM when appropriate. Do not just describe what you would do.
+- After calling a skill, you will receive an Observation with the result.
+- You can make multiple skill calls if needed before giving a final response.
+- If you receive a message that includes @your_name, treat it as your assigned task.
+- Do NOT include any text outside the JSON object.
+"""

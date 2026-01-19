@@ -9,10 +9,20 @@ import os
 import re
 import yaml
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import subprocess
 import json
+
+
+@dataclass
+class SkillParameter:
+    """Represents a parameter for a skill."""
+    name: str
+    param_type: str
+    required: bool = False
+    default: Any = None
+    description: str = ""
 
 
 @dataclass
@@ -27,6 +37,41 @@ class Skill:
     reference: Optional[str] = None
     examples: Optional[str] = None
     scripts: Optional[List[str]] = None
+    parameters: List[SkillParameter] = field(default_factory=list)
+
+    def get_parameters_prompt(self) -> str:
+        """Generate a prompt description of the skill's parameters."""
+        if not self.parameters:
+            return "No parameters required."
+        
+        lines = ["Parameters:"]
+        for param in self.parameters:
+            req = "(required)" if param.required else "(optional)"
+            default_str = f", default: {param.default}" if param.default is not None else ""
+            lines.append(f"  - {param.name} ({param.param_type}) {req}{default_str}: {param.description}")
+        return "\n".join(lines)
+
+    def get_example_call(self) -> str:
+        """Generate an example JSON call for this skill."""
+        args = {}
+        for param in self.parameters:
+            if param.required:
+                if param.param_type == "string":
+                    args[param.name] = f"<{param.name}>"
+                elif param.param_type == "integer":
+                    args[param.name] = 0
+                elif param.param_type == "array":
+                    args[param.name] = []
+                elif param.param_type == "boolean":
+                    args[param.name] = True
+                else:
+                    args[param.name] = f"<{param.name}>"
+        
+        return json.dumps({
+            "type": "skill",
+            "skill": self.name,
+            "args": args
+        }, indent=2)
 
 
 class SkillService:
@@ -121,13 +166,16 @@ class SkillService:
             meta_str = meta_match.group(1)
             knowledge = meta_match.group(2).strip()
             
-            # Parse metadata
-            meta_lines = meta_str.strip().split('\n')
-            meta_dict = {}
-            for line in meta_lines:
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    meta_dict[key.strip()] = value.strip()
+            # Parse metadata using YAML for better support
+            try:
+                meta_dict = yaml.safe_load(meta_str) or {}
+            except yaml.YAMLError:
+                # Fallback to simple line parsing
+                meta_dict = {}
+                for line in meta_str.strip().split('\n'):
+                    if ':' in line:
+                        key, value = line.split(':', 1)
+                        meta_dict[key.strip()] = value.strip()
             
             # Extract required fields
             name = meta_dict.get('name')
@@ -136,6 +184,21 @@ class SkillService:
             if not name or not description:
                 print(f"Warning: Missing name or description in SKILL.md for {skill_path}")
                 return None
+            
+            # Parse parameters if present
+            parameters = []
+            params_data = meta_dict.get('parameters', [])
+            if isinstance(params_data, list):
+                for param_info in params_data:
+                    if isinstance(param_info, dict):
+                        param = SkillParameter(
+                            name=param_info.get('name', ''),
+                            param_type=param_info.get('type', 'string'),
+                            required=param_info.get('required', False),
+                            default=param_info.get('default'),
+                            description=param_info.get('description', '')
+                        )
+                        parameters.append(param)
             
             # Look for optional files
             reference_path = os.path.join(skill_path, "reference.md")
@@ -156,7 +219,7 @@ class SkillService:
             if os.path.exists(scripts_dir) and os.path.isdir(scripts_dir):
                 for script_file in os.listdir(scripts_dir):
                     script_path = os.path.join(scripts_dir, script_file)
-                    if os.path.isfile(script_path):
+                    if os.path.isfile(script_path) and script_file.endswith('.py'):
                         scripts.append(script_path)
             
             # Create and return the skill object
@@ -167,7 +230,8 @@ class SkillService:
                 skill_path=skill_path,
                 reference=reference,
                 examples=examples,
-                scripts=scripts
+                scripts=scripts,
+                parameters=parameters
             )
             
             return skill
@@ -208,7 +272,7 @@ class SkillService:
     
     def execute_skill_script(self, skill_name: str, script_name: str, *args) -> Optional[str]:
         """
-        Execute a script associated with a skill.
+        Execute a script associated with a skill using subprocess (legacy method).
         
         Args:
             skill_name: Name of the skill
@@ -249,6 +313,83 @@ class SkillService:
         except Exception as e:
             print(f"Unexpected error executing script '{script_path}': {e}")
             return f"Error: {e}"
+
+    def execute_skill_in_context(
+        self,
+        skill_name: str,
+        workspace: Any = None,
+        project: Any = None,
+        args: Optional[Dict[str, Any]] = None,
+        script_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute a skill in-context with the provided workspace and project.
+        
+        This method uses the SkillExecutor to run skill scripts directly
+        in the Python environment with access to workspace/project objects.
+        
+        Args:
+            skill_name: Name of the skill to execute
+            workspace: Workspace object (optional)
+            project: Project object (optional)
+            args: Arguments to pass to the skill
+            script_name: Optional specific script to execute
+            
+        Returns:
+            Dict with execution result
+        """
+        from agent.skill.skill_executor import SkillExecutor, SkillContext
+        
+        skill = self.get_skill(skill_name)
+        if not skill:
+            return {
+                "success": False,
+                "error": "skill_not_found",
+                "message": f"Skill '{skill_name}' not found."
+            }
+        
+        # Create the skill context
+        context = SkillContext(
+            workspace=workspace,
+            project=project
+        )
+        
+        # Use the executor
+        executor = SkillExecutor()
+        result = executor.execute_skill(skill, context, args, script_name)
+        
+        return result
+
+    def get_skill_prompt_info(self, skill_name: str) -> str:
+        """
+        Get formatted information about a skill for use in prompts.
+        
+        Args:
+            skill_name: Name of the skill
+            
+        Returns:
+            Formatted string describing the skill
+        """
+        skill = self.get_skill(skill_name)
+        if not skill:
+            return f"Skill '{skill_name}' not found."
+        
+        lines = [
+            f"### Skill: {skill.name}",
+            f"Description: {skill.description}",
+            "",
+            skill.get_parameters_prompt(),
+            "",
+            "Example call:",
+            "```json",
+            skill.get_example_call(),
+            "```",
+        ]
+        
+        if skill.knowledge:
+            lines.extend(["", "Details:", skill.knowledge[:500] + "..." if len(skill.knowledge) > 500 else skill.knowledge])
+        
+        return "\n".join(lines)
     
     def refresh_skills(self):
         """
