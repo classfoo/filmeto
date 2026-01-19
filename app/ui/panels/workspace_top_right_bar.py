@@ -59,7 +59,7 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
     def _register_panels(self):
         """
         Register panel classes in the registry.
-        
+
         Panel instances are created lazily when first accessed.
         Panel classes are imported lazily to avoid blocking startup.
         """
@@ -72,6 +72,7 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
             'souls': ('app.ui.panels.souls.souls_panel', 'SoulsPanel'),
             'members': ('app.ui.panels.members.members_panel', 'MembersPanel'),
             'screenplay': ('app.ui.panels.screen_play.screen_play_panel', 'ScreenPlayPanel'),
+            'plan': ('app.ui.panels.plan.plan_panel', 'PlanPanel'),
         }
     
     @Slot(str)

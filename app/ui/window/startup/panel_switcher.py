@@ -77,6 +77,7 @@ class StartupWindowWorkspaceTopRightBar(BaseWidget):
             'souls': ('app.ui.panels.souls.souls_panel', 'SoulsPanel'),
             'members': ('app.ui.panels.members.members_panel', 'MembersPanel'),
             'screenplay': ('app.ui.panels.screen_play.screen_play_panel', 'ScreenPlayPanel'),
+            'plan': ('app.ui.panels.plan.plan_panel', 'PlanPanel'),
         }
 
     @Slot(str)

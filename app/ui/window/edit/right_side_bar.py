@@ -74,6 +74,15 @@ class MainWindowRightSideBar(BaseWidget):
         self.layout.addWidget(self.screenplay_button, alignment=Qt.AlignCenter)
         self.button_map['screenplay'] = self.screenplay_button
 
+        # Plan button
+        self.plan_button = QPushButton("\ue8a5", self)  # Plan/Task icon
+        self.plan_button.setFixedSize(30, 30)
+        self.plan_button.setCheckable(True)
+        self.plan_button.setToolTip("Plan Management")  # Add tooltip for clarity
+        self.plan_button.clicked.connect(lambda: self._on_button_clicked('plan'))
+        self.layout.addWidget(self.plan_button, alignment=Qt.AlignCenter)
+        self.button_map['plan'] = self.plan_button
+
         self.layout.addStretch(0)
 
         # Track current selected button
