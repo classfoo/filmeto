@@ -57,40 +57,20 @@ class ProjectStartupWidget(BaseWidget):
         self._setup_chat_tab(self.chat_tab)
         main_layout.addWidget(self.chat_tab, 1)  # Give chat area expanding space
 
-        # Create the right content area that can switch between members and panels
-        self.right_content_area = QWidget()
-        self.right_content_area.setMinimumWidth(300)  # Set minimum width for content area
-        main_layout.addWidget(self.right_content_area)
+        # Create the right panel switcher for the startup window
+        from app.ui.window.startup.panel_switcher import StartupWindowWorkspaceTopRightBar
+        self.right_panel_switcher = StartupWindowWorkspaceTopRightBar(self.workspace, self)
 
-        # Create the right sidebar for switching between members and panels
+        # Create the right sidebar for switching between panels
         from app.ui.window.startup.right_side_bar import StartupWindowRightSideBar
         self.right_sidebar = StartupWindowRightSideBar(self.workspace, self)
         main_layout.addWidget(self.right_sidebar)
 
-        # Set up the members component
-        self._setup_members_component()
+        # Add the panel switcher to the layout
+        main_layout.addWidget(self.right_panel_switcher)
 
-        # Set up the panels component (initially empty)
-        self._setup_panels_component()
-
-        # Initially show members
-        self._show_members_view()
-
-        # Connect the right sidebar button clicks to switch views
-        self.right_sidebar.button_clicked.connect(self._on_sidebar_button_clicked)
-
-    def _setup_members_component(self):
-        """Set up the crew members component."""
-        # Import the members panel
-        from app.ui.panels.members.members_panel import MembersPanel
-
-        # Create the members panel
-        self.members_panel = MembersPanel(self.workspace)
-
-        # Set up the layout for the members component
-        self.members_layout = QVBoxLayout(self.right_content_area)
-        self.members_layout.setContentsMargins(0, 0, 0, 0)
-        self.members_layout.addWidget(self.members_panel)
+        # Connect the right sidebar button clicks to the panel switcher
+        self.right_sidebar.button_clicked.connect(self.right_panel_switcher.switch_to_panel)
 
     def _setup_chat_tab(self, tab: QWidget):
         """Set up the chat tab."""
@@ -104,51 +84,6 @@ class ProjectStartupWidget(BaseWidget):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.agent_chat_component)
-
-    def _setup_panels_component(self):
-        """Set up the panels component."""
-        # Create a placeholder for panels - this could be extended later
-        from PySide6.QtWidgets import QLabel
-        self.panels_placeholder = QLabel(tr("Panels will be displayed here"))
-        self.panels_placeholder.setAlignment(Qt.AlignCenter)
-        self.panels_placeholder.setStyleSheet("QLabel { color: #aaa; font-style: italic; }")
-
-    def _on_sidebar_button_clicked(self, panel_name: str):
-        """Handle sidebar button clicks to switch views."""
-        if panel_name == 'members':
-            self._show_members_view()
-        elif panel_name == 'panels':
-            self._show_panels_view()
-
-    def _show_members_view(self):
-        """Show the members view in the right content area."""
-        # Clear the current content
-        self._clear_right_content_area()
-
-        # Add the members panel to the layout
-        self.members_layout = QVBoxLayout(self.right_content_area)
-        self.members_layout.setContentsMargins(0, 0, 0, 0)
-        self.members_layout.addWidget(self.members_panel)
-
-    def _show_panels_view(self):
-        """Show the panels view in the right content area."""
-        # Clear the current content
-        self._clear_right_content_area()
-
-        # Add the panels component to the layout
-        panels_layout = QVBoxLayout(self.right_content_area)
-        panels_layout.setContentsMargins(0, 0, 0, 0)
-        panels_layout.addWidget(self.panels_placeholder)
-
-    def _clear_right_content_area(self):
-        """Clear the content of the right content area."""
-        # Remove and delete all widgets in the right content area
-        layout = self.right_content_area.layout()
-        if layout:
-            while layout.count():
-                child = layout.takeAt(0)
-                if child.widget():
-                    child.widget().deleteLater()
 
     def _connect_signals(self):
         """Connect signals between components."""
