@@ -350,8 +350,8 @@ class AgentPromptWidget(BaseWidget):
         if block_count == 0:
             block_count = 1
 
-        # Clamp line count between 1 and 10
-        clamped_lines = max(1, min(10, block_count))
+        # Clamp line count between DEFAULT_INPUT_ROWS (minimum 3) and 10
+        clamped_lines = max(self.DEFAULT_INPUT_ROWS, min(10, block_count))
         target_height = self._line_height * clamped_lines
 
         self.input_text.setMinimumHeight(target_height)
