@@ -159,7 +159,7 @@ class AgentChatHistoryWidget(BaseWidget):
     def _setup_ui(self):
         """Set up the UI components."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(6, 6, 6, 6)  # Match agent_prompt_widget margins
         layout.setSpacing(0)
 
         # Scroll area for chat messages
@@ -170,8 +170,8 @@ class AgentChatHistoryWidget(BaseWidget):
         self.scroll_area.setStyleSheet("""
             QScrollArea {
                 background-color: #252525;
-                border: 1px solid #505254;
-                border-radius: 5px;
+                border: none;  /* Remove border to match agent_prompt_widget style */
+                border-radius: 0px;  /* Remove border radius */
             }
             QScrollBar:vertical {
                 background-color: #2b2d30;
