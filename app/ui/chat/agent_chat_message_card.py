@@ -223,6 +223,9 @@ class BaseMessageCard(QFrame):
             widget = LinkWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.BUTTON:
             widget = ButtonWidget(structure_content, self.structure_content)
+        elif structure_content.content_type == ContentType.SKILL:
+            from app.ui.chat.message.skill_content_widget import SkillContentWidget
+            widget = SkillContentWidget(structure_content, self.structure_content)
         # Add more content types as needed
         else:
             # Default to text content for unrecognized types

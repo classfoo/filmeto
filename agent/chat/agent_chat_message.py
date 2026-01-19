@@ -39,6 +39,7 @@ class ContentType(Enum):
     FORM = "form"
     PROGRESS = "progress"
     METADATA = "metadata"
+    SKILL = "skill"
 
 
 @dataclass
