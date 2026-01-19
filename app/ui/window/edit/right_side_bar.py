@@ -24,7 +24,7 @@ class MainWindowRightSideBar(BaseWidget):
         self.button_map = {}
         
         # Agent button
-        self.agent_button = QPushButton("\ue704", self)  # Agent icon
+        self.agent_button = QPushButton("\ue721", self)  # Agent icon
         self.agent_button.setFixedSize(30, 30)
         self.agent_button.setCheckable(True)  # Make button checkable
         self.agent_button.clicked.connect(lambda: self._on_button_clicked('agent'))
@@ -32,7 +32,7 @@ class MainWindowRightSideBar(BaseWidget):
         self.button_map['agent'] = self.agent_button
 
         # Chat history button
-        self.chat_history_button = QPushButton("\ue721", self)  # Chat history icon
+        self.chat_history_button = QPushButton("\ue679", self)  # Chat history icon
         self.chat_history_button.setFixedSize(30, 30)
         self.chat_history_button.setCheckable(True)
         self.chat_history_button.clicked.connect(lambda: self._on_button_clicked('chat_history'))
@@ -40,7 +40,7 @@ class MainWindowRightSideBar(BaseWidget):
         self.button_map['chat_history'] = self.chat_history_button
 
         # Skills button
-        self.skills_button = QPushButton("\ue69d", self)  # Skills icon
+        self.skills_button = QPushButton("\ue71f", self)  # Skills icon
         self.skills_button.setFixedSize(30, 30)
         self.skills_button.setCheckable(True)
         self.skills_button.clicked.connect(lambda: self._on_button_clicked('skills'))
@@ -48,7 +48,7 @@ class MainWindowRightSideBar(BaseWidget):
         self.button_map['skills'] = self.skills_button
 
         # Soul Panel button
-        self.souls_button = QPushButton("\ue6a3", self)  # Soul Panel icon
+        self.souls_button = QPushButton("\ue7a1", self)  # Soul Panel icon
         self.souls_button.setFixedSize(30, 30)
         self.souls_button.setCheckable(True)
         self.souls_button.setToolTip("Soul Panel")  # Add tooltip for clarity
@@ -57,7 +57,7 @@ class MainWindowRightSideBar(BaseWidget):
         self.button_map['souls'] = self.souls_button
 
         # Members button
-        self.members_button = QPushButton("\ue63c", self)  # Members/users icon
+        self.members_button = QPushButton("\ue89e", self)  # Members/users icon
         self.members_button.setFixedSize(30, 30)
         self.members_button.setCheckable(True)
         self.members_button.setToolTip("Members")  # Add tooltip for clarity
@@ -66,7 +66,7 @@ class MainWindowRightSideBar(BaseWidget):
         self.button_map['members'] = self.members_button
 
         # Screen Play button
-        self.screenplay_button = QPushButton("\ue707", self)  # Text icon
+        self.screenplay_button = QPushButton("\ue993", self)  # Text icon
         self.screenplay_button.setFixedSize(30, 30)
         self.screenplay_button.setCheckable(True)
         self.screenplay_button.setToolTip("Screen Play")  # Add tooltip for clarity

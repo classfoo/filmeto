@@ -21,7 +21,7 @@ def main():
     
     # List all available souls
     print("Available expert souls:")
-    for soul in service.get_all_souls():
+    for soul in service.get_all_souls("default_project"):  # Pass project ID
         print(f"  - {soul.name}")
         print(f"    Skills: {', '.join(soul.skills[:3])}")  # Show first 3 skills
         if len(soul.skills) > 3:

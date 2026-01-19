@@ -58,8 +58,16 @@ class SoulsPanel(BasePanel):
     def _load_souls_async(self):
         """Load souls asynchronously."""
         try:
-            # Get all souls
-            souls = self.soul_service.get_all_souls()
+            # Get project ID from workspace
+            project = self.workspace.get_project()
+            if project:
+                project_id = project.project_name
+            else:
+                # Use a default project ID if no project is loaded
+                project_id = "default_project"
+
+            # Get all souls for the project
+            souls = self.soul_service.get_all_souls(project_id)
 
             # Clear existing content
             self._clear_content()

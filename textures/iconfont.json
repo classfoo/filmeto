@@ -6,6 +6,83 @@
   "description": "filmeto",
   "glyphs": [
     {
+      "icon_id": "1374607",
+      "name": "技能",
+      "font_class": "jineng",
+      "unicode": "e678",
+      "unicode_decimal": 59000
+    },
+    {
+      "icon_id": "1576148",
+      "name": "技能",
+      "font_class": "jineng1",
+      "unicode": "e71f",
+      "unicode_decimal": 59167
+    },
+    {
+      "icon_id": "4784097",
+      "name": "历史",
+      "font_class": "lishi",
+      "unicode": "e679",
+      "unicode_decimal": 59001
+    },
+    {
+      "icon_id": "10933913",
+      "name": "历史",
+      "font_class": "lishi1",
+      "unicode": "e67a",
+      "unicode_decimal": 59002
+    },
+    {
+      "icon_id": "21333642",
+      "name": "技能分",
+      "font_class": "jinengfen",
+      "unicode": "e67b",
+      "unicode_decimal": 59003
+    },
+    {
+      "icon_id": "5094511",
+      "name": "菜单-拍摄计划",
+      "font_class": "caidan-paishejihua",
+      "unicode": "e676",
+      "unicode_decimal": 58998
+    },
+    {
+      "icon_id": "28474117",
+      "name": "演练演示视频",
+      "font_class": "yanlianyanshishipin",
+      "unicode": "e768",
+      "unicode_decimal": 59240
+    },
+    {
+      "icon_id": "42227535",
+      "name": "ghost-smile-line",
+      "font_class": "ghost-smile-line",
+      "unicode": "e7a1",
+      "unicode_decimal": 59297
+    },
+    {
+      "icon_id": "42323410",
+      "name": "分镜模板",
+      "font_class": "fenjingmoban",
+      "unicode": "e73f",
+      "unicode_decimal": 59199
+    },
+    {
+      "icon_id": "46254502",
+      "name": "分镜",
+      "font_class": "fenjing",
+      "unicode": "ea49",
+      "unicode_decimal": 59977
+    },
+    {
+      "icon_id": "46534188",
+      "name": "分镜1",
+      "font_class": "fenjing1",
+      "unicode": "e751",
+      "unicode_decimal": 59217
+    },
+    {
       "icon_id": "46534029",
       "name": "未选中",
       "font_class": "a-xuanzhongweixuanzhong3",

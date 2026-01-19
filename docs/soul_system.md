@@ -51,7 +51,7 @@ from agent.soul import SoulService
 service = SoulService()
 
 # Get all souls
-all_souls = service.get_all_souls()
+all_souls = service.get_all_souls("project_id")  # Pass the project ID
 
 # Get a specific soul by name
 soul = service.get_soul_by_name("soul_name")

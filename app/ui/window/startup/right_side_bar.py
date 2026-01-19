@@ -30,7 +30,7 @@ class StartupWindowRightSideBar(BaseWidget):
         self.button_map = {}
 
         # Members button
-        self.members_button = QPushButton("\ue6b3", self)  # User icon
+        self.members_button = QPushButton("\ue89e", self)  # User icon
         self.members_button.setFixedSize(30, 30)
         self.members_button.setCheckable(True)
         self.members_button.setToolTip("Members")  # Add tooltip for clarity
@@ -39,7 +39,7 @@ class StartupWindowRightSideBar(BaseWidget):
         self.button_map['members'] = self.members_button
 
         # Screen Play button
-        self.screenplay_button = QPushButton("\ue707", self)  # Text icon
+        self.screenplay_button = QPushButton("\ue993", self)  # Text icon
         self.screenplay_button.setFixedSize(30, 30)
         self.screenplay_button.setCheckable(True)
         self.screenplay_button.setToolTip("Screen Play")  # Add tooltip for clarity
