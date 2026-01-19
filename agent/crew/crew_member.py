@@ -166,7 +166,12 @@ class CrewMember:
             action = self._parse_action(response_text)
 
             if action.action_type == "skill":
-                observation = self._execute_skill(action)
+                # Execute skill with structured content reporting
+                observation = self._execute_skill_with_structured_content(
+                    action,
+                    on_stream_event=on_stream_event,
+                    message_id=getattr(self, '_current_message_id', 'unknown')
+                )
                 messages.append({"role": "assistant", "content": response_text})
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
 
@@ -325,6 +330,72 @@ class CrewMember:
         script_name = action.script or os.path.basename(skill.scripts[0])
         args = _normalize_skill_args(action.args)
         result = self.skill_service.execute_skill_script(action.skill, script_name, *args)
+        return result if result is not None else f"Skill '{action.skill}' execution returned no output."
+
+    def _execute_skill_with_structured_content(
+        self,
+        action: CrewMemberAction,
+        on_stream_event: Optional[Callable[[Any], None]] = None,
+        message_id: Optional[str] = None
+    ) -> str:
+        """
+        Execute a skill with structured content reporting for the UI.
+
+        Args:
+            action: The skill action to execute
+            on_stream_event: Callback for stream events
+            message_id: The message ID to associate with the skill execution
+
+        Returns:
+            The result of the skill execution
+        """
+        if not action.skill:
+            return "No skill specified in action."
+
+        skill = self.skill_service.get_skill(action.skill)
+        if not skill:
+            return f"Skill '{action.skill}' not found."
+        if not skill.scripts:
+            return skill.knowledge or f"Skill '{action.skill}' has no executable scripts."
+
+        # Send start state event
+        if on_stream_event:
+            from agent.filmeto_agent import StreamEvent
+            on_stream_event(StreamEvent("skill_start", {
+                "skill_name": action.skill,
+                "skill_args": action.args,
+                "message_id": message_id,
+                "sender_name": self.config.name,
+                "session_id": getattr(self, '_session_id', 'unknown')
+            }))
+
+        script_name = action.script or os.path.basename(skill.scripts[0])
+        args = _normalize_skill_args(action.args)
+
+        # Send progress state event
+        if on_stream_event:
+            from agent.filmeto_agent import StreamEvent
+            on_stream_event(StreamEvent("skill_progress", {
+                "skill_name": action.skill,
+                "progress_text": "Executing skill...",
+                "message_id": message_id,
+                "sender_name": self.config.name,
+                "session_id": getattr(self, '_session_id', 'unknown')
+            }))
+
+        result = self.skill_service.execute_skill_script(action.skill, script_name, *args)
+
+        # Send end state event
+        if on_stream_event:
+            from agent.filmeto_agent import StreamEvent
+            on_stream_event(StreamEvent("skill_end", {
+                "skill_name": action.skill,
+                "result": result if result is not None else f"Skill '{action.skill}' execution returned no output.",
+                "message_id": message_id,
+                "sender_name": self.config.name,
+                "session_id": getattr(self, '_session_id', 'unknown')
+            }))
+
         return result if result is not None else f"Skill '{action.skill}' execution returned no output."
 
     def _apply_plan_update(self, action: CrewMemberAction, plan_id: Optional[str]) -> str:

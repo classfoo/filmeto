@@ -330,6 +330,9 @@ class FilmetoAgent:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[str]:
         async def response_iter():
+            # Set the current message ID on the crew member for skill tracking
+            crew_member._current_message_id = str(uuid.uuid4())
+
             async for token in crew_member.chat_stream(message, on_stream_event=on_stream_event, plan_id=plan_id):
                 response_metadata = dict(metadata or {})
                 if plan_id:

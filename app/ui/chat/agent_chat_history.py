@@ -547,6 +547,58 @@ class AgentChatHistoryWidget(BaseWidget):
                 content=content,
                 append=False  # Set as complete content
             )
+        elif event.event_type in ["skill_start", "skill_progress", "skill_end"]:
+            # Handle skill events (start, progress, end)
+            skill_name = event.data.get('skill_name', 'Unknown')
+            sender_name = event.data.get('sender_name', 'Unknown')
+            message_id = event.data.get('message_id', str(uuid.uuid4()))
+
+            # Determine the status based on event type
+            if event.event_type == "skill_start":
+                status = "starting"
+                message = f"Starting skill: {skill_name}"
+                content = f"[Skill: {skill_name}] Starting execution..."
+            elif event.event_type == "skill_progress":
+                status = "in_progress"
+                message = event.data.get('progress_text', 'Processing...')
+                content = f"[Skill: {skill_name}] {message}"
+            elif event.event_type == "skill_end":
+                status = "completed"
+                result = event.data.get('result', 'No result returned')
+                message = result
+                content = f"[Skill: {skill_name}] Completed. Result: {result}"
+            else:
+                status = "unknown"
+                message = "Unknown skill status"
+                content = f"[Skill: {skill_name}] {message}"
+
+            # Get or create the card
+            card = self.get_or_create_agent_card(
+                message_id,
+                sender_name,
+                sender_name
+            )
+
+            # Create structured content for skill execution
+            from agent.chat.agent_chat_message import StructureContent, ContentType
+            skill_content = StructureContent(
+                content_type=ContentType.SKILL,
+                data={
+                    "status": status,
+                    "skill_name": skill_name,
+                    "message": message
+                },
+                title=f"Skill: {skill_name}",
+                description=f"Skill execution {status}"
+            )
+
+            # Update the card with the structured content
+            self.update_agent_card(
+                message_id,
+                content=content,
+                append=False,
+                structured_content=skill_content
+            )
         elif hasattr(event, 'content') and event.content:
             # Handle regular content events (fallback for other types)
             # Create or update the card with the content
