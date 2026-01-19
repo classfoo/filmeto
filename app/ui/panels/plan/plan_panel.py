@@ -8,7 +8,7 @@ from datetime import datetime
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
-    QLabel, QPushButton, QTextEdit, QSplitter, QFrame
+    QLabel, QPushButton, QTextEdit, QSplitter, QFrame, QHeaderView
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont
@@ -71,9 +71,9 @@ class PlanPanel(BasePanel):
         # Plan list tree
         self.plan_tree = QTreeWidget()
         self.plan_tree.setHeaderLabels(["Plan", "Status", "Created"])
-        self.plan_tree.header().setSectionResizeMode(0, self.plan_tree.header().Stretch)
-        self.plan_tree.header().setSectionResizeMode(1, self.plan_tree.header().ResizeToContents)
-        self.plan_tree.header().setSectionResizeMode(2, self.plan_tree.header().ResizeToContents)
+        self.plan_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.plan_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.plan_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.plan_tree.itemSelectionChanged.connect(self._on_plan_selected)
         left_layout.addWidget(self.plan_tree)
 
@@ -99,11 +99,11 @@ class PlanPanel(BasePanel):
 
         self.task_tree = QTreeWidget()
         self.task_tree.setHeaderLabels(["Task", "Status", "Agent Role", "Started", "Completed"])
-        self.task_tree.header().setSectionResizeMode(0, self.task_tree.header().Stretch)
-        self.task_tree.header().setSectionResizeMode(1, self.task_tree.header().ResizeToContents)
-        self.task_tree.header().setSectionResizeMode(2, self.task_tree.header().ResizeToContents)
-        self.task_tree.header().setSectionResizeMode(3, self.task_tree.header().ResizeToContents)
-        self.task_tree.header().setSectionResizeMode(4, self.task_tree.header().ResizeToContents)
+        self.task_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.task_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.task_tree.header().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.task_tree.header().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.task_tree.header().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         right_layout.addWidget(self.task_tree)
 
         # Add frames to splitter
