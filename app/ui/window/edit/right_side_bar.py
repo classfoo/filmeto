@@ -56,8 +56,17 @@ class MainWindowRightSideBar(BaseWidget):
         self.layout.addWidget(self.souls_button, alignment=Qt.AlignCenter)
         self.button_map['souls'] = self.souls_button
 
+        # Members button
+        self.members_button = QPushButton("\ue63c", self)  # Members/users icon
+        self.members_button.setFixedSize(30, 30)
+        self.members_button.setCheckable(True)
+        self.members_button.setToolTip("Members")  # Add tooltip for clarity
+        self.members_button.clicked.connect(lambda: self._on_button_clicked('members'))
+        self.layout.addWidget(self.members_button, alignment=Qt.AlignCenter)
+        self.button_map['members'] = self.members_button
+
         self.layout.addStretch(0)
-        
+
         # Track current selected button
         self.current_selected_button = None
     
