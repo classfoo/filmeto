@@ -70,6 +70,7 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
             'chat_history': ('app.ui.panels.chat_history.chat_history_panel', 'ChatHistoryPanel'),
             'skills': ('app.ui.panels.skills.skills_panel', 'SkillsPanel'),
             'souls': ('app.ui.panels.souls.souls_panel', 'SoulsPanel'),
+            'members': ('app.ui.panels.members.members_panel', 'MembersPanel'),
         }
     
     @Slot(str)
