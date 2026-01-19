@@ -53,21 +53,22 @@ class StartupWindowRightSideBar(BaseWidget):
         self.current_selected_button = None
 
         # Set initial selection to members
-        self.set_selected_button('members')
+        self.set_selected_button('members', emit_signal=True)
 
     def _on_button_clicked(self, panel_name: str):
         """Handle button click and update selected state."""
         # Set the clicked button as checked
-        self.set_selected_button(panel_name)
+        self.set_selected_button(panel_name, emit_signal=True)
         # Emit signal for panel switching
         self.button_clicked.emit(panel_name)
 
-    def set_selected_button(self, panel_name: str):
+    def set_selected_button(self, panel_name: str, emit_signal: bool = False):
         """
         Set the selected button state.
 
         Args:
             panel_name: Name of the panel to select
+            emit_signal: Whether to emit the button clicked signal
         """
         # Uncheck previous button if exists
         if self.current_selected_button:
@@ -78,3 +79,7 @@ class StartupWindowRightSideBar(BaseWidget):
             button = self.button_map[panel_name]
             button.setChecked(True)
             self.current_selected_button = button
+
+            # Emit the signal to trigger panel switching if requested
+            if emit_signal:
+                self.button_clicked.emit(panel_name)
