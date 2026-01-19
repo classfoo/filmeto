@@ -65,6 +65,15 @@ class MainWindowRightSideBar(BaseWidget):
         self.layout.addWidget(self.members_button, alignment=Qt.AlignCenter)
         self.button_map['members'] = self.members_button
 
+        # Screen Play button
+        self.screenplay_button = QPushButton("\ue707", self)  # Text icon
+        self.screenplay_button.setFixedSize(30, 30)
+        self.screenplay_button.setCheckable(True)
+        self.screenplay_button.setToolTip("Screen Play")  # Add tooltip for clarity
+        self.screenplay_button.clicked.connect(lambda: self._on_button_clicked('screenplay'))
+        self.layout.addWidget(self.screenplay_button, alignment=Qt.AlignCenter)
+        self.button_map['screenplay'] = self.screenplay_button
+
         self.layout.addStretch(0)
 
         # Track current selected button
