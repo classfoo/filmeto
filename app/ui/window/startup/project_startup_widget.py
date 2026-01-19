@@ -61,13 +61,13 @@ class ProjectStartupWidget(BaseWidget):
         from app.ui.window.startup.panel_switcher import StartupWindowWorkspaceTopRightBar
         self.right_panel_switcher = StartupWindowWorkspaceTopRightBar(self.workspace, self)
 
+        # Add the panel switcher to the layout (to the left of the sidebar)
+        main_layout.addWidget(self.right_panel_switcher)
+
         # Create the right sidebar for switching between panels
         from app.ui.window.startup.right_side_bar import StartupWindowRightSideBar
         self.right_sidebar = StartupWindowRightSideBar(self.workspace, self)
         main_layout.addWidget(self.right_sidebar)
-
-        # Add the panel switcher to the layout
-        main_layout.addWidget(self.right_panel_switcher)
 
         # Connect the right sidebar button clicks to the panel switcher
         self.right_sidebar.button_clicked.connect(self.right_panel_switcher.switch_to_panel)
