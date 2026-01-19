@@ -57,15 +57,15 @@ class ProjectStartupWidget(BaseWidget):
         self._setup_chat_tab(self.chat_tab)
         main_layout.addWidget(self.chat_tab, 1)  # Give chat area expanding space
 
-        # Create the right sidebar for switching between members and panels
-        from app.ui.window.startup.right_side_bar import StartupWindowRightSideBar
-        self.right_sidebar = StartupWindowRightSideBar(self.workspace, self)
-        main_layout.addWidget(self.right_sidebar)
-
         # Create the right content area that can switch between members and panels
         self.right_content_area = QWidget()
         self.right_content_area.setMinimumWidth(300)  # Set minimum width for content area
         main_layout.addWidget(self.right_content_area)
+
+        # Create the right sidebar for switching between members and panels
+        from app.ui.window.startup.right_side_bar import StartupWindowRightSideBar
+        self.right_sidebar = StartupWindowRightSideBar(self.workspace, self)
+        main_layout.addWidget(self.right_sidebar)
 
         # Set up the members component
         self._setup_members_component()
