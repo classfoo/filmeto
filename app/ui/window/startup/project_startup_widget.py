@@ -48,30 +48,64 @@ class ProjectStartupWidget(BaseWidget):
 
     def _setup_ui(self):
         """Set up the UI components."""
-        main_layout = QHBoxLayout(self)  # Changed to QHBoxLayout for side-by-side layout
+        from PySide6.QtWidgets import QSplitter, QFrame
+        from PySide6.QtCore import Qt
+
+        # Main layout
+        main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Create the chat component (left side)
+        # Create main splitter for first level split (work area and right sidebar)
+        self.main_splitter = QSplitter(Qt.Horizontal)
+        # Set the main splitter to have no handle (fixed position)
+        self.main_splitter.setHandleWidth(0)
+
+        # Create the work area splitter (second level split)
+        self.work_area_splitter = QSplitter(Qt.Horizontal)
+
+        # Create the chat component (left side of work area)
         self.chat_tab = QWidget()
         self._setup_chat_tab(self.chat_tab)
-        main_layout.addWidget(self.chat_tab, 1)  # Give chat area expanding space
+        self.work_area_splitter.addWidget(self.chat_tab)
 
-        # Create the right panel switcher for the startup window
+        # Create the right panel switcher for the startup window (right side of work area)
         from app.ui.window.startup.panel_switcher import StartupWindowWorkspaceTopRightBar
         self.right_panel_switcher = StartupWindowWorkspaceTopRightBar(self.workspace, self)
+        self.work_area_splitter.addWidget(self.right_panel_switcher)
 
-        # Add the panel switcher to the layout (to the left of the sidebar)
-        main_layout.addWidget(self.right_panel_switcher)
+        # Set size policies for the work area splitter
+        self.work_area_splitter.setStretchFactor(0, 1)  # Chat area expands
+        self.work_area_splitter.setStretchFactor(1, 0)  # Panel area doesn't expand by default
+
+        # Set minimum and maximum sizes for the right panel area
+        # Get the right panel widget and set its size constraints
+        self.right_panel_switcher.setMinimumWidth(300)
+        self.right_panel_switcher.setMaximumWidth(600)
+
+        # Add the work area splitter to the main splitter
+        self.main_splitter.addWidget(self.work_area_splitter)
 
         # Create the right sidebar for switching between panels
         from app.ui.window.startup.right_side_bar import StartupWindowRightSideBar
         self.right_sidebar = StartupWindowRightSideBar(self.workspace, self)
-        # Ensure the right sidebar has no right margin to be flush with the edge
-        main_layout.addWidget(self.right_sidebar)
+        # Set fixed width for the right sidebar
+        self.right_sidebar.setFixedWidth(40)
+        self.main_splitter.addWidget(self.right_sidebar)
+
+        # Set the main splitter's stretch factors
+        self.main_splitter.setStretchFactor(0, 1)  # Work area expands
+        self.main_splitter.setStretchFactor(1, 0)  # Sidebar stays fixed
+
+        # Add the main splitter to the main layout
+        main_layout.addWidget(self.main_splitter)
 
         # Connect the right sidebar button clicks to the panel switcher
         self.right_sidebar.button_clicked.connect(self.right_panel_switcher.switch_to_panel)
+
+        # Trigger the default panel to load after the UI is set up
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self.right_sidebar.set_selected_button('members', emit_signal=True))
 
     def _setup_chat_tab(self, tab: QWidget):
         """Set up the chat tab."""
