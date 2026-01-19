@@ -151,7 +151,10 @@ class StartupWindow(LeftPanelDialog):
         # Connect the enter_edit_mode signal from the startup widget
         self.startup_widget.enter_edit_mode.connect(self._on_edit_project_from_widget)
 
+        # Set the right work widget and adjust margins to 0 on the right
         self.set_right_work_widget(self.startup_widget)
+        # Adjust the right work layout margins to have 0 on the right side
+        self.right_work_layout.setContentsMargins(20, 20, 0, 20)  # Left, Top, Right, Bottom
         
         # Connect signals
         self._connect_signals()

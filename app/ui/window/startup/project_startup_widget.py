@@ -67,6 +67,7 @@ class ProjectStartupWidget(BaseWidget):
         # Create the right sidebar for switching between panels
         from app.ui.window.startup.right_side_bar import StartupWindowRightSideBar
         self.right_sidebar = StartupWindowRightSideBar(self.workspace, self)
+        # Ensure the right sidebar has no right margin to be flush with the edge
         main_layout.addWidget(self.right_sidebar)
 
         # Connect the right sidebar button clicks to the panel switcher
