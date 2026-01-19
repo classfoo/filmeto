@@ -34,13 +34,10 @@ class AgentPromptWidget(BaseWidget):
         super().__init__(workspace)
         if parent:
             self.setParent(parent)
-        
-        # Track conversation state
-        self._is_conversation_active = False
-        
+
         # Connect prompt_submitted to message_submitted for backward compatibility
         self.prompt_submitted.connect(self.message_submitted.emit)
-        
+
         self._init_ui()
     
     def _init_ui(self):
@@ -395,13 +392,9 @@ class AgentPromptWidget(BaseWidget):
         return super().eventFilter(obj, event)
     
     def _on_button_clicked(self):
-        """Handle button click - either send or cancel based on conversation state."""
-        if self._is_conversation_active:
-            # Cancel the ongoing conversation
-            self.cancel_requested.emit()
-        else:
-            # Send message
-            self._on_send_message()
+        """Handle button click - always send message."""
+        # Send message regardless of any conversation state
+        self._on_send_message()
     
     def _on_send_message(self):
         """Handle send message button click."""
@@ -439,17 +432,9 @@ class AgentPromptWidget(BaseWidget):
     
     def set_conversation_active(self, active: bool):
         """Set the conversation active state and update button appearance."""
-        self._is_conversation_active = active
-        
-        # Update button icon and tooltip
-        if active:
-            # Change to cancel button
-            self.send_button.setText("\ue83b")  # close icon
-            self.send_button.setToolTip(tr("Cancel"))
-        else:
-            # Change back to send button
-            self.send_button.setText("\ue83e")  # play/send icon
-            self.send_button.setToolTip(tr("Send"))
+        # In group chat mode, we don't change the button state
+        # The button always remains as a send button
+        pass
     
     # Context management methods
     def add_context_item(self, context_id: str, context_name: str):
