@@ -71,6 +71,7 @@ class MainWindowWorkspaceTopRightBar(BaseWidget):
             'skills': ('app.ui.panels.skills.skills_panel', 'SkillsPanel'),
             'souls': ('app.ui.panels.souls.souls_panel', 'SoulsPanel'),
             'members': ('app.ui.panels.members.members_panel', 'MembersPanel'),
+            'screenplay': ('app.ui.panels.screen_play.screen_play_panel', 'ScreenPlayPanel'),
         }
     
     @Slot(str)
