@@ -41,10 +41,9 @@ class PlanPanel(BasePanel):
         self.selected_plan: Optional[Plan] = None
         self.selected_instance: Optional[PlanInstance] = None
 
-        self._setup_ui()
         self.refresh_data()
 
-    def _setup_ui(self):
+    def setup_ui(self):
         """Set up the user interface."""
         # Main layout
         layout = QVBoxLayout(self)
@@ -58,17 +57,17 @@ class PlanPanel(BasePanel):
 
         # Create splitter for plan list and details
         self.splitter = QSplitter(Qt.Horizontal)
-        
+
         # Left side: Plan list
         left_frame = QFrame()
         left_layout = QVBoxLayout(left_frame)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Plan list title
         plan_list_title = QLabel("Plans")
         plan_list_title.setFont(QFont("Arial", 10, QFont.Bold))
         left_layout.addWidget(plan_list_title)
-        
+
         # Plan list tree
         self.plan_tree = QTreeWidget()
         self.plan_tree.setHeaderLabels(["Plan", "Status", "Created"])
@@ -77,27 +76,27 @@ class PlanPanel(BasePanel):
         self.plan_tree.header().setSectionResizeMode(2, self.plan_tree.header().ResizeToContents)
         self.plan_tree.itemSelectionChanged.connect(self._on_plan_selected)
         left_layout.addWidget(self.plan_tree)
-        
+
         # Right side: Plan details
         right_frame = QFrame()
         right_layout = QVBoxLayout(right_frame)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Plan details title
         details_title = QLabel("Plan Details")
         details_title.setFont(QFont("Arial", 10, QFont.Bold))
         right_layout.addWidget(details_title)
-        
+
         # Plan info section
         self.plan_info_text = QTextEdit()
         self.plan_info_text.setReadOnly(True)
         right_layout.addWidget(self.plan_info_text)
-        
+
         # Task list section
         task_list_title = QLabel("Tasks")
         task_list_title.setFont(QFont("Arial", 10, QFont.Bold))
         right_layout.addWidget(task_list_title)
-        
+
         self.task_tree = QTreeWidget()
         self.task_tree.setHeaderLabels(["Task", "Status", "Agent Role", "Started", "Completed"])
         self.task_tree.header().setSectionResizeMode(0, self.task_tree.header().Stretch)
@@ -106,25 +105,25 @@ class PlanPanel(BasePanel):
         self.task_tree.header().setSectionResizeMode(3, self.task_tree.header().ResizeToContents)
         self.task_tree.header().setSectionResizeMode(4, self.task_tree.header().ResizeToContents)
         right_layout.addWidget(self.task_tree)
-        
+
         # Add frames to splitter
         self.splitter.addWidget(left_frame)
         self.splitter.addWidget(right_frame)
         self.splitter.setSizes([300, 400])  # Default sizes
-        
+
         layout.addWidget(self.splitter)
 
         # Control buttons
         button_layout = QHBoxLayout()
-        
+
         self.refresh_button = QPushButton("Refresh")
         self.refresh_button.clicked.connect(self.refresh_data)
         button_layout.addWidget(self.refresh_button)
-        
+
         self.execute_button = QPushButton("Execute Selected Plan")
         self.execute_button.clicked.connect(self._execute_selected_plan)
         button_layout.addWidget(self.execute_button)
-        
+
         button_layout.addStretch()
         layout.addLayout(button_layout)
 
