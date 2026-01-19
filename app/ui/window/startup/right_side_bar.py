@@ -30,7 +30,7 @@ class StartupWindowRightSideBar(BaseWidget):
         self.button_map = {}
 
         # Members button
-        self.members_button = QPushButton("\ue63c", self)  # Members/users icon
+        self.members_button = QPushButton("\ue6b3", self)  # User icon
         self.members_button.setFixedSize(30, 30)
         self.members_button.setCheckable(True)  # Make button checkable
         self.members_button.clicked.connect(lambda: self._on_button_clicked('members'))
@@ -38,7 +38,7 @@ class StartupWindowRightSideBar(BaseWidget):
         self.button_map['members'] = self.members_button
 
         # Panels button
-        self.panels_button = QPushButton("\ue62e", self)  # Panel/settings icon
+        self.panels_button = QPushButton("\ue60f", self)  # Settings icon
         self.panels_button.setFixedSize(30, 30)
         self.panels_button.setCheckable(True)
         self.panels_button.clicked.connect(lambda: self._on_button_clicked('panels'))
