@@ -8,8 +8,8 @@ from PySide6.QtWidgets import (
     QFormLayout, QLineEdit, QDoubleSpinBox, QGroupBox, QSizePolicy
 )
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPixmap, QIcon, QPainter, QColor, QPolygonF
-from PySide6.QtCharts import QChart, QChartView, QPolygonF, QValueAxis, QCategoryAxis
+from PySide6.QtGui import QPixmap, QIcon, QPainter, QColor
+from PySide6.QtCharts import QChart, QChartView, QValueAxis, QCategoryAxis
 import math
 
 from app.ui.panels.base_panel import BasePanel

@@ -29,39 +29,6 @@ class StartupWindowRightSideBar(BaseWidget):
         # Map panel names to buttons for easy access
         self.button_map = {}
 
-        # Agent button
-        self.agent_button = QPushButton("\ue704", self)  # Agent icon
-        self.agent_button.setFixedSize(30, 30)
-        self.agent_button.setCheckable(True)  # Make button checkable
-        self.agent_button.clicked.connect(lambda: self._on_button_clicked('agent'))
-        self.layout.addWidget(self.agent_button, alignment=Qt.AlignCenter)
-        self.button_map['agent'] = self.agent_button
-
-        # Chat history button
-        self.chat_history_button = QPushButton("\ue721", self)  # Chat history icon
-        self.chat_history_button.setFixedSize(30, 30)
-        self.chat_history_button.setCheckable(True)
-        self.chat_history_button.clicked.connect(lambda: self._on_button_clicked('chat_history'))
-        self.layout.addWidget(self.chat_history_button, alignment=Qt.AlignCenter)
-        self.button_map['chat_history'] = self.chat_history_button
-
-        # Skills button
-        self.skills_button = QPushButton("\ue69d", self)  # Skills icon
-        self.skills_button.setFixedSize(30, 30)
-        self.skills_button.setCheckable(True)
-        self.skills_button.clicked.connect(lambda: self._on_button_clicked('skills'))
-        self.layout.addWidget(self.skills_button, alignment=Qt.AlignCenter)
-        self.button_map['skills'] = self.skills_button
-
-        # Soul Panel button
-        self.souls_button = QPushButton("\ue6a3", self)  # Soul Panel icon
-        self.souls_button.setFixedSize(30, 30)
-        self.souls_button.setCheckable(True)
-        self.souls_button.setToolTip("Soul Panel")  # Add tooltip for clarity
-        self.souls_button.clicked.connect(lambda: self._on_button_clicked('souls'))
-        self.layout.addWidget(self.souls_button, alignment=Qt.AlignCenter)
-        self.button_map['souls'] = self.souls_button
-
         # Members button
         self.members_button = QPushButton("\ue6b3", self)  # User icon
         self.members_button.setFixedSize(30, 30)
@@ -85,8 +52,8 @@ class StartupWindowRightSideBar(BaseWidget):
         # Track current selected button
         self.current_selected_button = None
 
-        # Set initial selection to agent
-        self.set_selected_button('agent')
+        # Set initial selection to members
+        self.set_selected_button('members')
 
     def _on_button_clicked(self, panel_name: str):
         """Handle button click and update selected state."""
