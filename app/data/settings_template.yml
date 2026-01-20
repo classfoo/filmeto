@@ -89,6 +89,18 @@ groups:
         default: false
         description: Automatically overwrite files with the same name
 
+  - name: agent
+    label: Agent
+    icon: ""
+    fields:
+      - name: last_selected_plan_id
+        label: Last Selected Plan ID
+        type: text
+        default: ""
+        description: ID of the last selected plan in the agent interface
+        validation:
+          max_length: 100
+
   - name: ai_services
     label: AI Services
     icon: ""

@@ -388,6 +388,10 @@ class AgentChatPlanWidget(BaseWidget):
         self._update_summary(plan, instance)
         self._update_task_list(plan, instance)
 
+        # Update the current plan ID to the one we just loaded
+        if plan:
+            self._current_plan_id = plan.id
+
     def _get_project_name(self) -> Optional[str]:
         project = self.workspace.get_project() if self.workspace else None
         if not project:
@@ -411,6 +415,7 @@ class AgentChatPlanWidget(BaseWidget):
                     return plan, instance
                 return plan, instance
 
+        # First, try to find active plans
         candidates: List[Tuple[Plan, PlanInstance]] = []
         plans = self.plan_service.get_all_plans_for_project(project_name)
         for plan in plans:
@@ -418,10 +423,22 @@ class AgentChatPlanWidget(BaseWidget):
             if instance and instance.status in active_statuses:
                 candidates.append((plan, instance))
 
-        if not candidates:
-            return None, None
+        if candidates:
+            # Return the most recent active plan
+            return max(candidates, key=lambda item: self._instance_sort_key(item[1]))
 
-        return max(candidates, key=lambda item: self._instance_sort_key(item[1]))
+        # If no active plans, look for the most recent plan regardless of status
+        all_candidates: List[Tuple[Plan, PlanInstance]] = []
+        for plan in plans:
+            instance = self._load_latest_instance(project_name, plan.id)
+            if instance:
+                all_candidates.append((plan, instance))
+
+        if all_candidates:
+            # Return the most recent plan regardless of status
+            return max(all_candidates, key=lambda item: self._instance_sort_key(item[1]))
+
+        return None, None
 
     def _load_latest_instance(self, project_name: str, plan_id: str) -> Optional[PlanInstance]:
         instances = self.plan_service.get_all_instances_for_plan(project_name, plan_id)
