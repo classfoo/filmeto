@@ -205,7 +205,7 @@ class AgentPromptWidget(BaseWidget):
         self._max_height = self._line_height * 10  # 10 lines max
 
         # Set size policy to allow height changes
-        self.input_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.input_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.input_text.setMinimumHeight(self._min_height)
         self.input_text.setMaximumHeight(self._max_height)
         self.input_text.setFixedHeight(self._min_height)
@@ -357,6 +357,15 @@ class AgentPromptWidget(BaseWidget):
         self.input_text.setMinimumHeight(target_height)
         self.input_text.setMaximumHeight(target_height)
         self.input_text.setFixedHeight(target_height)
+
+        # If this widget is inside a splitter, notify the parent to adjust layout
+        parent = self.parent()
+        while parent:
+            if parent.__class__.__name__ == 'QSplitter':
+                # Update the splitter layout to reflect the new size
+                parent.update()
+                break
+            parent = parent.parent()
     
     def _input_focus_in_event(self, event):
         """Handle focus in event for the input text."""
