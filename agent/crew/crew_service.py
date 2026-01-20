@@ -50,15 +50,15 @@ class CrewService:
         crew_members_dir.mkdir(parents=True, exist_ok=True)
 
         # Get all available souls
-        # Using the singleton instance - need to pass project_id to get souls
+        # Using the singleton instance - need to pass project_name to get souls
         from agent.soul import soul_service
         # Ensure the soul service is set up with the workspace
         if soul_service.workspace is None and hasattr(project, 'workspace'):
             soul_service.setup(project.workspace)
 
-        # Use the project's name as the project_id
-        project_id = getattr(project, 'project_name', getattr(project, 'name', 'default_project'))
-        all_souls = soul_service.get_all_souls(project_id)
+        # Use the project's name as the identifier
+        project_name = getattr(project, 'project_name', getattr(project, 'name', 'default_project'))
+        all_souls = soul_service.get_all_souls(project_name)
 
         # Get crew titles using the dedicated method
         crew_title_objects = self.get_crew_titles()

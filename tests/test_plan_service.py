@@ -26,7 +26,7 @@ class TestPlanService(unittest.TestCase):
     
     def test_create_and_load_plan(self):
         """Test creating and loading a Plan."""
-        project_id = "test_project"
+        project_name = "test_project"
         name = "Test Plan"
         description = "A test plan"
 
@@ -49,14 +49,14 @@ class TestPlanService(unittest.TestCase):
 
         # Create a plan
         plan = self.service.create_plan(
-            project_id=project_id,
+            project_name=project_name,
             name=name,
             description=description,
             tasks=tasks
         )
 
         # Load the plan
-        loaded_plan = self.service.load_plan(project_id, plan.id)
+        loaded_plan = self.service.load_plan(project_name, plan.id)
 
         self.assertIsNotNone(loaded_plan)
         self.assertEqual(loaded_plan.name, name)
@@ -68,7 +68,7 @@ class TestPlanService(unittest.TestCase):
     
     def test_create_and_load_plan_instance(self):
         """Test creating and loading a PlanInstance."""
-        project_id = "test_project"
+        project_name = "test_project"
         name = "Test Plan"
         description = "A test plan"
 
@@ -84,7 +84,7 @@ class TestPlanService(unittest.TestCase):
 
         # Create a plan
         plan = self.service.create_plan(
-            project_id=project_id,
+            project_name=project_name,
             name=name,
             description=description,
             tasks=tasks
@@ -95,21 +95,21 @@ class TestPlanService(unittest.TestCase):
 
         # Load the plan instance
         loaded_instance = self.service.load_plan_instance(
-            project_id,
+            project_name,
             plan.id,
             plan_instance.instance_id
         )
 
         self.assertIsNotNone(loaded_instance)
         self.assertEqual(loaded_instance.plan_id, plan.id)
-        self.assertEqual(loaded_instance.project_id, project_id)
+        self.assertEqual(loaded_instance.project_name, project_name)
         self.assertEqual(len(loaded_instance.tasks), 1)
         self.assertEqual(loaded_instance.tasks[0].id, "task1")
         self.assertEqual(loaded_instance.tasks[0].status, TaskStatus.CREATED)
     
     def test_start_plan_execution(self):
         """Test starting plan execution."""
-        project_id = "test_project"
+        project_name = "test_project"
         name = "Test Plan"
         description = "A test plan"
 
@@ -132,7 +132,7 @@ class TestPlanService(unittest.TestCase):
 
         # Create a plan
         plan = self.service.create_plan(
-            project_id=project_id,
+            project_name=project_name,
             name=name,
             description=description,
             tasks=tasks
@@ -157,7 +157,7 @@ class TestPlanService(unittest.TestCase):
     
     def test_mark_task_completed_with_dependencies(self):
         """Test marking a task as completed and checking dependency handling."""
-        project_id = "test_project"
+        project_name = "test_project"
         name = "Test Plan"
         description = "A test plan"
 
@@ -180,7 +180,7 @@ class TestPlanService(unittest.TestCase):
 
         # Create a plan
         plan = self.service.create_plan(
-            project_id=project_id,
+            project_name=project_name,
             name=name,
             description=description,
             tasks=tasks
@@ -205,7 +205,7 @@ class TestPlanService(unittest.TestCase):
     
     def test_cancel_plan(self):
         """Test cancelling an entire plan."""
-        project_id = "test_project"
+        project_name = "test_project"
         name = "Test Plan"
         description = "A test plan"
 
@@ -228,7 +228,7 @@ class TestPlanService(unittest.TestCase):
 
         # Create a plan
         plan = self.service.create_plan(
-            project_id=project_id,
+            project_name=project_name,
             name=name,
             description=description,
             tasks=tasks
@@ -256,7 +256,7 @@ class TestPlanService(unittest.TestCase):
     
     def test_cancel_single_task(self):
         """Test cancelling a single task."""
-        project_id = "test_project"
+        project_name = "test_project"
         name = "Test Plan"
         description = "A test plan"
 
@@ -272,7 +272,7 @@ class TestPlanService(unittest.TestCase):
 
         # Create a plan
         plan = self.service.create_plan(
-            project_id=project_id,
+            project_name=project_name,
             name=name,
             description=description,
             tasks=tasks

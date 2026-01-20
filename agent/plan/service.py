@@ -99,13 +99,18 @@ class PlanService:
         self._save_plan_instance(plan_instance)
         return True
     
-    def _get_flow_dir(self, project_id: str, plan_id: str) -> Path:
-        """Get the directory path for a specific plan."""
-        return self.flow_storage_dir / f"{project_id}_{plan_id}"
+    def _get_flow_dir(self, project_name: str, plan_id: str) -> Path:
+        """Get the directory path for a specific plan.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+            plan_id: Unique ID of the plan
+        """
+        return self.flow_storage_dir / f"{project_name}_{plan_id}"
 
     def _save_plan(self, plan: Plan) -> None:
         """Save a Plan to disk atomically."""
-        plan_dir = self._get_flow_dir(plan.project_id, plan.id)
+        plan_dir = self._get_flow_dir(plan.project_name, plan.id)
         plan_dir.mkdir(parents=True, exist_ok=True)
 
         # Prepare data for serialization
@@ -145,7 +150,7 @@ class PlanService:
 
     def _save_plan_instance(self, plan_instance: PlanInstance) -> None:
         """Save a PlanInstance to disk atomically."""
-        plan_dir = self._get_flow_dir(plan_instance.project_id, plan_instance.plan_id)
+        plan_dir = self._get_flow_dir(plan_instance.project_name, plan_instance.plan_id)
         plan_dir.mkdir(parents=True, exist_ok=True)
 
         # Prepare data for serialization
@@ -278,13 +283,21 @@ class PlanService:
         """
         return self._update_task_status(plan_instance, task_id, TaskStatus.CANCELLED)
     
-    def create_plan(self, project_id: str, name: str, description: str,
+    def create_plan(self, project_name: str, name: str, description: str,
                         tasks: List[PlanTask], metadata: Optional[Dict] = None) -> Plan:
-        """Create a new Plan."""
+        """Create a new Plan.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+            name: Name of the plan
+            description: Description of the plan
+            tasks: List of tasks in the plan
+            metadata: Optional metadata for the plan
+        """
         plan_id = f"p_{int(datetime.now().timestamp())}_{len(tasks)}"
         plan = Plan(
             id=plan_id,
-            project_id=project_id,
+            project_name=project_name,  # Using project name as the identifier
             name=name,
             description=description,
             tasks=tasks,
@@ -315,7 +328,7 @@ class PlanService:
         plan_instance = PlanInstance(
             plan_id=plan.id,
             instance_id=instance_id,
-            project_id=plan.project_id,
+            project_name=plan.project_name,  # This is actually the project name used as identifier
             tasks=instance_tasks,
             metadata=plan.metadata.copy()
         )
@@ -357,9 +370,14 @@ class PlanService:
         self._save_plan_instance(plan_instance)
         return plan_instance
 
-    def load_plan(self, project_id: str, plan_id: str) -> Optional[Plan]:
-        """Load a Plan from disk."""
-        plan_dir = self._get_flow_dir(project_id, plan_id)
+    def load_plan(self, project_name: str, plan_id: str) -> Optional[Plan]:
+        """Load a Plan from disk.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+            plan_id: ID of the plan to load
+        """
+        plan_dir = self._get_flow_dir(project_name, plan_id)
         plan_path = plan_dir / "plan.yml"
 
         if not plan_path.exists():
@@ -391,7 +409,7 @@ class PlanService:
 
         plan = Plan(
             id=data['id'],
-            project_id=data['project_id'],
+            project_name=data['project_name'],
             name=data['name'],
             description=data['description'],
             tasks=tasks,
@@ -404,7 +422,7 @@ class PlanService:
 
     def update_plan(
         self,
-        project_id: str,
+        project_name: str,
         plan_id: str,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -414,8 +432,17 @@ class PlanService:
     ) -> Optional[Plan]:
         """
         Update an existing Plan definition.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+            plan_id: ID of the plan to update
+            name: New name for the plan (optional)
+            description: New description for the plan (optional)
+            tasks: New list of tasks for the plan (optional)
+            append_tasks: Additional tasks to append to the plan (optional)
+            metadata: Additional metadata to update (optional)
         """
-        plan = self.load_plan(project_id, plan_id)
+        plan = self.load_plan(project_name, plan_id)
         if not plan:
             return None
 
@@ -434,9 +461,15 @@ class PlanService:
         self._save_plan(plan)
         return plan
 
-    def load_plan_instance(self, project_id: str, plan_id: str, instance_id: str) -> Optional[PlanInstance]:
-        """Load a PlanInstance from disk."""
-        plan_dir = self._get_flow_dir(project_id, plan_id)
+    def load_plan_instance(self, project_name: str, plan_id: str, instance_id: str) -> Optional[PlanInstance]:
+        """Load a PlanInstance from disk.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+            plan_id: ID of the plan
+            instance_id: ID of the plan instance
+        """
+        plan_dir = self._get_flow_dir(project_name, plan_id)
         plan_instance_path = plan_dir / "plan_instance.yml"
 
         if not plan_instance_path.exists():
@@ -471,7 +504,7 @@ class PlanService:
         plan_instance = PlanInstance(
             plan_id=data['plan_id'],
             instance_id=data['instance_id'],
-            project_id=data['project_id'],
+            project_name=data['project_name'],
             tasks=tasks,
             created_at=created_at,
             started_at=started_at,
@@ -482,28 +515,37 @@ class PlanService:
 
         return plan_instance
     
-    def get_all_plans_for_project(self, project_id: str) -> List[Plan]:
-        """Get all Plans for a specific project."""
+    def get_all_plans_for_project(self, project_name: str) -> List[Plan]:
+        """Get all Plans for a specific project.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+        """
         project_dirs = [d for d in self.flow_storage_dir.iterdir()
-                       if d.is_dir() and d.name.startswith(f"{project_id}_")]
+                       if d.is_dir() and d.name.startswith(f"{project_name}_")]
 
         plans = []
         for plan_dir in project_dirs:
-            plan_id = plan_dir.name.split('_', 1)[1]  # Extract plan ID after project_id_
-            plan = self.load_plan(project_id, plan_id)
+            plan_id = plan_dir.name.split('_', 1)[1]  # Extract plan ID after project_name_
+            plan = self.load_plan(project_name, plan_id)
             if plan:
                 plans.append(plan)
 
         return plans
 
-    def get_all_instances_for_plan(self, project_id: str, plan_id: str) -> List[PlanInstance]:
-        """Get all PlanInstances for a specific plan."""
-        plan_dir = self._get_flow_dir(project_id, plan_id)
+    def get_all_instances_for_plan(self, project_name: str, plan_id: str) -> List[PlanInstance]:
+        """Get all PlanInstances for a specific plan.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+            plan_id: ID of the plan
+        """
+        plan_dir = self._get_flow_dir(project_name, plan_id)
         plan_instance_path = plan_dir / "plan_instance.yml"
 
         instances = []
         if plan_instance_path.exists():
-            instance = self.load_plan_instance(project_id, plan_id, "unknown")  # We'll get the actual instance_id from the loaded data
+            instance = self.load_plan_instance(project_name, plan_id, "unknown")  # We'll get the actual instance_id from the loaded data
             if instance:
                 instances.append(instance)
 

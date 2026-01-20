@@ -54,7 +54,7 @@ class Plan:
     This contains the task definitions and their dependencies but not execution state.
     """
     id: str
-    project_id: str
+    project_name: str  # Stores the project name as identifier
     name: str
     description: str
     tasks: List[PlanTask] = field(default_factory=list)
@@ -72,7 +72,7 @@ class PlanInstance:
     """
     plan_id: str
     instance_id: str
-    project_id: str
+    project_name: str  # Stores the project name as identifier
     tasks: List[PlanTask] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
     started_at: Optional[datetime] = None

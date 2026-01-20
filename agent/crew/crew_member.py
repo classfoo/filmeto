@@ -91,7 +91,7 @@ class CrewMember:
         self.config = CrewMemberConfig.from_markdown(config_path)
         self.workspace = workspace
         self.project = project
-        self.project_id = _resolve_project_id(project) or getattr(project, 'project_name', 'default_project')
+        self.project_name = _resolve_project_name(project) or getattr(project, 'project_name', 'default_project')
         self.llm_service = llm_service or LlmService(workspace)
         self.skill_service = skill_service or SkillService(workspace)
         self.plan_service = plan_service or PlanService()
@@ -245,8 +245,8 @@ class CrewMember:
 
         if plan_id:
             prompt_sections.append(f"Active plan id: {plan_id}.")
-        elif self.project_id:
-            prompt_sections.append(f"Project id: {self.project_id}.")
+        elif self.project_name:
+            prompt_sections.append(f"Project name: {self.project_name}.")
 
         prompt_sections.append(_ACTION_INSTRUCTIONS)
         return "\n\n".join(section for section in prompt_sections if section)
@@ -254,7 +254,7 @@ class CrewMember:
     def _get_soul_prompt(self) -> str:
         if not self.config.soul:
             return ""
-        soul = self.soul_service.get_soul_by_name(self.project_id, self.config.soul)
+        soul = self.soul_service.get_soul_by_name(self.project_name, self.config.soul)
         if not soul:
             return f"Soul '{self.config.soul}' not found."
         if soul.knowledge:
@@ -452,8 +452,8 @@ class CrewMember:
         return result_message
 
     def _apply_plan_update(self, action: CrewMemberAction, plan_id: Optional[str]) -> str:
-        if not self.project_id:
-            return "Project id is missing for plan update."
+        if not self.project_name:
+            return "Project name is missing for plan update."
 
         target_plan_id = action.plan_id or plan_id
         if not target_plan_id:
@@ -470,7 +470,7 @@ class CrewMember:
         append_tasks = changes.get("append_tasks")
 
         updated_plan = self.plan_service.update_plan(
-            project_id=self.project_id,
+            project_name=self.project_name,
             plan_id=target_plan_id,
             name=plan_name,
             description=description,
@@ -696,11 +696,9 @@ def _task_from_dict(data: Dict[str, Any]) -> PlanTask:
     )
 
 
-def _resolve_project_id(project: Optional[Any]) -> Optional[str]:
+def _resolve_project_name(project: Optional[Any]) -> Optional[str]:
     if project is None:
         return None
-    if hasattr(project, "project_id"):
-        return project.project_id
     if hasattr(project, "project_name"):
         return project.project_name
     if hasattr(project, "name"):
