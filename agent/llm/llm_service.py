@@ -9,13 +9,6 @@ from typing import Optional, Dict, Any, AsyncIterator
 import litellm
 from app.data.settings import Settings
 from utils.i18n_utils import translation_manager
-from .dashscope_adapter import (
-    async_completion_with_dashscope,
-    sync_completion_with_dashscope,
-    async_embedding_with_dashscope,
-    sync_embedding_with_dashscope,
-    map_dashscope_model
-)
 
 
 class LlmService:
@@ -55,6 +48,25 @@ class LlmService:
         # Initialize the service
         self._initialize_from_settings()
     
+    def _detect_provider_from_base_url(self, base_url: str) -> str:
+        """Detect the provider type from the base URL."""
+        if not base_url:
+            return "openai"
+
+        if 'dashscope.aliyuncs.com' in base_url:
+            return "dashscope"
+        elif '.openai.azure.com' in base_url or 'openai.azure.com' in base_url:
+            return "azure"
+        elif 'anthropic' in base_url:
+            return "anthropic"
+        elif 'cohere' in base_url:
+            return "cohere"
+        elif 'replicate' in base_url:
+            return "replicate"
+        else:
+            # Default to openai for custom endpoints that are OpenAI-compatible
+            return "openai"
+
     def _initialize_from_settings(self):
         """Initialize the service by retrieving settings from the system settings service."""
         if self.settings:
@@ -63,16 +75,19 @@ class LlmService:
             self.api_base = self.settings.get('ai_services.openai_host', os.getenv('OPENAI_BASE_URL'))
             self.default_model = self.settings.get('ai_services.default_model', 'gpt-4o-mini')
 
+            # Detect provider from base URL
+            self.provider = self._detect_provider_from_base_url(self.api_base)
+
             # Set LiteLLM configurations
             if self.api_key:
                 litellm.api_key = self.api_key
             if self.api_base:
-                # Special handling for DashScope API compatibility
-                if 'dashscope.aliyuncs.com' in self.api_base:
-                    # For DashScope, we need to configure additional settings
+                # Set the API base for the detected provider
+                if self.provider == "dashscope":
+                    # For DashScope, use the compatible mode endpoint with proper provider prefix
                     litellm.custom_api_base = self.api_base
                     # Set headers for DashScope if needed
-                    litellm.default_headers = {"Authorization": f"Bearer {self.api_key}"}
+                    litellm.default_headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
                 else:
                     litellm.api_base = self.api_base
         else:
@@ -81,16 +96,19 @@ class LlmService:
             self.api_base = os.getenv('OPENAI_BASE_URL', os.getenv('OPENAI_HOST'))
             self.default_model = os.getenv('DEFAULT_MODEL', 'gpt-4o-mini')
 
+            # Detect provider from base URL
+            self.provider = self._detect_provider_from_base_url(self.api_base)
+
             # Set LiteLLM configurations
             if self.api_key:
                 litellm.api_key = self.api_key
             if self.api_base:
-                # Special handling for DashScope API compatibility
-                if 'dashscope.aliyuncs.com' in self.api_base:
-                    # For DashScope, we need to configure additional settings
+                # Set the API base for the detected provider
+                if self.provider == "dashscope":
+                    # For DashScope, use the compatible mode endpoint with proper provider prefix
                     litellm.custom_api_base = self.api_base
                     # Set headers for DashScope if needed
-                    litellm.default_headers = {"Authorization": f"Bearer {self.api_key}"}
+                    litellm.default_headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
                 else:
                     litellm.api_base = self.api_base
 
@@ -144,11 +162,11 @@ class LlmService:
 
         return messages
     
-    def configure(self, api_key: Optional[str] = None, api_base: Optional[str] = None, 
+    def configure(self, api_key: Optional[str] = None, api_base: Optional[str] = None,
                   default_model: Optional[str] = None, temperature: Optional[float] = None):
         """
         Configure the LLM service with specific parameters.
-        
+
         Args:
             api_key: OpenAI API key
             api_base: OpenAI API base URL
@@ -158,14 +176,24 @@ class LlmService:
         if api_key:
             self.api_key = api_key
             litellm.api_key = api_key
-            
+
         if api_base:
             self.api_base = api_base
-            litellm.api_base = api_base
-            
+            # Update provider based on the new API base
+            self.provider = self._detect_provider_from_base_url(self.api_base)
+
+            # Set the API base for the detected provider
+            if self.provider == "dashscope":
+                # For DashScope, use the compatible mode endpoint with proper provider prefix
+                litellm.custom_api_base = self.api_base
+                # Set headers for DashScope if needed
+                litellm.default_headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"} if self.api_key else {"Content-Type": "application/json"}
+            else:
+                litellm.api_base = self.api_base
+
         if default_model:
             self.default_model = default_model
-            
+
         if temperature is not None:
             self.temperature = temperature
     
@@ -202,33 +230,17 @@ class LlmService:
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)
 
-        # Check if using DashScope API and handle accordingly
-        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
-            # Use DashScope-specific adapter
-            # Extract DashScope-specific parameters from kwargs to avoid duplication
-            dashscope_kwargs = kwargs.copy()
-            if 'temperature' in dashscope_kwargs:
-                del dashscope_kwargs['temperature']
-            if 'stream' in dashscope_kwargs:
-                del dashscope_kwargs['stream']
+        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
+        if self.provider == "dashscope" and not model.startswith('dashscope/'):
+            model = f'dashscope/{model}'
 
-            return await async_completion_with_dashscope(
-                model=model,
-                messages=messages,
-                api_key=self.api_key,
-                api_base=self.api_base,
-                temperature=temperature,
-                stream=stream,
-                **dashscope_kwargs
-            )
-        else:
-            # Call LiteLLM's acompletion normally
-            return await litellm.acompletion(
-                model=model,
-                messages=messages,
-                stream=stream,
-                **kwargs
-            )
+        # Call LiteLLM's acompletion normally - it will handle provider-specific logic internally
+        return await litellm.acompletion(
+            model=model,
+            messages=messages,
+            stream=stream,
+            **kwargs
+        )
     
     def completion(self,
                    model: Optional[str] = None,
@@ -261,29 +273,16 @@ class LlmService:
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)
 
-        # Check if using DashScope API and handle accordingly
-        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
-            # Use DashScope-specific adapter
-            # Extract DashScope-specific parameters from kwargs to avoid duplication
-            dashscope_kwargs = kwargs.copy()
-            if 'temperature' in dashscope_kwargs:
-                del dashscope_kwargs['temperature']
+        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
+        if self.provider == "dashscope" and not model.startswith('dashscope/'):
+            model = f'dashscope/{model}'
 
-            return sync_completion_with_dashscope(
-                model=model,
-                messages=messages,
-                api_key=self.api_key,
-                api_base=self.api_base,
-                temperature=temperature,
-                **dashscope_kwargs
-            )
-        else:
-            # Call LiteLLM's completion normally
-            return litellm.completion(
-                model=model,
-                messages=messages,
-                **kwargs
-            )
+        # Call LiteLLM's completion normally - it will handle provider-specific logic internally
+        return litellm.completion(
+            model=model,
+            messages=messages,
+            **kwargs
+        )
     
     async def aembedding(self,
                         model: str,
@@ -298,20 +297,15 @@ class LlmService:
         Returns:
             Embedding response from LiteLLM
         """
-        # Check if using DashScope API and handle accordingly
-        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
-            # Use DashScope-specific adapter
-            return await async_embedding_with_dashscope(
-                model=model,
-                input_text=input_text,
-                api_key=self.api_key,
-                api_base=self.api_base
-            )
-        else:
-            return await litellm.aembedding(
-                model=model,
-                input=input_text
-            )
+        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
+        if self.provider == "dashscope" and not model.startswith('dashscope/'):
+            model = f'dashscope/{model}'
+
+        # Call LiteLLM's aembedding normally - it will handle provider-specific logic internally
+        return await litellm.aembedding(
+            model=model,
+            input=input_text
+        )
 
     def embedding(self,
                   model: str,
@@ -326,20 +320,15 @@ class LlmService:
         Returns:
             Embedding response from LiteLLM
         """
-        # Check if using DashScope API and handle accordingly
-        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
-            # Use DashScope-specific adapter
-            return sync_embedding_with_dashscope(
-                model=model,
-                input_text=input_text,
-                api_key=self.api_key,
-                api_base=self.api_base
-            )
-        else:
-            return litellm.embedding(
-                model=model,
-                input=input_text
-            )
+        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
+        if self.provider == "dashscope" and not model.startswith('dashscope/'):
+            model = f'dashscope/{model}'
+
+        # Call LiteLLM's embedding normally - it will handle provider-specific logic internally
+        return litellm.embedding(
+            model=model,
+            input=input_text
+        )
     
     async def atranscription(self,
                             model: str,
@@ -354,11 +343,9 @@ class LlmService:
         Returns:
             Transcription response from LiteLLM
         """
-        # Check if using DashScope API and handle accordingly
-        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
-            # Note: DashScope might not support transcription via compatible mode
-            # So we'll use the standard method but could extend with DashScope-specific implementation later
-            pass  # Fall through to standard implementation
+        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
+        if self.provider == "dashscope" and not model.startswith('dashscope/'):
+            model = f'dashscope/{model}'
 
         return await litellm.atranscription(
             model=model,
@@ -378,11 +365,9 @@ class LlmService:
         Returns:
             Transcription response from LiteLLM
         """
-        # Check if using DashScope API and handle accordingly
-        if self.api_base and 'dashscope.aliyuncs.com' in self.api_base:
-            # Note: DashScope might not support transcription via compatible mode
-            # So we'll use the standard method but could extend with DashScope-specific implementation later
-            pass  # Fall through to standard implementation
+        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
+        if self.provider == "dashscope" and not model.startswith('dashscope/'):
+            model = f'dashscope/{model}'
 
         return litellm.transcription(
             model=model,
