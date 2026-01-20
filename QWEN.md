@@ -60,8 +60,10 @@ The docs directory should contain:
 
 1. **Always place new test files in the `tests/` directory**
 2. **Always place new documentation files in the `docs/` directory**
-3. Maintain consistent naming conventions across all directories
-4. Keep documentation up-to-date with code changes
-5. Write meaningful test cases that cover edge cases and error conditions
+3. **Component styles must be defined in global style files (dark_style.qss and light_style.qss) to ensure components can switch between different themes**
+4. **Code text should use English and be extracted to global internationalization files, providing both en_US and zh_CN language sets**
+5. Maintain consistent naming conventions across all directories
+6. Keep documentation up-to-date with code changes
+7. Write meaningful test cases that cover edge cases and error conditions
 
 Following these guidelines ensures a maintainable, scalable, and well-documented codebase.
