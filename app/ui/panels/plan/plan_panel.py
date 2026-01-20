@@ -38,11 +38,16 @@ class PlanPanel(BasePanel):
         # Set the workspace to ensure proper plan storage location
         self.plan_service.set_workspace(workspace)
         self.current_project_name = workspace.get_project().project_name if workspace.get_project() else None
-        
+
         # Store selected plan and instance for detail view
         self.selected_plan: Optional[Plan] = None
         self.selected_instance: Optional[PlanInstance] = None
 
+    def load_data(self):
+        """Load data for the panel - called by BasePanel when panel is activated."""
+        # Update the current project name to ensure we have the latest
+        if self.workspace and self.workspace.get_project():
+            self.current_project_name = self.workspace.get_project().project_name
         self.refresh_data()
 
     def setup_ui(self):
@@ -131,7 +136,17 @@ class PlanPanel(BasePanel):
 
     def refresh_data(self):
         """Refresh the displayed data from the PlanService."""
+        # Update the current project name in case it has changed
+        if self.workspace and self.workspace.get_project():
+            self.current_project_name = self.workspace.get_project().project_name
+        else:
+            # Clear the tree if no project is loaded
+            self.plan_tree.clear()
+            return
+
         if not self.current_project_name:
+            # Clear the tree if no project name is available
+            self.plan_tree.clear()
             return
 
         # Clear existing items
@@ -265,8 +280,17 @@ class PlanPanel(BasePanel):
 
     def on_activated(self):
         """Called when the panel becomes active."""
+        # Update the current project name to ensure we have the latest
+        if self.workspace and self.workspace.get_project():
+            self.current_project_name = self.workspace.get_project().project_name
         super().on_activated()
-        # Refresh data when panel is activated
+        # The parent class will call load_data() which refreshes the data
+
+    def on_project_switched(self, project_name: str):
+        """Called when the project is switched."""
+        # Update the current project name
+        self.current_project_name = project_name
+        # Refresh data for the new project
         self.refresh_data()
 
     def sizeHint(self):
