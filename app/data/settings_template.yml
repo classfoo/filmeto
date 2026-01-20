@@ -93,6 +93,14 @@ groups:
     label: AI Services
     icon: ""
     fields:
+      - name: openai_api_key
+        label: OpenAI API Key
+        type: text
+        default: ""
+        description: OpenAI API key for authentication (alternative to AK/SK)
+        validation:
+          max_length: 500
+
       - name: openai_host
         label: OpenAI API Host
         type: text
