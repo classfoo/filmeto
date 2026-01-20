@@ -78,7 +78,7 @@ class PlanPanel(BasePanel):
 
         self.empty_label = QLabel("No plans available")
         self.empty_label.setAlignment(Qt.AlignCenter)
-        self.empty_label.setStyleSheet("color: #888888;")
+        self.empty_label.setObjectName("empty_label")
         list_layout.addWidget(self.empty_label)
 
         self.view_stack.addWidget(self.list_view)
