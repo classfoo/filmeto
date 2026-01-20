@@ -16,6 +16,7 @@ from agent.filmeto_agent import StreamEvent, AgentStreamSession
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 from app.ui.chat.agent_chat_history import AgentChatHistoryWidget
+from app.ui.chat.agent_chat_plan import AgentChatPlanWidget
 from app.ui.prompt.agent_prompt_widget import AgentPromptWidget
 from utils.i18n_utils import tr
 
@@ -80,6 +81,10 @@ class AgentChatWidget(BaseWidget):
         # Chat history component (top, takes most space)
         self.chat_history_widget = AgentChatHistoryWidget(self.workspace, self)
         layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
+
+        # Plan component (middle, collapsible)
+        self.plan_widget = AgentChatPlanWidget(self.workspace, self)
+        layout.addWidget(self.plan_widget, 0)
 
         # Prompt input component (bottom, fixed height)
         self.prompt_input_widget = AgentPromptWidget(self.workspace, self)
@@ -216,6 +221,8 @@ class AgentChatWidget(BaseWidget):
         """Handle stream event on Qt main thread."""
         # Forward to chat history widget
         self.chat_history_widget.handle_stream_event(event, session)
+        if self.plan_widget:
+            self.plan_widget.handle_stream_event(event, session)
 
         # Process UI updates
         QApplication.processEvents()
@@ -335,6 +342,8 @@ class AgentChatWidget(BaseWidget):
         """Update agent with new project context."""
         if self.agent:
             self.agent.update_context(project=project)
+        if self.plan_widget:
+            self.plan_widget.refresh_plan()
 
     def set_enabled(self, enabled: bool):
         """Enable or disable the entire component."""
