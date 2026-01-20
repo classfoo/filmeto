@@ -8,7 +8,8 @@ and the startup window.
 from typing import Optional
 import asyncio
 import logging
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QSplitter
+from PySide6.QtCore import Qt
 from PySide6.QtCore import Signal, Slot, QObject
 from PySide6.QtWidgets import QApplication
 
@@ -78,17 +79,30 @@ class AgentChatWidget(BaseWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
+        # Create a vertical splitter for the three components
+        self.splitter = QSplitter(Qt.Vertical)
+        self.splitter.setObjectName("agent_chat_splitter")
+
         # Chat history component (top, takes most space)
         self.chat_history_widget = AgentChatHistoryWidget(self.workspace, self)
-        layout.addWidget(self.chat_history_widget, 1)  # Stretch factor 1
+        self.chat_history_widget.setObjectName("agent_chat_history_widget")
+        self.splitter.addWidget(self.chat_history_widget)
 
         # Plan component (middle, collapsible)
         self.plan_widget = AgentChatPlanWidget(self.workspace, self)
-        layout.addWidget(self.plan_widget, 0)
+        self.plan_widget.setObjectName("agent_chat_plan_widget")
+        self.splitter.addWidget(self.plan_widget)
 
-        # Prompt input component (bottom, fixed height)
+        # Prompt input component (bottom, auto-expands)
         self.prompt_input_widget = AgentPromptWidget(self.workspace, self)
-        layout.addWidget(self.prompt_input_widget, 0)  # No stretch
+        self.prompt_input_widget.setObjectName("agent_chat_prompt_widget")
+        self.splitter.addWidget(self.prompt_input_widget)
+
+        # Set initial sizes for the splitter (approximately 60%, 20%, 20%)
+        self.splitter.setSizes([600, 200, 200])
+
+        # Add the splitter to the main layout
+        layout.addWidget(self.splitter)
 
         # Connect signals
         self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)

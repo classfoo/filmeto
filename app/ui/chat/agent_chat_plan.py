@@ -299,6 +299,25 @@ class AgentChatPlanWidget(BaseWidget):
         self._is_expanded = not self._is_expanded
         self.details_scroll.setVisible(self._is_expanded)
         self.toggle_label.setText("v" if self._is_expanded else ">")
+
+        # If this widget is inside a splitter, adjust the height accordingly
+        parent = self.parent()
+        while parent:
+            if parent.__class__.__name__ == 'QSplitter':
+                # Get the index of this widget in the splitter
+                index = parent.indexOf(self)
+                if index != -1:
+                    sizes = parent.sizes()
+                    if self._is_expanded:
+                        # Restore previous size or use a default expanded size
+                        sizes[index] = self._details_max_height + 80  # Header height + details height
+                    else:
+                        # Minimize to just the header
+                        sizes[index] = 40  # Just enough for the header
+                    parent.setSizes(sizes)
+                break
+            parent = parent.parent()
+
         self.updateGeometry()
 
     def handle_stream_event(self, event, _session=None):
