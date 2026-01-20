@@ -376,9 +376,12 @@ class PlanService:
         This updates mutable fields for tasks that have not started yet and
         appends any new tasks introduced in the plan.
         """
+        # Validate the plan tasks before syncing to ensure no invalid agent roles or dependencies
+        validated_plan_tasks = self._validate_and_clean_tasks(plan.tasks)
+
         existing_tasks = {task.id: task for task in plan_instance.tasks}
 
-        for plan_task in plan.tasks:
+        for plan_task in validated_plan_tasks:
             if plan_task.id in existing_tasks:
                 instance_task = existing_tasks[plan_task.id]
                 if instance_task.status in {TaskStatus.CREATED, TaskStatus.READY}:
@@ -487,12 +490,93 @@ class PlanService:
             plan.metadata.update(metadata)
 
         if tasks is not None:
-            plan.tasks = tasks
+            # Validate agent roles in tasks to ensure they don't use reserved names
+            validated_tasks = self._validate_and_clean_tasks(tasks)
+            plan.tasks = validated_tasks
         if append_tasks:
-            plan.tasks.extend(append_tasks)
+            # Validate agent roles in appended tasks to ensure they don't use reserved names
+            validated_append_tasks = self._validate_and_clean_tasks(append_tasks)
+            plan.tasks.extend(validated_append_tasks)
 
         self._save_plan(plan)
         return plan
+
+    def _validate_and_clean_tasks(self, tasks: Optional[List[PlanTask]]) -> List[PlanTask]:
+        """
+        Validate and clean tasks to ensure they don't have invalid agent roles or unmet dependencies.
+
+        Args:
+            tasks: List of tasks to validate
+
+        Returns:
+            List of validated and cleaned tasks
+        """
+        if not tasks:
+            return []
+
+        # Reserved agent roles that should not be used in plans
+        reserved_roles = {'system', 'user', 'assistant', 'none', ''}
+
+        # Create a set of valid task IDs for dependency checking
+        valid_task_ids = {task.id for task in tasks}
+
+        validated_tasks = []
+        for task in tasks:
+            # Check if agent_role is a reserved role
+            if task.agent_role.lower() in reserved_roles:
+                # Skip tasks with invalid agent roles
+                continue
+
+            # Check if all dependencies exist in the task list
+            invalid_dependencies = [dep for dep in task.needs if dep not in valid_task_ids]
+            if invalid_dependencies:
+                # Skip tasks with invalid dependencies
+                continue
+
+            # Check for circular dependencies by validating the dependency chain
+            if self._has_circular_dependency(task, tasks):
+                # Skip tasks that would create circular dependencies
+                continue
+
+            validated_tasks.append(task)
+
+        return validated_tasks
+
+    def _has_circular_dependency(self, task: PlanTask, all_tasks: List[PlanTask]) -> bool:
+        """
+        Check if adding this task would create a circular dependency.
+
+        Args:
+            task: The task to check
+            all_tasks: All tasks in the plan
+
+        Returns:
+            True if circular dependency exists, False otherwise
+        """
+        # Create a map of task ID to dependencies for quick lookup
+        deps_map = {t.id: set(t.needs) for t in all_tasks}
+
+        # Check if this task creates a circular dependency
+        visited = set()
+        queue = [task.id]
+
+        while queue:
+            current_id = queue.pop(0)
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            # Get dependencies of current task
+            current_deps = deps_map.get(current_id, set())
+
+            for dep_id in current_deps:
+                # If we reach back to the original task, there's a cycle
+                if dep_id == task.id:
+                    return True
+                if dep_id not in visited:
+                    queue.append(dep_id)
+
+        return False
 
     def load_plan_instance(self, project_name: str, plan_id: str, instance_id: str) -> Optional[PlanInstance]:
         """Load a PlanInstance from disk.

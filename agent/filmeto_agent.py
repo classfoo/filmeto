@@ -238,7 +238,7 @@ class FilmetoAgent:
             "Use plan_update to set name, description, and tasks.",
             "Each task must include: id, name, description, agent_role, needs, parameters.",
             f"The agent_role MUST be one of the following valid options: {valid_roles_str}",
-            "Using any other agent_role will cause the task to fail.",
+            "Using any other agent_role (such as 'system', 'user', 'assistant', etc.) will cause the task to fail.",
             "After updating the plan, respond with a final summary and next steps.",
         ])
 
