@@ -60,21 +60,21 @@ class SoulService:
                 souls.append(soul)
         return souls
     
-    def load_user_souls(self, project_id: str):
+    def load_user_souls(self, project_name: str):
         """
         Load all user-defined souls from the project's agent directory.
 
         Args:
-            project_id: The ID of the project to load user souls for
+            project_name: The name of the project to load user souls for
         """
         if not self.workspace:
             return []
 
         # Get the project object from workspace
         project = self.workspace.get_project()
-        if not project or project.project_name != project_id:
+        if not project or project.project_name != project_name:
             # Try to get project by name from project manager
-            project = self.workspace.project_manager.get_project(project_id)
+            project = self.workspace.project_manager.get_project(project_name)
 
         if not project:
             return []
@@ -124,12 +124,12 @@ class SoulService:
 
         return soul
 
-    def get_project_language(self, project_id: str) -> str:
+    def get_project_language(self, project_name: str) -> str:
         """
         Get the language setting for a specific project.
 
         Args:
-            project_id: The ID of the project
+            project_name: The name of the project
 
         Returns:
             Language code for the project (default: 'en_US')
@@ -138,7 +138,7 @@ class SoulService:
             return 'en_US'
 
         # Try to get project by name from project manager
-        project = self.workspace.project_manager.get_project(project_id)
+        project = self.workspace.project_manager.get_project(project_name)
 
         if not project:
             return 'en_US'
@@ -146,95 +146,95 @@ class SoulService:
         # Use the method from the Project class
         return project.get_language()
 
-    def load_souls_for_project(self, project_id: str) -> List[Soul]:
+    def load_souls_for_project(self, project_name: str) -> List[Soul]:
         """
         Load all souls for a specific project based on its language setting.
 
         Args:
-            project_id: The ID of the project to load souls for
+            project_name: The name of the project to load souls for
 
         Returns:
             List of Soul instances for the project
         """
-        language = self.get_project_language(project_id)
+        language = self.get_project_language(project_name)
 
         # Load system souls for the project
         system_souls = self.load_system_souls(language)
 
         # Load user souls for the project
-        user_souls = self.load_user_souls(project_id)
+        user_souls = self.load_user_souls(project_name)
 
         # Combine both lists
         all_souls = system_souls + user_souls
 
         # Store in the project_souls dictionary
-        self.project_souls[project_id] = all_souls
+        self.project_souls[project_name] = all_souls
 
         return all_souls
     
-    def get_soul_by_name(self, project_id: str, name: str) -> Optional[Soul]:
+    def get_soul_by_name(self, project_name: str, name: str) -> Optional[Soul]:
         """
         Retrieve a soul by its name for a specific project.
 
         Args:
-            project_id: The ID of the project
+            project_name: The name of the project
             name: Name of the soul to retrieve
 
         Returns:
             Soul instance if found, None otherwise
         """
         # Ensure souls are loaded for the project
-        if project_id not in self.project_souls:
-            self.load_souls_for_project(project_id)
+        if project_name not in self.project_souls:
+            self.load_souls_for_project(project_name)
 
-        for soul in self.project_souls[project_id]:
+        for soul in self.project_souls[project_name]:
             if soul.name == name:
                 return soul
         return None
 
-    def get_all_souls(self, project_id: str) -> List[Soul]:
+    def get_all_souls(self, project_name: str) -> List[Soul]:
         """
         Retrieve all available souls for a specific project.
 
         Args:
-            project_id: The ID of the project
+            project_name: The name of the project
 
         Returns:
             List of all Soul instances for the project
         """
         # Ensure souls are loaded for the project
-        if project_id not in self.project_souls:
-            self.load_souls_for_project(project_id)
+        if project_name not in self.project_souls:
+            self.load_souls_for_project(project_name)
 
-        return self.project_souls[project_id].copy()
+        return self.project_souls[project_name].copy()
 
-    def add_soul(self, project_id: str, soul: Soul) -> bool:
+    def add_soul(self, project_name: str, soul: Soul) -> bool:
         """
         Add a new soul to the service for a specific project.
 
         Args:
-            project_id: The ID of the project
+            project_name: The name of the project
             soul: Soul instance to add
 
         Returns:
             True if added successfully, False if soul with same name already exists
         """
         # Ensure souls are loaded for the project
-        if project_id not in self.project_souls:
-            self.load_souls_for_project(project_id)
+        if project_name not in self.project_souls:
+            self.load_souls_for_project(project_name)
 
-        if self.get_soul_by_name(project_id, soul.name):
+        if self.get_soul_by_name(project_name, soul.name):
             return False  # Soul with this name already exists
 
-        self.project_souls[project_id].append(soul)
+        self.project_souls[project_name].append(soul)
         return True
 
-    def update_soul(self, project_id: str, name: str, new_soul: Soul) -> bool:
+    def update_soul(self, project_name: str, name: str, new_soul: Soul) -> bool:
         """
         Update an existing soul for a specific project.
 
         Args:
-            project_id: The ID of the project
+            project_name: The name of the project
             name: Name of the soul to update
             new_soul: New Soul instance to replace the old one
 
@@ -242,69 +242,69 @@ class SoulService:
             True if updated successfully, False if soul doesn't exist
         """
         # Ensure souls are loaded for the project
-        if project_id not in self.project_souls:
-            self.load_souls_for_project(project_id)
+        if project_name not in self.project_souls:
+            self.load_souls_for_project(project_name)
 
-        for i, soul in enumerate(self.project_souls[project_id]):
+        for i, soul in enumerate(self.project_souls[project_name]):
             if soul.name == name:
-                self.project_souls[project_id][i] = new_soul
+                self.project_souls[project_name][i] = new_soul
                 return True
         return False
 
-    def delete_soul(self, project_id: str, name: str) -> bool:
+    def delete_soul(self, project_name: str, name: str) -> bool:
         """
         Delete a soul by its name for a specific project.
 
         Args:
-            project_id: The ID of the project
+            project_name: The name of the project
             name: Name of the soul to delete
 
         Returns:
             True if deleted successfully, False if soul doesn't exist
         """
         # Ensure souls are loaded for the project
-        if project_id not in self.project_souls:
-            self.load_souls_for_project(project_id)
+        if project_name not in self.project_souls:
+            self.load_souls_for_project(project_name)
 
-        for i, soul in enumerate(self.project_souls[project_id]):
+        for i, soul in enumerate(self.project_souls[project_name]):
             if soul.name == name:
-                del self.project_souls[project_id][i]
+                del self.project_souls[project_name][i]
                 return True
         return False
 
-    def search_souls_by_skill(self, project_id: str, skill: str) -> List[Soul]:
+    def search_souls_by_skill(self, project_name: str, skill: str) -> List[Soul]:
         """
         Find all souls that have a specific skill for a specific project.
 
         Args:
-            project_id: The ID of the project
+            project_name: The name of the project
             skill: Skill to search for
 
         Returns:
             List of Soul instances that have the specified skill
         """
         # Ensure souls are loaded for the project
-        if project_id not in self.project_souls:
-            self.load_souls_for_project(project_id)
+        if project_name not in self.project_souls:
+            self.load_souls_for_project(project_name)
 
         matching_souls = []
-        for soul in self.project_souls[project_id]:
+        for soul in self.project_souls[project_name]:
             if skill in soul.skills:
                 matching_souls.append(soul)
         return matching_souls
 
-    def refresh_souls_for_project(self, project_id: str) -> bool:
+    def refresh_souls_for_project(self, project_name: str) -> bool:
         """
         Refresh/reload souls for a specific project.
 
         Args:
-            project_id: The ID of the project to refresh souls for
+            project_name: The name of the project to refresh souls for
 
         Returns:
             True if refresh was successful
         """
         try:
-            self.load_souls_for_project(project_id)
+            self.load_souls_for_project(project_name)
             return True
         except Exception:
             return False

@@ -182,12 +182,10 @@ class FilmetoAgent:
     def _get_producer_crew_member(self) -> Optional[CrewMember]:
         return self._crew_member_lookup.get(_PRODUCER_NAME)
 
-    def _resolve_project_id(self) -> Optional[str]:
+    def _resolve_project_name(self) -> Optional[str]:
         project = self.project
         if project is None:
             return None
-        if hasattr(project, "project_id"):
-            return project.project_id
         if hasattr(project, "project_name"):
             return project.project_name
         if hasattr(project, "name"):
@@ -255,14 +253,14 @@ class FilmetoAgent:
             "Respond with your output. If needed, update the plan with plan_update.",
         ])
 
-    def _create_plan(self, project_id: str, user_message: str) -> Optional[Plan]:
-        if not project_id:
+    def _create_plan(self, project_name: str, user_message: str) -> Optional[Plan]:
+        if not project_name:
             return None
         name = "Producer Plan"
         description = self._truncate_text(user_message)
         metadata = {"source": _PRODUCER_NAME, "request": user_message}
         return self.plan_service.create_plan(
-            project_id=project_id,
+            project_name=project_name,
             name=name,
             description=description,
             tasks=[],
@@ -535,8 +533,8 @@ class FilmetoAgent:
         on_token: Optional[Callable[[str], None]],
         on_stream_event: Optional[Callable[[StreamEvent], None]],
     ) -> AsyncIterator[str]:
-        project_id = self._resolve_project_id()
-        if not project_id:
+        project_name = self._resolve_project_name()
+        if not project_name:
             async for content in self._stream_crew_member(
                 producer_agent,
                 initial_prompt.content,
@@ -548,7 +546,7 @@ class FilmetoAgent:
                 yield content
             return
 
-        plan = self._create_plan(project_id, initial_prompt.content)
+        plan = self._create_plan(project_name, initial_prompt.content)
         if not plan:
             async for content in self._stream_crew_member(
                 producer_agent,
@@ -578,7 +576,7 @@ class FilmetoAgent:
         if self._producer_response_has_error(producer_response):
             return
 
-        plan = self.plan_service.load_plan(project_id, plan.id)
+        plan = self.plan_service.load_plan(project_name, plan.id)
         if not plan or not plan.tasks:
             retry_message = self._build_producer_message(initial_prompt.content, plan.id, retry=True)
             retry_response = None
@@ -595,7 +593,7 @@ class FilmetoAgent:
                 yield content
             if self._producer_response_has_error(retry_response):
                 return
-            plan = self.plan_service.load_plan(project_id, plan.id)
+            plan = self.plan_service.load_plan(project_name, plan.id)
 
         if not plan or not plan.tasks:
             async for content in self._stream_error_message(
@@ -666,7 +664,7 @@ class FilmetoAgent:
                     yield content
                 self.plan_service.mark_task_completed(plan_instance, task.id)
 
-            updated_plan = self.plan_service.load_plan(plan.project_id, plan.id)
+            updated_plan = self.plan_service.load_plan(plan.project_name, plan.id)
             if updated_plan:
                 plan_instance = self.plan_service.sync_plan_instance(plan_instance, updated_plan)
 

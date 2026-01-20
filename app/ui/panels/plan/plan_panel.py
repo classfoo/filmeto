@@ -35,7 +35,7 @@ class PlanPanel(BasePanel):
             self.setParent(parent)
 
         self.plan_service = PlanService()
-        self.current_project_id = workspace.current_project.id if workspace.current_project else None
+        self.current_project_name = workspace.get_project().project_name if workspace.get_project() else None
         
         # Store selected plan and instance for detail view
         self.selected_plan: Optional[Plan] = None
@@ -129,39 +129,39 @@ class PlanPanel(BasePanel):
 
     def refresh_data(self):
         """Refresh the displayed data from the PlanService."""
-        if not self.current_project_id:
+        if not self.current_project_name:
             return
-            
+
         # Clear existing items
         self.plan_tree.clear()
-        
+
         # Load all plans for the current project
-        plans = self.plan_service.get_all_plans_for_project(self.current_project_id)
-        
+        plans = self.plan_service.get_all_plans_for_project(self.current_project_name)
+
         for plan in plans:
             # Create top-level item for the plan
             plan_item = QTreeWidgetItem(self.plan_tree)
             plan_item.setText(0, plan.name)
             plan_item.setText(1, plan.status.value.title())
-            
+
             # Format creation date
             created_str = plan.created_at.strftime("%Y-%m-%d %H:%M") if plan.created_at else "N/A"
             plan_item.setText(2, created_str)
-            
+
             # Store plan ID in the item for later reference
             plan_item.setData(0, Qt.UserRole, plan.id)
-            
+
             # Add instances as child items
-            instances = self.plan_service.get_all_instances_for_plan(self.current_project_id, plan.id)
+            instances = self.plan_service.get_all_instances_for_plan(self.current_project_name, plan.id)
             for instance in instances:
                 instance_item = QTreeWidgetItem(plan_item)
                 instance_item.setText(0, f"Instance: {instance.instance_id[-8:]}")  # Show last 8 chars of ID
                 instance_item.setText(1, instance.status.value.title())
-                
+
                 # Format creation date
                 created_str = instance.created_at.strftime("%Y-%m-%d %H:%M") if instance.created_at else "N/A"
                 instance_item.setText(2, created_str)
-                
+
                 # Store instance ID in the item for later reference
                 instance_item.setData(0, Qt.UserRole, instance.instance_id)
 
@@ -173,21 +173,21 @@ class PlanPanel(BasePanel):
 
         item = selected_items[0]
         plan_id = item.data(0, Qt.UserRole)
-        
+
         # Check if this is a plan or an instance
         parent_item = item.parent()
         if parent_item:  # This is an instance
             # Get the plan ID from the parent
-            self.selected_plan = self.plan_service.load_plan(self.current_project_id, parent_item.data(0, Qt.UserRole))
+            self.selected_plan = self.plan_service.load_plan(self.current_project_name, parent_item.data(0, Qt.UserRole))
             self.selected_instance = self.plan_service.load_plan_instance(
-                self.current_project_id, 
-                parent_item.data(0, Qt.UserRole), 
+                self.current_project_name,
+                parent_item.data(0, Qt.UserRole),
                 plan_id
             )
         else:  # This is a plan
-            self.selected_plan = self.plan_service.load_plan(self.current_project_id, plan_id)
+            self.selected_plan = self.plan_service.load_plan(self.current_project_name, plan_id)
             # For now, just show the first instance if available
-            instances = self.plan_service.get_all_instances_for_plan(self.current_project_id, plan_id)
+            instances = self.plan_service.get_all_instances_for_plan(self.current_project_name, plan_id)
             if instances:
                 self.selected_instance = instances[0]
             else:

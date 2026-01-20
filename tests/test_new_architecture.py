@@ -35,22 +35,22 @@ class MockProject:
 class TestProjectIsolation:
     """Test project-level isolation."""
     
-    def test_project_id_assignment(self):
-        """Test that each agent instance has correct project_id."""
+    def test_project_name_assignment(self):
+        """Test that each agent instance has correct project_name."""
         from agent.filmeto_agent import FilmetoAgent
-        
+
         workspace = MockWorkspace()
         project1 = MockProject("project1")
         project2 = MockProject("project2")
-        
+
         # Create agents for different projects
         agent1 = FilmetoAgent(workspace, project1)
         agent2 = FilmetoAgent(workspace, project2)
-        
+
         # Verify project isolation
-        assert agent1.project_id == "project1"
-        assert agent2.project_id == "project2"
-        assert agent1.project_id != agent2.project_id
+        assert agent1.project_name == "project1"
+        assert agent2.project_name == "project2"
+        assert agent1.project_name != agent2.project_name
     
     def test_filmeto_agent_project_context(self):
         """Test that FilmetoAgent maintains project context."""
@@ -245,8 +245,8 @@ class TestConversationIsolation:
         # (conversation_manager is None in mock, but structure is correct)
         assert agent1.conversation_manager == agent2.conversation_manager  # Both None in mock
         
-        # But project IDs are different
-        assert agent1.project_id != agent2.project_id
+        # But project names are different
+        assert agent1.project_name != agent2.project_name
 
 
 # Run tests
