@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
     QSizePolicy,
+    QSplitter,
 )
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QFont, QPen
@@ -168,16 +169,50 @@ class AgentChatPlanWidget(BaseWidget):
         self._details_max_height = 220
 
         # Fixed heights for collapsed and expanded states
-        # These represent the minimum heights needed to display content properly
-        # considering the layout margins (6px top and bottom = 12px total)
         self.header_height = 30  # Fixed height of the header
-        layout_margin_vertical = 12  # 6px top margin + 6px bottom margin
-        self._collapsed_height = self.header_height + layout_margin_vertical  # 42px total
-        self._expanded_height = self.header_height + layout_margin_vertical + 220  # 252px total (includes details)
+        self._collapsed_height = 40  # Height when collapsed (just header)
+        self._expanded_height = 260  # Height when expanded (header + details)
 
+        # Create a vertical splitter to separate header and details
+        self.main_splitter = QSplitter(Qt.Vertical)
+        self.main_splitter.setObjectName("plan_main_splitter")
+
+        # Create header frame
+        self.header_frame = ClickableFrame()
+        self.header_frame.setObjectName("plan_header")
+        self.header_frame.setCursor(Qt.PointingHandCursor)
+        self.header_frame.clicked.connect(self.toggle_expanded)
+        self.header_frame.setFixedHeight(self.header_height)
+        self.header_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        # Create details container (initially hidden when collapsed)
+        self.details_container = QWidget()
+        self.details_container.setObjectName("plan_details_container")
+
+        # Add header and details to the splitter
+        self.main_splitter.addWidget(self.header_frame)
+        self.main_splitter.addWidget(self.details_container)
+
+        # Set up the main layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.main_splitter)
+
+        # Configure the splitter - initially only show header
+        # Use QTimer.singleShot to ensure this happens after the layout is set up
+        from PySide6.QtCore import QTimer
+        def set_initial_splitter_sizes():
+            self.main_splitter.setSizes([self.header_height, 0])  # Initially hide details
+
+        QTimer.singleShot(0, set_initial_splitter_sizes)
+
+        # Set up UI components first
         self._setup_ui()
         self._load_crew_member_metadata()
-        self.refresh_plan()
+
+        # Delay the initial refresh until after the constructor completes
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self.refresh_plan)
 
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setInterval(2000)
@@ -190,12 +225,9 @@ class AgentChatPlanWidget(BaseWidget):
             QWidget#agent_chat_plan_widget {
                 background-color: transparent;
             }
-            QFrame#plan_container {
-                background-color: #2b2d30;
-                border-radius: 6px;
-            }
             QFrame#plan_header {
                 background-color: #2b2d30;
+                border-radius: 6px 6px 0 0; /* Rounded top corners only */
             }
             QLabel#plan_summary {
                 color: #e1e1e1;
@@ -205,12 +237,16 @@ class AgentChatPlanWidget(BaseWidget):
                 color: #b0b0b0;
                 font-size: 13px;
             }
+            QWidget#plan_details_container {
+                background-color: #252525;
+                border-left: 1px solid #3a3a3a;
+                border-right: 1px solid #3a3a3a;
+                border-bottom: 1px solid #3a3a3a;
+                border-radius: 0 0 6px 6px; /* Rounded bottom corners only */
+            }
             QScrollArea#plan_details_scroll {
                 background-color: #252525;
                 border: none;
-            }
-            QWidget#plan_details_container {
-                background-color: #252525;
             }
             QScrollBar:vertical {
                 background-color: #2b2d30;
@@ -224,28 +260,9 @@ class AgentChatPlanWidget(BaseWidget):
             }
         """)
 
-        outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(0, 0, 0, 0)
-        outer_layout.setSpacing(0)
-
-        self.container = QFrame(self)
-        self.container.setObjectName("plan_container")
-        outer_layout.addWidget(self.container)
-
-        layout = QVBoxLayout(self.container)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(6)
-
-        self.header_frame = ClickableFrame(self.container)
-        self.header_frame.setObjectName("plan_header")
-        self.header_frame.setCursor(Qt.PointingHandCursor)
-        self.header_frame.clicked.connect(self.toggle_expanded)
-        # Set a fixed height for the header frame to prevent height changes during refresh
-        self.header_frame.setFixedHeight(30)
-        self.header_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
+        # Setup header layout
         header_layout = QHBoxLayout(self.header_frame)
-        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setContentsMargins(6, 6, 6, 6)  # Add padding inside the header
         header_layout.setSpacing(8)
 
         self.plan_icon = AvatarWidget(icon="P", color="#4080ff", size=20, shape="circle", parent=self.header_frame)
@@ -277,28 +294,30 @@ class AgentChatPlanWidget(BaseWidget):
         self.toggle_label.setObjectName("plan_toggle")
         header_layout.addWidget(self.toggle_label, 0, Qt.AlignVCenter)
 
-        layout.addWidget(self.header_frame)
+        # Setup details container layout
+        details_layout = QVBoxLayout(self.details_container)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.setSpacing(0)
 
-        self.details_scroll = QScrollArea(self.container)
+        self.details_scroll = QScrollArea()
         self.details_scroll.setObjectName("plan_details_scroll")
         self.details_scroll.setWidgetResizable(True)
         self.details_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.details_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.details_scroll.setMaximumHeight(self._details_max_height)
 
-        self.details_container = QWidget()
-        self.details_container.setObjectName("plan_details_container")
-        self.details_layout = QVBoxLayout(self.details_container)
+        self.details_content_widget = QWidget()
+        self.details_content_widget.setObjectName("plan_details_content_widget")
+        self.details_layout = QVBoxLayout(self.details_content_widget)
         self.details_layout.setContentsMargins(6, 6, 6, 6)
         self.details_layout.setSpacing(6)
 
-        self.empty_label = QLabel(tr("No tasks available"), self.details_container)
+        self.empty_label = QLabel(tr("No tasks available"), self.details_content_widget)
         self.empty_label.setStyleSheet("color: #9a9a9a; font-size: 12px;")
         self.details_layout.addWidget(self.empty_label)
 
-        self.details_scroll.setWidget(self.details_container)
-        self.details_scroll.setVisible(False)
-        layout.addWidget(self.details_scroll)
+        self.details_scroll.setWidget(self.details_content_widget)
+        details_layout.addWidget(self.details_scroll)
 
     def on_project_switched(self, project_name: str):
         self._preferred_plan_id = None
@@ -328,10 +347,17 @@ class AgentChatPlanWidget(BaseWidget):
             return
 
         self._is_expanded = not self._is_expanded
-        self.details_scroll.setVisible(self._is_expanded)
         self.toggle_label.setText("v" if self._is_expanded else ">")
 
-        # If this widget is inside a splitter, adjust the height accordingly
+        # Update the splitter sizes based on expanded state
+        if self._is_expanded:
+            # Show both header and details
+            self.main_splitter.setSizes([self.header_height, self._details_max_height])
+        else:
+            # Show only header, hide details
+            self.main_splitter.setSizes([self.header_height, 0])
+
+        # If this widget is inside a parent splitter, adjust the height accordingly
         parent = self.parent()
         while parent:
             if parent.__class__.__name__ == 'QSplitter':
@@ -484,7 +510,7 @@ class AgentChatPlanWidget(BaseWidget):
             tasks = plan.tasks
 
         if not tasks:
-            self.empty_label = QLabel(tr("No tasks available"), self.details_container)
+            self.empty_label = QLabel(tr("No tasks available"), self.details_content_widget)
             self.empty_label.setStyleSheet("color: #9a9a9a; font-size: 12px;")
             self.details_layout.addWidget(self.empty_label)
             self._update_details_height()
@@ -493,7 +519,7 @@ class AgentChatPlanWidget(BaseWidget):
         for task in tasks:
             status_label, status_color = self._status_style(task.status)
             crew_member = self._find_crew_member(task.agent_role)
-            row = PlanTaskRow(task, crew_member, status_label, status_color, parent=self.details_container)
+            row = PlanTaskRow(task, crew_member, status_label, status_color, parent=self.details_content_widget)
             self.details_layout.addWidget(row)
 
         self.details_layout.addStretch()
@@ -554,6 +580,7 @@ class AgentChatPlanWidget(BaseWidget):
         # Only update the details height if the widget is expanded
         # This prevents changes during refresh_plan from affecting the collapsed state
         if self._is_expanded:
-            content_height = self.details_container.sizeHint().height()
+            content_height = self.details_content_widget.sizeHint().height()
             target_height = min(self._details_max_height, max(0, content_height))
-            self.details_scroll.setFixedHeight(target_height)
+            # Update the splitter instead of setting fixed height on scroll area
+            self.main_splitter.setSizes([self.header_height, target_height])
