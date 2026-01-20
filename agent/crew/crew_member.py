@@ -95,6 +95,9 @@ class CrewMember:
         self.llm_service = llm_service or LlmService(workspace)
         self.skill_service = skill_service or SkillService(workspace)
         self.plan_service = plan_service or PlanService()
+        # Set the workspace if available to ensure proper plan storage location
+        if workspace:
+            self.plan_service.set_workspace(workspace)
         self.soul_service = soul_service or self._build_soul_service(project)
         self.conversation_history: List[Dict[str, str]] = []
 
