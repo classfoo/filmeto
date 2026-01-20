@@ -195,7 +195,7 @@ class AgentChatPlanWidget(BaseWidget):
 
         # Set up the main layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(6, 6, 6, 6)
         layout.addWidget(self.main_splitter)
 
         # Configure the splitter - initially only show header
@@ -223,7 +223,8 @@ class AgentChatPlanWidget(BaseWidget):
         self.setObjectName("agent_chat_plan_widget")
         self.setStyleSheet("""
             QWidget#agent_chat_plan_widget {
-                background-color: transparent;
+                background-color: #2b2d30;
+                border-radius: 6px;
             }
             QFrame#plan_header {
                 background-color: #2b2d30;
@@ -231,10 +232,6 @@ class AgentChatPlanWidget(BaseWidget):
             }
             QLabel#plan_summary {
                 color: #e1e1e1;
-                font-size: 13px;
-            }
-            QLabel#plan_toggle {
-                color: #b0b0b0;
                 font-size: 13px;
             }
             QWidget#plan_details_container {
@@ -262,7 +259,7 @@ class AgentChatPlanWidget(BaseWidget):
 
         # Setup header layout
         header_layout = QHBoxLayout(self.header_frame)
-        header_layout.setContentsMargins(6, 6, 6, 6)  # Add padding inside the header
+        header_layout.setContentsMargins(8, 8, 8, 8)  # Add padding inside the header
         header_layout.setSpacing(8)
 
         self.plan_icon = AvatarWidget(icon="P", color="#4080ff", size=20, shape="circle", parent=self.header_frame)
@@ -289,10 +286,6 @@ class AgentChatPlanWidget(BaseWidget):
         status_layout.addWidget(self.failed_count)
 
         header_layout.addWidget(self.status_container, 0, Qt.AlignVCenter)
-
-        self.toggle_label = QLabel(">", self.header_frame)
-        self.toggle_label.setObjectName("plan_toggle")
-        header_layout.addWidget(self.toggle_label, 0, Qt.AlignVCenter)
 
         # Setup details container layout
         details_layout = QVBoxLayout(self.details_container)
@@ -347,7 +340,6 @@ class AgentChatPlanWidget(BaseWidget):
             return
 
         self._is_expanded = not self._is_expanded
-        self.toggle_label.setText("v" if self._is_expanded else ">")
 
         # Update the splitter sizes based on expanded state
         if self._is_expanded:
