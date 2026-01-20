@@ -98,8 +98,11 @@ class AgentChatWidget(BaseWidget):
         self.prompt_input_widget.setObjectName("agent_chat_prompt_widget")
         self.splitter.addWidget(self.prompt_input_widget)
 
-        # Set initial sizes for the splitter (approximately 60%, 20%, 20%)
-        self.splitter.setSizes([600, 200, 200])
+        # Set initial sizes for the splitter with fixed heights
+        # Chat history: takes remaining space (will expand to fill available space)
+        # Plan widget: fixed collapsed height
+        # Prompt input: fixed height for input area
+        self.splitter.setSizes([600, self.plan_widget._collapsed_height, 200])
 
         # Add the splitter to the main layout
         layout.addWidget(self.splitter)

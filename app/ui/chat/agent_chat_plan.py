@@ -167,6 +167,10 @@ class AgentChatPlanWidget(BaseWidget):
         self._is_expanded = False
         self._details_max_height = 220
 
+        # Fixed heights for collapsed and expanded states
+        self._collapsed_height = 40  # Height when collapsed (just header)
+        self._expanded_height = 260  # Height when expanded (header + details)
+
         self._setup_ui()
         self._load_crew_member_metadata()
         self.refresh_plan()
@@ -242,7 +246,7 @@ class AgentChatPlanWidget(BaseWidget):
 
         self.summary_label = QLabel(tr("No active plan"), self.header_frame)
         self.summary_label.setObjectName("plan_summary")
-        self.summary_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.summary_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         header_layout.addWidget(self.summary_label, 1)
 
         self.status_container = QWidget(self.header_frame)
@@ -295,7 +299,27 @@ class AgentChatPlanWidget(BaseWidget):
         self._load_crew_member_metadata()
         self.refresh_plan()
 
+    def has_tasks(self):
+        """Check if there are any tasks to display."""
+        project_name = self._get_project_name()
+        if not project_name:
+            return False
+
+        plan, instance = self._resolve_active_plan(project_name)
+
+        tasks = []
+        if instance:
+            tasks = instance.tasks
+        elif plan:
+            tasks = plan.tasks
+
+        return bool(tasks)
+
     def toggle_expanded(self):
+        # Only toggle if there are tasks to show
+        if not self.has_tasks():
+            return
+
         self._is_expanded = not self._is_expanded
         self.details_scroll.setVisible(self._is_expanded)
         self.toggle_label.setText("v" if self._is_expanded else ">")
@@ -309,11 +333,11 @@ class AgentChatPlanWidget(BaseWidget):
                 if index != -1:
                     sizes = parent.sizes()
                     if self._is_expanded:
-                        # Restore previous size or use a default expanded size
-                        sizes[index] = self._details_max_height + 80  # Header height + details height
+                        # Use fixed expanded height
+                        sizes[index] = self._expanded_height
                     else:
-                        # Minimize to just the header
-                        sizes[index] = 40  # Just enough for the header
+                        # Use fixed collapsed height
+                        sizes[index] = self._collapsed_height
                     parent.setSizes(sizes)
                 break
             parent = parent.parent()
