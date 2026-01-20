@@ -67,6 +67,62 @@ class LlmService:
             # Default to openai for custom endpoints that are OpenAI-compatible
             return "openai"
 
+    def _map_model_for_provider(self, model: str, provider: str) -> str:
+        """
+        Map model names to provider-specific model names if needed.
+
+        Args:
+            model: The original model name
+            provider: The provider type ('openai', 'dashscope', etc.)
+
+        Returns:
+            Provider-specific model name
+        """
+        if provider == "dashscope":
+            # Common mappings for DashScope models
+            model_mappings = {
+                # Standard OpenAI models to DashScope equivalents
+                "gpt-4": "qwen-max",  # Using Qwen as equivalent to GPT-4
+                "gpt-4o": "qwen-max",  # Using Qwen as equivalent to GPT-4o
+                "gpt-4o-mini": "qwen-turbo",  # Using Qwen-Turbo as equivalent to GPT-4o-mini
+                "gpt-4-turbo": "qwen-max",  # Using Qwen-Max as equivalent to GPT-4-Turbo
+                "gpt-3.5-turbo": "qwen-turbo",  # Using Qwen-Turbo as equivalent to GPT-3.5
+                "gpt-3.5": "qwen-turbo",  # Using Qwen-Turbo as equivalent to GPT-3.5
+
+                # Anthropic models to DashScope equivalents
+                "claude-3-opus": "qwen-max",  # Using Qwen-Max as equivalent to Claude-3-Opus
+                "claude-3-sonnet": "qwen-max",  # Using Qwen-Max as equivalent to Claude-3-Sonnet
+                "claude-3-haiku": "qwen-turbo",  # Using Qwen-Turbo as equivalent to Claude-3-Haiku
+                "claude-2.1": "qwen-max",  # Using Qwen-Max as equivalent to Claude-2.1
+
+                # Google models to DashScope equivalents
+                "gemini-pro": "qwen-max",  # Using Qwen-Max as equivalent to Gemini-Pro
+                "gemini-1.5-pro": "qwen-max",  # Using Qwen-Max as equivalent to Gemini-1.5-Pro
+                "gemini-1.5-flash": "qwen-turbo",  # Using Qwen-Turbo as equivalent to Gemini-1.5-Flash
+
+                # Embedding models
+                "text-embedding-3-small": "text-embedding-v1",
+                "text-embedding-3-large": "text-embedding-v1",
+                "text-embedding-ada-002": "text-embedding-v1",
+
+                # Add more mappings as needed
+            }
+
+            # Get the mapped model name
+            mapped_model = model_mappings.get(model, model)
+
+            # Prepend 'dashscope/' prefix for LiteLLM to recognize the provider
+            if not mapped_model.startswith('dashscope/'):
+                mapped_model = f'dashscope/{mapped_model}'
+
+            return mapped_model
+        else:
+            # For other providers, just return the model as-is
+            # But still prepend the provider prefix for consistency
+            if not model.startswith(provider + '/') and provider != "openai":
+                model = f'{provider}/{model}'
+            return model
+
     def _initialize_from_settings(self):
         """Initialize the service by retrieving settings from the system settings service."""
         if self.settings:
@@ -80,6 +136,9 @@ class LlmService:
 
             # Detect provider from base URL
             self.provider = self._detect_provider_from_base_url(self.api_base)
+
+            # Map the default model to provider-specific model if needed
+            self.default_model = self._map_model_for_provider(self.default_model, self.provider)
 
             # Set LiteLLM configurations
             if self.api_key:
@@ -101,6 +160,9 @@ class LlmService:
 
             # Detect provider from base URL
             self.provider = self._detect_provider_from_base_url(self.api_base)
+
+            # Map the default model to provider-specific model if needed
+            self.default_model = self._map_model_for_provider(self.default_model, self.provider)
 
             # Set LiteLLM configurations
             if self.api_key:
@@ -233,9 +295,8 @@ class LlmService:
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)
 
-        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
-        if self.provider == "dashscope" and not model.startswith('dashscope/'):
-            model = f'dashscope/{model}'
+        # Map the model to provider-specific model if needed
+        model = self._map_model_for_provider(model, self.provider)
 
         # Call LiteLLM's acompletion normally - it will handle provider-specific logic internally
         return await litellm.acompletion(
@@ -276,9 +337,8 @@ class LlmService:
         # Add any additional configuration from settings
         kwargs.setdefault('temperature', temperature)
 
-        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
-        if self.provider == "dashscope" and not model.startswith('dashscope/'):
-            model = f'dashscope/{model}'
+        # Map the model to provider-specific model if needed
+        model = self._map_model_for_provider(model, self.provider)
 
         # Call LiteLLM's completion normally - it will handle provider-specific logic internally
         return litellm.completion(
@@ -300,9 +360,8 @@ class LlmService:
         Returns:
             Embedding response from LiteLLM
         """
-        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
-        if self.provider == "dashscope" and not model.startswith('dashscope/'):
-            model = f'dashscope/{model}'
+        # Map the model to provider-specific model if needed
+        model = self._map_model_for_provider(model, self.provider)
 
         # Call LiteLLM's aembedding normally - it will handle provider-specific logic internally
         return await litellm.aembedding(
@@ -323,9 +382,8 @@ class LlmService:
         Returns:
             Embedding response from LiteLLM
         """
-        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
-        if self.provider == "dashscope" and not model.startswith('dashscope/'):
-            model = f'dashscope/{model}'
+        # Map the model to provider-specific model if needed
+        model = self._map_model_for_provider(model, self.provider)
 
         # Call LiteLLM's embedding normally - it will handle provider-specific logic internally
         return litellm.embedding(
@@ -346,9 +404,8 @@ class LlmService:
         Returns:
             Transcription response from LiteLLM
         """
-        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
-        if self.provider == "dashscope" and not model.startswith('dashscope/'):
-            model = f'dashscope/{model}'
+        # Map the model to provider-specific model if needed
+        model = self._map_model_for_provider(model, self.provider)
 
         return await litellm.atranscription(
             model=model,
@@ -368,9 +425,8 @@ class LlmService:
         Returns:
             Transcription response from LiteLLM
         """
-        # If using DashScope provider, ensure model name is prefixed with 'dashscope/'
-        if self.provider == "dashscope" and not model.startswith('dashscope/'):
-            model = f'dashscope/{model}'
+        # Map the model to provider-specific model if needed
+        model = self._map_model_for_provider(model, self.provider)
 
         return litellm.transcription(
             model=model,
