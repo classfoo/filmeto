@@ -17,6 +17,7 @@ from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from agent.plan.service import PlanService
 from agent.plan.models import Plan, PlanInstance, TaskStatus
+from utils.i18n_utils import tr
 
 
 class PlanPanel(BasePanel):
@@ -50,7 +51,7 @@ class PlanPanel(BasePanel):
 
     def setup_ui(self):
         """Set up the user interface."""
-        self.set_panel_title("Plan")
+        self.set_panel_title(tr("Plan"))
 
         content_container = QWidget()
         layout = QVBoxLayout(content_container)
@@ -66,7 +67,7 @@ class PlanPanel(BasePanel):
         list_layout.setContentsMargins(0, 0, 0, 0)
         list_layout.setSpacing(6)
 
-        plan_list_title = QLabel("Plans")
+        plan_list_title = QLabel(tr("Plans"))
         plan_list_title.setFont(QFont("Arial", 10, QFont.Bold))
         list_layout.addWidget(plan_list_title)
 
@@ -76,7 +77,7 @@ class PlanPanel(BasePanel):
         self.plan_tree.itemSelectionChanged.connect(self._on_plan_selected)
         list_layout.addWidget(self.plan_tree, 1)
 
-        self.empty_label = QLabel("No plans available")
+        self.empty_label = QLabel(tr("No plans available"))
         self.empty_label.setAlignment(Qt.AlignCenter)
         self.empty_label.setObjectName("empty_label")
         list_layout.addWidget(self.empty_label)
@@ -90,11 +91,11 @@ class PlanPanel(BasePanel):
         details_layout.setSpacing(6)
 
         details_header_layout = QHBoxLayout()
-        self.back_button = QPushButton("Back")
+        self.back_button = QPushButton(tr("Back"))
         self.back_button.clicked.connect(self._show_list_view)
         details_header_layout.addWidget(self.back_button)
 
-        self.details_title = QLabel("Plan Details")
+        self.details_title = QLabel(tr("Plan Details"))
         self.details_title.setFont(QFont("Arial", 10, QFont.Bold))
         details_header_layout.addWidget(self.details_title)
         details_header_layout.addStretch()
@@ -104,12 +105,12 @@ class PlanPanel(BasePanel):
         self.plan_info_text.setReadOnly(True)
         details_layout.addWidget(self.plan_info_text)
 
-        task_list_title = QLabel("Tasks")
+        task_list_title = QLabel(tr("Tasks"))
         task_list_title.setFont(QFont("Arial", 10, QFont.Bold))
         details_layout.addWidget(task_list_title)
 
         self.task_tree = QTreeWidget()
-        self.task_tree.setHeaderLabels(["Task", "Status"])
+        self.task_tree.setHeaderLabels([tr("Task"), tr("Status")])
         self.task_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.task_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         details_layout.addWidget(self.task_tree, 1)
@@ -120,11 +121,11 @@ class PlanPanel(BasePanel):
         # Control buttons
         button_layout = QHBoxLayout()
 
-        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button = QPushButton(tr("Refresh"))
         self.refresh_button.clicked.connect(self.refresh_data)
         button_layout.addWidget(self.refresh_button)
 
-        self.execute_button = QPushButton("Execute")
+        self.execute_button = QPushButton(tr("Execute"))
         self.execute_button.clicked.connect(self._execute_selected_plan)
         self.execute_button.setEnabled(False)
         button_layout.addWidget(self.execute_button)
@@ -173,7 +174,7 @@ class PlanPanel(BasePanel):
         for plan in plans:
             # Create top-level item for the plan
             plan_item = QTreeWidgetItem(self.plan_tree)
-            plan_name = plan.name or "Untitled Plan"
+            plan_name = plan.name or tr("Untitled Plan")
             plan_item.setText(0, f"{plan_name} ({plan.status.value.title()})")
 
             # Store plan ID in the item for later reference
@@ -192,18 +193,18 @@ class PlanPanel(BasePanel):
                 instance_item.setData(0, Qt.UserRole, ("instance", plan.id, instance.instance_id))
 
                 # Instance tooltip with key timestamps
-                instance_tooltip = (
-                    f"Created: {self._format_datetime(instance.created_at)}\n"
-                    f"Started: {self._format_datetime(instance.started_at)}\n"
-                    f"Completed: {self._format_datetime(instance.completed_at)}"
+                instance_tooltip = tr("Created: {0}\nStarted: {1}\nCompleted: {2}").format(
+                    self._format_datetime(instance.created_at),
+                    self._format_datetime(instance.started_at),
+                    self._format_datetime(instance.completed_at)
                 )
                 instance_item.setToolTip(0, instance_tooltip)
 
             # Plan tooltip with summary
-            plan_tooltip = (
-                f"Created: {self._format_datetime(plan.created_at)}\n"
-                f"Tasks: {len(plan.tasks)}\n"
-                f"Instances: {len(instances)}"
+            plan_tooltip = tr("Created: {0}\nTasks: {1}\nInstances: {2}").format(
+                self._format_datetime(plan.created_at),
+                len(plan.tasks),
+                len(instances)
             )
             plan_item.setToolTip(0, plan_tooltip)
             plan_item.setExpanded(True)
@@ -222,11 +223,11 @@ class PlanPanel(BasePanel):
         if hasattr(self, "task_tree"):
             self.task_tree.clear()
         if hasattr(self, "details_title"):
-            self.details_title.setText("Plan Details")
+            self.details_title.setText(tr("Plan Details"))
 
     def _format_datetime(self, value: Optional[datetime]) -> str:
         """Format datetime for display."""
-        return value.strftime("%Y-%m-%d %H:%M") if value else "N/A"
+        return value.strftime("%Y-%m-%d %H:%M") if value else tr("N/A")
 
     def _get_latest_instance(self, plan_id: str) -> Optional[PlanInstance]:
         """Get the latest instance for a plan."""
@@ -298,24 +299,24 @@ class PlanPanel(BasePanel):
 
         self.execute_button.setEnabled(True)
 
-        plan_name = self.selected_plan.name or "Untitled Plan"
-        self.details_title.setText(f"Plan: {plan_name}")
+        plan_name = self.selected_plan.name or tr("Untitled Plan")
+        self.details_title.setText(f"{tr('Plan')}: {plan_name}")
 
-        description = self.selected_plan.description or "No description"
+        description = self.selected_plan.description or tr("No description")
         info_lines = [
-            f"Name: {plan_name}",
-            f"Description: {description}",
-            f"Status: {self.selected_plan.status.value.title()}",
-            f"Created: {self._format_datetime(self.selected_plan.created_at)}",
+            f"{tr('Name:')} {plan_name}",
+            f"{tr('Description:')} {description}",
+            f"{tr('Status:')} {self.selected_plan.status.value.title()}",
+            f"{tr('Created:')} {self._format_datetime(self.selected_plan.created_at)}",
         ]
 
         if self.selected_instance:
             info_lines.extend([
                 "",
-                f"Instance ID: {self.selected_instance.instance_id}",
-                f"Instance Status: {self.selected_instance.status.value.title()}",
-                f"Started: {self._format_datetime(self.selected_instance.started_at)}",
-                f"Completed: {self._format_datetime(self.selected_instance.completed_at)}",
+                f"{tr('Instance ID:')} {self.selected_instance.instance_id}",
+                f"{tr('Instance Status:')} {self.selected_instance.status.value.title()}",
+                f"{tr('Started:')} {self._format_datetime(self.selected_instance.started_at)}",
+                f"{tr('Completed:')} {self._format_datetime(self.selected_instance.completed_at)}",
             ])
 
         self.plan_info_text.setPlainText("\n".join(info_lines))
@@ -328,13 +329,13 @@ class PlanPanel(BasePanel):
 
         if not tasks:
             empty_item = QTreeWidgetItem(self.task_tree)
-            empty_item.setText(0, "No tasks available")
+            empty_item.setText(0, tr("No tasks available"))
             empty_item.setFlags(Qt.ItemIsEnabled)
             return
 
         for task in tasks:
             task_item = QTreeWidgetItem(self.task_tree)
-            task_name = task.name or "Untitled Task"
+            task_name = task.name or tr("Untitled Task")
             task_item.setText(0, task_name)
             task_item.setText(1, task.status.value.title())
 
@@ -342,13 +343,13 @@ class PlanPanel(BasePanel):
             started_str = self._format_datetime(task.started_at)
             completed_str = self._format_datetime(task.completed_at)
             tooltip_lines = [
-                f"Description: {task.description or 'No description'}",
-                f"Agent Role: {task.agent_role or 'N/A'}",
-                f"Started: {started_str}",
-                f"Completed: {completed_str}",
+                f"{tr('Description:')} {task.description or tr('No description')}",
+                f"{tr('Agent Role:')} {task.agent_role or tr('N/A')}",
+                f"{tr('Started:')} {started_str}",
+                f"{tr('Completed:')} {completed_str}",
             ]
             if task.error_message:
-                tooltip_lines.append(f"Error: {task.error_message}")
+                tooltip_lines.append(f"{tr('Error:')} {task.error_message}")
             tooltip_text = "\n".join(tooltip_lines)
             task_item.setToolTip(0, tooltip_text)
             task_item.setToolTip(1, tooltip_text)

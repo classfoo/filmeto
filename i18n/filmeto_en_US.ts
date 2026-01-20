@@ -476,5 +476,123 @@
         <translation>Delete</translation>
     </message>
 
+    <!-- Plan Panel -->
+    <message>
+        <source>Plan</source>
+        <translation>计划</translation>
+    </message>
+    <message>
+        <source>Plans</source>
+        <translation>计划</translation>
+    </message>
+    <message>
+        <source>No plans available</source>
+        <translation>暂无计划</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation>返回</translation>
+    </message>
+    <message>
+        <source>Plan Details</source>
+        <translation>计划详情</translation>
+    </message>
+    <message>
+        <source>Tasks</source>
+        <translation>任务</translation>
+    </message>
+    <message>
+        <source>Task</source>
+        <translation>任务</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>状态</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <source>Execute</source>
+        <translation>执行</translation>
+    </message>
+    <message>
+        <source>Untitled Plan</source>
+        <translation>未命名计划</translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation>名称：</translation>
+    </message>
+    <message>
+        <source>Description:</source>
+        <translation>描述：</translation>
+    </message>
+    <message>
+        <source>Status:</source>
+        <translation>状态：</translation>
+    </message>
+    <message>
+        <source>Created:</source>
+        <translation>创建于：</translation>
+    </message>
+    <message>
+        <source>Instance ID:</source>
+        <translation>实例ID：</translation>
+    </message>
+    <message>
+        <source>Instance Status:</source>
+        <translation>实例状态：</translation>
+    </message>
+    <message>
+        <source>Started:</source>
+        <translation>开始于：</translation>
+    </message>
+    <message>
+        <source>Completed:</source>
+        <translation>完成于：</translation>
+    </message>
+    <message>
+        <source>No tasks available</source>
+        <translation>暂无任务</translation>
+    </message>
+    <message>
+        <source>No description</source>
+        <translation>无描述</translation>
+    </message>
+    <message>
+        <source>N/A</source>
+        <translation>不可用</translation>
+    </message>
+    <message>
+        <source>Untitled Task</source>
+        <translation>未命名任务</translation>
+    </message>
+    <message>
+        <source>Agent Role:</source>
+        <translation>代理角色：</translation>
+    </message>
+    <message>
+        <source>Error:</source>
+        <translation>错误：</translation>
+    </message>
+    <message>
+        <source>Created: {0}
+Started: {1}
+Completed: {2}</source>
+        <translation>创建于：{0}
+开始于：{1}
+完成于：{2}</translation>
+    </message>
+    <message>
+        <source>Created: {0}
+Tasks: {1}
+Instances: {2}</source>
+        <translation>创建于：{0}
+任务数：{1}
+实例数：{2}</translation>
+    </message>
+
 </context>
 </TS>
