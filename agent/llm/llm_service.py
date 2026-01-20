@@ -71,7 +71,10 @@ class LlmService:
         """Initialize the service by retrieving settings from the system settings service."""
         if self.settings:
             # Retrieve OpenAI settings from the system settings service
-            self.api_key = self.settings.get('ai_services.openai_api_key', os.getenv('OPENAI_API_KEY'))
+            self.api_key = (self.settings.get('ai_services.openai_api_key') or
+                           self.settings.get('ai_services.openai_ak_sk') or
+                           os.getenv('OPENAI_API_KEY') or
+                           os.getenv('DASHSCOPE_API_KEY'))
             self.api_base = self.settings.get('ai_services.openai_host', os.getenv('OPENAI_BASE_URL'))
             self.default_model = self.settings.get('ai_services.default_model', 'gpt-4o-mini')
 
@@ -92,7 +95,7 @@ class LlmService:
                     litellm.api_base = self.api_base
         else:
             # Fallback to environment variables if no settings service is provided
-            self.api_key = os.getenv('OPENAI_API_KEY')
+            self.api_key = os.getenv('OPENAI_API_KEY') or os.getenv('DASHSCOPE_API_KEY')
             self.api_base = os.getenv('OPENAI_BASE_URL', os.getenv('OPENAI_HOST'))
             self.default_model = os.getenv('DEFAULT_MODEL', 'gpt-4o-mini')
 
