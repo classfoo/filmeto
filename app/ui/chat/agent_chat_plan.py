@@ -21,6 +21,7 @@ from app.ui.components.avatar_widget import AvatarWidget
 from agent.plan.service import PlanService
 from agent.plan.models import Plan, PlanInstance, PlanStatus, PlanTask, TaskStatus
 from agent.crew.crew_service import CrewService
+from agent.plan.signals import plan_signal_manager
 from utils.i18n_utils import tr
 
 
@@ -169,7 +170,7 @@ class AgentChatPlanWidget(BaseWidget):
         self._details_max_height = 220
 
         # Fixed heights for collapsed and expanded states
-        self.header_height = 30  # Fixed height of the header
+        self.header_height = 40  # Fixed height of the header (matches collapsed height)
         self._collapsed_height = 40  # Height when collapsed (just header)
         self._expanded_height = 260  # Height when expanded (header + details)
 
@@ -214,21 +215,23 @@ class AgentChatPlanWidget(BaseWidget):
         from PySide6.QtCore import QTimer
         QTimer.singleShot(0, self.refresh_plan)
 
-        self._refresh_timer = QTimer(self)
-        self._refresh_timer.setInterval(2000)
-        self._refresh_timer.timeout.connect(self.refresh_plan)
-        self._refresh_timer.start()
+        # Connect to global plan signals instead of using timer
+        plan_signal_manager.plan_created.connect(self._on_plan_change)
+        plan_signal_manager.plan_updated.connect(self._on_plan_change)
+        plan_signal_manager.plan_instance_created.connect(self._on_plan_change)
+        plan_signal_manager.plan_instance_status_updated.connect(self._on_plan_change)
+        plan_signal_manager.task_status_updated.connect(self._on_plan_change)
 
     def _setup_ui(self):
         self.setObjectName("agent_chat_plan_widget")
         self.setStyleSheet("""
             QWidget#agent_chat_plan_widget {
-                background-color: #2b2d30;
+                background-color: #252525;
                 border-radius: 6px;
             }
             QFrame#plan_header {
                 background-color: #2b2d30;
-                border-radius: 6px 6px 0 0; /* Rounded top corners only */
+                border-radius: 6px;
             }
             QLabel#plan_summary {
                 color: #e1e1e1;
@@ -340,6 +343,24 @@ class AgentChatPlanWidget(BaseWidget):
             return
 
         self._is_expanded = not self._is_expanded
+
+        # Update border radius based on expanded state
+        if self._is_expanded:
+            # When expanded, header has only top corners rounded
+            self.header_frame.setStyleSheet("""
+                QFrame#plan_header {
+                    background-color: #2b2d30;
+                    border-radius: 6px 6px 0 0;
+                }
+            """)
+        else:
+            # When collapsed, header has full border radius
+            self.header_frame.setStyleSheet("""
+                QFrame#plan_header {
+                    background-color: #2b2d30;
+                    border-radius: 6px;
+                }
+            """)
 
         # Update the splitter sizes based on expanded state
         if self._is_expanded:
@@ -583,6 +604,13 @@ class AgentChatPlanWidget(BaseWidget):
             self._load_crew_member_metadata()
         return self._crew_member_metadata.get(agent_role.lower())
 
+    def _on_plan_change(self, *args):
+        """Callback for when plan-related changes occur."""
+        # Refresh the plan display when any plan-related change happens
+        # Use singleShot to avoid multiple rapid updates
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self.refresh_plan)
+
     def _update_details_height(self):
         if not self.details_scroll:
             return
@@ -593,3 +621,15 @@ class AgentChatPlanWidget(BaseWidget):
             target_height = min(self._details_max_height, max(0, content_height))
             # Update the splitter instead of setting fixed height on scroll area
             self.main_splitter.setSizes([self.header_height, target_height])
+
+    def __del__(self):
+        """Disconnect signals when the widget is destroyed."""
+        try:
+            plan_signal_manager.plan_created.disconnect(self._on_plan_change)
+            plan_signal_manager.plan_updated.disconnect(self._on_plan_change)
+            plan_signal_manager.plan_instance_created.disconnect(self._on_plan_change)
+            plan_signal_manager.plan_instance_status_updated.disconnect(self._on_plan_change)
+            plan_signal_manager.task_status_updated.disconnect(self._on_plan_change)
+        except TypeError:
+            # Signals may already be disconnected
+            pass

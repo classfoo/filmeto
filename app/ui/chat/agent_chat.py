@@ -82,6 +82,8 @@ class AgentChatWidget(BaseWidget):
         # Create a vertical splitter for the three components
         self.splitter = QSplitter(Qt.Vertical)
         self.splitter.setObjectName("agent_chat_splitter")
+        # Set the splitter to be non-resizable by user
+        self.splitter.setHandleWidth(0)
 
         # Chat history component (top, takes most space)
         self.chat_history_widget = AgentChatHistoryWidget(self.workspace, self)
@@ -103,6 +105,10 @@ class AgentChatWidget(BaseWidget):
         # Plan widget: fixed collapsed height
         # Prompt input: fixed height for input area
         self.splitter.setSizes([600, self.plan_widget._collapsed_height, 200])
+        # Prevent widgets from being collapsible to maintain fixed layout
+        self.splitter.setCollapsible(0, False)  # Chat history
+        self.splitter.setCollapsible(1, False)  # Plan widget
+        self.splitter.setCollapsible(2, False)  # Prompt input
 
         # Add the splitter to the main layout
         layout.addWidget(self.splitter)

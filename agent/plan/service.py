@@ -10,6 +10,7 @@ from datetime import datetime
 import shutil
 
 from .models import Plan, PlanInstance, PlanTask, PlanStatus, TaskStatus
+from .signals import plan_signal_manager
 
 
 class PlanService:
@@ -93,6 +94,15 @@ class PlanService:
 
         # Save the updated instance
         self._save_plan_instance(plan_instance)
+
+        # Emit signal for task status update
+        plan_signal_manager.task_status_updated.emit(
+            plan_instance.project_name,
+            plan_instance.plan_id,
+            plan_instance.instance_id,
+            task_id
+        )
+
         return True
 
     def _update_plan_status(self, plan_instance: PlanInstance, new_status: PlanStatus) -> bool:
@@ -107,6 +117,14 @@ class PlanService:
 
         # Save the updated instance
         self._save_plan_instance(plan_instance)
+
+        # Emit signal for plan instance status update
+        plan_signal_manager.plan_instance_status_updated.emit(
+            plan_instance.project_name,
+            plan_instance.plan_id,
+            plan_instance.instance_id
+        )
+
         return True
     
     def _get_flow_dir(self, project_name: str, plan_id: str) -> Path:
@@ -339,6 +357,10 @@ class PlanService:
         )
 
         self._save_plan(plan)
+
+        # Emit signal for plan creation
+        plan_signal_manager.plan_created.emit(project_name, plan_id)
+
         return plan
 
     def create_plan_instance(self, plan: Plan) -> PlanInstance:
@@ -369,6 +391,14 @@ class PlanService:
         )
 
         self._save_plan_instance(plan_instance)
+
+        # Emit signal for plan instance creation
+        plan_signal_manager.plan_instance_created.emit(
+            plan_instance.project_name,
+            plan_instance.plan_id,
+            plan_instance.instance_id
+        )
+
         return plan_instance
 
     def sync_plan_instance(self, plan_instance: PlanInstance, plan: Plan) -> PlanInstance:
@@ -501,6 +531,10 @@ class PlanService:
             plan.tasks.extend(validated_append_tasks)
 
         self._save_plan(plan)
+
+        # Emit signal for plan update
+        plan_signal_manager.plan_updated.emit(project_name, plan_id)
+
         return plan
 
     def _validate_and_clean_tasks(self, tasks: Optional[List[PlanTask]]) -> List[PlanTask]:
