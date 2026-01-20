@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSplitter,
 )
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, QSize
 from PySide6.QtGui import QColor, QPainter, QFont, QPen
 
 from app.ui.base_widget import BaseWidget
@@ -199,7 +199,16 @@ class AgentChatPlanWidget(BaseWidget):
         layout.setContentsMargins(6, 6, 6, 6)
         layout.addWidget(self.main_splitter)
 
+        # Set up UI components first
+        self._setup_ui()
+        self._load_crew_member_metadata()
+
         # Configure the splitter - initially only show header
+        # Set the correct size policy to ensure proper sizing in parent splitter
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # Set the fixed height to match the header height when collapsed
+        self.setFixedHeight(self.header_height)
+
         # Use QTimer.singleShot to ensure this happens after the layout is set up
         from PySide6.QtCore import QTimer
         def set_initial_splitter_sizes():
@@ -207,12 +216,7 @@ class AgentChatPlanWidget(BaseWidget):
 
         QTimer.singleShot(0, set_initial_splitter_sizes)
 
-        # Set up UI components first
-        self._setup_ui()
-        self._load_crew_member_metadata()
-
         # Delay the initial refresh until after the constructor completes
-        from PySide6.QtCore import QTimer
         QTimer.singleShot(0, self.refresh_plan)
 
         # Connect to global plan signals instead of using timer
@@ -366,9 +370,15 @@ class AgentChatPlanWidget(BaseWidget):
         if self._is_expanded:
             # Show both header and details
             self.main_splitter.setSizes([self.header_height, self._details_max_height])
+            # Make sure the entire widget can expand
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            # Remove fixed height constraint when expanded
+            self.setMaximumHeight(16777215)  # Reset to default max
         else:
             # Show only header, hide details
             self.main_splitter.setSizes([self.header_height, 0])
+            # Set fixed height policy to ensure the widget doesn't request more space
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         # If this widget is inside a parent splitter, adjust the height accordingly
         parent = self.parent()
@@ -385,10 +395,23 @@ class AgentChatPlanWidget(BaseWidget):
                         # Use fixed collapsed height
                         sizes[index] = self._collapsed_height
                     parent.setSizes(sizes)
+                    # Force the splitter to update its layout
+                    parent.update()
                 break
             parent = parent.parent()
 
+        # Update the geometry of this widget
         self.updateGeometry()
+
+        # In collapsed state, ensure the widget doesn't request more space than allocated
+        if not self._is_expanded:
+            # Make sure the widget respects the parent's allocation
+            self.setMinimumHeight(self.header_height)
+            self.setMaximumHeight(self.header_height)
+        else:
+            # Reset height constraints when expanded
+            self.setMinimumHeight(0)
+            self.setMaximumHeight(16777215)  # Default maximum
 
     def handle_stream_event(self, event, _session=None):
         if not event:
@@ -621,6 +644,16 @@ class AgentChatPlanWidget(BaseWidget):
             target_height = min(self._details_max_height, max(0, content_height))
             # Update the splitter instead of setting fixed height on scroll area
             self.main_splitter.setSizes([self.header_height, target_height])
+
+    def sizeHint(self):
+        """Return the recommended size for this widget."""
+        hint = super().sizeHint()
+        if hasattr(self, '_is_expanded') and not self._is_expanded:
+            # When collapsed, return the collapsed height
+            return QSize(hint.width(), self._collapsed_height)
+        else:
+            # When expanded, return normal size hint
+            return hint
 
     def __del__(self):
         """Disconnect signals when the widget is destroyed."""

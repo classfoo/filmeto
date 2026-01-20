@@ -94,6 +94,8 @@ class AgentChatWidget(BaseWidget):
         self.plan_widget = AgentChatPlanWidget(self.workspace, self)
         self.plan_widget.setObjectName("agent_chat_plan_widget")
         self.splitter.addWidget(self.plan_widget)
+        # Set size policy to ensure proper sizing in splitter
+        self.splitter.setCollapsible(1, False)  # Make sure plan widget is not collapsible by user
 
         # Prompt input component (bottom, auto-expands)
         self.prompt_input_widget = AgentPromptWidget(self.workspace, self)
@@ -104,7 +106,12 @@ class AgentChatWidget(BaseWidget):
         # Chat history: takes remaining space (will expand to fill available space)
         # Plan widget: fixed collapsed height
         # Prompt input: fixed height for input area
-        self.splitter.setSizes([600, self.plan_widget._collapsed_height, 200])
+        from PySide6.QtCore import QTimer
+        def set_initial_splitter_sizes():
+            self.splitter.setSizes([600, self.plan_widget._collapsed_height, 200])
+            # Force the splitter to update its layout
+            self.splitter.update()
+
         # Prevent widgets from being collapsible to maintain fixed layout
         self.splitter.setCollapsible(0, False)  # Chat history
         self.splitter.setCollapsible(1, False)  # Plan widget
@@ -112,6 +119,10 @@ class AgentChatWidget(BaseWidget):
 
         # Add the splitter to the main layout
         layout.addWidget(self.splitter)
+
+        # Set initial sizes for the splitter with fixed heights
+        # Do this after the splitter is added to the layout
+        set_initial_splitter_sizes()
 
         # Connect signals
         self.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
