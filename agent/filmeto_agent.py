@@ -74,6 +74,9 @@ class FilmetoAgent:
         self.llm_service = llm_service or LlmService(workspace)
         self.crew_member_service = crew_member_service or CrewService()
         self.plan_service = plan_service or PlanService()
+        # Set the workspace if available to ensure proper plan storage location
+        if self.workspace:
+            self.plan_service.set_workspace(self.workspace)
         self.crew_members: Dict[str, CrewMember] = {}
         self._crew_member_lookup: Dict[str, CrewMember] = {}
 

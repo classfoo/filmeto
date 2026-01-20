@@ -32,9 +32,19 @@ class PlanService:
 
     def __init__(self):
         if not self._initialized:
+            # Default path for backward compatibility
             self.flow_storage_dir = Path("workspace/agent/plan/flow")
-            self.flow_storage_dir.mkdir(parents=True, exist_ok=True)
             self._initialized = True
+
+    def set_workspace(self, workspace):
+        """Set the workspace to determine the correct project-specific storage path."""
+        if workspace and hasattr(workspace, 'workspace_path'):
+            # Use the workspace path to create the proper directory structure
+            self.flow_storage_dir = Path(workspace.workspace_path) / "agent" / "plan" / "flow"
+        else:
+            # Default path for backward compatibility
+            self.flow_storage_dir = Path("workspace/agent/plan/flow")
+        self.flow_storage_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_ready_tasks(self, plan_instance: PlanInstance) -> List[PlanTask]:
         """
@@ -106,7 +116,26 @@ class PlanService:
             project_name: Name of the project (used as identifier)
             plan_id: Unique ID of the plan
         """
-        return self.flow_storage_dir / f"{project_name}_{plan_id}"
+        # Create directory structure as workspace/projects/项目名/plans
+        # Find the workspace root directory by traversing up the path
+        current_path = self.flow_storage_dir.resolve()
+        workspace_path = None
+
+        # Look for 'workspace' directory in the path hierarchy
+        for parent in current_path.parents:
+            if parent.name == 'workspace':
+                workspace_path = parent
+                break
+
+        if workspace_path:
+            # Use the proper workspace/projects/project_name/plans structure
+            project_plans_dir = workspace_path / "projects" / project_name / "plans"
+        else:
+            # Fallback to the original approach if we can't find workspace
+            project_plans_dir = self.flow_storage_dir.parent / "projects" / project_name / "plans"
+
+        project_plans_dir.mkdir(parents=True, exist_ok=True)
+        return project_plans_dir / plan_id
 
     def _save_plan(self, plan: Plan) -> None:
         """Save a Plan to disk atomically."""
@@ -115,6 +144,8 @@ class PlanService:
 
         # Prepare data for serialization
         plan_data = asdict(plan)
+        # Update the field name from project_id to project_name for serialization
+        plan_data['project_id'] = plan_data.pop('project_name')  # Use old field name for backward compatibility
         plan_data['created_at'] = plan_data['created_at'].isoformat()
         plan_data['status'] = plan_data['status'].value  # Convert enum to string
         plan_data['tasks'] = []
@@ -155,6 +186,8 @@ class PlanService:
 
         # Prepare data for serialization
         instance_data = asdict(plan_instance)
+        # Update the field name from project_id to project_name for serialization
+        instance_data['project_id'] = instance_data.pop('project_name')  # Use old field name for backward compatibility
         instance_data['created_at'] = instance_data['created_at'].isoformat()
         instance_data['started_at'] = instance_data['started_at'].isoformat() if instance_data['started_at'] else None
         instance_data['completed_at'] = instance_data['completed_at'].isoformat() if instance_data['completed_at'] else None
@@ -409,7 +442,7 @@ class PlanService:
 
         plan = Plan(
             id=data['id'],
-            project_name=data['project_name'],
+            project_name=data.get('project_id', data.get('project_name', project_name)),  # Support both old and new keys
             name=data['name'],
             description=data['description'],
             tasks=tasks,
@@ -504,7 +537,7 @@ class PlanService:
         plan_instance = PlanInstance(
             plan_id=data['plan_id'],
             instance_id=data['instance_id'],
-            project_name=data['project_name'],
+            project_name=data.get('project_id', data.get('project_name', project_name)),  # Support both old and new keys
             tasks=tasks,
             created_at=created_at,
             started_at=started_at,
@@ -521,12 +554,31 @@ class PlanService:
         Args:
             project_name: Name of the project (used as identifier)
         """
-        project_dirs = [d for d in self.flow_storage_dir.iterdir()
-                       if d.is_dir() and d.name.startswith(f"{project_name}_")]
+        # Use the project-specific plans directory
+        current_path = self.flow_storage_dir.resolve()
+        workspace_path = None
+
+        # Look for 'workspace' directory in the path hierarchy
+        for parent in current_path.parents:
+            if parent.name == 'workspace':
+                workspace_path = parent
+                break
+
+        if workspace_path:
+            project_plans_dir = workspace_path / "projects" / project_name / "plans"
+        else:
+            # Fallback to the original approach if we can't find workspace
+            project_plans_dir = self.flow_storage_dir.parent / "projects" / project_name / "plans"
+
+        if not project_plans_dir.exists():
+            return []
+
+        # Get all plan directories in the project's plans folder
+        plan_dirs = [d for d in project_plans_dir.iterdir() if d.is_dir()]
 
         plans = []
-        for plan_dir in project_dirs:
-            plan_id = plan_dir.name.split('_', 1)[1]  # Extract plan ID after project_name_
+        for plan_dir in plan_dirs:
+            plan_id = plan_dir.name  # Plan ID is now the directory name
             plan = self.load_plan(project_name, plan_id)
             if plan:
                 plans.append(plan)
@@ -545,6 +597,8 @@ class PlanService:
 
         instances = []
         if plan_instance_path.exists():
+            # Note: The instance_id is not really used in the load_plan_instance method
+            # It just loads the one instance file that exists for the plan
             instance = self.load_plan_instance(project_name, plan_id, "unknown")  # We'll get the actual instance_id from the loaded data
             if instance:
                 instances.append(instance)

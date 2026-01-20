@@ -35,6 +35,8 @@ class PlanPanel(BasePanel):
             self.setParent(parent)
 
         self.plan_service = PlanService()
+        # Set the workspace to ensure proper plan storage location
+        self.plan_service.set_workspace(workspace)
         self.current_project_name = workspace.get_project().project_name if workspace.get_project() else None
         
         # Store selected plan and instance for detail view
