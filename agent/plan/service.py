@@ -215,7 +215,8 @@ class PlanService:
             temp_file.close()
 
             # Atomically move the temporary file to the target location
-            target_path = plan_dir / "plan_instance.yml"
+            # Use the instance_id as the filename to support multiple instances
+            target_path = plan_dir / f"plan_instance_{plan_instance.instance_id}.yml"
             shutil.move(temp_file.name, target_path)
         except Exception:
             # Clean up the temporary file if something went wrong
@@ -342,7 +343,8 @@ class PlanService:
 
     def create_plan_instance(self, plan: Plan) -> PlanInstance:
         """Create a new PlanInstance from a Plan."""
-        instance_id = f"pi_{int(datetime.now().timestamp())}"
+        import uuid
+        instance_id = f"pi_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}"
 
         # Copy tasks from the plan to the instance
         instance_tasks = []
@@ -587,7 +589,7 @@ class PlanService:
             instance_id: ID of the plan instance
         """
         plan_dir = self._get_flow_dir(project_name, plan_id)
-        plan_instance_path = plan_dir / "plan_instance.yml"
+        plan_instance_path = plan_dir / f"plan_instance_{instance_id}.yml"
 
         if not plan_instance_path.exists():
             return None
@@ -677,14 +679,20 @@ class PlanService:
             plan_id: ID of the plan
         """
         plan_dir = self._get_flow_dir(project_name, plan_id)
-        plan_instance_path = plan_dir / "plan_instance.yml"
 
         instances = []
-        if plan_instance_path.exists():
-            # Note: The instance_id is not really used in the load_plan_instance method
-            # It just loads the one instance file that exists for the plan
-            instance = self.load_plan_instance(project_name, plan_id, "unknown")  # We'll get the actual instance_id from the loaded data
-            if instance:
-                instances.append(instance)
+        if plan_dir.exists():
+            # Look for all plan instance files in the plan directory
+            for file_path in plan_dir.glob("plan_instance_*.yml"):
+                # Extract instance_id from filename
+                filename = file_path.name
+                # Format: plan_instance_{instance_id}.yml
+                if filename.startswith("plan_instance_") and filename.endswith(".yml"):
+                    instance_id = filename[len("plan_instance_"):-len(".yml")]
+
+                    # Load the instance
+                    instance = self.load_plan_instance(project_name, plan_id, instance_id)
+                    if instance:
+                        instances.append(instance)
 
         return instances
