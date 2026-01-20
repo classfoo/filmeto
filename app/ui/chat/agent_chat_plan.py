@@ -168,8 +168,12 @@ class AgentChatPlanWidget(BaseWidget):
         self._details_max_height = 220
 
         # Fixed heights for collapsed and expanded states
-        self._collapsed_height = 40  # Height when collapsed (just header)
-        self._expanded_height = 260  # Height when expanded (header + details)
+        # These represent the minimum heights needed to display content properly
+        # considering the layout margins (6px top and bottom = 12px total)
+        self.header_height = 30  # Fixed height of the header
+        layout_margin_vertical = 12  # 6px top margin + 6px bottom margin
+        self._collapsed_height = self.header_height + layout_margin_vertical  # 42px total
+        self._expanded_height = self.header_height + layout_margin_vertical + 220  # 252px total (includes details)
 
         self._setup_ui()
         self._load_crew_member_metadata()
@@ -236,6 +240,9 @@ class AgentChatPlanWidget(BaseWidget):
         self.header_frame.setObjectName("plan_header")
         self.header_frame.setCursor(Qt.PointingHandCursor)
         self.header_frame.clicked.connect(self.toggle_expanded)
+        # Set a fixed height for the header frame to prevent height changes during refresh
+        self.header_frame.setFixedHeight(30)
+        self.header_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         header_layout = QHBoxLayout(self.header_frame)
         header_layout.setContentsMargins(0, 0, 0, 0)
@@ -544,6 +551,9 @@ class AgentChatPlanWidget(BaseWidget):
     def _update_details_height(self):
         if not self.details_scroll:
             return
-        content_height = self.details_container.sizeHint().height()
-        target_height = min(self._details_max_height, max(0, content_height))
-        self.details_scroll.setFixedHeight(target_height)
+        # Only update the details height if the widget is expanded
+        # This prevents changes during refresh_plan from affecting the collapsed state
+        if self._is_expanded:
+            content_height = self.details_container.sizeHint().height()
+            target_height = min(self._details_max_height, max(0, content_height))
+            self.details_scroll.setFixedHeight(target_height)
