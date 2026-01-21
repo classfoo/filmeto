@@ -8,7 +8,7 @@ import os
 from typing import Optional
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
-    QPushButton, QTextEdit, QLabel, QSplitter, QFrame
+    QPushButton, QTextEdit, QLabel, QSplitter, QFrame, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -24,17 +24,20 @@ class ScreenPlayPanel(BasePanel):
         """Initialize the screen play panel."""
         super().__init__(workspace, parent)
         self.set_panel_title("Screen Play")
-        
+
         # Initialize screenplay manager
         self.screenplay_manager = None
         self.current_project = None
-        
+
         # Store current view state
         self.view_mode = "list"  # Either "list" or "editor"
         self.current_scene_id = None
-        
+
         # Create UI components
         self._setup_ui()
+
+        # Ensure the panel is visible and properly sized
+        self.show()
         
     def _setup_ui(self):
         """Set up the UI components."""
@@ -42,20 +45,24 @@ class ScreenPlayPanel(BasePanel):
         main_layout = QVBoxLayout(self.content_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        
+
         # Create splitter for list and editor
         self.splitter = QSplitter(Qt.Vertical)
         self.splitter.setObjectName("screenplay_splitter")
-        
+        # Set initial sizes for the splitter
+        self.splitter.setSizes([400, 200])  # List gets more space initially
+        # Ensure the splitter expands to fill available space
+        self.splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         # Create list view
         self._setup_list_view()
-        
+
         # Create editor view (initially hidden)
         self._setup_editor_view()
-        
+
         # Add splitter to main layout
         main_layout.addWidget(self.splitter)
-        
+
         # Initially show list view
         self._show_list_view()
         
@@ -415,17 +422,41 @@ class ScreenPlayPanel(BasePanel):
         # Get the current project
         project = self.workspace.get_project()
         if not project:
+            # If no project is available, clear the scene list
+            if hasattr(self, 'scene_list') and self.scene_list:
+                self.scene_list.clear()
             return
-            
+
         # Initialize screenplay manager for the project
-        self.screenplay_manager = project.get_screenplay_manager()
-        self.current_project = project
-        
-        # Load scenes
-        self._refresh_scenes()
+        try:
+            self.screenplay_manager = project.get_screenplay_manager()
+            self.current_project = project
+
+            # Load scenes
+            self._refresh_scenes()
+        except AttributeError:
+            # If the project doesn't have a screenplay manager yet, create one
+            from app.data.screen_play import ScreenPlayManager
+            screenplay_path = os.path.join(project.project_path, "screenplay")
+            self.screenplay_manager = ScreenPlayManager(screenplay_path)
+            self.current_project = project
+
+            # Load scenes
+            self._refresh_scenes()
 
     def on_project_switched(self, project_name: str):
         """Called when the project is switched."""
         super().on_project_switched(project_name)
         # Reload data for the new project
         self.load_data()
+
+    def on_activated(self):
+        """Called when the panel becomes visible."""
+        super().on_activated()
+        # Ensure data is loaded when panel is activated
+        self.load_data()
+
+        # Ensure proper layout
+        self.adjustSize()
+        if self.parent():
+            self.parent().adjustSize()
