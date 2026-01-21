@@ -4,14 +4,19 @@ Abstract base class for structured content widgets with state management.
 This module defines an abstract base class that all structured content widgets
 should inherit from to provide consistent state management and lifecycle methods.
 """
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, Dict, Optional
 
 from PySide6.QtWidgets import QWidget
 from agent.chat.agent_chat_message import StructureContent
 
 
-class BaseStructuredContentWidget(ABC, QWidget):
+class BaseStructuredContentWidgetMeta(ABCMeta, type(QWidget)):
+    """Metaclass combining ABCMeta and QWidget's metaclass to resolve conflicts."""
+    pass
+
+
+class BaseStructuredContentWidget(ABC, QWidget, metaclass=BaseStructuredContentWidgetMeta):
     """
     Abstract base class for structured content widgets with state management.
     
