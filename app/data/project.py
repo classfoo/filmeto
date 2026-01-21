@@ -66,10 +66,9 @@ class Project:
         self.drawing = Drawing(self.workspace, self)
         self.resource_manager = ResourceManager(self.project_path)
         self.character_manager = CharacterManager(self.project_path, self.resource_manager)
-        # Get the singleton instance and set the project path
+        # Get the singleton instance
         from agent.chat.conversation import ConversationManager
         self.conversation_manager = ConversationManager()
-        self.conversation_manager.set_project_path(self.project_path)
         self.screenplay_manager = ScreenPlayManager(self.project_path)
 
         # If load_data is True, ensure actor data is loaded
