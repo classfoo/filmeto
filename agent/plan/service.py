@@ -464,7 +464,7 @@ class PlanService:
                 id=task_data['id'],
                 name=task_data['name'],
                 description=task_data['description'],
-                title=task_data['title'],
+                title=task_data.get('title', 'other'),  # Default to 'other' if title is missing
                 parameters=task_data.get('parameters', {}),
                 needs=task_data.get('needs', []),
                 status=TaskStatus(task_data.get('status', 'created')),  # Convert string back to enum
@@ -643,7 +643,7 @@ class PlanService:
                 id=task_data['id'],
                 name=task_data['name'],
                 description=task_data['description'],
-                title=task_data['title'],
+                title=task_data.get('title', 'other'),  # Default to 'other' if title is missing
                 parameters=task_data.get('parameters', {}),
                 needs=task_data.get('needs', []),
                 status=TaskStatus(task_data.get('status', 'created')),  # Convert string back to enum
