@@ -401,7 +401,6 @@ class AgentChatHistoryWidget(BaseWidget):
         else:
             # Generate message_id if not provided
             if not message_id:
-                import uuid
                 message_id = str(uuid.uuid4())
 
             # Create an AgentMessage with the content
@@ -497,7 +496,6 @@ class AgentChatHistoryWidget(BaseWidget):
     
     def start_streaming_message(self, sender: str) -> str:
         """Start a new streaming message (legacy API)."""
-        import uuid
         message_id = str(uuid.uuid4())
         self.append_message(sender, "...", message_id)
         return message_id
@@ -675,7 +673,6 @@ class AgentChatHistoryWidget(BaseWidget):
             error_content = event.data.get('content', 'Unknown error occurred')
 
             # Create a message ID for the error
-            import uuid
             message_id = str(uuid.uuid4())
 
             # Create or update the card with the error content
@@ -699,7 +696,6 @@ class AgentChatHistoryWidget(BaseWidget):
             session_id = event.data.get('session_id', 'unknown')
 
             # Create a unique message ID for this response
-            import uuid
             message_id = f"response_{session_id}_{uuid.uuid4()}"
 
             # Create or update the card with the content
