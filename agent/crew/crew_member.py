@@ -316,8 +316,8 @@ class CrewMember:
                         'description': param.description
                     } for param in skill.parameters
                 ],
-                'example_call': skill.get_example_call(),
-                'knowledge': skill.knowledge
+                'example_call': skill.get_example_call()
+                # Exclude knowledge field to keep the prompt concise
             })
 
         return skills_list
@@ -354,8 +354,8 @@ class CrewMember:
                         'description': param.description
                     } for param in skill.parameters
                 ],
-                'example_call': skill.get_example_call(),
-                'knowledge': skill.knowledge
+                'example_call': skill.get_example_call()
+                # Exclude knowledge field to keep the prompt concise
             })
 
         return skills_list
