@@ -206,40 +206,18 @@ class FilmetoAgent:
         return text[: limit - 3].rstrip() + "..."
 
     def _build_producer_message(self, user_message: str, plan_id: str, retry: bool = False) -> str:
-        # Build detailed crew member information including name, title, and skills
-        crew_details = []
-        valid_titles = []  # Keep track of valid titles for the instruction
-        for name, crew_member in self.crew_members.items():
-            crew_info = f"- Name: {name}"
-            crew_title = crew_member.config.metadata.get('crew_title')
-            if crew_title:
-                crew_info += f", Title: {crew_title}"
-                valid_titles.append(crew_title)  # Add title as valid title
-            valid_titles.append(name)  # Add name as valid title
-            if crew_member.config.skills:
-                skills = ", ".join(crew_member.config.skills)
-                crew_info += f", Skills: [{skills}]"
-            else:
-                crew_info += ", Skills: [none]"
-            crew_details.append(crew_info)
-
-        crew_details_str = "\n".join(crew_details) if crew_details else "No crew members available."
-
-        # Create a list of valid agent roles for the instruction
-        valid_roles_str = ", ".join(set(valid_titles)) if valid_titles else "none available"
-
-        header = "The current plan has no tasks. Update it now." if retry else "Create a production plan."
+        """
+        Build a message for the producer agent.
+        The producer will use its ReAct loop to determine how to respond to the user message,
+        including whether to create a plan, delegate to other crew members, or provide a direct response.
+        """
         return "\n".join([
-            f"{header}",
-            f"User request: {user_message}",
-            f"Plan id: {plan_id}",
-            "Available crew members (with titles and skills):",
-            crew_details_str,
-            "Use plan_update to set name, description, and tasks.",
-            "Each task must include: id, name, description, title, needs, parameters.",
-            f"The title MUST be one of the following valid options: {valid_roles_str}",
-            "Using any other title (such as 'system', 'user', 'assistant', etc.) will cause the task to fail.",
-            "After updating the plan, respond with a final summary and next steps.",
+            f"User message: {user_message}",
+            f"Current plan id: {plan_id}",
+            "Please process this message appropriately using your skills and judgment.",
+            "If a plan needs to be created or updated, use the appropriate planning skills.",
+            "If other crew members should handle this, delegate appropriately.",
+            "Provide a helpful response to the user."
         ])
 
     def _build_task_message(self, task: PlanTask, plan_id: str) -> str:
