@@ -1,5 +1,6 @@
 ---
 name: screenwriter
+crew_title: screenwriter
 description: 开发故事节拍、对话和角色弧线。
 soul: amara_okello_soul
 skills:

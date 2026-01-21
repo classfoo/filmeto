@@ -12,6 +12,7 @@ from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill, SkillParameter
 from agent.skill.skill_executor import SkillContext, SkillExecutor, get_skill_executor
 from agent.soul import soul_service as soul_service_instance, SoulService
+from agent.prompt.prompt_service import prompt_service
 
 
 @dataclass
@@ -229,30 +230,57 @@ class CrewMember:
         return soul_service_instance
 
     def _build_system_prompt(self, plan_id: Optional[str] = None) -> str:
-        prompt_sections = [
-            "You are a ReAct-style crew member.",
-            f"Crew member name: {self.config.name}.",
-        ]
-        if self.config.description:
-            prompt_sections.append(f"Role description: {self.config.description}")
-        if self.config.prompt:
-            prompt_sections.append(self.config.prompt.strip())
+        # Use the prompt service to get the base ReAct template
+        base_prompt = prompt_service.render_prompt(
+            name="react_base",
+            agent_role="crew member",
+            agent_name=self.config.name,
+            role_description=f"Role description: {self.config.description}" if self.config.description else "",
+            soul_profile=self._get_formatted_soul_prompt(),
+            available_skills=self._format_skills_prompt(),
+            context_info=f"Active plan id: {plan_id}." if plan_id else f"Project name: {self.project_name}." if self.project_name else "",
+            action_instructions=prompt_service.get_prompt_template("react_action_instructions")
+        )
 
-        soul_prompt = self._get_soul_prompt()
-        if soul_prompt:
-            prompt_sections.append("Soul profile:")
-            prompt_sections.append(soul_prompt)
+        # If the base prompt template is not available, fall back to the original method
+        if base_prompt is None:
+            prompt_sections = [
+                "You are a ReAct-style crew member.",
+                f"Crew member name: {self.config.name}.",
+            ]
+            if self.config.description:
+                prompt_sections.append(f"Role description: {self.config.description}")
+            if self.config.prompt:
+                prompt_sections.append(self.config.prompt.strip())
 
-        skills_prompt = self._format_skills_prompt()
-        prompt_sections.append(skills_prompt)
+            soul_prompt = self._get_soul_prompt()
+            if soul_prompt:
+                prompt_sections.append("Soul profile:")
+                prompt_sections.append(soul_prompt)
 
-        if plan_id:
-            prompt_sections.append(f"Active plan id: {plan_id}.")
-        elif self.project_name:
-            prompt_sections.append(f"Project name: {self.project_name}.")
+            skills_prompt = self._format_skills_prompt()
+            prompt_sections.append(skills_prompt)
 
-        prompt_sections.append(_ACTION_INSTRUCTIONS)
-        return "\n\n".join(section for section in prompt_sections if section)
+            if plan_id:
+                prompt_sections.append(f"Active plan id: {plan_id}.")
+            elif self.project_name:
+                prompt_sections.append(f"Project name: {self.project_name}.")
+
+            prompt_sections.append(_ACTION_INSTRUCTIONS)
+            return "\n\n".join(section for section in prompt_sections if section)
+
+        return base_prompt
+
+    def _get_formatted_soul_prompt(self) -> str:
+        """Get formatted soul prompt for use in system prompt."""
+        if not self.config.soul:
+            return ""
+        soul = self.soul_service.get_soul_by_name(self.project_name, self.config.soul)
+        if not soul:
+            return f"Soul profile: Soul '{self.config.soul}' not found."
+        if soul.knowledge:
+            return f"Soul profile:\n{soul.knowledge}"
+        return f"Soul profile: Soul '{self.config.soul}' has no prompt content."
 
     def _get_soul_prompt(self) -> str:
         if not self.config.soul:
@@ -760,3 +788,4 @@ When your task is complete and you're ready to report results:
 - If you receive a message that includes @your_name, treat it as your assigned task.
 - Do NOT include any text outside the JSON object.
 """
+# Note: The ACTION_INSTRUCTIONS constant has been moved to the prompt service as a template

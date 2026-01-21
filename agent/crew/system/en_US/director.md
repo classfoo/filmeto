@@ -1,5 +1,6 @@
 ---
 name: director
+crew_title: director
 description: Leads story, pacing, and creative decisions.
 soul: isabella_rodriguez_soul
 skills: []

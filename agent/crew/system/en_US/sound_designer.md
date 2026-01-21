@@ -1,5 +1,6 @@
 ---
 name: sound_designer
+crew_title: sound_designer
 description: Builds soundscape, effects, and mix priorities.
 soul: jordan_hayes_soul
 skills: []

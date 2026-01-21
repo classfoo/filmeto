@@ -1,5 +1,6 @@
 ---
 name: cinematographer
+crew_title: cinematographer
 description: Designs lighting, framing, and camera language.
 soul: alexandra_petrova_soul
 skills: []

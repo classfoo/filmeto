@@ -1,5 +1,6 @@
 ---
 name: producer
+crew_title: producer
 description: Owns budget, schedule, and delivery risks.
 soul: elena_vasquez_soul
 skills: []

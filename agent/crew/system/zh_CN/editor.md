@@ -1,5 +1,6 @@
 ---
 name: editor
+crew_title: editor
 description: 塑造节奏、结构和连续性。
 soul: samuel_torres_soul
 skills: []
