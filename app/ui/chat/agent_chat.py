@@ -378,6 +378,9 @@ class AgentChatWidget(BaseWidget):
             self.agent.update_context(project=project)
         if self.plan_widget:
             self.plan_widget.refresh_plan()
+        if self.chat_history_widget:
+            # Reload the conversation history for the new project
+            self.chat_history_widget._load_recent_conversation()
 
     def set_enabled(self, enabled: bool):
         """Enable or disable the entire component."""

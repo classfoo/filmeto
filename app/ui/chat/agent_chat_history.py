@@ -18,6 +18,7 @@ from utils.i18n_utils import tr
 # Lazy imports - defer heavy imports until first use
 if TYPE_CHECKING:
     from app.data.workspace import Workspace
+    from agent.chat.conversation import Message
     from app.ui.chat.agent_chat_message_card import AgentMessageCard, UserMessageCard
 
 class AgentChatHistoryWidget(BaseWidget):
@@ -63,6 +64,9 @@ class AgentChatHistoryWidget(BaseWidget):
 
         self._setup_ui()
 
+        # Load the most recent conversation if available
+        self._load_recent_conversation()
+
     def refresh_crew_member_metadata(self):
         """Refresh crew member metadata when project changes."""
         self._load_crew_member_metadata()
@@ -71,6 +75,156 @@ class AgentChatHistoryWidget(BaseWidget):
         """Handle project switched event."""
         print(f"Project switched to: {project_name}, refreshing crew member metadata")
         self.refresh_crew_member_metadata()
+
+        # Reload the most recent conversation for the new project
+        self._load_recent_conversation()
+
+    def _load_recent_conversation(self):
+        """Load the most recent conversation from the current project."""
+        try:
+            # Get the current project
+            project = self.workspace.get_project()
+            if not project:
+                print("No project found, skipping conversation load")
+                return
+
+            # Get the conversation manager from the project
+            conversation_manager = project.get_conversation_manager()
+
+            # Get or create the default (most recent) conversation
+            conversation = project.get_or_create_default_conversation()
+
+            if conversation:
+                print(f"Loading conversation: {conversation.title} ({len(conversation.messages)} messages)")
+
+                # Clear existing messages
+                self.clear()
+
+                # Add messages to the chat history
+                for message in conversation.messages:
+                    # Map the message role to sender name
+                    if message.role == "user":
+                        sender = tr("User")  # Use translation for "User"
+                    elif message.role == "system":
+                        sender = tr("System")  # Use translation for "System"
+                    elif message.role == "tool":
+                        sender = tr("Tool")  # Use translation for "Tool"
+                    else:  # assistant or other roles
+                        # Use the metadata to get the agent name if available
+                        # Check if this is a crew member message
+                        if message.metadata and 'sender_name' in message.metadata:
+                            sender = message.metadata['sender_name']
+                        elif message.metadata and 'agent_name' in message.metadata:
+                            sender = message.metadata['agent_name']
+                        elif message.metadata and 'title' in message.metadata:
+                            # Use the title from metadata as the sender
+                            sender = message.metadata['title']
+                        else:
+                            # Default to Assistant if no specific agent info
+                            sender = tr("Assistant")
+
+                    # Add the message to the chat history
+                    # For historical messages, we need to create the proper card with metadata
+                    self._add_historical_message(sender, message)
+            else:
+                print("No conversation found, starting fresh")
+
+        except Exception as e:
+            print(f"Error loading recent conversation: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _add_historical_message(self, sender: str, message: 'Message'):
+        """Add a historical message to the chat history with proper metadata."""
+        if not message.content:
+            return
+
+        # Lazy import when first needed
+        from app.ui.chat.agent_chat_message_card import AgentMessageCard, UserMessageCard
+        from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage, MessageType
+
+        # Determine if this is a user message
+        is_user = message.role == "user"
+        is_user_normalized = sender.lower() in [tr("用户").lower(), "用户", "user", tr("user").lower()]
+
+        if is_user or is_user_normalized:
+            card = UserMessageCard(message.content, self.messages_container)
+        else:
+            # Generate a message ID based on timestamp or use one from metadata if available
+            message_id = message.metadata.get('message_id', f"hist_{message.timestamp}") if message.metadata else f"hist_{message.timestamp}"
+
+            # Create an AgentMessage with the content
+            agent_message = ChatAgentMessage(
+                content=message.content,
+                message_type=MessageType.TEXT,
+                sender_id=sender,
+                sender_name=sender,
+                message_id=message_id
+            )
+
+            # Get the color and icon for this agent from metadata
+            # Ensure metadata is loaded
+            if not self._crew_member_metadata:
+                self._load_crew_member_metadata()
+
+            agent_color = "#4a90e2"  # Default color
+            agent_icon = "🤖"  # Default icon
+
+            # Normalize the sender to lowercase to match metadata keys
+            normalized_sender = sender.lower()
+            sender_crew_member = self._crew_member_metadata.get(normalized_sender)
+            if sender_crew_member:
+                agent_color = sender_crew_member.config.color
+                agent_icon = sender_crew_member.config.icon
+            else:
+                # Check if there's color/icon info in the message metadata
+                if message.metadata:
+                    agent_color = message.metadata.get('color', agent_color)
+                    agent_icon = message.metadata.get('icon', agent_icon)
+                else:
+                    print(f"Note: Sender '{normalized_sender}' not found in sub-agent metadata (this is normal for historical messages)")
+                    agent_color = '#4a90e2'  # Default color
+                    agent_icon = '🤖'  # Default icon
+
+            # Use the same crew member object for metadata
+            crew_member_obj = sender_crew_member
+
+            # Convert crew member object to metadata format
+            if crew_member_obj:
+                crew_member_data = {
+                    'name': crew_member_obj.config.name,
+                    'description': crew_member_obj.config.description,
+                    'color': crew_member_obj.config.color,
+                    'icon': crew_member_obj.config.icon,
+                    'soul': crew_member_obj.config.soul,
+                    'skills': crew_member_obj.config.skills,
+                    'model': crew_member_obj.config.model,
+                    'temperature': crew_member_obj.config.temperature,
+                    'max_steps': crew_member_obj.config.max_steps,
+                    'config_path': crew_member_obj.config.config_path,
+                    'crew_title': crew_member_obj.config.metadata.get('crew_title', normalized_sender)
+                }
+            else:
+                # Use metadata from the message if available
+                crew_member_data = message.metadata or {}
+
+            card = AgentMessageCard(
+                agent_message=agent_message,
+                agent_color=agent_color,  # Pass the color to the card
+                agent_icon=agent_icon,    # Pass the icon to the card
+                crew_member_metadata=crew_member_data,  # Pass the crew member metadata
+                parent=self.messages_container
+            )
+
+            self._message_cards[message_id] = card
+
+        # Insert before the stretch spacer
+        self.messages_layout.insertWidget(self.messages_layout.count() - 1, card)
+        self.messages.append(card)
+
+        self._schedule_scroll()
+
+        return card
 
     def _load_crew_member_metadata(self):
         """Load crew member objects including color configurations."""
@@ -141,19 +295,32 @@ class AgentChatHistoryWidget(BaseWidget):
     
     def _get_sender_info(self, sender: str):
         """Get sender information including icon and alignment."""
-        is_user = sender in [tr("用户"), "用户", "User", "user"]
-        
+        # Normalize sender name for comparison
+        normalized_sender = sender.lower()
+        is_user = normalized_sender in [tr("用户").lower(), "用户", "user", tr("user").lower()]
+        is_system = normalized_sender in [tr("系统").lower(), "系统", "system", tr("system").lower()]
+        is_tool = normalized_sender in [tr("工具").lower(), "工具", "tool", tr("tool").lower()]
+        is_assistant = normalized_sender in [tr("助手").lower(), "助手", "assistant", tr("assistant").lower()]
+
         if is_user:
             icon_char = "\ue6b3"
             bg_color = QColor("#35373a")
             alignment = Qt.AlignLeft
             use_iconfont = True
+        elif is_system or is_tool:
+            # System and tool messages use different styling
+            icon_char = "⚙️"  # Gear icon for system/tool
+            bg_color = QColor("#555555")
+            alignment = Qt.AlignLeft
+            use_iconfont = False
         else:
+            # For crew members and assistants, we'll use their specific icons/colors later
+            # So return generic values here, the AgentMessageCard will handle the specific styling
             icon_char = "A"
             bg_color = QColor("#3d3f4e")
             alignment = Qt.AlignLeft
             use_iconfont = False
-        
+
         return is_user, icon_char, bg_color, alignment, use_iconfont
 
     def _setup_ui(self):
