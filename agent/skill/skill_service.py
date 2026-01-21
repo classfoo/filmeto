@@ -312,11 +312,12 @@ class SkillService:
     ) -> Dict[str, Any]:
         """
         Execute a skill in-context with the provided workspace and project.
-        
+
         This method processes the skill's knowledge section to determine execution strategy:
-        1. If the skill has executable scripts, execute them with the knowledge as context
+        1. If the skill has executable scripts, first call the LLM with knowledge to get script execution details,
+           then execute the script with any updated arguments from the LLM
         2. If the skill has no scripts, use the knowledge prompt to generate output via LLM
-        
+
         Args:
             skill: The Skill object to execute (contains knowledge, scripts, parameters, etc.)
             workspace: Workspace object (optional)
@@ -324,19 +325,19 @@ class SkillService:
             args: Arguments to pass to the skill
             script_name: Optional specific script to execute
             llm_service: Optional LLM service for knowledge-based execution
-            
+
         Returns:
             Dict with execution result
         """
         from agent.skill.skill_executor import SkillExecutor, SkillContext
-        
+
         if skill is None:
             return {
                 "success": False,
                 "error": "skill_not_provided",
                 "message": "No skill object was provided."
             }
-        
+
         # Create the skill context with additional context from knowledge
         context = SkillContext(
             workspace=workspace,
@@ -349,16 +350,32 @@ class SkillService:
                 "skill_examples": skill.examples
             }
         )
-        
+
         # Determine execution strategy based on skill configuration
         if skill.scripts:
-            # Strategy 1: Execute existing scripts with knowledge as context
-            executor = SkillExecutor()
-            result = executor.execute_skill(skill, context, args, script_name)
+            # Strategy 1: First call the LLM with knowledge to get script execution details
+            llm_result = self._execute_skill_from_knowledge(skill, context, args, llm_service)
+
+            # Check if the LLM provided script execution details
+            if llm_result.get("success") and llm_result.get("output_type") == "llm_generated":
+                # Extract the script execution details from the LLM response
+                script_execution_details = llm_result.get("output", "")
+
+                # Attempt to parse the LLM response to extract updated arguments
+                # This could involve looking for JSON-formatted arguments in the response
+                updated_args = self._parse_llm_response_for_args(script_execution_details, args)
+
+                # Then execute the script with the updated arguments
+                executor = SkillExecutor()
+                result = executor.execute_skill(skill, context, updated_args, script_name)
+            else:
+                # If LLM didn't provide execution details, proceed with direct script execution
+                executor = SkillExecutor()
+                result = executor.execute_skill(skill, context, args, script_name)
         else:
             # Strategy 2: Use knowledge prompt to generate output via LLM
             result = self._execute_skill_from_knowledge(skill, context, args, llm_service)
-        
+
         return result
 
     def _execute_skill_from_knowledge(
@@ -454,6 +471,169 @@ class SkillService:
                 "error": "llm_execution_error",
                 "message": f"Error executing skill '{skill.name}' via LLM: {str(e)}"
             }
+
+    def _parse_llm_response_for_args(self, response_text: str, original_args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Parse the LLM response to extract updated arguments for script execution.
+
+        This method looks for JSON-formatted arguments in the LLM response and merges
+        them with the original arguments. It handles complex nested JSON structures
+        and attempts to repair malformed JSON.
+
+        Args:
+            response_text: The text response from the LLM
+            original_args: The original arguments passed to the skill
+
+        Returns:
+            Updated arguments dictionary
+        """
+        import re
+        import json
+        from json import JSONDecodeError
+
+        # First, try to find JSON within triple backticks (common in LLM responses)
+        code_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+        code_block_matches = re.findall(code_block_pattern, response_text, re.DOTALL)
+
+        for match in code_block_matches:
+            try:
+                parsed_json = json.loads(match)
+                # If it's a dictionary with potential arguments, use it
+                if isinstance(parsed_json, dict):
+                    # Check if this is a skill call format and extract args if needed
+                    if 'type' in parsed_json and parsed_json.get('type') == 'skill' and 'args' in parsed_json:
+                        # Extract the args from the skill call format
+                        skill_args = parsed_json.get('args', {})
+                        # Merge with original args, giving priority to the LLM's suggestions
+                        updated_args = {**original_args, **skill_args}
+                        return updated_args
+                    else:
+                        # Merge with original args, giving priority to the LLM's suggestions
+                        updated_args = {**original_args, **parsed_json}
+                        return updated_args
+            except JSONDecodeError:
+                # If this match isn't valid JSON, continue to the next one
+                continue
+
+        # If no JSON in code blocks, try to find JSON objects in the response
+        # Use a more sophisticated pattern to match nested JSON structures
+        json_pattern = r'\{(?:[^{}]|(?R))*\}'
+
+        # Since Python's re module doesn't support recursive patterns, we'll use a stack-based approach
+        # to find balanced JSON objects
+        json_objects = self._find_json_objects(response_text)
+
+        for json_str in json_objects:
+            try:
+                parsed_json = json.loads(json_str)
+                # If it's a dictionary with potential arguments, use it
+                if isinstance(parsed_json, dict):
+                    # Check if this is a skill call format and extract args if needed
+                    if 'type' in parsed_json and parsed_json.get('type') == 'skill' and 'args' in parsed_json:
+                        # Extract the args from the skill call format
+                        skill_args = parsed_json.get('args', {})
+                        # Merge with original args, giving priority to the LLM's suggestions
+                        updated_args = {**original_args, **skill_args}
+                        return updated_args
+                    else:
+                        # Merge with original args, giving priority to the LLM's suggestions
+                        updated_args = {**original_args, **parsed_json}
+                        return updated_args
+            except JSONDecodeError:
+                # Try to repair common JSON issues
+                try:
+                    repaired_json = self._repair_json(json_str)
+                    parsed_json = json.loads(repaired_json)
+                    # If it's a dictionary with potential arguments, use it
+                    if isinstance(parsed_json, dict):
+                        # Check if this is a skill call format and extract args if needed
+                        if 'type' in parsed_json and parsed_json.get('type') == 'skill' and 'args' in parsed_json:
+                            # Extract the args from the skill call format
+                            skill_args = parsed_json.get('args', {})
+                            # Merge with original args, giving priority to the LLM's suggestions
+                            updated_args = {**original_args, **skill_args}
+                            return updated_args
+                        else:
+                            # Merge with original args, giving priority to the LLM's suggestions
+                            updated_args = {**original_args, **parsed_json}
+                            return updated_args
+                except JSONDecodeError:
+                    # If this match isn't valid JSON even after repair, continue to the next one
+                    continue
+
+        # If no valid JSON arguments were found, return the original args
+        return original_args
+
+    def _find_json_objects(self, text: str) -> list:
+        """
+        Find all top-level JSON objects in a text string.
+
+        Args:
+            text: The input text
+
+        Returns:
+            List of JSON strings found in the text
+        """
+        json_strings = []
+        brace_count = 0
+        start_idx = -1
+
+        for i, char in enumerate(text):
+            if char == '{':
+                if brace_count == 0:
+                    start_idx = i
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0 and start_idx != -1:
+                    json_str = text[start_idx:i+1]
+                    json_strings.append(json_str)
+                    start_idx = -1
+
+        return json_strings
+
+    def _repair_json(self, json_str: str) -> str:
+        """
+        Attempt to repair common JSON formatting issues.
+
+        Args:
+            json_str: The potentially malformed JSON string
+
+        Returns:
+            Repaired JSON string
+        """
+        import re
+
+        # Remove trailing commas before closing braces/brackets
+        repaired = re.sub(r',(\s*[}\]])', r'\1', json_str)
+
+        # Fix unquoted keys (this is a simplified approach)
+        # More complex repair would require a proper parser
+        repaired = re.sub(r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', repaired)
+
+        # Fix single quotes to double quotes (be careful not to replace quotes inside strings)
+        # This is a simplified approach - a full solution would require more sophisticated parsing
+        lines = repaired.split('\n')
+        repaired_lines = []
+        for line in lines:
+            # Simple pattern to replace unescaped single quotes around values
+            # This is a heuristic and may not work in all cases
+            if ':' in line:
+                parts = line.split(':', 1)
+                if len(parts) == 2:
+                    key_part = parts[0]
+                    value_part = parts[1]
+
+                    # Handle value part - replace single quotes with double quotes carefully
+                    # Only replace if it looks like a string value that's not properly quoted
+                    if value_part.strip().startswith("'") and value_part.strip().endswith("'"):
+                        value_part = '"' + value_part.strip()[1:-1] + '"'
+                        line = key_part + ':' + value_part
+            repaired_lines.append(line)
+
+        repaired = '\n'.join(repaired_lines)
+
+        return repaired
 
     def _extract_llm_response(self, response: Any) -> str:
         """Extract content from LLM response."""
