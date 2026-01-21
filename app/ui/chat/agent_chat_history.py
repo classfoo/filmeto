@@ -4,6 +4,7 @@ This module provides a group-chat style presentation for multi-agent conversatio
 with support for streaming content, structured data, and concurrent agent execution.
 """
 
+import uuid
 from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QScrollArea, QWidget, QLabel, QFrame, QSizePolicy
