@@ -1,12 +1,9 @@
-"""Agent panel for AI Agent interactions with multi-agent streaming support."""
+"""Agent panel for AI Agent interactions using AgentChatWidget for consistent experience."""
 
-import asyncio
 import logging
-from typing import Optional, TYPE_CHECKING
-from PySide6.QtCore import Signal, Slot, QObject
+from typing import Optional
 from PySide6.QtWidgets import QApplication
 
-from agent.filmeto_agent import StreamEvent, AgentStreamSession
 from app.ui.panels.base_panel import BasePanel
 from app.data.workspace import Workspace
 from utils.i18n_utils import tr
@@ -15,36 +12,16 @@ from utils.i18n_utils import tr
 logger = logging.getLogger(__name__)
 
 
-class StreamEventHandler(QObject):
-    """Handler for stream events that bridges async agent to Qt signals."""
-
-    # Signal to emit stream events on Qt main thread
-    stream_event_received = Signal(object, object)  # StreamEvent, AgentStreamSession
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-    def handle_event(self, event: 'StreamEvent', session: 'AgentStreamSession'):
-        """Handle a stream event (called from agent thread)."""
-        # Emit signal to be handled on main thread
-        self.stream_event_received.emit(event, session)
-
-
 class AgentPanel(BasePanel):
-    """Panel for AI Agent interactions with multi-agent streaming support.
+    """Panel for AI Agent interactions using AgentChatWidget.
 
     Features:
+    - Consistent experience with startup window
     - Multi-agent streaming display
     - Group-chat style agent collaboration visualization
     - Concurrent agent execution support
     - Structured content display (plans, tasks, media, references)
     """
-
-    # Signals for async operations
-    response_token_received = Signal(str)
-    response_complete = Signal(str)
-    error_occurred = Signal(str)
-    stream_event = Signal(object, object)  # StreamEvent, AgentStreamSession
 
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the agent panel."""
@@ -52,26 +29,13 @@ class AgentPanel(BasePanel):
         init_start = time.time()
         super().__init__(workspace, parent)
 
-        # Initialize agent (will be set when project is available)
-        # Using forward reference to avoid import at class definition time
-        self.agent: Optional['FilmetoAgent'] = None
-        self._current_response = ""
-        self._current_message_id = None
-        self._is_processing = False
-        self._initialization_in_progress = False
-
-        # Stream event handler for bridging async to Qt
-        self._stream_handler = StreamEventHandler(self)
-        self._stream_handler.stream_event_received.connect(self._on_stream_event)
-
-        # Connect internal signals
-        self.response_token_received.connect(self._on_token_received)
-        self.response_complete.connect(self._on_response_complete)
-        self.error_occurred.connect(self._on_error)
+        # Initialize agent chat component (will be set when panel is activated)
+        self.agent_chat_component = None
+        self._widgets_initialized = False
 
         init_time = (time.time() - init_start) * 1000
         logger.debug(f"⏱️  [AgentPanel] __init__ completed in {init_time:.2f}ms")
-    
+
     def setup_ui(self):
         """Set up the UI components with vertical layout."""
         import time
@@ -95,483 +59,41 @@ class AgentPanel(BasePanel):
         import_start = time.time()
         from app.ui.chat.agent_chat import AgentChatWidget
         import_time = (time.time() - import_start) * 1000
-        logger.info(f"⏱️  Import AgentChatComponent: {import_time:.2f}ms")
+        logger.info(f"⏱️  Import AgentChatWidget: {import_time:.2f}ms")
 
         # Agent chat component (contains both chat history and prompt input)
         chat_start = time.time()
         self.agent_chat_component = AgentChatWidget(self.workspace, self)
         chat_time = (time.time() - chat_start) * 1000
-        logger.info(f"⏱️  AgentChatComponent created: {chat_time:.2f}ms")
+        logger.info(f"⏱️  AgentChatWidget created: {chat_time:.2f}ms")
 
         self.content_layout.addWidget(self.agent_chat_component, 1)  # Stretch factor 1
-
-        # Connect signals
-        signal_start = time.time()
-        # Connect to the agent chat component's internal widgets
-        self.agent_chat_component.prompt_input_widget.message_submitted.connect(self._on_message_submitted)
-        self.agent_chat_component.chat_history_widget.reference_clicked.connect(self._on_reference_clicked)
-        signal_time = (time.time() - signal_start) * 1000
-        logger.info(f"⏱️  Signals connected: {signal_time:.2f}ms")
 
         self._widgets_initialized = True
 
         init_time = (time.time() - init_start) * 1000
         logger.info(f"✅ Agent panel widgets initialized in {init_time:.2f}ms")
-    
-    def _on_message_submitted(self, message: str):
-        """Handle message submission from prompt input widget."""
-        if not message or self._is_processing:
-            return
 
-        # Ensure widgets are initialized
-        if not self._widgets_initialized:
-            logger.warning("⚠️ Agent panel widgets not initialized yet")
-            return
-
-        # Add user message to chat history using new card-based display
-        self.agent_chat_component.chat_history_widget.add_user_message(message)
-
-        # Start async processing which will initialize agent if needed
-        # Use the standard asyncio.create_task but wrapped in a way that's compatible with Qt
-        asyncio.ensure_future(self._process_message_async(message))
-    
-    def _on_reference_clicked(self, ref_type: str, ref_id: str):
-        """Handle reference click in chat history."""
-        logger.info(f"Reference clicked: {ref_type} / {ref_id}")
-        # TODO: Implement reference navigation (e.g., jump to timeline item, show task details)
-
-    async def _process_message_async(self, message: str):
-        """Process message asynchronously, initializing agent if needed."""
-        # Ensure widgets are initialized
-        if not self._widgets_initialized:
-            logger.error("❌ Agent panel widgets not initialized")
-            return
-
-        # Check if agent is initialized, if not, initialize it first
-        if not self.agent:
-            if not self._initialization_in_progress:
-                # Show message that agent is initializing
-                init_message_id = self.agent_chat_component.chat_history_widget.start_streaming_message(tr("系统"))
-                self.agent_chat_component.chat_history_widget.update_streaming_message(
-                    init_message_id,
-                    tr("Agent正在初始化中，请稍候...")
-                )
-
-                # Initialize agent asynchronously
-                await self._initialize_agent_async()
-
-                # Update initialization message
-                if self.agent:
-                    self.agent_chat_component.chat_history_widget.update_streaming_message(
-                        init_message_id,
-                        tr("Agent初始化完成")
-                    )
-                else:
-                    self.agent_chat_component.chat_history_widget.update_streaming_message(
-                        init_message_id,
-                        tr("错误: Agent初始化失败。请确保项目已加载。")
-                    )
-                    return
-            else:
-                # Wait for ongoing initialization to complete
-                while self._initialization_in_progress:
-                    await asyncio.sleep(0.1)
-
-                if not self.agent:
-                    self.agent_chat_component.chat_history_widget.append_message(
-                        tr("系统"),
-                        tr("错误: Agent初始化失败。请确保项目已加载。")
-                    )
-                    return
-
-        # Disable input while processing
-        self._is_processing = True
-        if self.agent_chat_component.prompt_input_widget:
-            self.agent_chat_component.prompt_input_widget.set_enabled(False)
-
-        # Reset current response - don't create a message card yet
-        # The streaming events will create cards as agents start responding
-        self._current_response = ""
-        self._current_message_id = None
-
-        # Start streaming response
-        try:
-            await self._stream_response(message)
-        except Exception as e:
-            # If streaming fails, show error
-            error_msg = f"{tr('错误')}: {str(e)}"
-            self.error_occurred.emit(error_msg)
-    
-    async def _stream_response(self, message: str):
-        """Stream response from agent with multi-agent events."""
-        try:
-            # Register UI callback with stream manager
-            self.agent.add_ui_callback(self._stream_handler.handle_event)
-
-            try:
-                # Define synchronous callbacks that will emit Qt signals
-                def on_token(token):
-                    # Use Qt signal in a thread-safe way
-                    self.response_token_received.emit(token)
-
-                def on_complete(response):
-                    # Use Qt signal in a thread-safe way
-                    self.response_complete.emit(response)
-
-                def on_stream_event(event):
-                    # Handle stream event synchronously
-                    self._handle_stream_event_sync(event)
-
-                # Stream tokens from agent with event callback
-                async for token in self.agent.chat_stream(
-                    message=message,
-                    on_token=on_token,
-                    on_complete=on_complete,
-                    on_stream_event=on_stream_event
-                ):
-                    # Tokens are handled by signal callbacks and stream events
-                    pass
-            finally:
-                # Remove UI callback
-                self.agent.remove_ui_callback(self._stream_handler.handle_event)
-
-        except Exception as e:
-            # Ensure error is displayed
-            error_msg = f"{tr('错误')}: {str(e)}"
-            self.error_occurred.emit(error_msg)
-        finally:
-            # Re-enable input
-            self._is_processing = False
-            if self.agent_chat_component.prompt_input_widget:
-                self.agent_chat_component.prompt_input_widget.set_enabled(True)
-
-    def _handle_stream_event_sync(self, event: StreamEvent):
-        """Handle stream event synchronously (called from agent thread)."""
-        # Get session from agent
-        session = self.agent.get_current_session() if self.agent else None
-        if session:
-            self._stream_handler.handle_event(event, session)
-
-    @Slot(object, object)
-    def _on_stream_event(self, event: StreamEvent, session: AgentStreamSession):
-        """Handle stream event on Qt main thread."""
-        # Ensure widgets are initialized
-        if not self._widgets_initialized or not self.agent_chat_component.chat_history_widget:
-            return
-
-        # Handle different event types
-        if event.event_type == "llm_call_start":
-            # Show that an agent is calling the LLM
-            agent_name = event.data.get("sender_name", "Unknown")
-            step = event.data.get("step", 1)
-            total_steps = event.data.get("total_steps", 1)
-            message = f"🔄 {agent_name} is calling the LLM (Step {step}/{total_steps})"
-
-            # Create or update agent card for this status
-            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_llm_call"
-            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
-                message_id,
-                agent_name
-            )
-            self.agent_chat_component.chat_history_widget.update_agent_card(
-                message_id,
-                content=message,
-                append=False
-            )
-        elif event.event_type == "llm_call_end":
-            # Show that the LLM responded
-            agent_name = event.data.get("sender_name", "Unknown")
-            step = event.data.get("step", 1)
-            response_preview = event.data.get("response_preview", "")
-            message = f"✅ LLM responded to {agent_name} (Step {step}), Preview: {response_preview}"
-
-            # Create or update agent card for this status
-            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_llm_response"
-            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
-                message_id,
-                agent_name
-            )
-            self.agent_chat_component.chat_history_widget.update_agent_card(
-                message_id,
-                content=message,
-                append=False
-            )
-        elif event.event_type == "agent_thinking":
-            # Show that an agent is processing
-            agent_name = event.data.get("sender_name", "Unknown")
-            message = event.data.get("message", f"{agent_name} is processing the request...")
-
-            # Create or update agent card for this status
-            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_thinking"
-            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
-                message_id,
-                agent_name
-            )
-            self.agent_chat_component.chat_history_widget.update_agent_card(
-                message_id,
-                content=message,
-                append=False
-            )
-        elif event.event_type == "skill_execution":
-            # Show that an agent is executing a skill
-            agent_name = event.data.get("sender_name", "Unknown")
-            skill = event.data.get("skill", "Unknown")
-            observation = event.data.get("observation", "")
-            message = f"⚙️ {agent_name} is executing skill: {skill}. Observation: {observation}"
-
-            # Create or update agent card for this status
-            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_skill"
-            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
-                message_id,
-                agent_name
-            )
-            self.agent_chat_component.chat_history_widget.update_agent_card(
-                message_id,
-                content=message,
-                append=False
-            )
-        elif event.event_type == "plan_update":
-            # Show that an agent is updating a plan
-            agent_name = event.data.get("sender_name", "Unknown")
-            plan_id = event.data.get("plan_id", "Unknown")
-            observation = event.data.get("observation", "")
-            message = f"📋 {agent_name} updated plan {plan_id}. Result: {observation}"
-
-            # Create or update agent card for this status
-            message_id = f"status_{event.data.get('session_id', 'unknown')}_{agent_name}_plan"
-            card = self.agent_chat_component.chat_history_widget.get_or_create_agent_card(
-                message_id,
-                agent_name
-            )
-            self.agent_chat_component.chat_history_widget.update_agent_card(
-                message_id,
-                content=message,
-                append=False
-            )
-        elif event.event_type == "agent_response":
-            # Handle agent response - this should be handled by the default handler
-            # but we'll make sure it gets processed correctly
-            self.agent_chat_component.chat_history_widget.handle_stream_event(event, session)
-        else:
-            # For other event types, use the default handler
-            self.agent_chat_component.chat_history_widget.handle_stream_event(event, session)
-
-        # Process UI updates
-        QApplication.processEvents()
-
-    @Slot(str)
-    def _on_token_received(self, token: str):
-        """Handle received token from agent (legacy API)."""
-        self._current_response += token
-
-        # If we have a current message ID (legacy mode), update it
-        if self._current_message_id and self.agent_chat_component.chat_history_widget:
-            self.agent_chat_component.chat_history_widget.update_streaming_message(
-                self._current_message_id,
-                self._current_response
-            )
-
-    @Slot(str)
-    def _on_response_complete(self, response: str):
-        """Handle complete response from agent."""
-        # Update the final message if in legacy mode
-        if self._current_message_id and self.agent_chat_component.chat_history_widget:
-            self.agent_chat_component.chat_history_widget.update_streaming_message(
-                self._current_message_id,
-                response
-            )
-
-        # Clear message ID
-        self._current_message_id = None
-
-        # Re-enable input
-        self._is_processing = False
-        if self.agent_chat_component.prompt_input_widget:
-            self.agent_chat_component.prompt_input_widget.set_enabled(True)
-
-    @Slot(str)
-    def _on_error(self, error_message: str):
-        """Handle error during agent processing."""
-        if not self.agent_chat_component.chat_history_widget:
-            logger.error(f"❌ Error but widgets not initialized: {error_message}")
-            return
-
-        # If there's a streaming message in progress, update it with error
-        if self._current_message_id:
-            self.agent_chat_component.chat_history_widget.update_streaming_message(
-                self._current_message_id,
-                error_message
-            )
-            self._current_message_id = None
-        else:
-            # Add error message as new system message
-            self.agent_chat_component.chat_history_widget.append_message(tr("系统"), error_message)
-
-        # Clear current response
-        self._current_response = ""
-
-        # Re-enable input
-        self._is_processing = False
-        if self.agent_chat_component.prompt_input_widget:
-            self.agent_chat_component.prompt_input_widget.set_enabled(True)
-    
-    async def _initialize_agent_async(self):
-        """Initialize the agent asynchronously with current workspace and project."""
-        if self._initialization_in_progress or self.agent:
-            return
-        
-        self._initialization_in_progress = True
-        
-        try:
-            # Run initialization in executor to avoid blocking
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._initialize_agent_sync)
-        except Exception as e:
-            logger.error(f"❌ Error initializing agent: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            self._initialization_in_progress = False
-    
-    def _initialize_agent_sync(self):
-        """Synchronously initialize the agent with current workspace and project."""
-        import time
-        init_start = time.time()
-        logger.info("⏱️  [AgentPanel] Starting lazy agent initialization...")
-        try:
-            # Lazy import heavy agent module only when needed
-            from agent.filmeto_agent import FilmetoAgent
-            from agent.crew.crew_service import CrewService
-
-            # Get current project from workspace
-            project = self.workspace.get_project()
-            if not project:
-                logger.warning("⚠️ Cannot initialize agent: No project loaded")
-                return
-
-            # Get settings (model from settings, let FilmetoAgent read api_key internally)
-            settings = self.workspace.get_settings()
-            model = settings.get('ai_services.default_model', 'gpt-4o-mini') if settings else 'gpt-4o-mini'
-            temperature = 0.7  # Could also make this configurable
-
-            # Create agent instance (it will read api_key and base_url from workspace.settings)
-            self.agent = FilmetoAgent(
-                workspace=self.workspace,
-                project=project,
-                model=model,
-                temperature=temperature,
-                streaming=True
-            )
-
-            # Register default agents with the agent manager
-            self._register_default_agents(project)
-
-            init_time = (time.time() - init_start) * 1000
-            # Check if agent has a valid LLM initialized
-            if not self.agent.llm_service.validate_config():
-                logger.warning(f"⚠️ Agent initialized in {init_time:.2f}ms but LLM is not configured (missing API key or base URL)")
-            else:
-                logger.info(f"✅ Agent initialized successfully in {init_time:.2f}ms")
-        except Exception as e:
-            logger.error(f"❌ Error initializing agent: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def _register_default_agents(self, project):
-        """Register default agents with the FilmetoAgent."""
-        try:
-            # Import required modules
-            from agent.crew.crew_service import CrewService
-            from agent.chat.agent_chat_message import AgentMessage, MessageType
-            import asyncio
-
-            # Get the crew member service instance
-            crew_member_service = CrewService()
-
-            # Load crew members for the project
-            crew_members = crew_member_service.load_project_crew_members(project)
-
-            # Register each crew member as an agent with the main agent manager
-            for agent_name, crew_member in crew_members.items():
-                # Create a closure to capture the crew_member_instance for the handler
-                def make_handler(crew_member_instance):
-                    async def handler(message: AgentMessage):
-                        # Process the message using the crew member's chat_stream
-                        async for token in crew_member_instance.chat_stream(message.content):
-                            response = AgentMessage(
-                                content=token,
-                                message_type=MessageType.TEXT,
-                                sender_id=crew_member_instance.config.name,
-                                sender_name=crew_member_instance.config.name.capitalize()
-                            )
-                            yield response
-                    return handler
-
-                handler_func = make_handler(crew_member)
-
-                self.agent.register_agent(
-                    agent_id=crew_member.config.name,
-                    name=crew_member.config.name.capitalize(),
-                    role_description=crew_member.config.description,
-                    handler_func=handler_func
-                )
-
-                logger.info(f"✅ Registered agent: {crew_member.config.name}")
-
-            # If no crew members were found, register a fallback agent
-            if not crew_members:
-                logger.warning("⚠️ No crew members found, registering fallback agent")
-                self._register_fallback_agent()
-
-        except Exception as e:
-            logger.error(f"❌ Error registering default agents: {e}")
-            import traceback
-            traceback.print_exc()
-            # Register a fallback agent in case of error
-            self._register_fallback_agent()
-
-    def _register_fallback_agent(self):
-        """Register a fallback agent in case the default agents fail to load."""
-        from agent.chat.agent_chat_message import AgentMessage, MessageType
-
-        async def fallback_handler(message: AgentMessage):
-            response = AgentMessage(
-                content="I'm the Filmeto AI assistant. I can help with video editing and film production tasks. However, I couldn't load the specialized agents. Please make sure your API key is configured correctly.",
-                message_type=MessageType.TEXT,
-                sender_id="fallback_agent",
-                sender_name="Filmeto Assistant"
-            )
-            yield response
-
-        self.agent.register_agent(
-            agent_id="fallback_agent",
-            name="Filmeto Assistant",
-            role_description="General purpose Filmeto AI assistant",
-            handler_func=fallback_handler
-        )
-
-        logger.info("✅ Registered fallback agent")
-    
     def update_project(self, project):
         """Update agent with new project context."""
-        if self.agent:
-            self.agent.update_context(project=project)
-    
+        if self.agent_chat_component:
+            self.agent_chat_component.update_project(project)
+
     def load_data(self):
         """Load agent data when panel is first activated."""
         super().load_data()
         # Agent will be initialized lazily on first message submission
-    
+
     def on_activated(self):
         """Called when panel becomes visible."""
         super().on_activated()
-        
+
         # Initialize widgets on first activation
         if not self._widgets_initialized:
             self._initialize_widgets()
-        
+
         logger.info("✅ Agent panel activated")
-    
+
     def on_deactivated(self):
         """Called when panel is hidden."""
         super().on_deactivated()
