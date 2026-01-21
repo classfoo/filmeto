@@ -344,7 +344,7 @@ class PlanPanel(BasePanel):
             completed_str = self._format_datetime(task.completed_at)
             tooltip_lines = [
                 f"{tr('Description:')} {task.description or tr('No description')}",
-                f"{tr('Agent Role:')} {task.agent_role or tr('N/A')}",
+                f"{tr('Title:')} {task.title or tr('N/A')}",
                 f"{tr('Started:')} {started_str}",
                 f"{tr('Completed:')} {completed_str}",
             ]

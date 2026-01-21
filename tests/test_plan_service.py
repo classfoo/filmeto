@@ -35,14 +35,14 @@ class TestPlanService(unittest.TestCase):
                 id="task1",
                 name="Task 1",
                 description="First task",
-                agent_role="researcher",
+                title="researcher",
                 needs=[]
             ),
             PlanTask(
                 id="task2",
                 name="Task 2",
                 description="Second task",
-                agent_role="writer",
+                title="writer",
                 needs=["task1"]
             )
         ]
@@ -77,7 +77,7 @@ class TestPlanService(unittest.TestCase):
                 id="task1",
                 name="Task 1",
                 description="First task",
-                agent_role="researcher",
+                title="researcher",
                 needs=[]
             )
         ]
@@ -118,14 +118,14 @@ class TestPlanService(unittest.TestCase):
                 id="task1",
                 name="Task 1",
                 description="First task",
-                agent_role="researcher",
+                title="researcher",
                 needs=[]
             ),
             PlanTask(
                 id="task2",
                 name="Task 2",
                 description="Second task",
-                agent_role="writer",
+                title="writer",
                 needs=["task1"]
             )
         ]
@@ -166,14 +166,14 @@ class TestPlanService(unittest.TestCase):
                 id="task1",
                 name="Task 1",
                 description="First task",
-                agent_role="researcher",
+                title="researcher",
                 needs=[]
             ),
             PlanTask(
                 id="task2",
                 name="Task 2",
                 description="Second task",
-                agent_role="writer",
+                title="writer",
                 needs=["task1"]
             )
         ]
@@ -214,14 +214,14 @@ class TestPlanService(unittest.TestCase):
                 id="task1",
                 name="Task 1",
                 description="First task",
-                agent_role="researcher",
+                title="researcher",
                 needs=[]
             ),
             PlanTask(
                 id="task2",
                 name="Task 2",
                 description="Second task",
-                agent_role="writer",
+                title="writer",
                 needs=[]
             )
         ]
@@ -265,7 +265,7 @@ class TestPlanService(unittest.TestCase):
                 id="task1",
                 name="Task 1",
                 description="First task",
-                agent_role="researcher",
+                title="researcher",
                 needs=[]
             )
         ]

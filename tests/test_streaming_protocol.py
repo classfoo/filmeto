@@ -65,7 +65,7 @@ class TestStreamEvent:
         """Test creating a stream event."""
         event = StreamEvent(
             event_type=StreamEventType.AGENT_START,
-            agent_role=AgentRole.DIRECTOR,
+            title=AgentRole.DIRECTOR,
             agent_name="Director",
             content="Starting direction"
         )
@@ -81,7 +81,7 @@ class TestStreamEvent:
         """Test converting event to dictionary."""
         event = StreamEvent(
             event_type=StreamEventType.CONTENT_TOKEN,
-            agent_role=AgentRole.SCREENWRITER,
+            title=AgentRole.SCREENWRITER,
             agent_name="Screenwriter",
             content="Hello",
             progress=0.5
@@ -182,7 +182,7 @@ class TestStreamEventEmitter:
         
         event = StreamEvent(
             event_type=StreamEventType.AGENT_START,
-            agent_role=AgentRole.DIRECTOR,
+            title=AgentRole.DIRECTOR,
             agent_name="Director"
         )
         emitter.emit(event)
@@ -476,7 +476,7 @@ class TestAgentMessage:
         msg = AgentMessage(
             message_id="msg-1",
             agent_name="Director",
-            agent_role=AgentRole.DIRECTOR
+            title=AgentRole.DIRECTOR
         )
         
         msg.append_content("Hello")
@@ -489,7 +489,7 @@ class TestAgentMessage:
         msg = AgentMessage(
             message_id="msg-1",
             agent_name="Director",
-            agent_role=AgentRole.DIRECTOR
+            title=AgentRole.DIRECTOR
         )
         
         msg.set_content("First")
@@ -502,7 +502,7 @@ class TestAgentMessage:
         msg = AgentMessage(
             message_id="msg-1",
             agent_name="Director",
-            agent_role=AgentRole.DIRECTOR
+            title=AgentRole.DIRECTOR
         )
         
         task = TaskContent(

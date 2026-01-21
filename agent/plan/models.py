@@ -30,13 +30,13 @@ class PlanTask:
     """
     Represents a single task in a Plan.
 
-    A task defines what needs to be done, which agent role should do it,
+    A task defines what needs to be done, which member title should do it,
     and what dependencies it has on other tasks.
     """
     id: str
     name: str
     description: str
-    agent_role: str
+    title: str
     parameters: Dict[str, Any] = field(default_factory=dict)
     needs: List[str] = field(default_factory=list)  # List of task IDs this task depends on
     status: TaskStatus = TaskStatus.CREATED

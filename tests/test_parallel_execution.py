@@ -186,7 +186,7 @@ class TestSubAgentExecutorNode:
         mock_agent.execute_task = mock_execute_task
         mock_agent.evaluate_result = mock_evaluate_result
         
-        registry.get_agent = Mock(return_value=mock_agent)
+        registry.get_member = Mock(return_value=mock_agent)
         
         return registry
     

@@ -375,7 +375,7 @@ class PlanService:
                 id=task.id,
                 name=task.name,
                 description=task.description,
-                agent_role=task.agent_role,
+                title=task.title,
                 parameters=task.parameters.copy(),
                 needs=task.needs.copy(),
                 status=TaskStatus.CREATED
@@ -419,7 +419,7 @@ class PlanService:
                 if instance_task.status in {TaskStatus.CREATED, TaskStatus.READY}:
                     instance_task.name = plan_task.name
                     instance_task.description = plan_task.description
-                    instance_task.agent_role = plan_task.agent_role
+                    instance_task.title = plan_task.title
                     instance_task.parameters = plan_task.parameters.copy()
                     instance_task.needs = plan_task.needs.copy()
                 continue
@@ -428,7 +428,7 @@ class PlanService:
                 id=plan_task.id,
                 name=plan_task.name,
                 description=plan_task.description,
-                agent_role=plan_task.agent_role,
+                title=plan_task.title,
                 parameters=plan_task.parameters.copy(),
                 needs=plan_task.needs.copy(),
                 status=TaskStatus.CREATED,
@@ -464,7 +464,7 @@ class PlanService:
                 id=task_data['id'],
                 name=task_data['name'],
                 description=task_data['description'],
-                agent_role=task_data['agent_role'],
+                title=task_data['title'],
                 parameters=task_data.get('parameters', {}),
                 needs=task_data.get('needs', []),
                 status=TaskStatus(task_data.get('status', 'created')),  # Convert string back to enum
@@ -558,8 +558,8 @@ class PlanService:
 
         validated_tasks = []
         for task in tasks:
-            # Check if agent_role is a reserved role
-            if task.agent_role.lower() in reserved_roles:
+            # Check if title is a reserved role
+            if task.title.lower() in reserved_roles:
                 # Skip tasks with invalid agent roles
                 continue
 
@@ -643,7 +643,7 @@ class PlanService:
                 id=task_data['id'],
                 name=task_data['name'],
                 description=task_data['description'],
-                agent_role=task_data['agent_role'],
+                title=task_data['title'],
                 parameters=task_data.get('parameters', {}),
                 needs=task_data.get('needs', []),
                 status=TaskStatus(task_data.get('status', 'created')),  # Convert string back to enum

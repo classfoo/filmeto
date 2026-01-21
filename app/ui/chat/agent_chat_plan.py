@@ -139,7 +139,7 @@ class PlanTaskRow(QFrame):
         else:
             avatar_icon = "A"
             avatar_color = "#5c5f66"
-            crew_name = task.agent_role or tr("Unknown")
+            crew_name = task.title or tr("Unknown")
 
         avatar = AvatarWidget(icon=avatar_icon, color=avatar_color, size=16, shape="rounded_rect", parent=self)
         crew_row.addWidget(avatar, 0, Qt.AlignVCenter)
@@ -571,7 +571,7 @@ class AgentChatPlanWidget(BaseWidget):
 
         for task in tasks:
             status_label, status_color = self._status_style(task.status)
-            crew_member = self._find_crew_member(task.agent_role)
+            crew_member = self._find_crew_member(task.title)
             row = PlanTaskRow(task, crew_member, status_label, status_color, parent=self.details_content_widget)
             self.details_layout.addWidget(row)
 
@@ -620,12 +620,12 @@ class AgentChatPlanWidget(BaseWidget):
         except Exception:
             self._crew_member_metadata = {}
 
-    def _find_crew_member(self, agent_role: Optional[str]):
-        if not agent_role:
+    def _find_crew_member(self, title: Optional[str]):
+        if not title:
             return None
         if not self._crew_member_metadata:
             self._load_crew_member_metadata()
-        return self._crew_member_metadata.get(agent_role.lower())
+        return self._crew_member_metadata.get(title.lower())
 
     def _on_plan_change(self, *args):
         """Callback for when plan-related changes occur."""
