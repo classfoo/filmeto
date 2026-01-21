@@ -577,13 +577,19 @@ class FilmetoAgent:
             plan = self.plan_service.load_plan(project_name, plan.id)
 
         if not plan or not plan.tasks:
-            async for content in self._stream_error_message(
-                "Producer did not generate any plan tasks.",
-                session_id,
-                on_token,
-                on_stream_event,
-            ):
-                yield content
+            # Instead of treating this as an error, let's continue with a message
+            # Producer may have handled the request without creating plan tasks
+            # Use the same pattern as error messages but with a regular agent_response event
+            message = "Producer handled the request without creating specific plan tasks."
+            if on_token:
+                on_token(message)
+            if on_stream_event:
+                on_stream_event(StreamEvent("agent_response", {
+                    "content": message,
+                    "sender_name": "System",
+                    "session_id": session_id,
+                }))
+            yield message
             return
 
         async for content in self._execute_plan_tasks(

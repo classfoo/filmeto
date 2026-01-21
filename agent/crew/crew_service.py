@@ -108,13 +108,23 @@ class CrewService:
                 name_from_soul_meta = selected_soul.metadata.get('name', soul_name_for_filename) if selected_soul.metadata else soul_name_for_filename
 
                 # Set up the crew member data with attributes from both crew title and soul
-                # Soul attributes take priority over crew title attributes
+                # Soul attributes take priority over crew title attributes, but for skills we want to merge
+                soul_skills = selected_soul.metadata.get('skills', []) if selected_soul.metadata else []
+                crew_title_skills = crew_title_metadata.get('skills', [])
+
+                # Merge skills from both crew title and soul, removing duplicates while preserving order
+                # Start with crew title skills, then add soul skills that aren't already present
+                final_skills = crew_title_skills[:]
+                for skill in soul_skills:
+                    if skill not in final_skills:
+                        final_skills.append(skill)
+
                 crew_member_data = {
                     'name': name_from_soul_meta,
                     'soul': selected_soul.name,
                     'crew_title': crew_title,
                     'description': selected_soul.metadata.get('description', crew_title_metadata.get('description', '')),
-                    'skills': selected_soul.metadata.get('skills', crew_title_metadata.get('skills', [])),
+                    'skills': final_skills,
                     'model': selected_soul.metadata.get('model', crew_title_metadata.get('model', 'gpt-4o-mini')),
                     'temperature': selected_soul.metadata.get('temperature', crew_title_metadata.get('temperature', 0.4)),
                     'max_steps': selected_soul.metadata.get('max_steps', crew_title_metadata.get('max_steps', 5)),
@@ -125,6 +135,7 @@ class CrewService:
             else:
                 # If no soul is found, create a basic crew member with just the title
                 # Use crew title metadata as fallback
+                # Since no soul is involved, only use crew title skills
                 crew_member_data = {
                     'name': crew_title.replace('_', ' ').title(),
                     'crew_title': crew_title,

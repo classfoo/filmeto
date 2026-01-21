@@ -296,7 +296,8 @@ class CrewMember:
 
     def _format_skills_prompt(self) -> str:
         if not self.config.skills:
-            return "Available skills: none.\nYou cannot call any skills."
+            # If no skills are configured for this crew member, fall back to all available skills
+            return self._get_all_available_skills_prompt()
 
         details = []
         missing = []
@@ -308,18 +309,39 @@ class CrewMember:
             details.append(_format_skill_entry_detailed(skill))
 
         if not details:
-            skills_section = "Available skills: none.\nYou cannot call any skills."
+            # If none of the configured skills are available, fall back to all available skills
+            return self._get_all_available_skills_prompt()
         else:
             skills_section = (
                 "## Available Skills\n\n"
                 "You have access to the following skills. Use them by responding with a JSON object.\n\n"
                 + "\n\n".join(details)
             )
-        
+
         if missing:
             skills_section += f"\n\nNote: The following skills are configured but not available: {', '.join(missing)}"
-        
+
         return skills_section
+
+    def _get_all_available_skills_prompt(self) -> str:
+        """Get a prompt with all available skills in the project as a fallback."""
+        all_skills = self.skill_service.get_all_skills()
+
+        if not all_skills:
+            return "Available skills: none.\nYou cannot call any skills."
+
+        details = []
+        for skill_name, skill in all_skills.items():
+            details.append(_format_skill_entry_detailed(skill))
+
+        if not details:
+            return "Available skills: none.\nYou cannot call any skills."
+
+        return (
+            "## Available Skills\n\n"
+            "You have access to the following skills. Use them by responding with a JSON object.\n\n"
+            + "\n\n".join(details)
+        )
 
     async def _complete(self, messages: List[Dict[str, str]]) -> str:
         try:
