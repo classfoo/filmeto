@@ -43,6 +43,30 @@ class SkillContext:
                 return self.project.project_path
         return None
 
+    def get_skill_knowledge(self) -> Optional[str]:
+        """Get the skill knowledge from the additional context."""
+        if self.additional_context:
+            return self.additional_context.get("skill_knowledge")
+        return None
+
+    def get_skill_description(self) -> Optional[str]:
+        """Get the skill description from the additional context."""
+        if self.additional_context:
+            return self.additional_context.get("skill_description")
+        return None
+
+    def get_skill_reference(self) -> Optional[str]:
+        """Get the skill reference from the additional context."""
+        if self.additional_context:
+            return self.additional_context.get("skill_reference")
+        return None
+
+    def get_skill_examples(self) -> Optional[str]:
+        """Get the skill examples from the additional context."""
+        if self.additional_context:
+            return self.additional_context.get("skill_examples")
+        return None
+
 
 class SkillExecutor:
     """
