@@ -231,13 +231,19 @@ class CrewMember:
 
     def _build_system_prompt(self, plan_id: Optional[str] = None) -> str:
         # Use the prompt service to get the base ReAct template
+        soul_content = self._get_formatted_soul_prompt()
+
+        # Prepare skills as structured data for the template
+        skills_list = self._get_skills_as_structured_list()
+
         base_prompt = prompt_service.render_prompt(
             name="react_base",
             title="crew member",
             agent_name=self.config.name,
             role_description=f"Role description: {self.config.description}" if self.config.description else "",
-            soul_profile=self._get_formatted_soul_prompt(),
-            available_skills=self._format_skills_prompt(),
+            soul_profile=soul_content,
+            available_skills=self._format_skills_prompt(),  # Fallback for backward compatibility
+            skills_list=skills_list,
             context_info=f"Active plan id: {plan_id}." if plan_id else f"Project name: {self.project_name}." if self.project_name else "",
             action_instructions=prompt_service.get_prompt_template("react_action_instructions")
         )
@@ -253,10 +259,9 @@ class CrewMember:
             if self.config.prompt:
                 prompt_sections.append(self.config.prompt.strip())
 
-            soul_prompt = self._get_soul_prompt()
-            if soul_prompt:
+            if soul_content.strip():
                 prompt_sections.append("Soul profile:")
-                prompt_sections.append(soul_prompt)
+                prompt_sections.append(soul_content)
 
             skills_prompt = self._format_skills_prompt()
             prompt_sections.append(skills_prompt)
@@ -273,16 +278,98 @@ class CrewMember:
 
         return base_prompt
 
+    def _get_skills_as_structured_list(self) -> list:
+        """Get skills as a structured list for advanced templating."""
+        if not self.config.skills:
+            # If no skills are configured for this crew member, fall back to all available skills
+            return self._get_all_available_skills_as_structured_list()
+
+        skills_list = []
+        for name in self.config.skills:
+            skill = self.skill_service.get_skill(name)
+            if not skill:
+                continue  # Skip unavailable skills
+
+            # Extract usage criteria from knowledge if available
+            usage_criteria = ""
+            if skill.knowledge:
+                knowledge_lines = skill.knowledge.split('\n')
+                for line in knowledge_lines[:10]:  # Check first 10 lines for use cases
+                    line_lower = line.lower().strip()
+                    if any(keyword in line_lower for keyword in ['when', 'use', 'should', 'can', 'capability', 'feature']):
+                        if any(char in line for char in ['-', '*', '•']):
+                            usage_criteria = line.strip(' -•*')
+                            break
+                if not usage_criteria:
+                    usage_criteria = skill.description
+
+            skills_list.append({
+                'name': skill.name,
+                'description': skill.description,
+                'usage_criteria': usage_criteria,
+                'parameters': [
+                    {
+                        'name': param.name,
+                        'type': param.param_type,
+                        'required': param.required,
+                        'default': param.default,
+                        'description': param.description
+                    } for param in skill.parameters
+                ],
+                'example_call': skill.get_example_call(),
+                'knowledge': skill.knowledge
+            })
+
+        return skills_list
+
+    def _get_all_available_skills_as_structured_list(self) -> list:
+        """Get all available skills as a structured list for advanced templating."""
+        all_skills = self.skill_service.get_all_skills()
+
+        skills_list = []
+        for skill_name, skill in all_skills.items():
+            # Extract usage criteria from knowledge if available
+            usage_criteria = ""
+            if skill.knowledge:
+                knowledge_lines = skill.knowledge.split('\n')
+                for line in knowledge_lines[:10]:  # Check first 10 lines for use cases
+                    line_lower = line.lower().strip()
+                    if any(keyword in line_lower for keyword in ['when', 'use', 'should', 'can', 'capability', 'feature']):
+                        if any(char in line for char in ['-', '*', '•']):
+                            usage_criteria = line.strip(' -•*')
+                            break
+                if not usage_criteria:
+                    usage_criteria = skill.description
+
+            skills_list.append({
+                'name': skill.name,
+                'description': skill.description,
+                'usage_criteria': usage_criteria,
+                'parameters': [
+                    {
+                        'name': param.name,
+                        'type': param.param_type,
+                        'required': param.required,
+                        'default': param.default,
+                        'description': param.description
+                    } for param in skill.parameters
+                ],
+                'example_call': skill.get_example_call(),
+                'knowledge': skill.knowledge
+            })
+
+        return skills_list
+
     def _get_formatted_soul_prompt(self) -> str:
         """Get formatted soul prompt for use in system prompt."""
         if not self.config.soul:
             return ""
         soul = self.soul_service.get_soul_by_name(self.project_name, self.config.soul)
         if not soul:
-            return f"Soul profile: Soul '{self.config.soul}' not found."
+            return f"Soul '{self.config.soul}' not found."
         if soul.knowledge:
-            return f"Soul profile:\n{soul.knowledge}"
-        return f"Soul profile: Soul '{self.config.soul}' has no prompt content."
+            return soul.knowledge
+        return f"Soul '{self.config.soul}' has no prompt content."
 
     def _get_soul_prompt(self) -> str:
         if not self.config.soul:

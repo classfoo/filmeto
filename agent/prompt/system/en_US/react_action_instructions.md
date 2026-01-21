@@ -12,7 +12,7 @@ When you need to perform an action using one of your available skills:
 ```json
 {
   "type": "skill",
-  "skill": "${skill_name}",
+  "skill": "{{ skill_name }}",
   "args": {
     "param1": "value1",
     "param2": "value2"
@@ -26,7 +26,7 @@ When you need to update the execution plan:
 ```json
 {
   "type": "plan_update",
-  "plan_id": "${plan_id}",
+  "plan_id": "{{ plan_id }}",
   "plan_update": {
     "name": "Plan Name",
     "description": "Plan description",
@@ -40,7 +40,7 @@ When your task is complete and you're ready to report results:
 ```json
 {
   "type": "final",
-  "response": "${response_message}"
+  "response": "{{ response_message }}"
 }
 ```
 
@@ -57,5 +57,5 @@ When deciding whether to use a skill, consider the following:
 - If you have skills available, USE THEM when appropriate. Do not just describe what you would do.
 - After calling a skill, you will receive an Observation with the result.
 - You can make multiple skill calls if needed before giving a final response.
-- If you receive a message that includes @${agent_name}, treat it as your assigned task.
+- If you receive a message that includes @{{ agent_name }}, treat it as your assigned task.
 - Do NOT include any text outside the JSON object.

@@ -12,7 +12,7 @@ version: 1.0
 ```json
 {
   "type": "skill",
-  "skill": "${skill_name}",
+  "skill": "{{ skill_name }}",
   "args": {
     "param1": "value1",
     "param2": "value2"
@@ -26,7 +26,7 @@ version: 1.0
 ```json
 {
   "type": "plan_update",
-  "plan_id": "${plan_id}",
+  "plan_id": "{{ plan_id }}",
   "plan_update": {
     "name": "计划名称",
     "description": "计划描述",
@@ -40,7 +40,7 @@ version: 1.0
 ```json
 {
   "type": "final",
-  "response": "${response_message}"
+  "response": "{{ response_message }}"
 }
 ```
 
@@ -57,5 +57,5 @@ version: 1.0
 - 如果您有可用的技能，请在适当时候使用它们。不要只是描述您要做什么。
 - 调用技能后，您将收到带有结果的观察信息。
 - 在给出最终回复之前，可以根据需要进行多次技能调用。
-- 如果您收到包含 @${agent_name} 的消息，请将其视为分配给您的任务。
+- 如果您收到包含 @{{ agent_name }} 的消息，请将其视为分配给您的任务。
 - 不要在JSON对象之外包含任何文本。
