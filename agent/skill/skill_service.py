@@ -303,49 +303,178 @@ class SkillService:
 
     def execute_skill_in_context(
         self,
-        skill_name: str,
+        skill: Skill,
         workspace: Any = None,
         project: Any = None,
         args: Optional[Dict[str, Any]] = None,
-        script_name: Optional[str] = None
+        script_name: Optional[str] = None,
+        llm_service: Any = None
     ) -> Dict[str, Any]:
         """
         Execute a skill in-context with the provided workspace and project.
         
-        This method uses the SkillExecutor to run skill scripts directly
-        in the Python environment with access to workspace/project objects.
+        This method processes the skill's knowledge section to determine execution strategy:
+        1. If the skill has executable scripts, execute them with the knowledge as context
+        2. If the skill has no scripts, use the knowledge prompt to generate output via LLM
         
         Args:
-            skill_name: Name of the skill to execute
+            skill: The Skill object to execute (contains knowledge, scripts, parameters, etc.)
             workspace: Workspace object (optional)
             project: Project object (optional)
             args: Arguments to pass to the skill
             script_name: Optional specific script to execute
+            llm_service: Optional LLM service for knowledge-based execution
             
         Returns:
             Dict with execution result
         """
         from agent.skill.skill_executor import SkillExecutor, SkillContext
         
-        skill = self.get_skill(skill_name)
-        if not skill:
+        if skill is None:
             return {
                 "success": False,
-                "error": "skill_not_found",
-                "message": f"Skill '{skill_name}' not found."
+                "error": "skill_not_provided",
+                "message": "No skill object was provided."
             }
         
-        # Create the skill context
+        # Create the skill context with additional context from knowledge
         context = SkillContext(
             workspace=workspace,
-            project=project
+            project=project,
+            llm_service=llm_service,
+            additional_context={
+                "skill_knowledge": skill.knowledge,
+                "skill_description": skill.description,
+                "skill_reference": skill.reference,
+                "skill_examples": skill.examples
+            }
         )
         
-        # Use the executor
-        executor = SkillExecutor()
-        result = executor.execute_skill(skill, context, args, script_name)
+        # Determine execution strategy based on skill configuration
+        if skill.scripts:
+            # Strategy 1: Execute existing scripts with knowledge as context
+            executor = SkillExecutor()
+            result = executor.execute_skill(skill, context, args, script_name)
+        else:
+            # Strategy 2: Use knowledge prompt to generate output via LLM
+            result = self._execute_skill_from_knowledge(skill, context, args, llm_service)
         
         return result
+
+    def _execute_skill_from_knowledge(
+        self,
+        skill: Skill,
+        context: Any,
+        args: Optional[Dict[str, Any]] = None,
+        llm_service: Any = None
+    ) -> Dict[str, Any]:
+        """
+        Execute a skill using its knowledge section as a prompt for LLM generation.
+        
+        This is used when a skill has no executable scripts but has knowledge/prompt content
+        that describes how to perform the task.
+        
+        Args:
+            skill: The Skill object containing knowledge/prompt
+            context: SkillContext for execution
+            args: Arguments to pass to the skill
+            llm_service: LLM service for generating output
+            
+        Returns:
+            Dict with execution result
+        """
+        if not skill.knowledge:
+            return {
+                "success": False,
+                "error": "no_knowledge",
+                "message": f"Skill '{skill.name}' has no knowledge content or scripts to execute."
+            }
+        
+        # If no LLM service is provided, return the knowledge as guidance
+        if llm_service is None:
+            return {
+                "success": True,
+                "output_type": "knowledge_guidance",
+                "knowledge": skill.knowledge,
+                "description": skill.description,
+                "parameters": skill.get_parameters_prompt(),
+                "message": f"Skill '{skill.name}' provides the following guidance:\n\n{skill.knowledge}"
+            }
+        
+        # Build prompt from skill knowledge and arguments
+        prompt_parts = [
+            f"You are executing the skill: {skill.name}",
+            f"Description: {skill.description}",
+            "",
+            "## Skill Knowledge",
+            skill.knowledge,
+        ]
+        
+        if skill.reference:
+            prompt_parts.extend(["", "## Reference", skill.reference])
+        
+        if skill.examples:
+            prompt_parts.extend(["", "## Examples", skill.examples])
+        
+        if args:
+            prompt_parts.extend([
+                "",
+                "## Input Arguments",
+                json.dumps(args, indent=2, ensure_ascii=False)
+            ])
+        
+        prompt = "\n".join(prompt_parts)
+        
+        try:
+            # Use LLM service to generate output based on knowledge prompt
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": "Please execute the skill based on the knowledge and provided arguments."}
+            ]
+            
+            response = llm_service.completion(
+                messages=messages,
+                temperature=0.4,
+                stream=False
+            )
+            
+            # Extract response content
+            output = self._extract_llm_response(response)
+            
+            return {
+                "success": True,
+                "output_type": "llm_generated",
+                "output": output,
+                "message": f"Skill '{skill.name}' executed successfully via LLM."
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": "llm_execution_error",
+                "message": f"Error executing skill '{skill.name}' via LLM: {str(e)}"
+            }
+
+    def _extract_llm_response(self, response: Any) -> str:
+        """Extract content from LLM response."""
+        if isinstance(response, dict):
+            choices = response.get("choices", [])
+            if choices:
+                choice = choices[0]
+                message = choice.get("message") if isinstance(choice, dict) else None
+                if message and isinstance(message, dict):
+                    return message.get("content", "")
+                return choice.get("text", "")
+            return ""
+        choices = getattr(response, "choices", None)
+        if choices:
+            choice = choices[0]
+            message = getattr(choice, "message", None)
+            if message and hasattr(message, "content"):
+                return message.content
+            content = getattr(choice, "text", None)
+            return content or ""
+        return str(response)
 
     def get_skill_prompt_info(self, skill_name: str) -> str:
         """

@@ -476,18 +476,18 @@ class CrewMember:
         skill = self.skill_service.get_skill(action.skill)
         if not skill:
             return f"Skill '{action.skill}' not found."
-        if not skill.scripts:
-            return skill.knowledge or f"Skill '{action.skill}' has no executable scripts."
 
         # Use in-context execution for better integration
+        # Pass the skill object directly, allowing knowledge-based execution if no scripts
         args = _normalize_skill_args_dict(action.args)
         
         result = self.skill_service.execute_skill_in_context(
-            skill_name=action.skill,
+            skill=skill,
             workspace=self.workspace,
             project=self.project,
             args=args,
-            script_name=action.script
+            script_name=action.script,
+            llm_service=self.llm_service
         )
         
         if isinstance(result, dict):
@@ -499,6 +499,9 @@ class CrewMember:
                 if "outline_summary" in result:
                     summary = "\n".join([f"  - {s['scene_id']}: {s['logline']}" for s in result['outline_summary'][:5]])
                     message += f"\nOutline:\n{summary}"
+                # Include knowledge output if available
+                if "output" in result:
+                    message += f"\n\nOutput:\n{result['output']}"
                 return message
             else:
                 return f"Skill execution failed: {result.get('message', result.get('error', 'Unknown error'))}"
@@ -528,8 +531,6 @@ class CrewMember:
         skill = self.skill_service.get_skill(action.skill)
         if not skill:
             return f"Skill '{action.skill}' not found."
-        if not skill.scripts:
-            return skill.knowledge or f"Skill '{action.skill}' has no executable scripts."
 
         # Send start state event
         if on_stream_event:
@@ -543,25 +544,28 @@ class CrewMember:
             }))
 
         # Use in-context execution for better integration
+        # Pass the skill object directly, allowing knowledge-based execution if no scripts
         args = _normalize_skill_args_dict(action.args)
 
         # Send progress state event
         if on_stream_event:
             from agent.filmeto_agent import StreamEvent
+            execution_mode = "script" if skill.scripts else "knowledge"
             on_stream_event(StreamEvent("skill_progress", {
                 "skill_name": action.skill,
-                "progress_text": f"Executing skill '{action.skill}' with args: {list(args.keys())}...",
+                "progress_text": f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}...",
                 "message_id": message_id,
                 "sender_name": self.config.name,
                 "session_id": getattr(self, '_session_id', 'unknown')
             }))
 
         result = self.skill_service.execute_skill_in_context(
-            skill_name=action.skill,
+            skill=skill,
             workspace=self.workspace,
             project=self.project,
             args=args,
-            script_name=action.script
+            script_name=action.script,
+            llm_service=self.llm_service
         )
 
         # Format the result message
@@ -574,6 +578,9 @@ class CrewMember:
                 if "outline_summary" in result:
                     summary = "\n".join([f"  - {s['scene_id']}: {s['logline']}" for s in result['outline_summary'][:5]])
                     result_message += f"\nOutline:\n{summary}"
+                # Include knowledge output if available
+                if "output" in result:
+                    result_message += f"\n\nOutput:\n{result['output']}"
             else:
                 result_message = f"Skill execution failed: {result.get('message', result.get('error', 'Unknown error'))}"
         else:
