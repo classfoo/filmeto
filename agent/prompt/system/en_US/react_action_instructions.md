@@ -44,6 +44,15 @@ When your task is complete and you're ready to report results:
 }
 ```
 
+## Decision-Making Guidelines for Skills
+
+When deciding whether to use a skill, consider the following:
+
+1. **Skill Purpose**: Review the "When to use this skill" section for each skill to understand its intended use cases.
+2. **Task Alignment**: Match the current task or user request with the skill's described capabilities.
+3. **Input Requirements**: Check if you have the required parameters for the skill.
+4. **Context Appropriateness**: Ensure the skill fits the current context and objectives.
+
 ## Important Rules
 - If you have skills available, USE THEM when appropriate. Do not just describe what you would do.
 - After calling a skill, you will receive an Observation with the result.

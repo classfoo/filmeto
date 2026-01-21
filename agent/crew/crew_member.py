@@ -314,7 +314,7 @@ class CrewMember:
         else:
             skills_section = (
                 "## Available Skills\n\n"
-                "You have access to the following skills. Use them by responding with a JSON object.\n\n"
+                "You have access to the following skills. Review each skill's purpose and parameters to decide when to use it.\n\n"
                 + "\n\n".join(details)
             )
 
@@ -339,7 +339,7 @@ class CrewMember:
 
         return (
             "## Available Skills\n\n"
-            "You have access to the following skills. Use them by responding with a JSON object.\n\n"
+            "You have access to the following skills. Review each skill's purpose and parameters to decide when to use it.\n\n"
             + "\n\n".join(details)
         )
 
@@ -634,13 +634,32 @@ def _format_skill_entry(skill: Skill) -> str:
 
 
 def _format_skill_entry_detailed(skill: Skill) -> str:
-    """Format a skill entry with detailed parameters and examples for the prompt."""
+    """Format a skill entry with metadata to help the LLM decide whether to use the skill."""
     lines = [
         f"### {skill.name}",
         f"**Description**: {skill.description}",
         "",
     ]
-    
+
+    # Add usage criteria to help LLM decide when to use this skill
+    lines.append("**When to use this skill**: This skill should be used when:")
+    if skill.knowledge:
+        # Extract key capabilities from the knowledge section
+        knowledge_lines = skill.knowledge.split('\n')
+        # Look for lines that start with bullet points or keywords indicating use cases
+        use_case_found = False
+        for line in knowledge_lines[:10]:  # Check first 10 lines for use cases
+            line_lower = line.lower().strip()
+            if any(keyword in line_lower for keyword in ['when', 'use', 'should', 'can', 'capability', 'feature']):
+                if any(char in line for char in ['-', '*', '•']):
+                    lines.append(f"  - {line.strip(' -•*')}")
+                    use_case_found = True
+        if not use_case_found:
+            lines.append(f"  - {skill.description}")
+    else:
+        lines.append(f"  - {skill.description}")
+    lines.append("")
+
     # Add parameters
     if skill.parameters:
         lines.append("**Parameters**:")
@@ -649,13 +668,13 @@ def _format_skill_entry_detailed(skill: Skill) -> str:
             default_str = f", default: {param.default}" if param.default is not None else ""
             lines.append(f"  - `{param.name}` ({param.param_type}, {req_str}{default_str}): {param.description}")
         lines.append("")
-    
+
     # Add example call
     lines.append("**Example call**:")
     lines.append("```json")
     lines.append(skill.get_example_call())
     lines.append("```")
-    
+
     # Add knowledge snippet if available
     if skill.knowledge:
         # Extract just the capability section
@@ -663,8 +682,8 @@ def _format_skill_entry_detailed(skill: Skill) -> str:
         if len(skill.knowledge) > 300:
             knowledge_preview += "..."
         lines.append("")
-        lines.append(f"**Details**: {knowledge_preview}")
-    
+        lines.append(f"**Additional Details**: {knowledge_preview}")
+
     return "\n".join(lines)
 
 
