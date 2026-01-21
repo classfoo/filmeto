@@ -19,7 +19,7 @@
 
 | 文件 | 说明 | 行数 |
 |------|------|------|
-| `app/data/conversation.py` | 对话和消息管理系统 | 300+ |
+| `agent/chat/conversation.py` | 对话和消息管理系统 | 300+ |
 | `app/data/project.py` | 更新：添加 ConversationManager 集成 | 修改 |
 
 #### 3. UI 组件 (`app/ui/panels/agent/`)
