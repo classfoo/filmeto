@@ -35,10 +35,6 @@ version: 1.0
 {{ skill.example_call | indent(2) }}
 ```
 
-{% if skill.knowledge %}
-**详细信息**: {{ skill.knowledge[:300] }}{% if skill.knowledge|length > 300 %}...{% endif %}
-{% endif %}
-
 {% endfor %}
 {% else %}
 {{ available_skills }}

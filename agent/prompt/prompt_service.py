@@ -40,9 +40,10 @@ class PromptService:
 
         # Initialize Jinja2 environment if available
         if JINJA_AVAILABLE:
+            # Disable autoescape for prompt templates since they're not HTML/XML
             self.jinja_env = Environment(
                 loader=FileSystemLoader(self.system_prompts_path),
-                autoescape=select_autoescape(['html', 'xml']),
+                autoescape=False,  # Disable autoescaping for prompt templates
                 trim_blocks=True,
                 lstrip_blocks=True
             )

@@ -35,10 +35,6 @@ Soul profile:
 {{ skill.example_call | indent(2) }}
 ```
 
-{% if skill.knowledge %}
-**Additional Details**: {{ skill.knowledge[:300] }}{% if skill.knowledge|length > 300 %}...{% endif %}
-{% endif %}
-
 {% endfor %}
 {% else %}
 {{ available_skills }}
