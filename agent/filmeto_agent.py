@@ -67,7 +67,7 @@ class FilmetoAgent:
         self.model = model
         self.temperature = temperature
         self.streaming = streaming
-        self.agents: Dict[str, CrewMember] = {}
+        self.members: Dict[str, CrewMember] = {}
         self.conversation_history: List[AgentMessage] = []
         self.ui_callbacks = []
         self.current_session: Optional[AgentStreamSession] = None
@@ -98,7 +98,7 @@ class FilmetoAgent:
         """
         Register a new agent with a specific role.
         This method is deprecated since we're moving to direct CrewMember usage.
-        Use _register_crew_member instead which directly adds CrewMembers to agents dict.
+        Use _register_crew_member instead which directly adds CrewMembers to members dict.
 
         Args:
             agent_id: Unique identifier for the agent
@@ -116,15 +116,15 @@ class FilmetoAgent:
         mock_agent.config = mock_config
         mock_agent.chat_stream = handler_func
 
-        self.agents[agent_id] = mock_agent
+        self.members[agent_id] = mock_agent
 
-    def get_agent(self, agent_id: str) -> Optional[CrewMember]:
-        """Get an agent by ID."""
-        return self.agents.get(agent_id)
+    def get_member(self, member_id: str) -> Optional[CrewMember]:
+        """Get a member by ID."""
+        return self.members.get(member_id)
 
-    def list_agents(self) -> List[CrewMember]:
-        """List all registered agents, sorted by crew title importance."""
-        return sort_crew_members_by_title_importance(list(self.agents.values()))
+    def list_members(self) -> List[CrewMember]:
+        """List all registered members, sorted by crew title importance."""
+        return sort_crew_members_by_title_importance(list(self.members.values()))
 
     def _ensure_crew_members_loaded(self, refresh: bool = False) -> Dict[str, CrewMember]:
         if not self.project:
@@ -150,8 +150,8 @@ class FilmetoAgent:
         return crew_members
 
     def _register_crew_member(self, crew_member: CrewMember) -> None:
-        # Directly add the CrewMember to the agents dictionary
-        self.agents[crew_member.config.name] = crew_member
+        # Directly add the CrewMember to the members dictionary
+        self.members[crew_member.config.name] = crew_member
 
     def _extract_mentions(self, content: str) -> List[str]:
         if not content:
@@ -166,10 +166,10 @@ class FilmetoAgent:
                 return crew_member
         return None
 
-    def _resolve_mentioned_agent_role(self, content: str) -> Optional[CrewMember]:
+    def _resolve_mentioned_title(self, content: str) -> Optional[CrewMember]:
         for mention in self._extract_mentions(content):
             candidate = mention.lower()
-            for agent in self.agents.values():
+            for agent in self.members.values():
                 # Check against both the agent's name and any aliases in metadata
                 if (hasattr(agent, 'config') and
                     (agent.config.name.lower() == candidate or
@@ -208,14 +208,14 @@ class FilmetoAgent:
     def _build_producer_message(self, user_message: str, plan_id: str, retry: bool = False) -> str:
         # Build detailed crew member information including name, title, and skills
         crew_details = []
-        valid_agent_roles = []  # Keep track of valid agent roles for the instruction
+        valid_titles = []  # Keep track of valid titles for the instruction
         for name, crew_member in self.crew_members.items():
             crew_info = f"- Name: {name}"
             crew_title = crew_member.config.metadata.get('crew_title')
             if crew_title:
                 crew_info += f", Title: {crew_title}"
-                valid_agent_roles.append(crew_title)  # Add title as valid agent role
-            valid_agent_roles.append(name)  # Add name as valid agent role
+                valid_titles.append(crew_title)  # Add title as valid title
+            valid_titles.append(name)  # Add name as valid title
             if crew_member.config.skills:
                 skills = ", ".join(crew_member.config.skills)
                 crew_info += f", Skills: [{skills}]"
@@ -226,7 +226,7 @@ class FilmetoAgent:
         crew_details_str = "\n".join(crew_details) if crew_details else "No crew members available."
 
         # Create a list of valid agent roles for the instruction
-        valid_roles_str = ", ".join(set(valid_agent_roles)) if valid_agent_roles else "none available"
+        valid_roles_str = ", ".join(set(valid_titles)) if valid_titles else "none available"
 
         header = "The current plan has no tasks. Update it now." if retry else "Create a production plan."
         return "\n".join([
@@ -236,9 +236,9 @@ class FilmetoAgent:
             "Available crew members (with titles and skills):",
             crew_details_str,
             "Use plan_update to set name, description, and tasks.",
-            "Each task must include: id, name, description, agent_role, needs, parameters.",
-            f"The agent_role MUST be one of the following valid options: {valid_roles_str}",
-            "Using any other agent_role (such as 'system', 'user', 'assistant', etc.) will cause the task to fail.",
+            "Each task must include: id, name, description, title, needs, parameters.",
+            f"The title MUST be one of the following valid options: {valid_roles_str}",
+            "Using any other title (such as 'system', 'user', 'assistant', etc.) will cause the task to fail.",
             "After updating the plan, respond with a final summary and next steps.",
         ])
 
@@ -246,7 +246,7 @@ class FilmetoAgent:
         parameters = json.dumps(task.parameters or {}, ensure_ascii=True)
         needs = ", ".join(task.needs) if task.needs else "none"
         return "\n".join([
-            f"@{task.agent_role}",
+            f"@{task.title}",
             f"Plan id: {plan_id}",
             f"Task id: {task.id}",
             f"Task name: {task.name}",
@@ -472,7 +472,7 @@ class FilmetoAgent:
                 on_complete(message)
             return
 
-        mentioned_agent = self._resolve_mentioned_agent_role(message)
+        mentioned_agent = self._resolve_mentioned_title(message)
         if mentioned_agent:
             async for content in self._stream_crew_member(
                 mentioned_agent,
@@ -641,9 +641,9 @@ class FilmetoAgent:
 
             for task in ready_tasks:
                 self.plan_service.mark_task_running(plan_instance, task.id)
-                target_agent = self._crew_member_lookup.get(task.agent_role.lower())
+                target_agent = self._crew_member_lookup.get(task.title.lower())
                 if not target_agent:
-                    error_message = f"Crew member '{task.agent_role}' not found for task {task.id}."
+                    error_message = f"Crew member '{task.title}' not found for task {task.id}."
                     self.plan_service.mark_task_failed(plan_instance, task.id, error_message)
                     async for content in self._stream_error_message(
                         error_message,
@@ -681,7 +681,7 @@ class FilmetoAgent:
         Returns:
             CrewMember: The selected agent or None if no agent should respond
         """
-        mentioned_agent = self._resolve_mentioned_agent_role(message.content)
+        mentioned_agent = self._resolve_mentioned_title(message.content)
         if mentioned_agent:
             return mentioned_agent
 
@@ -690,14 +690,14 @@ class FilmetoAgent:
             return producer_agent
 
         content_lower = message.content.lower()
-        for agent in self.agents.values():
+        for agent in self.members.values():
             if (hasattr(agent, 'config') and
                 (agent.config.name.lower() in content_lower or
                  agent.config.name.lower().capitalize() in content_lower)):
                 return agent
 
-        if self.agents:
-            return next(iter(self.agents.values()))
+        if self.members:
+            return next(iter(self.members.values()))
 
         return None
 
@@ -725,7 +725,7 @@ class FilmetoAgent:
         Yields:
             AgentMessage: Responses from all agents
         """
-        for agent in self.agents.values():
+        for agent in self.members.values():
             try:
                 # Create a temporary stream to collect the agent's response
                 async def agent_response_stream():

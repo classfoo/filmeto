@@ -3,7 +3,7 @@ name: react_base
 description: Base ReAct template for crew members
 version: 1.0
 ---
-You are a ReAct-style ${agent_role}.
+You are a ReAct-style ${title}.
 Crew member name: ${agent_name}.
 
 ${role_description}

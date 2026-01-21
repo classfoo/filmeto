@@ -30,13 +30,13 @@ Example usage in a crew member's prompt:
         "id": "task1",
         "name": "Script Finalization",
         "description": "Complete final revisions to the script",
-        "agent_role": "screenwriter"
+        "title": "screenwriter"
       },
       {
         "id": "task2", 
         "name": "Location Scouting",
         "description": "Find and secure filming locations",
-        "agent_role": "director"
+        "title": "director"
       }
     ]
   }

@@ -56,7 +56,7 @@ When a user sends a message:
 
 ### 3. Plan Execution
 - Plans contain ordered tasks with dependencies
-- Each task specifies an `agent_role` (which can be a crew member's name or title)
+- Each task specifies a `title` (which can be a crew member's name or title)
 - Tasks are executed when dependencies are satisfied
 - Crew members execute tasks and update plan state as needed
 
@@ -70,7 +70,7 @@ When a user sends a message:
 ### Detailed Producer Context
 - Producer receives comprehensive information about all crew members
 - Includes names, titles, and skill sets for informed decision-making
-- Clear instructions that agent_role can be either name or title
+- Clear instructions that title can be either name or title
 
 ### Crew Member Sorting by Importance
 - Crew members are automatically sorted by their importance in film production

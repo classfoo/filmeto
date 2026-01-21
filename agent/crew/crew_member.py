@@ -233,7 +233,7 @@ class CrewMember:
         # Use the prompt service to get the base ReAct template
         base_prompt = prompt_service.render_prompt(
             name="react_base",
-            agent_role="crew member",
+            title="crew member",
             agent_name=self.config.name,
             role_description=f"Role description: {self.config.description}" if self.config.description else "",
             soul_profile=self._get_formatted_soul_prompt(),
@@ -266,7 +266,9 @@ class CrewMember:
             elif self.project_name:
                 prompt_sections.append(f"Project name: {self.project_name}.")
 
-            prompt_sections.append(_ACTION_INSTRUCTIONS)
+            # Use the prompt template instead of the hardcoded constant
+            action_instructions = prompt_service.get_prompt_template("react_action_instructions")
+            prompt_sections.append(action_instructions)
             return "\n\n".join(section for section in prompt_sections if section)
 
         return base_prompt
@@ -720,7 +722,7 @@ def _task_from_dict(data: Dict[str, Any]) -> PlanTask:
         id=task_id,
         name=data.get("name", "Task"),
         description=data.get("description", ""),
-        agent_role=data.get("agent_role", "crew"),
+        title=data.get("title", "crew"),
         parameters=data.get("parameters", {}),
         needs=data.get("needs", []),
         status=status,
@@ -737,55 +739,3 @@ def _resolve_project_name(project: Optional[Any]) -> Optional[str]:
     if isinstance(project, str):
         return project
     return None
-
-
-_ACTION_INSTRUCTIONS = """
-## Response Format
-
-You MUST respond ONLY with a JSON object. Choose one of these action types:
-
-### 1. Call a Skill
-When you need to perform an action using one of your available skills:
-```json
-{
-  "type": "skill",
-  "skill": "skill_name",
-  "args": {
-    "param1": "value1",
-    "param2": "value2"
-  }
-}
-```
-IMPORTANT: Use the exact parameter names as specified in each skill's parameters section.
-
-### 2. Update a Plan
-When you need to update the execution plan:
-```json
-{
-  "type": "plan_update",
-  "plan_id": "plan_id",
-  "plan_update": {
-    "name": "Plan Name",
-    "description": "Plan description",
-    "tasks": [...]
-  }
-}
-```
-
-### 3. Final Response
-When your task is complete and you're ready to report results:
-```json
-{
-  "type": "final",
-  "response": "Your complete response message here"
-}
-```
-
-## Important Rules
-- If you have skills available, USE THEM when appropriate. Do not just describe what you would do.
-- After calling a skill, you will receive an Observation with the result.
-- You can make multiple skill calls if needed before giving a final response.
-- If you receive a message that includes @your_name, treat it as your assigned task.
-- Do NOT include any text outside the JSON object.
-"""
-# Note: The ACTION_INSTRUCTIONS constant has been moved to the prompt service as a template

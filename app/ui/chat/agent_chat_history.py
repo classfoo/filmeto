@@ -372,7 +372,7 @@ class AgentChatHistoryWidget(BaseWidget):
         self,
         message_id: str,
         agent_name: str,
-        agent_role = None  # This parameter is kept for compatibility but not used
+        title = None  # This parameter is kept for compatibility but not used
     ):
         """Get or create an agent message card."""
         if message_id in self._message_cards:
@@ -608,7 +608,7 @@ class AgentChatHistoryWidget(BaseWidget):
                 card = self.get_or_create_agent_card(
                     event.message_id,
                     agent_name,
-                    getattr(event, 'agent_role', None)
+                    getattr(event, 'title', None)
                 )
 
             # Update the card with the content

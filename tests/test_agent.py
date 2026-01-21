@@ -30,8 +30,8 @@ async def test_agent_registration():
     )
     
     # Verify agent was registered
-    assert len(agent_manager.list_agents()) == 1
-    agent = agent_manager.get_agent("test_agent")
+    assert len(agent_manager.list_members()) == 1
+    agent = agent_manager.get_member("test_agent")
     assert agent is not None
     assert agent.name == "Test Agent"
     
