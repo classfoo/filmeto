@@ -11,6 +11,14 @@ from typing import Dict, Optional, Any
 from pathlib import Path
 from string import Template
 
+# Try to import Jinja2 for advanced templating features
+try:
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+    JINJA_AVAILABLE = True
+except ImportError:
+    JINJA_AVAILABLE = False
+    print("Warning: Jinja2 not available. Advanced template features will be limited.")
+
 from utils.md_with_meta_utils import read_md_with_meta, get_metadata
 from utils.i18n_utils import translation_manager
 
@@ -29,6 +37,29 @@ class PromptService:
         """
         self.system_prompts_path = os.path.join(os.path.dirname(__file__), "system")
         self._template_cache: Dict[str, str] = {}
+
+        # Initialize Jinja2 environment if available
+        if JINJA_AVAILABLE:
+            self.jinja_env = Environment(
+                loader=FileSystemLoader(self.system_prompts_path),
+                autoescape=select_autoescape(['html', 'xml']),
+                trim_blocks=True,
+                lstrip_blocks=True
+            )
+            # Add custom filters if needed
+            self.jinja_env.filters['indent'] = self._jinja_indent_filter
+        else:
+            self.jinja_env = None
+
+    def _jinja_indent_filter(self, value, spaces=4, first_line=False):
+        """Custom Jinja2 filter to indent text."""
+        indent_str = " " * spaces
+        lines = value.splitlines()
+        if first_line:
+            lines = [indent_str + line if line.strip() else line for line in lines]
+        else:
+            lines = [lines[0]] + [indent_str + line if line.strip() else line for line in lines[1:]]
+        return "\n".join(lines)
 
     def get_prompt_template(self, name: str, language: Optional[str] = None) -> Optional[str]:
         """
@@ -120,8 +151,24 @@ class PromptService:
         if template_content is None:
             return None
 
+        # Use Jinja2 if available and if the template contains Jinja2 syntax
+        if JINJA_AVAILABLE and self.jinja_env:
+            # Check if template contains Jinja2 syntax
+            has_jinja_syntax = ('{% ' in template_content or '{{ ' in template_content or '{# ' in template_content)
+
+            if has_jinja_syntax:
+                try:
+                    # Create a template from the content string
+                    template = self.jinja_env.from_string(template_content)
+                    rendered_prompt = template.render(**kwargs)
+                    return rendered_prompt
+                except Exception as e:
+                    print(f"Error rendering prompt {name} with Jinja2: {e}")
+                    # Fall back to original method
+            # If no Jinja2 syntax or error occurred, fall back to original method
+
+        # Use Python's Template for backward compatibility
         try:
-            # Use Python's Template for safe parameter substitution
             template = Template(template_content)
             rendered_prompt = template.substitute(**kwargs)
             return rendered_prompt
