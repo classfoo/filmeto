@@ -38,7 +38,7 @@ class Message:
     metadata: Optional[Dict[str, Any]] = None
     tool_calls: Optional[List[Dict[str, Any]]] = None
     tool_call_id: Optional[str] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert message to dictionary."""
         data = {
@@ -53,7 +53,7 @@ class Message:
         if self.tool_call_id:
             data['tool_call_id'] = self.tool_call_id
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Message':
         """Create message from dictionary."""
@@ -79,7 +79,7 @@ class Conversation:
     updated_at: str
     messages: List[Message]
     metadata: Optional[Dict[str, Any]] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert conversation to dictionary."""
         return {
@@ -90,7 +90,7 @@ class Conversation:
             'messages': [msg.to_dict() for msg in self.messages],
             'metadata': self.metadata or {}
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Conversation':
         """Create conversation from dictionary."""
@@ -103,12 +103,12 @@ class Conversation:
             messages=messages,
             metadata=data.get('metadata')
         )
-    
+
     def add_message(self, message: Message):
         """Add a message to the conversation."""
         self.messages.append(message)
         self.updated_at = datetime.now().isoformat()
-    
+
     def get_messages_for_llm(self) -> List[Dict[str, Any]]:
         """Get messages in LLM format (OpenAI-compatible)."""
         return [
@@ -176,184 +176,239 @@ class Conversation:
 
 
 class ConversationManager:
-    """Manages conversations for a project."""
-    
-    def __init__(self, project_path: str):
+    """Manages conversations for projects. Singleton implementation with lazy loading and project-agnostic methods."""
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        """Create or return the singleton instance."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
         """
         Initialize conversation manager.
-        
+        Methods now accept project_path parameter to operate on specific projects.
+        """
+        if self._initialized:
+            return
+
+        self._initialized = True
+
+    def _get_paths_for_project(self, project_path: str) -> tuple:
+        """
+        Get all necessary paths for a specific project.
+
         Args:
             project_path: Path to the project directory
+
+        Returns:
+            Tuple of (agent_path, conversations_path, index_path)
         """
-        self.project_path = project_path
-        self.agent_path = os.path.join(project_path, "agent")
-        self.conversations_path = os.path.join(self.agent_path, "conversations")
-        
+        agent_path = os.path.join(project_path, "agent")
+        conversations_path = os.path.join(agent_path, "chats")  # Updated to use "chats" directory
+        index_path = os.path.join(agent_path, "conversations_index.yml")
+
         # Create directories if they don't exist
-        os.makedirs(self.conversations_path, exist_ok=True)
-        
-        # Load or create index
-        self.index_path = os.path.join(self.agent_path, "conversations_index.yml")
-        self.index = self._load_index()
-    
-    def _load_index(self) -> Dict[str, Any]:
-        """Load conversations index."""
-        if os.path.exists(self.index_path):
-            return load_yaml(self.index_path) or {'conversations': []}
+        os.makedirs(conversations_path, exist_ok=True)
+
+        return agent_path, conversations_path, index_path
+
+    def _load_index(self, project_path: str) -> Dict[str, Any]:
+        """
+        Load conversations index for a specific project.
+
+        Args:
+            project_path: Path to the project directory
+
+        Returns:
+            Dictionary containing the conversation index
+        """
+        _, _, index_path = self._get_paths_for_project(project_path)
+        if os.path.exists(index_path):
+            return load_yaml(index_path) or {'conversations': []}
         return {'conversations': []}
-    
-    def _save_index(self):
-        """Save conversations index."""
-        save_yaml(self.index_path, self.index)
-    
-    def create_conversation(self, title: Optional[str] = None) -> Conversation:
+
+    def _save_index(self, project_path: str, index: Dict[str, Any]):
+        """
+        Save conversations index for a specific project.
+
+        Args:
+            project_path: Path to the project directory
+            index: Index data to save
+        """
+        _, _, index_path = self._get_paths_for_project(project_path)
+        save_yaml(index_path, index)
+
+    def create_conversation(self, project_path: str, title: Optional[str] = None) -> Conversation:
         """
         Create a new conversation.
-        
+
         Args:
+            project_path: Path to the project directory
             title: Optional title for the conversation
-            
+
         Returns:
             New Conversation object
         """
         timestamp = datetime.now().isoformat()
         conversation_id = f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
-        
+
+        # Load current index
+        index = self._load_index(project_path)
+
         conversation = Conversation(
             conversation_id=conversation_id,
-            title=title or f"Conversation {len(self.index['conversations']) + 1}",
+            title=title or f"Conversation {len(index['conversations']) + 1}",
             created_at=timestamp,
             updated_at=timestamp,
             messages=[],
             metadata={}
         )
-        
+
         # Add to index
-        self.index['conversations'].append({
+        index['conversations'].append({
             'conversation_id': conversation_id,
             'title': conversation.title,
             'created_at': conversation.created_at,
             'updated_at': conversation.updated_at
         })
-        self._save_index()
-        
+        self._save_index(project_path, index)
+
         # Save conversation
-        self._save_conversation(conversation)
-        
+        self._save_conversation(project_path, conversation)
+
         return conversation
-    
-    def get_conversation(self, conversation_id: str) -> Optional[Conversation]:
+
+    def get_conversation(self, project_path: str, conversation_id: str) -> Optional[Conversation]:
         """
         Get a conversation by ID.
-        
+
         Args:
+            project_path: Path to the project directory
             conversation_id: Conversation ID
-            
+
         Returns:
             Conversation object or None if not found
         """
-        conversation_file = os.path.join(self.conversations_path, f"{conversation_id}.json")
+        _, conversations_path, _ = self._get_paths_for_project(project_path)
+        conversation_file = os.path.join(conversations_path, f"{conversation_id}.json")
         if not os.path.exists(conversation_file):
             return None
-        
+
         with open(conversation_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
+
         return Conversation.from_dict(data)
-    
-    def save_conversation(self, conversation: Conversation):
+
+    def save_conversation(self, project_path: str, conversation: Conversation):
         """
         Save a conversation.
-        
+
         Args:
+            project_path: Path to the project directory
             conversation: Conversation object to save
         """
-        self._save_conversation(conversation)
-        
+        self._save_conversation(project_path, conversation)
+
         # Update index
-        for conv_info in self.index['conversations']:
+        index = self._load_index(project_path)
+        for conv_info in index['conversations']:
             if conv_info['conversation_id'] == conversation.conversation_id:
                 conv_info['title'] = conversation.title
                 conv_info['updated_at'] = conversation.updated_at
                 break
-        self._save_index()
-    
-    def _save_conversation(self, conversation: Conversation):
+        self._save_index(project_path, index)
+
+    def _save_conversation(self, project_path: str, conversation: Conversation):
         """Internal method to save conversation to file."""
-        conversation_file = os.path.join(self.conversations_path, f"{conversation.conversation_id}.json")
+        _, conversations_path, _ = self._get_paths_for_project(project_path)
+        conversation_file = os.path.join(conversations_path, f"{conversation.conversation_id}.json")
         with open(conversation_file, 'w', encoding='utf-8') as f:
             json.dump(conversation.to_dict(), f, ensure_ascii=False, indent=2)
-    
-    def list_conversations(self) -> List[Dict[str, Any]]:
+
+    def list_conversations(self, project_path: str) -> List[Dict[str, Any]]:
         """
         List all conversations.
-        
+
+        Args:
+            project_path: Path to the project directory
+
         Returns:
             List of conversation metadata (id, title, timestamps)
         """
+        index = self._load_index(project_path)
         return sorted(
-            self.index['conversations'],
+            index['conversations'],
             key=lambda x: x['updated_at'],
             reverse=True
         )
-    
-    def delete_conversation(self, conversation_id: str) -> bool:
+
+    def delete_conversation(self, project_path: str, conversation_id: str) -> bool:
         """
         Delete a conversation.
-        
+
         Args:
+            project_path: Path to the project directory
             conversation_id: Conversation ID to delete
-            
+
         Returns:
             True if deleted, False if not found
         """
-        conversation_file = os.path.join(self.conversations_path, f"{conversation_id}.json")
+        _, conversations_path, _ = self._get_paths_for_project(project_path)
+        conversation_file = os.path.join(conversations_path, f"{conversation_id}.json")
         if not os.path.exists(conversation_file):
             return False
-        
+
         # Remove file
         os.remove(conversation_file)
-        
+
         # Remove from index
-        self.index['conversations'] = [
-            conv for conv in self.index['conversations']
+        index = self._load_index(project_path)
+        index['conversations'] = [
+            conv for conv in index['conversations']
             if conv['conversation_id'] != conversation_id
         ]
-        self._save_index()
-        
+        self._save_index(project_path, index)
+
         return True
-    
-    def add_message(self, conversation_id: str, message: Message) -> bool:
+
+    def add_message(self, project_path: str, conversation_id: str, message: Message) -> bool:
         """
         Add a message to a conversation.
-        
+
         Args:
+            project_path: Path to the project directory
             conversation_id: Conversation ID
             message: Message to add
-            
+
         Returns:
             True if successful, False if conversation not found
         """
-        conversation = self.get_conversation(conversation_id)
+        conversation = self.get_conversation(project_path, conversation_id)
         if not conversation:
             return False
-        
+
         conversation.add_message(message)
-        self.save_conversation(conversation)
+        self.save_conversation(project_path, conversation)
         return True
-    
-    def get_or_create_default_conversation(self) -> Conversation:
+
+    def get_or_create_default_conversation(self, project_path: str) -> Conversation:
         """
         Get the most recent conversation or create a new one if none exist.
-        
+
+        Args:
+            project_path: Path to the project directory
+
         Returns:
             Conversation object
         """
-        conversations = self.list_conversations()
+        conversations = self.list_conversations(project_path)
         if conversations:
             # Return most recent conversation
-            return self.get_conversation(conversations[0]['conversation_id'])
+            return self.get_conversation(project_path, conversations[0]['conversation_id'])
         else:
             # Create new conversation
-            return self.create_conversation(title="New Conversation")
-
+            return self.create_conversation(project_path, title="New Conversation")

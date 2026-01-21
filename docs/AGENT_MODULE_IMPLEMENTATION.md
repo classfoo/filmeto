@@ -119,13 +119,13 @@ project/
 #### Conversation API
 
 ```python
-from app.data.conversation import ConversationManager, Message, MessageRole
+from agent.chat.conversation import ConversationManager, Message, MessageRole
 
-# Initialize manager
-manager = ConversationManager(project_path)
+# Get singleton instance
+manager = ConversationManager()
 
-# Create conversation
-conversation = manager.create_conversation(title="My Conversation")
+# Create conversation (pass project_path as first parameter)
+conversation = manager.create_conversation(project_path, title="My Conversation")
 
 # Add message
 message = Message(
@@ -134,13 +134,13 @@ message = Message(
     timestamp=datetime.now().isoformat()
 )
 conversation.add_message(message)
-manager.save_conversation(conversation)
+manager.save_conversation(project_path, conversation)
 
 # List conversations
-conversations = manager.list_conversations()
+conversations = manager.list_conversations(project_path)
 
 # Get conversation
-conversation = manager.get_conversation(conversation_id)
+conversation = manager.get_conversation(project_path, conversation_id)
 ```
 
 ### 4. Streaming Interface

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Test script to verify the fix for tool call/response mismatch."""
 
-from app.data.conversation import Conversation, Message, MessageRole
+from agent.chat.conversation import Conversation, Message, MessageRole
 from datetime import datetime
 
 def test_tool_call_fix():

@@ -8,7 +8,7 @@
 
 ### 1. 对话管理系统 (Conversation Management)
 
-**位置**: `app/data/conversation.py`
+**位置**: `agent/chat/conversation.py`
 
 **功能**:
 - ✅ `Message` 数据类：支持多种角色（user, assistant, system, tool）
