@@ -3,7 +3,8 @@ name: producer
 crew_title: producer
 description: Owns budget, schedule, and delivery risks.
 soul: elena_vasquez_soul
-skills: []
+skills:
+  - create_execution_plan
 model: gpt-4o-mini
 temperature: 0.3
 max_steps: 5
