@@ -1,5 +1,6 @@
 ---
 name: sound_designer
+crew_title: sound_designer
 description: 构建声音景观、效果和混音优先级。
 soul: jordan_hayes_soul
 skills: []

@@ -77,12 +77,19 @@ class Skill:
 class SkillService:
     """
     Service class that manages skills following the Claude skill specification.
-    
+
     Skills are organized as directories containing:
     - SKILL.md: Contains metadata (between --- markers) and knowledge
     - reference.md: Optional reference documentation
     - example.md: Optional usage examples
     - scripts/: Optional directory with executable scripts
+
+    This service handles:
+    - Reading skills using md_with_meta_utils for SKILL.md files
+    - Creating new skills using create_skill with md_with_meta_utils
+    - Updating existing skills using update_skill with md_with_meta_utils
+    - Deleting skills using delete_skill
+    - Managing skill lifecycle
     """
     
     def __init__(self, workspace=None):
@@ -153,29 +160,9 @@ class SkillService:
             return None
         
         try:
-            with open(skill_md_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Extract metadata and knowledge from SKILL.md
-            meta_match = re.match(r'^---\n(.*?)\n---\n(.*)', content, re.DOTALL)
-            
-            if not meta_match:
-                print(f"Warning: Invalid SKILL.md format in {skill_path}")
-                return None
-            
-            meta_str = meta_match.group(1)
-            knowledge = meta_match.group(2).strip()
-            
-            # Parse metadata using YAML for better support
-            try:
-                meta_dict = yaml.safe_load(meta_str) or {}
-            except yaml.YAMLError:
-                # Fallback to simple line parsing
-                meta_dict = {}
-                for line in meta_str.strip().split('\n'):
-                    if ':' in line:
-                        key, value = line.split(':', 1)
-                        meta_dict[key.strip()] = value.strip()
+            # Use md_with_meta_utils to read the SKILL.md file
+            from utils.md_with_meta_utils import read_md_with_meta
+            meta_dict, knowledge = read_md_with_meta(skill_md_path)
             
             # Extract required fields
             name = meta_dict.get('name')
@@ -397,3 +384,168 @@ class SkillService:
         """
         self.skills.clear()
         self.load_skills()
+
+    def create_skill(self, skill: Skill) -> bool:
+        """
+        Create a new skill using md_with_meta_utils to write the SKILL.md file.
+
+        Args:
+            skill: Skill object to create
+
+        Returns:
+            True if creation was successful, False otherwise
+        """
+        from utils.md_with_meta_utils import write_md_with_meta
+
+        # Create the skill directory if it doesn't exist
+        skill_dir = os.path.join(self.custom_skills_path or self.system_skills_path, skill.name)
+        os.makedirs(skill_dir, exist_ok=True)
+
+        # Prepare metadata for the skill
+        metadata = {
+            'name': skill.name,
+            'description': skill.description,
+            'parameters': [
+                {
+                    'name': param.name,
+                    'type': param.param_type,
+                    'required': param.required,
+                    'default': param.default,
+                    'description': param.description
+                }
+                for param in skill.parameters
+            ]
+        }
+
+        # Write the SKILL.md file using md_with_meta_utils
+        skill_md_path = os.path.join(skill_dir, "SKILL.md")
+        try:
+            write_md_with_meta(skill_md_path, metadata, skill.knowledge)
+
+            # Save optional files if they exist
+            if skill.reference:
+                ref_path = os.path.join(skill_dir, "reference.md")
+                with open(ref_path, 'w', encoding='utf-8') as f:
+                    f.write(skill.reference)
+
+            if skill.examples:
+                example_path = os.path.join(skill_dir, "example.md")
+                with open(example_path, 'w', encoding='utf-8') as f:
+                    f.write(skill.examples)
+
+            # Reload skills to include the new one
+            self.refresh_skills()
+            return True
+        except Exception as e:
+            print(f"Error creating skill {skill.name}: {e}")
+            return False
+
+    def update_skill(self, skill_name: str, updated_skill: Skill) -> bool:
+        """
+        Update an existing skill using md_with_meta_utils to update the SKILL.md file.
+
+        Args:
+            skill_name: Name of the skill to update
+            updated_skill: Updated Skill object
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        from utils.md_with_meta_utils import update_md_with_meta
+
+        # Find the existing skill directory
+        skill_dir = None
+        for dir_path in [self.system_skills_path, self.custom_skills_path]:
+            if dir_path and os.path.exists(dir_path):
+                candidate_path = os.path.join(dir_path, skill_name)
+                if os.path.exists(candidate_path):
+                    skill_dir = candidate_path
+                    break
+
+        if not skill_dir:
+            print(f"Skill directory not found for {skill_name}")
+            return False
+
+        skill_md_path = os.path.join(skill_dir, "SKILL.md")
+
+        if not os.path.exists(skill_md_path):
+            print(f"SKILL.md not found for {skill_name}")
+            return False
+
+        # Prepare metadata for the updated skill
+        metadata = {
+            'name': updated_skill.name,
+            'description': updated_skill.description,
+            'parameters': [
+                {
+                    'name': param.name,
+                    'type': param.param_type,
+                    'required': param.required,
+                    'default': param.default,
+                    'description': param.description
+                }
+                for param in updated_skill.parameters
+            ]
+        }
+
+        try:
+            # Update the SKILL.md file using md_with_meta_utils
+            success = update_md_with_meta(skill_md_path, metadata, updated_skill.knowledge)
+
+            if success:
+                # Update optional files if they exist
+                if updated_skill.reference:
+                    ref_path = os.path.join(skill_dir, "reference.md")
+                    with open(ref_path, 'w', encoding='utf-8') as f:
+                        f.write(updated_skill.reference)
+
+                if updated_skill.examples:
+                    example_path = os.path.join(skill_dir, "example.md")
+                    with open(example_path, 'w', encoding='utf-8') as f:
+                        f.write(updated_skill.examples)
+
+                # Reload skills to include the updated one
+                self.refresh_skills()
+
+            return success
+        except Exception as e:
+            print(f"Error updating skill {skill_name}: {e}")
+            return False
+
+    def delete_skill(self, skill_name: str) -> bool:
+        """
+        Delete a skill by removing its directory.
+
+        Args:
+            skill_name: Name of the skill to delete
+
+        Returns:
+            True if deletion was successful, False otherwise
+        """
+        import shutil
+
+        # Find the skill directory
+        skill_dir = None
+        for dir_path in [self.system_skills_path, self.custom_skills_path]:
+            if dir_path and os.path.exists(dir_path):
+                candidate_path = os.path.join(dir_path, skill_name)
+                if os.path.exists(candidate_path):
+                    skill_dir = candidate_path
+                    break
+
+        if not skill_dir:
+            print(f"Skill directory not found for {skill_name}")
+            return False
+
+        try:
+            # Remove the entire skill directory
+            shutil.rmtree(skill_dir)
+
+            # Remove from internal cache and reload
+            if skill_name in self.skills:
+                del self.skills[skill_name]
+
+            return True
+        except Exception as e:
+            print(f"Error deleting skill {skill_name}: {e}")
+            return False

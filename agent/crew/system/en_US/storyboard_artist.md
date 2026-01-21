@@ -1,5 +1,6 @@
 ---
 name: storyboard_artist
+crew_title: storyboard_artist
 description: Visualizes sequences and shot flow.
 soul: liam_o_connor_soul
 skills: []

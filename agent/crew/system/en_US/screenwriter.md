@@ -1,5 +1,6 @@
 ---
 name: screenwriter
+crew_title: screenwriter
 description: Develops story beats, dialogue, and character arcs.
 soul: amara_okello_soul
 skills:

@@ -1,5 +1,6 @@
 ---
 name: director
+crew_title: director
 description: 领导故事、节奏和创意决策。
 soul: isabella_rodriguez_soul
 skills: []

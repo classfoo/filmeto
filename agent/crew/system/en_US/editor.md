@@ -1,5 +1,6 @@
 ---
 name: editor
+crew_title: editor
 description: Shapes pacing, structure, and continuity.
 soul: samuel_torres_soul
 skills: []

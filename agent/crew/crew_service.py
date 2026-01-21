@@ -13,6 +13,13 @@ from utils.i18n_utils import translation_manager
 class CrewService:
     """
     Singleton service to manage crew members per project.
+
+    This service handles:
+    - Creating project-level crew members using write_project_crew_member
+    - Updating project-level crew members using update_project_crew_member
+    - Deleting project-level crew members using delete_project_crew_member
+    - Reading and loading crew members from project directories
+    - Managing crew member lifecycle per project
     """
 
     _instance = None
@@ -217,6 +224,90 @@ class CrewService:
         write_md_with_meta(target_file, metadata, crew_member_data.get('prompt', ''))
 
         return str(target_file)
+
+    def update_project_crew_member(self, project: Any, crew_member_name: str, crew_member_data: dict) -> bool:
+        """
+        Update an existing project crew member with new data.
+
+        Args:
+            project: The project containing the crew member to update
+            crew_member_name: Name of the crew member to update
+            crew_member_data: Dictionary containing updated crew member information
+
+        Returns:
+            True if the update was successful, False otherwise
+        """
+        project_path = _resolve_project_path(project)
+        if not project_path:
+            return False
+
+        from utils.md_with_meta_utils import update_md_with_meta
+        crew_members_dir = Path(project_path) / "agent" / "crew_members"
+
+        # Find the crew member file by name
+        crew_member_file = None
+        for file_path in crew_members_dir.glob("*.md"):
+            if file_path.stem == crew_member_name or file_path.stem == crew_member_data.get('crew_title', crew_member_name):
+                crew_member_file = file_path
+                break
+
+        if not crew_member_file:
+            return False
+
+        # Extract crew member name and other data
+        name = crew_member_data.get('name', crew_member_name)
+        crew_title = crew_member_data.get('crew_title', name.lower().replace(' ', '_'))
+
+        # Create metadata for the crew member
+        metadata = {
+            'name': name,
+            'soul': crew_member_data.get('soul', ''),
+            'crew_title': crew_title,
+            'description': crew_member_data.get('description', ''),
+            'skills': crew_member_data.get('skills', []),
+            'model': crew_member_data.get('model', 'gpt-4o-mini'),
+            'temperature': crew_member_data.get('temperature', 0.4),
+            'max_steps': crew_member_data.get('max_steps', 5),
+            'color': crew_member_data.get('color', '#4a90e2'),
+            'icon': crew_member_data.get('icon', '🤖')
+        }
+
+        # Update the content to the target file using the utility function
+        return update_md_with_meta(crew_member_file, metadata, crew_member_data.get('prompt', ''))
+
+    def delete_project_crew_member(self, project: Any, crew_member_name: str) -> bool:
+        """
+        Delete an existing project crew member.
+
+        Args:
+            project: The project containing the crew member to delete
+            crew_member_name: Name of the crew member to delete
+
+        Returns:
+            True if the deletion was successful, False otherwise
+        """
+        project_path = _resolve_project_path(project)
+        if not project_path:
+            return False
+
+        crew_members_dir = Path(project_path) / "agent" / "crew_members"
+
+        # Find the crew member file by name
+        crew_member_file = None
+        for file_path in crew_members_dir.glob("*.md"):
+            if file_path.stem == crew_member_name:
+                crew_member_file = file_path
+                break
+
+        if not crew_member_file:
+            return False
+
+        # Remove the file
+        try:
+            crew_member_file.unlink()
+            return True
+        except OSError:
+            return False
 
     def load_project_crew_members(self, project: Any, refresh: bool = False) -> Dict[str, CrewMember]:
         """

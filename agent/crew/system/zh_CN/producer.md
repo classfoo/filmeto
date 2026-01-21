@@ -1,5 +1,6 @@
 ---
 name: producer
+crew_title: producer
 description: 负责预算、时间表和交付风险。
 soul: elena_vasquez_soul
 skills: []

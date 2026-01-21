@@ -1,5 +1,6 @@
 ---
 name: vfx_supervisor
+crew_title: vfx_supervisor
 description: Plans visual effects scope and integration.
 soul: nina_volkov_soul
 skills: []

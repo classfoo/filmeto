@@ -1,5 +1,6 @@
 ---
 name: storyboard_artist
+crew_title: storyboard_artist
 description: 可视化序列和镜头流程。
 soul: liam_o_connor_soul
 skills: []

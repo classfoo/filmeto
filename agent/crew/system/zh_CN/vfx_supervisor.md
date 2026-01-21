@@ -1,5 +1,6 @@
 ---
 name: vfx_supervisor
+crew_title: vfx_supervisor
 description: 规划视觉特效范围和集成。
 soul: nina_volkov_soul
 skills: []

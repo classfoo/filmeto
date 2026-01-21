@@ -7,6 +7,13 @@ from .soul import Soul
 class SoulService:
     """
     Singleton service class to manage Souls with CRUD operations.
+
+    This service handles:
+    - Loading system and user-defined souls for projects
+    - Creating new souls using create_soul with md_with_meta_utils
+    - Updating existing souls using update_soul_with_metadata with md_with_meta_utils
+    - Deleting souls using delete_soul_file with md_with_meta_utils
+    - Managing soul lifecycle per project
     """
 
     _instance = None
@@ -325,3 +332,146 @@ class SoulService:
             if os.path.isdir(item_path):
                 languages.append(item)
         return languages
+
+    def create_soul(self, project_name: str, soul: Soul) -> bool:
+        """
+        Create a new soul using md_with_meta_utils to write the MD file.
+
+        Args:
+            project_name: The name of the project to create the soul for
+            soul: Soul object to create
+
+        Returns:
+            True if creation was successful, False otherwise
+        """
+        from utils.md_with_meta_utils import write_md_with_meta
+
+        # Get the project object
+        if not self.workspace:
+            return False
+
+        project = self.workspace.project_manager.get_project(project_name)
+        if not project:
+            return False
+
+        # Create the souls directory if it doesn't exist
+        souls_dir = os.path.join(project.project_path, "agent", "souls")
+        os.makedirs(souls_dir, exist_ok=True)
+
+        # Prepare metadata for the soul
+        metadata = {
+            'name': soul.name,
+            'skills': soul.skills,
+            'crew_title': soul.metadata.get('crew_title', '') if soul.metadata else ''
+        }
+
+        # Write the soul MD file using md_with_meta_utils
+        soul_file_path = os.path.join(souls_dir, f"{soul.name.replace(' ', '_').replace('-', '_').lower()}.md")
+        try:
+            write_md_with_meta(soul_file_path, metadata, soul.knowledge or "")
+
+            # Add the soul to the project's soul list
+            if project_name not in self.project_souls:
+                self.project_souls[project_name] = []
+            self.project_souls[project_name].append(soul)
+
+            return True
+        except Exception as e:
+            print(f"Error creating soul {soul.name}: {e}")
+            return False
+
+    def update_soul_with_metadata(self, project_name: str, soul_name: str, updated_soul: Soul) -> bool:
+        """
+        Update an existing soul using md_with_meta_utils to update the MD file.
+
+        Args:
+            project_name: The name of the project containing the soul
+            soul_name: Name of the soul to update
+            updated_soul: Updated Soul object
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        from utils.md_with_meta_utils import update_md_with_meta
+
+        # Get the project object
+        if not self.workspace:
+            return False
+
+        project = self.workspace.project_manager.get_project(project_name)
+        if not project:
+            return False
+
+        # Find the existing soul file
+        souls_dir = os.path.join(project.project_path, "agent", "souls")
+        soul_file_path = os.path.join(souls_dir, f"{soul_name.replace(' ', '_').replace('-', '_').lower()}.md")
+
+        if not os.path.exists(soul_file_path):
+            return False
+
+        # Prepare metadata for the updated soul
+        metadata = {
+            'name': updated_soul.name,
+            'skills': updated_soul.skills,
+            'crew_title': updated_soul.metadata.get('crew_title', '') if updated_soul.metadata else ''
+        }
+
+        try:
+            # Update the soul MD file using md_with_meta_utils
+            success = update_md_with_meta(soul_file_path, metadata, updated_soul.knowledge or "")
+
+            if success:
+                # Update the soul in the project's soul list
+                for i, soul in enumerate(self.project_souls.get(project_name, [])):
+                    if soul.name == soul_name:
+                        self.project_souls[project_name][i] = updated_soul
+                        break
+
+            return success
+        except Exception as e:
+            print(f"Error updating soul {soul_name}: {e}")
+            return False
+
+    def delete_soul_file(self, project_name: str, soul_name: str) -> bool:
+        """
+        Delete a soul by removing its MD file.
+
+        Args:
+            project_name: The name of the project containing the soul
+            soul_name: Name of the soul to delete
+
+        Returns:
+            True if deletion was successful, False otherwise
+        """
+        import os
+
+        # Get the project object
+        if not self.workspace:
+            return False
+
+        project = self.workspace.project_manager.get_project(project_name)
+        if not project:
+            return False
+
+        # Find the soul file
+        souls_dir = os.path.join(project.project_path, "agent", "souls")
+        soul_file_path = os.path.join(souls_dir, f"{soul_name.replace(' ', '_').replace('-', '_').lower()}.md")
+
+        if not os.path.exists(soul_file_path):
+            return False
+
+        try:
+            # Remove the soul file
+            os.remove(soul_file_path)
+
+            # Remove the soul from the project's soul list
+            if project_name in self.project_souls:
+                self.project_souls[project_name] = [
+                    soul for soul in self.project_souls[project_name]
+                    if soul.name != soul_name
+                ]
+
+            return True
+        except Exception as e:
+            print(f"Error deleting soul {soul_name}: {e}")
+            return False
