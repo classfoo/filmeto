@@ -698,7 +698,10 @@ class AgentChatHistoryWidget(BaseWidget):
             session_id = event.data.get('session_id', 'unknown')
 
             # Create a unique message ID for this response
-            message_id = f"response_{session_id}_{uuid.uuid4()}"
+            message_id = event.data.get('message_id')
+            if not message_id:
+                message_id = f"response_{session_id}_{uuid.uuid4()}"
+            append_content = event.data.get('append', True)
 
             # Create or update the card with the content
             card = self.get_or_create_agent_card(
@@ -711,7 +714,7 @@ class AgentChatHistoryWidget(BaseWidget):
             self.update_agent_card(
                 message_id,
                 content=content,
-                append=False  # Set as complete content
+                append=append_content
             )
         elif event.event_type in ["skill_start", "skill_progress", "skill_end"]:
             # Handle skill events (start, progress, end)
