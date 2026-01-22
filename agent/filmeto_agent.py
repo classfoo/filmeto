@@ -8,6 +8,7 @@ import re
 import uuid
 from typing import AsyncIterator, Dict, List, Optional, Callable, Any
 from agent.chat.agent_chat_message import AgentMessage, MessageType
+from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.llm.llm_service import LlmService
 from agent.plan.models import Plan, PlanInstance, PlanTask, TaskStatus
 from agent.plan.service import PlanService
@@ -79,6 +80,7 @@ class FilmetoAgent:
             self.plan_service.set_workspace(self.workspace)
         self.crew_members: Dict[str, CrewMember] = {}
         self._crew_member_lookup: Dict[str, CrewMember] = {}
+        self.signals = AgentChatSignals()
 
         # Initialize the agent
         self._init_agent()
@@ -289,13 +291,14 @@ class FilmetoAgent:
             self.conversation_history.append(response)
             if on_token:
                 on_token(response.content)
-            if on_stream_event:
-                on_stream_event(StreamEvent("agent_response", {
-                    "content": response.content,
-                    "sender_name": response.sender_name,
-                    "message_type": response.message_type.value,
-                    "session_id": session_id,
-                }))
+            # Use AgentChatSignals to send the agent message
+            self.signals.send_agent_message(
+                content=response.content,
+                sender_id=response.sender_id,
+                sender_name=response.sender_name,
+                message_type=response.message_type,
+                metadata={**response.metadata, "session_id": session_id}
+            )
             yield response.content
 
     async def _stream_crew_member(
@@ -312,7 +315,7 @@ class FilmetoAgent:
             # Set the current message ID on the crew member for skill tracking
             crew_member._current_message_id = str(uuid.uuid4())
 
-            async for token in crew_member.chat_stream(message, on_stream_event=on_stream_event, plan_id=plan_id):
+            async for token in crew_member.chat_stream(message, plan_id=plan_id):
                 response_metadata = dict(metadata or {})
                 if plan_id:
                     response_metadata.setdefault("plan_id", plan_id)
@@ -351,11 +354,14 @@ class FilmetoAgent:
         self.conversation_history.append(error_msg)
         if on_token:
             on_token(error_msg.content)
-        if on_stream_event:
-            on_stream_event(StreamEvent("error", {
-                "content": error_msg.content,
-                "session_id": session_id,
-            }))
+        # Use AgentChatSignals to send the error message
+        self.signals.send_agent_message(
+            content=error_msg.content,
+            sender_id=error_msg.sender_id,
+            sender_name=error_msg.sender_name,
+            message_type=error_msg.message_type,
+            metadata={**error_msg.metadata, "session_id": session_id}
+        )
         yield error_msg.content
 
     def add_ui_callback(self, callback):
@@ -415,9 +421,14 @@ class FilmetoAgent:
         # Add the initial prompt to history
         self.conversation_history.append(initial_prompt)
 
-        # Send a stream event for the user message
-        if on_stream_event:
-            on_stream_event(StreamEvent("user_message", {"content": message, "session_id": session_id}))
+        # Use AgentChatSignals to send the user message
+        self.signals.send_agent_message(
+            content=message,
+            sender_id="user",
+            sender_name="User",
+            message_type=MessageType.TEXT,
+            metadata={"session_id": session_id}
+        )
 
         self._ensure_crew_members_loaded()
 
@@ -429,7 +440,7 @@ class FilmetoAgent:
                 plan_id=None,
                 session_id=session_id,
                 on_token=on_token,
-                on_stream_event=on_stream_event,
+                on_stream_event=None,
             ):
                 yield content
             if on_complete:
@@ -458,7 +469,7 @@ class FilmetoAgent:
                 plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                 session_id=session_id,
                 on_token=on_token,
-                on_stream_event=on_stream_event,
+                on_stream_event=None,
                 metadata=initial_prompt.metadata
             ):
                 yield content
@@ -489,7 +500,7 @@ class FilmetoAgent:
                     plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                     session_id=session_id,
                     on_token=on_token,
-                    on_stream_event=on_stream_event,
+                    on_stream_event=None,
                     metadata=initial_prompt.metadata
                 ):
                     yield content
@@ -528,7 +539,7 @@ class FilmetoAgent:
             plan_id=active_plan_id,
             session_id=session_id,
             on_token=on_token,
-            on_stream_event=on_stream_event,
+            on_stream_event=None,
         ):
             yield content
 
@@ -549,7 +560,7 @@ class FilmetoAgent:
                         plan=latest_plan,
                         session_id=session_id,
                         on_token=on_token,
-                        on_stream_event=on_stream_event,
+                        on_stream_event=None,
                     ):
                         yield content
 
@@ -558,7 +569,7 @@ class FilmetoAgent:
         plan: Plan,
         session_id: str,
         on_token: Optional[Callable[[str], None]],
-        on_stream_event: Optional[Callable[[StreamEvent], None]],
+        on_stream_event: Optional[Callable[[StreamEvent], None]],  # Kept for backward compatibility but not used
     ) -> AsyncIterator[str]:
         plan_instance = self.plan_service.create_plan_instance(plan)
         self.plan_service.start_plan_execution(plan_instance)
@@ -598,7 +609,7 @@ class FilmetoAgent:
                     plan_id=plan.id,
                     session_id=session_id,
                     on_token=on_token,
-                    on_stream_event=on_stream_event,
+                    on_stream_event=None,
                     metadata={"plan_id": plan.id, "task_id": task.id},
                 ):
                     yield content

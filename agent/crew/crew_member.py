@@ -7,6 +7,7 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 import yaml
 
 from agent.llm.llm_service import LlmService
+from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.plan.models import PlanTask, TaskStatus
 from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill, SkillParameter
@@ -101,6 +102,7 @@ class CrewMember:
             self.plan_service.set_workspace(workspace)
         self.soul_service = soul_service or self._build_soul_service(project)
         self.conversation_history: List[Dict[str, str]] = []
+        self.signals = AgentChatSignals()
 
     async def chat_stream(
         self,
@@ -114,14 +116,14 @@ class CrewMember:
             error_message = "LLM service is not configured."
             if on_token:
                 on_token(error_message)
-            if on_stream_event:
-                # Send error event to UI
-                from agent.filmeto_agent import StreamEvent
-                on_stream_event(StreamEvent("error", {
-                    "content": error_message,
-                    "sender_name": self.config.name,
-                    "session_id": getattr(self, '_session_id', 'unknown')
-                }))
+            # Use AgentChatSignals to send the error message
+            self.signals.send_agent_message(
+                content=error_message,
+                sender_id=self.config.name,
+                sender_name=self.config.name,
+                message_type=MessageType.ERROR,
+                metadata={"session_id": getattr(self, '_session_id', 'unknown')}
+            )
             yield error_message
             if on_complete:
                 on_complete(error_message)
@@ -132,41 +134,49 @@ class CrewMember:
         messages = [{"role": "user", "content": user_prompt}]
         messages.extend(self.conversation_history)
 
-        # Notify UI that the agent is starting to think/process
-        if on_stream_event:
-            from agent.filmeto_agent import StreamEvent
-            on_stream_event(StreamEvent("agent_thinking", {
-                "sender_name": self.config.name,
-                "sender_id": self.config.name,
-                "message": f"{self.config.name} is processing the request...",
-                "session_id": getattr(self, '_session_id', 'unknown')
-            }))
+        # Use AgentChatSignals to notify that the agent is thinking
+        self.signals.send_agent_message(
+            content=f"{self.config.name} is processing the request...",
+            sender_id=self.config.name,
+            sender_name=self.config.name,
+            message_type=MessageType.SYSTEM,
+            metadata={
+                "session_id": getattr(self, '_session_id', 'unknown'),
+                "event_type": "agent_thinking"
+            }
+        )
 
         final_response = None
         for step in range(self.config.max_steps):
-            # Notify UI that the agent is calling the LLM
-            if on_stream_event:
-                from agent.filmeto_agent import StreamEvent
-                on_stream_event(StreamEvent("llm_call_start", {
-                    "sender_name": self.config.name,
-                    "sender_id": self.config.name,
+            # Use AgentChatSignals to notify that the agent is calling the LLM
+            self.signals.send_agent_message(
+                content=f"{self.config.name} is calling the LLM (Step {step + 1}/{self.config.max_steps})",
+                sender_id=self.config.name,
+                sender_name=self.config.name,
+                message_type=MessageType.SYSTEM,
+                metadata={
+                    "session_id": getattr(self, '_session_id', 'unknown'),
+                    "event_type": "llm_call_start",
                     "step": step + 1,
-                    "total_steps": self.config.max_steps,
-                    "session_id": getattr(self, '_session_id', 'unknown')
-                }))
+                    "total_steps": self.config.max_steps
+                }
+            )
 
             response_text = await self._complete(messages)
 
-            # Notify UI that the LLM responded
-            if on_stream_event:
-                from agent.filmeto_agent import StreamEvent
-                on_stream_event(StreamEvent("llm_call_end", {
-                    "sender_name": self.config.name,
-                    "sender_id": self.config.name,
+            # Use AgentChatSignals to notify that the LLM responded
+            self.signals.send_agent_message(
+                content=f"{self.config.name} LLM response (Step {step + 1})",
+                sender_id=self.config.name,
+                sender_name=self.config.name,
+                message_type=MessageType.SYSTEM,
+                metadata={
+                    "session_id": getattr(self, '_session_id', 'unknown'),
+                    "event_type": "llm_call_end",
                     "step": step + 1,
-                    "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text,
-                    "session_id": getattr(self, '_session_id', 'unknown')
-                }))
+                    "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text
+                }
+            )
 
             action = self._parse_action(response_text)
 
@@ -174,22 +184,24 @@ class CrewMember:
                 # Execute skill with structured content reporting
                 observation = self._execute_skill_with_structured_content(
                     action,
-                    on_stream_event=on_stream_event,
                     message_id=getattr(self, '_current_message_id', 'unknown')
                 )
                 messages.append({"role": "assistant", "content": response_text})
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
 
-                # Notify UI about skill execution
-                if on_stream_event:
-                    from agent.filmeto_agent import StreamEvent
-                    on_stream_event(StreamEvent("skill_execution", {
-                        "sender_name": self.config.name,
-                        "sender_id": self.config.name,
+                # Use AgentChatSignals to notify about skill execution
+                self.signals.send_agent_message(
+                    content=f"Executing skill: {action.skill}",
+                    sender_id=self.config.name,
+                    sender_name=self.config.name,
+                    message_type=MessageType.SYSTEM,
+                    metadata={
+                        "session_id": getattr(self, '_session_id', 'unknown'),
+                        "event_type": "skill_execution",
                         "skill": action.skill,
-                        "observation": observation,
-                        "session_id": getattr(self, '_session_id', 'unknown')
-                    }))
+                        "observation": observation
+                    }
+                )
                 continue
 
             if action.action_type == "plan_update":
@@ -197,16 +209,19 @@ class CrewMember:
                 messages.append({"role": "assistant", "content": response_text})
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
 
-                # Notify UI about plan update
-                if on_stream_event:
-                    from agent.filmeto_agent import StreamEvent
-                    on_stream_event(StreamEvent("plan_update", {
-                        "sender_name": self.config.name,
-                        "sender_id": self.config.name,
+                # Use AgentChatSignals to notify about plan update
+                self.signals.send_agent_message(
+                    content=f"Plan updated: {observation}",
+                    sender_id=self.config.name,
+                    sender_name=self.config.name,
+                    message_type=MessageType.SYSTEM,
+                    metadata={
+                        "session_id": getattr(self, '_session_id', 'unknown'),
+                        "event_type": "plan_update",
                         "plan_id": plan_id,
-                        "observation": observation,
-                        "session_id": getattr(self, '_session_id', 'unknown')
-                    }))
+                        "observation": observation
+                    }
+                )
                 continue
 
             final_response = action.response or response_text
@@ -590,32 +605,40 @@ class CrewMember:
         if not skill:
             return f"Skill '{action.skill}' not found."
 
-        # Send start state event
-        if on_stream_event:
-            from agent.filmeto_agent import StreamEvent
-            on_stream_event(StreamEvent("skill_start", {
+        # Use AgentChatSignals to send start state event
+        self.signals.send_agent_message(
+            content=f"Starting skill: {action.skill}",
+            sender_id=self.config.name,
+            sender_name=self.config.name,
+            message_type=MessageType.SYSTEM,
+            metadata={
+                "session_id": getattr(self, '_session_id', 'unknown'),
+                "event_type": "skill_start",
                 "skill_name": action.skill,
                 "skill_args": action.args,
-                "message_id": message_id,
-                "sender_name": self.config.name,
-                "session_id": getattr(self, '_session_id', 'unknown')
-            }))
+                "message_id": message_id
+            }
+        )
 
         # Use in-context execution for better integration
         # Pass the skill object directly, allowing knowledge-based execution if no scripts
         args = _normalize_skill_args_dict(action.args)
 
-        # Send progress state event
-        if on_stream_event:
-            from agent.filmeto_agent import StreamEvent
-            execution_mode = "script" if skill.scripts else "knowledge"
-            on_stream_event(StreamEvent("skill_progress", {
+        # Use AgentChatSignals to send progress state event
+        execution_mode = "script" if skill.scripts else "knowledge"
+        self.signals.send_agent_message(
+            content=f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}...",
+            sender_id=self.config.name,
+            sender_name=self.config.name,
+            message_type=MessageType.SYSTEM,
+            metadata={
+                "session_id": getattr(self, '_session_id', 'unknown'),
+                "event_type": "skill_progress",
                 "skill_name": action.skill,
                 "progress_text": f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}...",
-                "message_id": message_id,
-                "sender_name": self.config.name,
-                "session_id": getattr(self, '_session_id', 'unknown')
-            }))
+                "message_id": message_id
+            }
+        )
 
         result = self.skill_service.execute_skill_in_context(
             skill=skill,
@@ -644,17 +667,21 @@ class CrewMember:
         else:
             result_message = str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
 
-        # Send end state event
-        if on_stream_event:
-            from agent.filmeto_agent import StreamEvent
-            on_stream_event(StreamEvent("skill_end", {
+        # Use AgentChatSignals to send end state event
+        self.signals.send_agent_message(
+            content=f"Skill '{action.skill}' completed: {result_message}",
+            sender_id=self.config.name,
+            sender_name=self.config.name,
+            message_type=MessageType.SYSTEM,
+            metadata={
+                "session_id": getattr(self, '_session_id', 'unknown'),
+                "event_type": "skill_end",
                 "skill_name": action.skill,
                 "result": result_message,
                 "success": result.get("success", True) if isinstance(result, dict) else True,
-                "message_id": message_id,
-                "sender_name": self.config.name,
-                "session_id": getattr(self, '_session_id', 'unknown')
-            }))
+                "message_id": message_id
+            }
+        )
 
         return result_message
 
