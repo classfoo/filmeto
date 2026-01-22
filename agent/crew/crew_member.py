@@ -116,7 +116,7 @@ class CrewMember:
             if on_token:
                 on_token(error_message)
             # Use AgentChatSignals to send the error message
-            self.signals.send_agent_message(
+            await self.signals.send_agent_message(
                 content=error_message,
                 sender_id=self.config.name,
                 sender_name=self.config.name,
@@ -134,7 +134,7 @@ class CrewMember:
         messages.extend(self.conversation_history)
 
         # Use AgentChatSignals to notify that the agent is thinking
-        self.signals.send_agent_message(
+        await self.signals.send_agent_message(
             content=f"{self.config.name} is processing the request...",
             sender_id=self.config.name,
             sender_name=self.config.name,
@@ -148,7 +148,7 @@ class CrewMember:
         final_response = None
         for step in range(self.config.max_steps):
             # Use AgentChatSignals to notify that the agent is calling the LLM
-            self.signals.send_agent_message(
+            await self.signals.send_agent_message(
                 content=f"{self.config.name} is calling the LLM (Step {step + 1}/{self.config.max_steps})",
                 sender_id=self.config.name,
                 sender_name=self.config.name,
@@ -164,7 +164,7 @@ class CrewMember:
             response_text = await self._complete(messages)
 
             # Use AgentChatSignals to notify that the LLM responded
-            self.signals.send_agent_message(
+            await self.signals.send_agent_message(
                 content=f"{self.config.name} LLM response (Step {step + 1})",
                 sender_id=self.config.name,
                 sender_name=self.config.name,
@@ -189,7 +189,7 @@ class CrewMember:
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
 
                 # Use AgentChatSignals to notify about skill execution
-                self.signals.send_agent_message(
+                await self.signals.send_agent_message(
                     content=f"Executing skill: {action.skill}",
                     sender_id=self.config.name,
                     sender_name=self.config.name,
@@ -209,7 +209,7 @@ class CrewMember:
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
 
                 # Use AgentChatSignals to notify about plan update
-                self.signals.send_agent_message(
+                await self.signals.send_agent_message(
                     content=f"Plan updated: {observation}",
                     sender_id=self.config.name,
                     sender_name=self.config.name,
@@ -605,7 +605,7 @@ class CrewMember:
             return f"Skill '{action.skill}' not found."
 
         # Use AgentChatSignals to send start state event
-        self.signals.send_agent_message(
+        await self.signals.send_agent_message(
             content=f"Starting skill: {action.skill}",
             sender_id=self.config.name,
             sender_name=self.config.name,
@@ -625,7 +625,7 @@ class CrewMember:
 
         # Use AgentChatSignals to send progress state event
         execution_mode = "script" if skill.scripts else "knowledge"
-        self.signals.send_agent_message(
+        await self.signals.send_agent_message(
             content=f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}...",
             sender_id=self.config.name,
             sender_name=self.config.name,
@@ -667,7 +667,7 @@ class CrewMember:
             result_message = str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
 
         # Use AgentChatSignals to send end state event
-        self.signals.send_agent_message(
+        await self.signals.send_agent_message(
             content=f"Skill '{action.skill}' completed: {result_message}",
             sender_id=self.config.name,
             sender_name=self.config.name,

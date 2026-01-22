@@ -2,6 +2,7 @@
 Integration test module for agent_chat_signals.py with the existing AgentMessage class
 """
 
+import asyncio
 import sys
 import os
 

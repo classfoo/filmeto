@@ -2,6 +2,7 @@
 Test module for agent_chat_signals.py
 """
 
+import asyncio
 import sys
 import os
 
@@ -21,7 +22,7 @@ def test_singleton():
     print("✓ Singleton test passed")
 
 
-def test_signal_connection():
+async def test_signal_connection():
     """Test that signals can be connected and sent."""
     received_messages = []
 
@@ -32,7 +33,7 @@ def test_signal_connection():
     signals.connect(message_handler)
 
     # Send a message
-    message = signals.send_agent_message(
+    message = await signals.send_agent_message(
         content="Hello, world!",
         sender_id="agent1",
         sender_name="Test Agent",
@@ -70,8 +71,11 @@ def test_agent_message_properties():
     print("✓ AgentMessage properties test passed")
 
 
-if __name__ == "__main__":
+async def main():
     test_singleton()
-    test_signal_connection()
+    await test_signal_connection()
     test_agent_message_properties()
     print("All tests passed!")
+
+if __name__ == "__main__":
+    asyncio.run(main())

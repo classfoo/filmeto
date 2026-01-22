@@ -291,7 +291,7 @@ class FilmetoAgent:
             if on_token:
                 on_token(response.content)
             # Use AgentChatSignals to send the agent message
-            self.signals.send_agent_message(
+            await self.signals.send_agent_message(
                 content=response.content,
                 sender_id=response.sender_id,
                 sender_name=response.sender_name,
@@ -351,7 +351,7 @@ class FilmetoAgent:
         if on_token:
             on_token(error_msg.content)
         # Use AgentChatSignals to send the error message
-        self.signals.send_agent_message(
+        await self.signals.send_agent_message(
             content=error_msg.content,
             sender_id=error_msg.sender_id,
             sender_name=error_msg.sender_name,
@@ -417,7 +417,7 @@ class FilmetoAgent:
         self.conversation_history.append(initial_prompt)
 
         # Use AgentChatSignals to send the user message
-        self.signals.send_agent_message(
+        await self.signals.send_agent_message(
             content=message,
             sender_id="user",
             sender_name="User",

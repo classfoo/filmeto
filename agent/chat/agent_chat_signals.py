@@ -42,8 +42,8 @@ class AgentChatSignals:
         """
         self.__agent_message_send.disconnect(receiver)
 
-    def send_agent_message(self, content: str, sender_id: str = "system", sender_name: str = "System",
-                          message_type: MessageType = MessageType.TEXT, metadata: dict = None) -> AgentMessage:
+    async def send_agent_message(self, content: str, sender_id: str = "system", sender_name: str = "System",
+                                message_type: MessageType = MessageType.TEXT, metadata: dict = None) -> AgentMessage:
         """
         Send an agent message via the blinker signal.
 
