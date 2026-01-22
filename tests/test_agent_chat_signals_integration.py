@@ -13,10 +13,10 @@ from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.chat.agent_chat_message import MessageType
 
 
-def test_integration_with_existing_agentmessage():
+async def test_integration_with_existing_agentmessage():
     """Test that the signal system integrates properly with the existing AgentMessage class."""
     received_messages = []
-    
+
     def message_handler(sender, **kwargs):
         received_messages.append(kwargs.get('message'))
 
@@ -24,37 +24,37 @@ def test_integration_with_existing_agentmessage():
     signals.connect(message_handler)
 
     # Send a message using the actual AgentMessage class from agent_chat_message
-    message = signals.send_agent_message(
+    message = await signals.send_agent_message(
         content="Integration test message",
         sender_id="integration_test_agent",
         sender_name="Integration Test Agent",
         message_type=MessageType.TEXT,
         metadata={"test": True, "category": "integration"}
     )
-    
+
     # Verify the received message
     assert len(received_messages) == 1
     received_message = received_messages[0]
-    
+
     # Check that it's the same message object
     assert received_message is message
-    
+
     # Check all the properties of the AgentMessage
     assert received_message.content == "Integration test message"
     assert received_message.sender_id == "integration_test_agent"
     assert received_message.sender_name == "Integration Test Agent"
     assert received_message.message_type == MessageType.TEXT
     assert received_message.metadata == {"test": True, "category": "integration"}
-    
+
     # Verify that it has all the expected attributes of the real AgentMessage class
     assert hasattr(received_message, 'message_id')
     assert hasattr(received_message, 'timestamp')
     assert hasattr(received_message, 'structured_content')
-    
+
     print("✓ Integration test with existing AgentMessage passed")
 
 
-def test_different_message_types():
+async def test_different_message_types():
     """Test sending messages of different types."""
     received_messages = []
 
@@ -68,23 +68,26 @@ def test_different_message_types():
     message_types = [MessageType.TEXT, MessageType.CODE, MessageType.IMAGE, MessageType.SYSTEM]
 
     for msg_type in message_types:
-        signals.send_agent_message(
+        await signals.send_agent_message(
             content=f"Test {msg_type.value} message",
             sender_id="test_agent",
             sender_name="Test Agent",
             message_type=msg_type
         )
-    
+
     assert len(received_messages) == len(message_types)
-    
+
     for i, msg_type in enumerate(message_types):
         assert received_messages[i].message_type == msg_type
         assert f"Test {msg_type.value} message" in received_messages[i].content
-    
+
     print("✓ Different message types test passed")
 
 
-if __name__ == "__main__":
-    test_integration_with_existing_agentmessage()
-    test_different_message_types()
+async def main():
+    await test_integration_with_existing_agentmessage()
+    await test_different_message_types()
     print("All integration tests passed!")
+
+if __name__ == "__main__":
+    asyncio.run(main())

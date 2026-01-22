@@ -6,6 +6,7 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
 import yaml
 
+from agent import MessageType
 from agent.llm.llm_service import LlmService
 from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.plan.models import PlanTask, TaskStatus
@@ -181,7 +182,7 @@ class CrewMember:
 
             if action.action_type == "skill":
                 # Execute skill with structured content reporting
-                observation = self._execute_skill_with_structured_content(
+                observation = await self._execute_skill_with_structured_content(
                     action,
                     message_id=getattr(self, '_current_message_id', 'unknown')
                 )
@@ -552,7 +553,7 @@ class CrewMember:
         # Use in-context execution for better integration
         # Pass the skill object directly, allowing knowledge-based execution if no scripts
         args = _normalize_skill_args_dict(action.args)
-        
+
         result = self.skill_service.execute_skill_in_context(
             skill=skill,
             workspace=self.workspace,
@@ -561,7 +562,7 @@ class CrewMember:
             script_name=action.script,
             llm_service=self.llm_service
         )
-        
+
         if isinstance(result, dict):
             if result.get("success"):
                 message = result.get("message", "Skill executed successfully.")
@@ -577,10 +578,10 @@ class CrewMember:
                 return message
             else:
                 return f"Skill execution failed: {result.get('message', result.get('error', 'Unknown error'))}"
-        
+
         return str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
 
-    def _execute_skill_with_structured_content(
+    async def _execute_skill_with_structured_content(
         self,
         action: CrewMemberAction,
         on_stream_event: Optional[Callable[[Any], None]] = None,
