@@ -127,10 +127,10 @@ class CrewMember:
                 on_complete(error_message)
             return
 
-        system_prompt = self._build_system_prompt(plan_id=plan_id)
-        messages = [{"role": "system", "content": system_prompt}]
+        # Embed the user's question into the react_base template
+        user_prompt = self._build_user_prompt(message, plan_id=plan_id)
+        messages = [{"role": "user", "content": user_prompt}]
         messages.extend(self.conversation_history)
-        messages.append({"role": "user", "content": message})
 
         # Notify UI that the agent is starting to think/process
         if on_stream_event:
@@ -223,6 +223,64 @@ class CrewMember:
         yield final_response
         if on_complete:
             on_complete(final_response)
+
+    def _build_user_prompt(self, user_question: str, plan_id: Optional[str] = None) -> str:
+        """Build a user prompt that embeds the user's question into the react_base template."""
+        soul_content = self._get_formatted_soul_prompt()
+
+        # Prepare skills as structured data for the template
+        skills_list = self._get_skills_as_structured_list()
+
+        # Add the user's question to the context info
+        context_info_parts = []
+        if plan_id:
+            context_info_parts.append(f"Active plan id: {plan_id}.")
+        elif self.project_name:
+            context_info_parts.append(f"Project name: {self.project_name}.")
+
+        # Add the user's question to the context
+        context_info_parts.append(f"User's question: {user_question}")
+        context_info = " ".join(context_info_parts)
+
+        user_prompt = prompt_service.render_prompt(
+            name="react_base",
+            title="crew member",
+            agent_name=self.config.name,
+            role_description=f"Role description: {self.config.description}" if self.config.description else "",
+            soul_profile=soul_content,
+            available_skills=self._format_skills_prompt(),  # Fallback for backward compatibility
+            skills_list=skills_list,
+            context_info=context_info,
+            action_instructions=prompt_service.get_prompt_template("react_action_instructions")
+        )
+
+        # If the base prompt template is not available, fall back to the original method
+        if user_prompt is None:
+            prompt_sections = [
+                "You are a ReAct-style crew member.",
+                f"Crew member name: {self.config.name}.",
+            ]
+            if self.config.description:
+                prompt_sections.append(f"Role description: {self.config.description}")
+            if self.config.prompt:
+                prompt_sections.append(self.config.prompt.strip())
+
+            if soul_content.strip():
+                prompt_sections.append("Soul profile:")
+                prompt_sections.append(soul_content)
+
+            skills_prompt = self._format_skills_prompt()
+            prompt_sections.append(skills_prompt)
+
+            # Include context info with user question
+            prompt_sections.append(context_info)
+
+            # Use the prompt template instead of the hardcoded constant
+            action_instructions = prompt_service.get_prompt_template("react_action_instructions")
+            prompt_sections.append(action_instructions)
+            user_prompt = "\n\n".join(section for section in prompt_sections if section)
+
+        return user_prompt
 
     def _build_soul_service(self, project: Optional[Any]) -> 'SoulService':
         # Return the singleton instance
@@ -327,7 +385,7 @@ class CrewMember:
         all_skills = self.skill_service.get_all_skills()
 
         skills_list = []
-        for skill_name, skill in all_skills.items():
+        for skill in all_skills:  # all_skills is a list, not a dict
             # Extract usage criteria from knowledge if available
             usage_criteria = ""
             if skill.knowledge:
@@ -418,7 +476,7 @@ class CrewMember:
             return "Available skills: none.\nYou cannot call any skills."
 
         details = []
-        for skill_name, skill in all_skills.items():
+        for skill in all_skills:  # all_skills is a list, not a dict
             details.append(_format_skill_entry_detailed(skill))
 
         if not details:
