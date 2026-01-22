@@ -35,7 +35,7 @@ class SkillContentWidget(BaseStructuredContentWidget):
         self.available_width = available_width
         if self.available_width is not None:
             # Set the maximum width of the container frame to the available width
-            self.container_frame.setMaximumWidth(self.available_width)
+            self.container_frame.setFixedWidth(self.available_width)
     
     def _setup_ui(self):
         """Set up the UI components."""
@@ -58,7 +58,7 @@ class SkillContentWidget(BaseStructuredContentWidget):
         """)
         # Set size policy to expand horizontally to fill available space initially
         # but we'll constrain it with maximum width in resizeEvent
-        self.container_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        #self.container_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         # Frame layout
         self.frame_layout = QVBoxLayout(self.container_frame)

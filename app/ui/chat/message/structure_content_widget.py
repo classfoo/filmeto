@@ -60,6 +60,12 @@ class StructureContentWidget(QWidget):
     def add_structured_content_widget(self, widget):
         """Add a structured content widget."""
         self.structured_content_layout.addWidget(widget)
+        # Notify parent about the width change
+        parent = self.parent()
+        if parent and hasattr(parent, 'update_available_width'):
+            # If the parent has an updated width, pass it to the new widget
+            if hasattr(parent, 'available_width') and parent.available_width is not None:
+                widget.update_available_width(parent.available_width)
     
     def clear_structured_content(self):
         """Clear all structured content widgets."""

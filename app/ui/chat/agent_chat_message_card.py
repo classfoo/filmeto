@@ -246,6 +246,8 @@ class BaseMessageCard(QFrame):
 
         if widget:
             self.structure_content.add_structured_content_widget(widget)
+            # Trigger a width recalculation after adding structure content
+            self._update_bubble_width()
 
     def set_content(self, content: str):
         """Set the content (replace)."""
