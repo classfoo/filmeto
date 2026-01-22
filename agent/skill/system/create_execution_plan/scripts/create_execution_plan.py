@@ -2,18 +2,17 @@
 """
 Execution Plan Creation Skill Script
 
-This script creates execution plans for film production projects using the plan service.
+This script creates execution plans for film production projects using the create_plan tool.
 Supports both CLI execution and in-context execution via the SkillExecutor.
 """
 import json
 import sys
 import argparse
-from typing import Dict, Any, TYPE_CHECKING, Optional
+from typing import Dict, Any, TYPE_CHECKING
 import os
 
 if TYPE_CHECKING:
     from agent.skill.skill_executor import SkillContext
-    from agent.plan.service import PlanService
 
 
 def execute(context: 'SkillContext', args: Dict[str, Any]) -> Dict[str, Any]:
@@ -21,6 +20,7 @@ def execute(context: 'SkillContext', args: Dict[str, Any]) -> Dict[str, Any]:
     Execute the create_execution_plan skill in context.
 
     This is the main entry point for in-context execution via SkillExecutor.
+    It calls the 'create_plan' tool using the execute_tool function.
 
     Args:
         context: SkillContext object containing workspace and project
@@ -41,43 +41,36 @@ def execute(context: 'SkillContext', args: Dict[str, Any]) -> Dict[str, Any]:
                 "message": "plan_name is required"
             }
 
-        # Import inside function to avoid sys.path manipulation
-        from agent.plan.service import PlanService
+        # Call the 'create_plan' tool using execute_tool
+        # The parameters for the tool are passed in the parameters dict
+        tool_params = {
+            'title': plan_name,
+            'description': description,
+            'tasks': tasks
+        }
 
-        # Use the plan service from the context if available, otherwise create a new one
-        plan_service = getattr(context, 'plan_service', None)
-        if not plan_service:
-            plan_service = PlanService()
+        # Use execute_tool to call the create_plan tool
+        result = execute_tool("create_plan", tool_params)
 
-        # Set the workspace if available in context
-        if context and context.workspace:
-            plan_service.set_workspace(context.workspace)
-
-        # Create the plan in the context of the project if available
-        project_name = None
-        if context and context.project:
-            project_name = getattr(context.project, 'project_name', None)
-
-        # Create the plan
-        plan = plan_service.create_plan(
-            name=plan_name,
-            description=description,
-            tasks=tasks,
-            project_name=project_name
-        )
-
-        if plan:
-            return {
-                "success": True,
-                "message": f"Execution plan '{plan_name}' created successfully",
-                "plan_id": plan.id,
-                "plan_name": plan.name,
-                "project_name": project_name
-            }
+        # Process the result from the tool
+        if result and isinstance(result, dict):
+            if 'id' in result:  # If the tool returned a plan ID, it was successful
+                return {
+                    "success": True,
+                    "message": f"Execution plan '{plan_name}' created successfully",
+                    "plan_id": result['id'],
+                    "plan_name": result.get('title', plan_name),
+                    "project": result.get('project', 'Unknown Project')
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Failed to create execution plan '{plan_name}': {result.get('message', 'Unknown error')}"
+                }
         else:
             return {
                 "success": False,
-                "message": f"Failed to create execution plan '{plan_name}'"
+                "message": f"Failed to create execution plan '{plan_name}': Unexpected result format"
             }
 
     except Exception as e:
@@ -87,9 +80,9 @@ def execute(context: 'SkillContext', args: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-def create_execution_plan(plan_name: str, description: str = "", tasks: Optional[list] = None) -> Dict[str, Any]:
+def create_execution_plan(plan_name: str, description: str = "", tasks: list = None) -> Dict[str, Any]:
     """
-    Create an execution plan using the plan service.
+    Create an execution plan using the create_plan tool.
 
     Args:
         plan_name (str): Name of the execution plan
@@ -100,30 +93,35 @@ def create_execution_plan(plan_name: str, description: str = "", tasks: Optional
         dict: Result of the operation with success status and message
     """
     try:
-        # Import inside function to avoid sys.path manipulation
-        from agent.plan.service import PlanService
+        # Call the 'create_plan' tool using execute_tool
+        # The parameters for the tool are passed in the parameters dict
+        tool_params = {
+            'title': plan_name,
+            'description': description,
+            'tasks': tasks or []
+        }
 
-        # Initialize the plan service
-        plan_service = PlanService()
+        # Use execute_tool to call the create_plan tool
+        result = execute_tool("create_plan", tool_params)
 
-        # Create the plan
-        plan = plan_service.create_plan(
-            name=plan_name,
-            description=description,
-            tasks=tasks or []
-        )
-
-        if plan:
-            return {
-                "success": True,
-                "message": f"Execution plan '{plan_name}' created successfully",
-                "plan_id": plan.id,
-                "plan_name": plan.name
-            }
+        # Process the result from the tool
+        if result and isinstance(result, dict):
+            if 'id' in result:  # If the tool returned a plan ID, it was successful
+                return {
+                    "success": True,
+                    "message": f"Execution plan '{plan_name}' created successfully",
+                    "plan_id": result['id'],
+                    "plan_name": result.get('title', plan_name)
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Failed to create execution plan '{plan_name}': {result.get('message', 'Unknown error')}"
+                }
         else:
             return {
                 "success": False,
-                "message": f"Failed to create execution plan '{plan_name}'"
+                "message": f"Failed to create execution plan '{plan_name}': Unexpected result format"
             }
 
     except Exception as e:
@@ -182,6 +180,10 @@ def main():
         }
         print(json.dumps(error_result, indent=2))
         sys.exit(1)
+
+
+# Alias for SkillExecutor compatibility
+execute_in_context = execute
 
 
 if __name__ == "__main__":
