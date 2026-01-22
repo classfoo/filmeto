@@ -135,8 +135,11 @@ class BaseMessageCard(QFrame):
         self.bubble_layout.setContentsMargins(10, 8, 10, 8)
         self.bubble_layout.setSpacing(0)
 
-        # Replace content_label with structure_content widget
-        self.structure_content = StructureContentWidget(content, self.bubble_container)
+        # Calculate initial available bubble width
+        self._available_bubble_width_value = self._calculate_available_bubble_width()
+
+        # Replace content_label with structure_content widget, passing available width
+        self.structure_content = StructureContentWidget(content, self.bubble_container, self._available_bubble_width_value)
         self.structure_content.setStyleSheet(f"""
             QLabel#message_content {{
                 background-color: {self.background_color};
@@ -174,7 +177,7 @@ class BaseMessageCard(QFrame):
             }}
         """)
 
-    def _available_bubble_width(self) -> int:
+    def _calculate_available_bubble_width(self) -> int:
         total_width = max(0, self.width())
         max_width = max(0, total_width - (self.avatar_size * 2))
         if self.content_layout:
@@ -182,6 +185,10 @@ class BaseMessageCard(QFrame):
             content_width = max(0, self.content_area.width() - margins.left() - margins.right())
             max_width = min(max_width, content_width)
         return max(80, max_width)
+
+    def _available_bubble_width(self) -> int:
+        # Return the cached value
+        return self._available_bubble_width_value
 
     def _calculate_text_width(self, max_text_width: int) -> int:
         text = self.structure_content.get_content() or ""
@@ -195,7 +202,9 @@ class BaseMessageCard(QFrame):
         return min(max_line_width, max_text_width)
 
     def _update_bubble_width(self):
-        max_width = self._available_bubble_width()
+        # Update the cached value
+        self._available_bubble_width_value = self._calculate_available_bubble_width()
+        max_width = self._available_bubble_width_value
         padding = self.bubble_layout.contentsMargins().left() + self.bubble_layout.contentsMargins().right()
         max_text_width = max(0, max_width - padding)
         text_width = self._calculate_text_width(max_text_width)
@@ -203,6 +212,8 @@ class BaseMessageCard(QFrame):
         self.structure_content.get_content_label().setMaximumWidth(max_text_width)
         self.bubble_container.setFixedWidth(max(1, bubble_width))
         self.structure_content.setMaximumWidth(max_width)
+        # Also notify the structure content widget about the width change
+        self.structure_content.update_available_width(max_width)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -225,7 +236,9 @@ class BaseMessageCard(QFrame):
             widget = ButtonWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.SKILL:
             from app.ui.chat.message.skill_content_widget import SkillContentWidget
-            widget = SkillContentWidget(structure_content, self.structure_content)
+            # Pass the available width to the skill content widget
+            available_width = self._available_bubble_width_value
+            widget = SkillContentWidget(structure_content, self.structure_content, available_width)
         # Add more content types as needed
         else:
             # Default to text content for unrecognized types

@@ -12,10 +12,13 @@ from PySide6.QtWidgets import (
 class StructureContentWidget(QWidget):
     """Widget to display both plain text content and structured content in a unified way."""
     
-    def __init__(self, initial_content: str = "", parent=None):
+    def __init__(self, initial_content: str = "", parent=None, available_width=None):
         """Initialize the structure content widget."""
         super().__init__(parent)
-        
+
+        # Store the available width
+        self.available_width = available_width
+
         self._setup_ui(initial_content)
     
     def _setup_ui(self, initial_content: str):
@@ -116,3 +119,12 @@ class StructureContentWidget(QWidget):
         height = content_size[1] + structured_size[1]
 
         return (width, height)
+
+    def update_available_width(self, width: int):
+        """Update the available width and propagate to child widgets."""
+        self.available_width = width
+        # Propagate the width to all structured content widgets
+        for i in range(self.structured_content_layout.count()):
+            widget = self.structured_content_layout.itemAt(i).widget()
+            if widget and hasattr(widget, 'update_available_width'):
+                widget.update_available_width(width)
