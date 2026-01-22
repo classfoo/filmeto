@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget, QSplitter
 from PySide6.QtCore import Qt
 from PySide6.QtCore import Signal, Slot, QObject
 from PySide6.QtWidgets import QApplication
+from qasync import asyncSlot
 
 from agent.filmeto_agent import StreamEvent, AgentStreamSession
 from agent.chat.agent_chat_signals import AgentChatSignals
@@ -326,7 +327,8 @@ class AgentChatWidget(BaseWidget):
         # Note: In group chat mode, we don't re-enable the input widget
         # since it was never disabled
 
-    def _on_agent_message_sent(self, sender, **kwargs):
+    @asyncSlot()
+    async def _on_agent_message_sent(self, sender, **kwargs):
         """Handle agent message sent via AgentChatSignals."""
         message = kwargs.get('message')
         if message:
