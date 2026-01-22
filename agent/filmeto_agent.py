@@ -331,7 +331,6 @@ class FilmetoAgent:
             response_iter(),
             session_id,
             on_token,
-            on_stream_event,
         ):
             yield content
 
@@ -449,7 +448,6 @@ class FilmetoAgent:
                 producer_agent=producer_agent,
                 session_id=session_id,
                 on_token=on_token,
-                on_stream_event=on_stream_event,
             ):
                 yield content
             if on_complete:
@@ -481,7 +479,6 @@ class FilmetoAgent:
                 plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                 session_id=session_id,
                 on_token=on_token,
-                on_stream_event=on_stream_event,
                 metadata=initial_prompt.metadata
             ):
                 yield content
@@ -502,7 +499,6 @@ class FilmetoAgent:
                     "No suitable agent found to handle this request.",
                     session_id,
                     on_token,
-                    on_stream_event,
                 ):
                     yield content
 

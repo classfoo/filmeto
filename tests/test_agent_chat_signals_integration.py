@@ -56,16 +56,16 @@ def test_integration_with_existing_agentmessage():
 def test_different_message_types():
     """Test sending messages of different types."""
     received_messages = []
-    
+
     def message_handler(sender, **kwargs):
         received_messages.append(kwargs.get('message'))
-    
+
     signals = AgentChatSignals()
     signals.connect(message_handler)
-    
+
     # Test different message types
     message_types = [MessageType.TEXT, MessageType.CODE, MessageType.IMAGE, MessageType.SYSTEM]
-    
+
     for msg_type in message_types:
         signals.send_agent_message(
             content=f"Test {msg_type.value} message",
