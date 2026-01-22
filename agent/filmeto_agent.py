@@ -663,7 +663,7 @@ class FilmetoAgent:
             try:
                 # Create a temporary stream to collect the agent's response
                 async def agent_response_stream():
-                    async for token in agent.chat_stream(message.content, on_stream_event=None, plan_id=None):
+                    async for token in agent.chat_stream(message.content, on_token=None, plan_id=None):
                         response = AgentMessage(
                             content=token,
                             message_type=MessageType.TEXT,

@@ -542,7 +542,7 @@ class CrewMember:
             raw=response_text,
         )
 
-    def _execute_skill(self, action: CrewMemberAction) -> str:
+    async def _execute_skill(self, action: CrewMemberAction) -> str:
         if not action.skill:
             return "No skill specified in action."
         skill = self.skill_service.get_skill(action.skill)
@@ -553,7 +553,7 @@ class CrewMember:
         # Pass the skill object directly, allowing knowledge-based execution if no scripts
         args = _normalize_skill_args_dict(action.args)
 
-        result = self.skill_service.execute_skill_in_context(
+        result = await self.skill_service.execute_skill_in_context(
             skill=skill,
             workspace=self.workspace,
             project=self.project,
@@ -639,7 +639,7 @@ class CrewMember:
             }
         )
 
-        result = self.skill_service.execute_skill_in_context(
+        result = await self.skill_service.execute_skill_in_context(
             skill=skill,
             workspace=self.workspace,
             project=self.project,

@@ -301,7 +301,7 @@ class SkillService:
             print(f"Unexpected error executing script '{script_path}': {e}")
             return f"Error: {e}"
 
-    def execute_skill_in_context(
+    async def execute_skill_in_context(
         self,
         skill: Skill,
         workspace: Any = None,
@@ -354,7 +354,7 @@ class SkillService:
         # Determine execution strategy based on skill configuration
         if skill.scripts:
             # Strategy 1: First call the LLM with knowledge to get script execution details
-            llm_result = self._execute_skill_from_knowledge(skill, context, args, llm_service)
+            llm_result = await self._execute_skill_from_knowledge(skill, context, args, llm_service)
 
             # Check if the LLM provided script execution details
             if llm_result.get("success") and llm_result.get("output_type") == "llm_generated":
@@ -374,11 +374,11 @@ class SkillService:
                 result = executor.execute_skill(skill, context, args, script_name)
         else:
             # Strategy 2: Use knowledge prompt to generate output via LLM
-            result = self._execute_skill_from_knowledge(skill, context, args, llm_service)
+            result = await self._execute_skill_from_knowledge(skill, context, args, llm_service)
 
         return result
 
-    def _execute_skill_from_knowledge(
+    async def _execute_skill_from_knowledge(
         self,
         skill: Skill,
         context: Any,
@@ -387,16 +387,16 @@ class SkillService:
     ) -> Dict[str, Any]:
         """
         Execute a skill using its knowledge section as a prompt for LLM generation.
-        
+
         This is used when a skill has no executable scripts but has knowledge/prompt content
         that describes how to perform the task.
-        
+
         Args:
             skill: The Skill object containing knowledge/prompt
             context: SkillContext for execution
             args: Arguments to pass to the skill
             llm_service: LLM service for generating output
-            
+
         Returns:
             Dict with execution result
         """
@@ -406,7 +406,7 @@ class SkillService:
                 "error": "no_knowledge",
                 "message": f"Skill '{skill.name}' has no knowledge content or scripts to execute."
             }
-        
+
         # If no LLM service is provided, return the knowledge as guidance
         if llm_service is None:
             return {
@@ -417,7 +417,7 @@ class SkillService:
                 "parameters": skill.get_parameters_prompt(),
                 "message": f"Skill '{skill.name}' provides the following guidance:\n\n{skill.knowledge}"
             }
-        
+
         # Build prompt from skill knowledge and arguments
         prompt_parts = [
             f"You are executing the skill: {skill.name}",
@@ -426,45 +426,51 @@ class SkillService:
             "## Skill Knowledge",
             skill.knowledge,
         ]
-        
+
         if skill.reference:
             prompt_parts.extend(["", "## Reference", skill.reference])
-        
+
         if skill.examples:
             prompt_parts.extend(["", "## Examples", skill.examples])
-        
+
         if args:
             prompt_parts.extend([
                 "",
                 "## Input Arguments",
                 json.dumps(args, indent=2, ensure_ascii=False)
             ])
-        
+
         prompt = "\n".join(prompt_parts)
-        
+
         try:
             # Use LLM service to generate output based on knowledge prompt
             messages = [
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": "Please execute the skill based on the knowledge and provided arguments."}
             ]
-            
-            response = llm_service.completion(
-                messages=messages,
-                temperature=0.4,
-                stream=False
+
+            # Use the sync completion method in a thread executor to avoid blocking
+            import asyncio
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: llm_service.completion(
+                    messages=messages,
+                    temperature=0.4,
+                    stream=False
+                )
             )
-            
+
             # Extract response content
             output = self._extract_llm_response(response)
-            
+
             return {
                 "success": True,
                 "output_type": "llm_generated",
                 "output": output,
                 "message": f"Skill '{skill.name}' executed successfully via LLM."
             }
-            
+
         except Exception as e:
             return {
                 "success": False,
