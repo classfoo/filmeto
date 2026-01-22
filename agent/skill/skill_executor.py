@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from agent.skill.skill_service import Skill
+from agent.skill.skill_service import Skill, SkillParameter
+from agent.tool.tool_service import ToolService
 
 
 @dataclass
@@ -32,7 +33,7 @@ class SkillContext:
         if self.screenplay_manager is None and self.project is not None:
             if hasattr(self.project, 'screenplay_manager'):
                 self.screenplay_manager = self.project.screenplay_manager
-        
+
         if self.additional_context is None:
             self.additional_context = {}
 
@@ -71,13 +72,16 @@ class SkillContext:
 class SkillExecutor:
     """
     Executes skill scripts in-context with proper workspace and project access.
-    
-    This class loads skill scripts as Python modules and executes them with
-    a SkillContext object, allowing skills to access the main application's
-    Python interfaces without needing subprocess calls.
+
+    This class executes skill scripts exclusively using ToolService's execute_script method
+    to enable skill-to-tool integration. Scripts are executed through a wrapper that
+    provides the necessary context and arguments to the skill functions.
     """
 
     def __init__(self):
+        # Initialize ToolService for script execution
+        self.tool_service = ToolService()
+        # We no longer cache modules since we're using ToolService
         self._loaded_modules: Dict[str, Any] = {}
         self._module_functions: Dict[str, Callable] = {}
 
@@ -89,14 +93,14 @@ class SkillExecutor:
         script_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Execute a skill with the given context and arguments.
-        
+        Execute a skill with the given context and arguments using ToolService.
+
         Args:
             skill: The Skill object to execute
             context: SkillContext containing workspace, project, etc.
             args: Arguments to pass to the skill function
             script_name: Optional specific script to execute (uses first by default)
-            
+
         Returns:
             Dict with execution result, including success status and output
         """
@@ -125,156 +129,60 @@ class SkillExecutor:
                 "message": f"Script not found for skill '{skill.name}'."
             }
 
-        try:
-            # Load and execute the skill module
-            result = self._execute_python_skill(script_path, skill, context, args or {})
-            return result
-        except Exception as e:
-            return {
-                "success": False,
-                "error": "execution_error",
-                "message": f"Error executing skill '{skill.name}': {str(e)}"
-            }
+        # Execute using ToolService's execute_script for skill-to-tool integration
+        # Read the script content
+        with open(script_path, 'r', encoding='utf-8') as f:
+            script_content = f.read()
 
-    def _execute_python_skill(
-        self,
-        script_path: str,
-        skill: Skill,
-        context: SkillContext,
-        args: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Execute a Python skill script in-context.
+        # Prepare the execution context for the script
+        # Create a script that calls the skill as a tool
+        # Use repr() to properly escape the script content
+        # For complex objects, we'll pass minimal representations
+        workspace_repr = f'"{getattr(context.workspace, "workspace_path", "")}"' if context.workspace else 'None'
+        project_repr = f'"{getattr(context.project, "project_path", "")}"' if context.project else 'None'
         
-        The skill script should have one of:
-        - execute(context, **kwargs) function
-        - A main function matching the skill name (e.g., write_screenplay_outline)
-        """
-        # Create a unique module name based on the script path
-        module_name = f"skill_{skill.name}_{os.path.basename(script_path).replace('.py', '')}"
-        
-        # Load the module if not already loaded
-        if module_name not in self._loaded_modules:
-            spec = importlib.util.spec_from_file_location(module_name, script_path)
-            if spec is None or spec.loader is None:
-                return {
-                    "success": False,
-                    "error": "load_error",
-                    "message": f"Could not load skill module from '{script_path}'."
-                }
-            
-            module = importlib.util.module_from_spec(spec)
-            
-            # Add the module's directory to sys.path temporarily for imports
-            script_dir = os.path.dirname(script_path)
-            original_path = sys.path.copy()
-            
-            # Add project root to path for imports
-            project_root = str(Path(script_path).parents[4])
-            if project_root not in sys.path:
-                sys.path.insert(0, project_root)
-            
-            try:
-                spec.loader.exec_module(module)
-                self._loaded_modules[module_name] = module
-            finally:
-                # Restore original path
-                sys.path = original_path
-        
-        module = self._loaded_modules[module_name]
+        execution_script = f'''
+# Prepare the skill execution context
+# Note: We'll pass basic context values, but complex objects need special handling
+context_dict = {{
+    "workspace_path": {workspace_repr},
+    "project_path": {project_repr},
+    "screenplay_manager": {repr(getattr(context, 'screenplay_manager', None))},
+    "llm_service": {repr(getattr(context, 'llm_service', None))},
+    "additional_context": {repr(getattr(context, 'additional_context', {}))}
+}}
 
-        # Try to find and execute the appropriate function
-        # Priority: execute() -> skill_name function -> main_function_name
-        
-        # 1. Try execute(context, **kwargs)
-        if hasattr(module, 'execute'):
-            execute_fn = getattr(module, 'execute')
-            result = execute_fn(context, **args)
-            return self._normalize_result(result)
+# Prepare arguments
+skill_args = {repr(args or {})}
 
-        # 2. Try execute_in_context(context, **kwargs) - new standard function name
-        if hasattr(module, 'execute_in_context'):
-            execute_fn = getattr(module, 'execute_in_context')
-            result = execute_fn(context, **args)
-            return self._normalize_result(result)
+# Execute the skill script with the context
+script_content = {repr(script_content)}
+exec(script_content)
 
-        # 3. Try skill name as function (e.g., write_screenplay_outline)
-        skill_fn_name = skill.name.replace('-', '_')
-        if hasattr(module, skill_fn_name):
-            skill_fn = getattr(module, skill_fn_name)
-            # Call with context and args
-            result = self._call_with_context(skill_fn, context, args)
-            return self._normalize_result(result)
-
-        # 4. Try common function names based on the script name
-        script_basename = os.path.basename(script_path).replace('.py', '')
-        if hasattr(module, script_basename):
-            fn = getattr(module, script_basename)
-            result = self._call_with_context(fn, context, args)
-            return self._normalize_result(result)
-
-        # 5. Fallback: look for any callable that looks like a main entry point
-        for attr_name in ['run', 'process', 'handle']:
-            if hasattr(module, attr_name):
-                fn = getattr(module, attr_name)
-                if callable(fn):
-                    result = self._call_with_context(fn, context, args)
-                    return self._normalize_result(result)
-
-        return {
+# Call the main function of the skill with context and args
+# This assumes the skill script has an 'execute' function
+if 'execute' in locals():
+    result = execute(context_dict, **skill_args)
+elif 'execute_in_context' in locals():
+    result = execute_in_context(context_dict, **skill_args)
+else:
+    # Try to find a function matching the skill name
+    skill_fn_name = "{skill.name.replace("-", "_")}"
+    if skill_fn_name in locals():
+        result = locals()[skill_fn_name](**skill_args)
+    else:
+        # If no standard function found, return an error
+        result = {{
             "success": False,
             "error": "no_entry_point",
-            "message": f"No execute function found in skill '{skill.name}'. "
-                      f"Expected 'execute(context, **kwargs)' or '{skill_fn_name}(...)' function."
-        }
+            "message": f"No execute function found in skill '{{skill.name}}'. "
+                      f"Expected 'execute(context, **kwargs)' or '{{skill_fn_name}}(...)' function."
+        }}
+'''
 
-    def _call_with_context(
-        self,
-        fn: Callable,
-        context: SkillContext,
-        args: Dict[str, Any]
-    ) -> Any:
-        """
-        Call a function with context, adapting to its signature.
-        
-        Handles functions that:
-        - Accept (context, **kwargs)
-        - Accept specific named arguments
-        - Accept project_path and other standard arguments
-        """
-        import inspect
-        
-        sig = inspect.signature(fn)
-        params = list(sig.parameters.keys())
-        
-        # Prepare call arguments
-        call_args = dict(args)
-        
-        # Add context-derived arguments if the function expects them
-        if 'context' in params:
-            call_args['context'] = context
-        if 'project_path' in params and 'project_path' not in call_args:
-            call_args['project_path'] = context.get_project_path()
-        if 'workspace' in params and 'workspace' not in call_args:
-            call_args['workspace'] = context.workspace
-        if 'project' in params and 'project' not in call_args:
-            call_args['project'] = context.project
-        if 'screenplay_manager' in params and 'screenplay_manager' not in call_args:
-            call_args['screenplay_manager'] = context.screenplay_manager
-
-        # Filter to only include parameters the function accepts
-        filtered_args = {}
-        for param_name, param in sig.parameters.items():
-            if param_name in call_args:
-                filtered_args[param_name] = call_args[param_name]
-            elif param.kind == inspect.Parameter.VAR_KEYWORD:
-                # Function accepts **kwargs, pass all remaining args
-                for k, v in call_args.items():
-                    if k not in filtered_args:
-                        filtered_args[k] = v
-                break
-
-        return fn(**filtered_args)
+        # Execute the script using ToolService
+        result = self.tool_service.execute_script(execution_script)
+        return self._normalize_result(result)
 
     def _normalize_result(self, result: Any) -> Dict[str, Any]:
         """Normalize the skill execution result to a standard format."""
@@ -302,7 +210,8 @@ class SkillExecutor:
 
     def clear_cache(self):
         """Clear cached modules to force reload on next execution."""
-        self._loaded_modules.clear()
+        # Since we no longer cache modules, this is kept for API compatibility
+        pass
 
 
 # Global executor instance
