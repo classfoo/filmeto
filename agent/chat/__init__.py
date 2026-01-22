@@ -12,6 +12,9 @@ from .agent_chat_message import (
     ContentType,
     StructureContent
 )
+from .agent_chat_signals import (
+    AgentChatSignals
+)
 
 __all__ = [
     'Conversation',
@@ -21,5 +24,6 @@ __all__ = [
     'AgentMessage',
     'MessageType',
     'ContentType',
-    'StructureContent'
+    'StructureContent',
+    'AgentChatSignals'
 ]
