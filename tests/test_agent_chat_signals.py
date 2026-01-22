@@ -10,7 +10,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from agent.chat.agent_chat_signals import AgentChatSignals
-from agent.chat.agent_chat_message import AgentMessage, MessageType
+from agent.chat.agent_chat_message import AgentMessage
+from agent.chat.agent_chat_types import MessageType
 
 
 def test_singleton():

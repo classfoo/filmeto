@@ -8,8 +8,6 @@ Tests:
 """
 
 import pytest
-import asyncio
-from typing import Dict, Any
 from langchain_core.messages import HumanMessage
 
 # Mock classes for testing
@@ -127,7 +125,8 @@ class TestStateManagement:
     
     def test_agent_message_structure(self):
         """Test AgentMessage structure."""
-        from agent.chat.agent_chat_message import AgentMessage, MessageType
+        from agent.chat.agent_chat_message import AgentMessage
+        from agent.chat.agent_chat_types import MessageType
         from langchain_core.messages import HumanMessage
 
         # Create an agent message
@@ -147,7 +146,8 @@ class TestStateManagement:
     
     def test_agent_conversation_flow(self):
         """Test agent conversation flow."""
-        from agent.chat.agent_chat_message import AgentMessage, MessageType
+        from agent.chat.agent_chat_message import AgentMessage
+        from agent.chat.agent_chat_types import MessageType
 
         # Create a sequence of messages representing a conversation
         messages = [
@@ -175,7 +175,8 @@ class TestStateManagement:
     
     def test_isolation_between_different_projects(self):
         """Test that conversations are isolated between different projects."""
-        from agent.chat.agent_chat_message import AgentMessage, MessageType
+        from agent.chat.agent_chat_message import AgentMessage
+        from agent.chat.agent_chat_types import MessageType
 
         # Create messages for two different projects
         project1_messages = [

@@ -7,7 +7,8 @@ import logging
 import re
 import uuid
 from typing import AsyncIterator, Dict, List, Optional, Callable, Any
-from agent.chat.agent_chat_message import AgentMessage, MessageType
+from agent.chat.agent_chat_message import AgentMessage
+from agent.chat.agent_chat_types import MessageType
 from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.llm.llm_service import LlmService
 from agent.plan.models import Plan, PlanInstance, PlanTask, TaskStatus

@@ -3,7 +3,8 @@ Example implementation showing how to use the FilmetoAgent system.
 """
 import asyncio
 from typing import AsyncIterator
-from agent import FilmetoAgent, AgentMessage, MessageType
+from agent import FilmetoAgent, AgentMessage
+from agent.chat.agent_chat_types import MessageType
 
 
 async def creative_writer_handler(message: AgentMessage) -> AsyncIterator[AgentMessage]:

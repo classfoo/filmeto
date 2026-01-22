@@ -3,15 +3,13 @@ Test script to verify logging functionality for agent messages
 """
 import asyncio
 import tempfile
-import os
 import logging
 from pathlib import Path
 
 from agent.crew.crew_member import CrewMember
-from agent.llm.llm_service import LlmService
 from app.data.project import Project
 from app.data.workspace import Workspace
-from agent.chat.agent_chat_message import AgentMessage, MessageType
+from agent.chat.agent_chat_message import AgentMessage
 
 
 def setup_test_logging():
@@ -237,7 +235,7 @@ You are a film director. Help with directing films.
             )
             
             # Manually create a message to test logging
-            from agent.chat.agent_chat_message import MessageType
+            from agent.chat.agent_chat_types import MessageType
             initial_msg = AgentMessage(
                 content="Test initial message",
                 message_type=MessageType.TEXT,

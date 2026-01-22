@@ -5,14 +5,13 @@ with support for streaming content, structured data, and concurrent agent execut
 """
 
 import uuid
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import Dict, List, Any, TYPE_CHECKING
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QScrollArea, QWidget, QLabel, QFrame, QSizePolicy
+    QVBoxLayout, QScrollArea, QWidget, QLabel
 )
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QIcon, QFont, QPen
 
-from agent.chat.agent_chat_message import AgentMessage
 from app.ui.base_widget import BaseWidget
 from utils.i18n_utils import tr
 
@@ -142,7 +141,8 @@ class AgentChatHistoryWidget(BaseWidget):
 
         # Lazy import when first needed
         from app.ui.chat.agent_chat_message_card import AgentMessageCard, UserMessageCard
-        from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage, MessageType
+        from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage
+        from agent.chat.agent_chat_types import MessageType
 
         # Determine if this is a user message
         is_user = message.role == "user"
@@ -391,7 +391,8 @@ class AgentChatHistoryWidget(BaseWidget):
 
         # Lazy import when first needed
         from app.ui.chat.agent_chat_message_card import AgentMessageCard, UserMessageCard
-        from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage, MessageType
+        from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage
+        from agent.chat.agent_chat_types import MessageType
 
         is_user, icon_char, bg_color, alignment, use_iconfont = self._get_sender_info(sender)
 
@@ -546,7 +547,8 @@ class AgentChatHistoryWidget(BaseWidget):
 
         # Lazy import when first needed
         from app.ui.chat.agent_chat_message_card import AgentMessageCard
-        from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage, MessageType
+        from agent.chat.agent_chat_message import AgentMessage as ChatAgentMessage
+        from agent.chat.agent_chat_types import MessageType
 
         # Create an empty AgentMessage
         agent_message = ChatAgentMessage(

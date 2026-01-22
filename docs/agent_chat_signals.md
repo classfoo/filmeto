@@ -28,15 +28,17 @@ A singleton class that provides:
 
 ```python
 from agent.chat.agent_chat_signals import AgentChatSignals
-from agent.chat.agent_chat_message import MessageType
+from agent.chat.agent_chat_types import MessageType
 
 # Get the singleton instance
 signals = AgentChatSignals()
+
 
 # Connect to the signal
 def message_handler(sender, **kwargs):
     message = kwargs.get('message')
     print(f"Received message from {message.sender_name} ({message.sender_id}): {message.content}")
+
 
 signals.agent_message_send.connect(message_handler)
 

@@ -6,8 +6,8 @@ blinker signals for agent chat functionality.
 """
 
 import blinker
-from typing import Any
-from .agent_chat_message import AgentMessage, MessageType
+from .agent_chat_message import AgentMessage
+from agent.chat.agent_chat_types import MessageType
 
 
 class AgentChatSignals:

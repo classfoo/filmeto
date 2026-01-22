@@ -2,7 +2,8 @@
 Simple test for the FilmetoAgent implementation.
 """
 import asyncio
-from agent import FilmetoAgent, AgentMessage, MessageType
+from agent import FilmetoAgent, AgentMessage
+from agent.chat.agent_chat_types import MessageType
 
 
 async def test_agent_registration():

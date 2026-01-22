@@ -1,9 +1,9 @@
 """
 Simple test for the AgentPanel integration with chat_stream.
 """
-import sys
 import asyncio
-from agent import FilmetoAgent, AgentMessage, MessageType
+from agent import FilmetoAgent, AgentMessage
+from agent.chat.agent_chat_types import MessageType
 
 
 async def test_chat_stream_method_exists():

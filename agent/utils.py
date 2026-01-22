@@ -20,7 +20,7 @@ def create_text_message(content: str, sender_id: str, sender_name: str = "") -> 
     Returns:
         AgentMessage: A properly formatted text message
     """
-    from agent.chat.agent_chat_message import MessageType
+    from agent.chat.agent_chat_types import MessageType
     message = AgentMessage(
         content=content,
         message_type=MessageType.TEXT,
@@ -43,7 +43,7 @@ def create_error_message(content: str, sender_id: str = "system", sender_name: s
     Returns:
         AgentMessage: A properly formatted error message
     """
-    from agent.chat.agent_chat_message import MessageType
+    from agent.chat.agent_chat_types import MessageType
     message = AgentMessage(
         content=content,
         message_type=MessageType.ERROR,
@@ -64,7 +64,7 @@ def create_system_message(content: str) -> AgentMessage:
     Returns:
         AgentMessage: A properly formatted system message
     """
-    from agent.chat.agent_chat_message import MessageType
+    from agent.chat.agent_chat_types import MessageType
     message = AgentMessage(
         content=content,
         message_type=MessageType.SYSTEM,

@@ -6,13 +6,12 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
 import yaml
 
-from agent import MessageType
+from agent.chat.agent_chat_types import MessageType
 from agent.llm.llm_service import LlmService
 from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.plan.models import PlanTask, TaskStatus
 from agent.plan.service import PlanService
-from agent.skill.skill_service import SkillService, Skill, SkillParameter
-from agent.skill.skill_executor import SkillContext, SkillExecutor, get_skill_executor
+from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
 

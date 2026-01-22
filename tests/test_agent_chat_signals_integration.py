@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from agent.chat.agent_chat_signals import AgentChatSignals
-from agent.chat.agent_chat_message import MessageType
+from agent.chat.agent_chat_types import MessageType
 
 
 async def test_integration_with_existing_agentmessage():
