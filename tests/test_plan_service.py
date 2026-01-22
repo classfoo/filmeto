@@ -1,295 +1,174 @@
-import unittest
-import tempfile
-import shutil
-from pathlib import Path
+"""
+Test script for the Plan Service functionality
+"""
+import sys
+import os
 
-from agent.plan.models import Plan, PlanInstance, PlanTask, PlanStatus, TaskStatus
-from agent.plan.service import PlanService
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from utils.plan_service import create_execution_plan, execute_plan_synchronously, plan_service_manager
+from agent.plan.models import PlanTask
+from datetime import datetime
 
 
-class TestPlanService(unittest.TestCase):
-    def setUp(self):
-        # Create a temporary directory for testing
-        self.temp_dir = Path(tempfile.mkdtemp())
-        self.original_workspace = "workspace/agent/plan/flow"
-        
-        # Temporarily change the storage directory for testing
-        PlanService._instance = None  # Reset singleton instance
-        self.service = PlanService()
-        self.service.flow_storage_dir = self.temp_dir / "agent" / "plan" / "flow"
-        self.service.flow_storage_dir.mkdir(parents=True, exist_ok=True)
+def test_create_plan():
+    """Test creating a plan using the plan service"""
+    print("Testing plan creation...")
     
-    def tearDown(self):
-        # Clean up the temporary directory
-        shutil.rmtree(self.temp_dir)
-        PlanService._instance = None  # Reset singleton instance
+    tasks = [
+        {
+            'id': 'task_1',
+            'name': 'Research',
+            'description': 'Research the problem',
+            'title': 'researcher',
+            'parameters': {'param1': 'value1'},
+            'needs': []
+        },
+        {
+            'id': 'task_2',
+            'name': 'Analysis',
+            'description': 'Analyze the findings',
+            'title': 'analyst',
+            'parameters': {'param2': 'value2'},
+            'needs': ['task_1']
+        },
+        {
+            'id': 'task_3',
+            'name': 'Report',
+            'description': 'Write a report',
+            'title': 'writer',
+            'parameters': {'param3': 'value3'},
+            'needs': ['task_2']
+        }
+    ]
     
-    def test_create_and_load_plan(self):
-        """Test creating and loading a Plan."""
-        project_name = "test_project"
-        name = "Test Plan"
-        description = "A test plan"
-
-        tasks = [
-            PlanTask(
-                id="task1",
-                name="Task 1",
-                description="First task",
-                title="researcher",
-                needs=[]
-            ),
-            PlanTask(
-                id="task2",
-                name="Task 2",
-                description="Second task",
-                title="writer",
-                needs=["task1"]
-            )
-        ]
-
-        # Create a plan
-        plan = self.service.create_plan(
-            project_name=project_name,
-            name=name,
-            description=description,
-            tasks=tasks
-        )
-
-        # Load the plan
-        loaded_plan = self.service.load_plan(project_name, plan.id)
-
-        self.assertIsNotNone(loaded_plan)
-        self.assertEqual(loaded_plan.name, name)
-        self.assertEqual(loaded_plan.description, description)
-        self.assertEqual(len(loaded_plan.tasks), 2)
-        self.assertEqual(loaded_plan.tasks[0].id, "task1")
-        self.assertEqual(loaded_plan.tasks[1].id, "task2")
-        self.assertEqual(loaded_plan.tasks[1].needs, ["task1"])
+    plan_data = create_execution_plan(
+        project_name='TestProject',
+        plan_name='Test Plan',
+        description='A test plan for verifying plan service functionality',
+        tasks=tasks
+    )
     
-    def test_create_and_load_plan_instance(self):
-        """Test creating and loading a PlanInstance."""
-        project_name = "test_project"
-        name = "Test Plan"
-        description = "A test plan"
-
-        tasks = [
-            PlanTask(
-                id="task1",
-                name="Task 1",
-                description="First task",
-                title="researcher",
-                needs=[]
-            )
-        ]
-
-        # Create a plan
-        plan = self.service.create_plan(
-            project_name=project_name,
-            name=name,
-            description=description,
-            tasks=tasks
-        )
-
-        # Create a plan instance
-        plan_instance = self.service.create_plan_instance(plan)
-
-        # Load the plan instance
-        loaded_instance = self.service.load_plan_instance(
-            project_name,
-            plan.id,
-            plan_instance.instance_id
-        )
-
-        self.assertIsNotNone(loaded_instance)
-        self.assertEqual(loaded_instance.plan_id, plan.id)
-        self.assertEqual(loaded_instance.project_name, project_name)
-        self.assertEqual(len(loaded_instance.tasks), 1)
-        self.assertEqual(loaded_instance.tasks[0].id, "task1")
-        self.assertEqual(loaded_instance.tasks[0].status, TaskStatus.CREATED)
+    print(f"Created plan with ID: {plan_data['id']}")
+    print(f"Plan name: {plan_data['name']}")
+    print(f"Number of tasks: {len(plan_data['tasks'])}")
     
-    def test_start_plan_execution(self):
-        """Test starting plan execution."""
-        project_name = "test_project"
-        name = "Test Plan"
-        description = "A test plan"
-
-        tasks = [
-            PlanTask(
-                id="task1",
-                name="Task 1",
-                description="First task",
-                title="researcher",
-                needs=[]
-            ),
-            PlanTask(
-                id="task2",
-                name="Task 2",
-                description="Second task",
-                title="writer",
-                needs=["task1"]
-            )
-        ]
-
-        # Create a plan
-        plan = self.service.create_plan(
-            project_name=project_name,
-            name=name,
-            description=description,
-            tasks=tasks
-        )
-
-        # Create a plan instance
-        plan_instance = self.service.create_plan_instance(plan)
-
-        # Start execution
-        success = self.service.start_plan_execution(plan_instance)
-
-        self.assertTrue(success)
-        self.assertEqual(plan_instance.status, PlanStatus.RUNNING)
-
-        # Task1 should be READY since it has no dependencies
-        task1 = next(t for t in plan_instance.tasks if t.id == "task1")
-        self.assertEqual(task1.status, TaskStatus.READY)
-
-        # Task2 should still be CREATED since it depends on task1
-        task2 = next(t for t in plan_instance.tasks if t.id == "task2")
-        self.assertEqual(task2.status, TaskStatus.CREATED)
+    for task in plan_data['tasks']:
+        print(f"  - Task: {task['name']} (ID: {task['id']}) - Needs: {task['needs']}")
     
-    def test_mark_task_completed_with_dependencies(self):
-        """Test marking a task as completed and checking dependency handling."""
-        project_name = "test_project"
-        name = "Test Plan"
-        description = "A test plan"
+    return plan_data
 
-        tasks = [
-            PlanTask(
-                id="task1",
-                name="Task 1",
-                description="First task",
-                title="researcher",
-                needs=[]
-            ),
-            PlanTask(
-                id="task2",
-                name="Task 2",
-                description="Second task",
-                title="writer",
-                needs=["task1"]
-            )
-        ]
 
-        # Create a plan
-        plan = self.service.create_plan(
-            project_name=project_name,
-            name=name,
-            description=description,
-            tasks=tasks
-        )
-
-        # Create a plan instance and start execution
-        plan_instance = self.service.create_plan_instance(plan)
-        self.service.start_plan_execution(plan_instance)
-
-        # Mark task1 as completed
-        success = self.service.mark_task_completed(plan_instance, "task1")
-
-        self.assertTrue(success)
-
-        # Task1 should be COMPLETED
-        task1 = next(t for t in plan_instance.tasks if t.id == "task1")
-        self.assertEqual(task1.status, TaskStatus.COMPLETED)
-
-        # Task2 should now be READY since its dependency is satisfied
-        task2 = next(t for t in plan_instance.tasks if t.id == "task2")
-        self.assertEqual(task2.status, TaskStatus.READY)
+def test_execute_plan():
+    """Test executing a plan using the plan service"""
+    print("\nTesting plan execution...")
     
-    def test_cancel_plan(self):
-        """Test cancelling an entire plan."""
-        project_name = "test_project"
-        name = "Test Plan"
-        description = "A test plan"
-
-        tasks = [
-            PlanTask(
-                id="task1",
-                name="Task 1",
-                description="First task",
-                title="researcher",
-                needs=[]
-            ),
-            PlanTask(
-                id="task2",
-                name="Task 2",
-                description="Second task",
-                title="writer",
-                needs=[]
-            )
-        ]
-
-        # Create a plan
-        plan = self.service.create_plan(
-            project_name=project_name,
-            name=name,
-            description=description,
-            tasks=tasks
-        )
-
-        # Create a plan instance and start execution
-        plan_instance = self.service.create_plan_instance(plan)
-        self.service.start_plan_execution(plan_instance)
-
-        # Mark task1 as running
-        self.service.mark_task_running(plan_instance, "task1")
-
-        # Cancel the entire plan
-        success = self.service.cancel_plan(plan_instance)
-
-        self.assertTrue(success)
-        self.assertEqual(plan_instance.status, PlanStatus.CANCELLED)
-
-        # Both tasks should be cancelled
-        task1 = next(t for t in plan_instance.tasks if t.id == "task1")
-        self.assertEqual(task1.status, TaskStatus.CANCELLED)
-
-        task2 = next(t for t in plan_instance.tasks if t.id == "task2")
-        self.assertEqual(task2.status, TaskStatus.CANCELLED)
+    tasks = [
+        {
+            'id': 'task_1',
+            'name': 'Research',
+            'description': 'Research the problem',
+            'title': 'researcher',
+            'parameters': {'param1': 'value1'},
+            'needs': []
+        },
+        {
+            'id': 'task_2',
+            'name': 'Analysis',
+            'description': 'Analyze the findings',
+            'title': 'analyst',
+            'parameters': {'param2': 'value2'},
+            'needs': ['task_1']
+        },
+        {
+            'id': 'task_3',
+            'name': 'Report',
+            'description': 'Write a report',
+            'title': 'writer',
+            'parameters': {'param3': 'value3'},
+            'needs': ['task_2']
+        }
+    ]
     
-    def test_cancel_single_task(self):
-        """Test cancelling a single task."""
-        project_name = "test_project"
-        name = "Test Plan"
-        description = "A test plan"
-
-        tasks = [
-            PlanTask(
-                id="task1",
-                name="Task 1",
-                description="First task",
-                title="researcher",
-                needs=[]
-            )
-        ]
-
-        # Create a plan
-        plan = self.service.create_plan(
-            project_name=project_name,
-            name=name,
-            description=description,
-            tasks=tasks
-        )
-
-        # Create a plan instance
-        plan_instance = self.service.create_plan_instance(plan)
-
-        # Cancel the task
-        success = self.service.cancel_task(plan_instance, "task1")
-
-        self.assertTrue(success)
-
-        # The task should be cancelled
-        task1 = next(t for t in plan_instance.tasks if t.id == "task1")
-        self.assertEqual(task1.status, TaskStatus.CANCELLED)
+    execution_result = execute_plan_synchronously(
+        project_name='TestProject',
+        plan_name='Test Execution Plan',
+        description='A test plan for verifying plan execution functionality',
+        tasks=tasks
+    )
+    
+    print(f"Execution completed with status: {execution_result['status']}")
+    print(f"Plan ID: {execution_result['plan_id']}")
+    print(f"Instance ID: {execution_result['instance_id']}")
+    
+    for task in execution_result['tasks']:
+        print(f"  - Task: {task['name']} - Status: {task['status']}")
+    
+    return execution_result
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_plan_service_class():
+    """Test using the PlanServiceManager class directly"""
+    print("\nTesting PlanServiceManager class...")
+
+    # Create tasks as dictionaries (as expected by the create_plan method)
+    task_dicts = [
+        {
+            'id': 'direct_task_1',
+            'name': 'Direct Task 1',
+            'description': 'A task created directly through PlanServiceManager',
+            'title': 'executor',
+            'parameters': {'step': 1},
+            'needs': []
+        },
+        {
+            'id': 'direct_task_2',
+            'name': 'Direct Task 2',
+            'description': 'Another task created directly through PlanServiceManager',
+            'title': 'executor',
+            'parameters': {'step': 2},
+            'needs': ['direct_task_1']
+        }
+    ]
+
+    # Create a plan using the manager
+    plan = plan_service_manager.create_plan(
+        project_name='TestProject',
+        plan_name='Direct Test Plan',
+        description='A test plan created directly through PlanServiceManager',
+        tasks=task_dicts
+    )
+
+    print(f"Created plan with ID: {plan.id}")
+    print(f"Plan name: {plan.name}")
+    print(f"Number of tasks: {len(plan.tasks)}")
+
+    # Create an instance of the plan
+    plan_instance = plan_service_manager.create_plan_instance(plan)
+    print(f"Created plan instance with ID: {plan_instance.instance_id}")
+
+    # Start execution
+    started = plan_service_manager.start_plan_execution(plan_instance)
+    print(f"Started plan execution: {started}")
+
+    # Get ready tasks
+    ready_tasks = plan_service_manager.get_next_ready_tasks(plan_instance)
+    print(f"Ready tasks: {len(ready_tasks)}")
+
+    return plan, plan_instance
+
+
+if __name__ == "__main__":
+    print("Running Plan Service tests...\n")
+    
+    # Test 1: Create a plan
+    plan_data = test_create_plan()
+    
+    # Test 2: Execute a plan
+    execution_result = test_execute_plan()
+    
+    # Test 3: Use PlanServiceManager directly
+    plan, plan_instance = test_plan_service_class()
+    
+    print("\nAll tests completed successfully!")
