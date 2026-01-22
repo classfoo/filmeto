@@ -713,7 +713,15 @@ class AgentChatHistoryWidget(BaseWidget):
             # Handle agent response events - data comes from event.data
             content = event.data.get('content', '')
             sender_name = event.data.get('sender_name', 'Unknown')
+            sender_id = event.data.get('sender_id', sender_name.lower())
             session_id = event.data.get('session_id', 'unknown')
+
+            # Check if this is a user message that would cause duplication
+            # If sender_id is "user", we need to avoid duplication
+            if sender_id == "user":
+                # Skip adding user messages that come through the agent system
+                # since they're already added when the user submits them in the UI
+                return
 
             # Create a unique message ID for this response
             message_id = event.data.get('message_id')
@@ -738,7 +746,13 @@ class AgentChatHistoryWidget(BaseWidget):
             # Handle skill events (start, progress, end)
             skill_name = event.data.get('skill_name', 'Unknown')
             sender_name = event.data.get('sender_name', 'Unknown')
+            sender_id = event.data.get('sender_id', sender_name.lower())
             message_id = event.data.get('message_id', str(uuid.uuid4()))
+
+            # Check if this is a user message that would cause duplication
+            if sender_id == "user":
+                # Skip adding user messages that come through the agent system
+                return
 
             # Determine the status based on event type
             if event.event_type == "skill_start":
@@ -788,6 +802,15 @@ class AgentChatHistoryWidget(BaseWidget):
             )
         elif hasattr(event, 'content') and event.content:
             # Handle regular content events (fallback for other types)
+            # Check if this is a user message that would cause duplication
+            sender_id = getattr(event, 'sender_id', '')
+            if hasattr(event, 'agent_name'):
+                sender_id = getattr(event, 'agent_name', '').lower()
+
+            if sender_id == "user":
+                # Skip adding user messages that come through the agent system
+                return
+
             # Create or update the card with the content
             card = self._message_cards.get(event.message_id)
             if not card:

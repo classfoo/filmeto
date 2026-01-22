@@ -148,6 +148,7 @@ class AgentChatWidget(BaseWidget):
 
         # Start async processing which will initialize agent if needed
         # Use the standard asyncio.create_task but wrapped in a way that's compatible with Qt
+        # The agent system will handle sending the user message through AgentChatSignals
         asyncio.ensure_future(self._process_message_async(message))
 
     def _on_reference_clicked(self, ref_type: str, ref_id: str):
