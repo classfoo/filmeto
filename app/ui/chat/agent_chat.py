@@ -65,7 +65,11 @@ class AgentChatWidget(BaseWidget):
 
         # Stream event handler for bridging async to Qt
         self._stream_handler = StreamEventHandler(self)
-        self._stream_handler.stream_event_received.connect(self._on_stream_event)
+        self._stream_handler.stream_event_received.connect(
+            self._on_stream_event,
+            Qt.QueuedConnection,
+        )
+        self.stream_event.connect(self._on_stream_event, Qt.QueuedConnection)
 
         # Connect to AgentChatSignals for message handling
         self._signals = AgentChatSignals()
@@ -327,13 +331,16 @@ class AgentChatWidget(BaseWidget):
         message = kwargs.get('message')
         if message:
             # Convert the AgentMessage to a StreamEvent-like object for compatibility
+            metadata = message.metadata or {}
+            message_id = metadata.get("message_id") or getattr(message, "message_id", None)
             event_data = {
                 "content": message.content,
                 "sender_name": message.sender_name,
                 "sender_id": message.sender_id,
                 "message_type": message.message_type.value if hasattr(message.message_type, 'value') else str(message.message_type),
-                "session_id": message.metadata.get("session_id", "unknown") if message.metadata else "unknown",
-                "event_type": message.metadata.get("event_type", "agent_response") if message.metadata else "agent_response"
+                "session_id": metadata.get("session_id", "unknown"),
+                "event_type": metadata.get("event_type", "agent_response"),
+                "message_id": message_id,
             }
 
             # Create a StreamEvent-like object
@@ -343,7 +350,7 @@ class AgentChatWidget(BaseWidget):
             session = self.agent.get_current_session() if self.agent else None
 
             # Handle the event
-            self._on_stream_event(stream_event, session)
+            self.stream_event.emit(stream_event, session)
 
     async def _stream_response(self, message: str):
         """Stream response from agent with multi-agent events."""

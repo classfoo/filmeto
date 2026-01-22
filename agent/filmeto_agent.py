@@ -318,12 +318,14 @@ class FilmetoAgent:
                 response_metadata = dict(metadata or {})
                 if plan_id:
                     response_metadata.setdefault("plan_id", plan_id)
+                response_metadata.setdefault("message_id", crew_member._current_message_id)
                 response = AgentMessage(
                     content=token,
                     message_type=MessageType.TEXT,
                     sender_id=crew_member.config.name,
                     sender_name=crew_member.config.name.capitalize(),
                     metadata=response_metadata,
+                    message_id=crew_member._current_message_id,
                 )
                 logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
                 yield response
