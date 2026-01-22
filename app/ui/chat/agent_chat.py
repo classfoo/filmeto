@@ -14,6 +14,7 @@ from PySide6.QtCore import Signal, Slot, QObject
 from PySide6.QtWidgets import QApplication
 
 from agent.filmeto_agent import StreamEvent, AgentStreamSession
+from agent.chat.agent_chat_signals import AgentChatSignals
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
 from app.ui.chat.agent_chat_history import AgentChatHistoryWidget
@@ -65,6 +66,10 @@ class AgentChatWidget(BaseWidget):
         # Stream event handler for bridging async to Qt
         self._stream_handler = StreamEventHandler(self)
         self._stream_handler.stream_event_received.connect(self._on_stream_event)
+
+        # Connect to AgentChatSignals for message handling
+        self._signals = AgentChatSignals()
+        self._signals.connect(self._on_agent_message_sent)
 
         # Connect internal signals
         self.response_token_received.connect(self._on_token_received)
@@ -316,6 +321,67 @@ class AgentChatWidget(BaseWidget):
         self._is_processing = False
         # Note: In group chat mode, we don't re-enable the input widget
         # since it was never disabled
+
+    def _on_agent_message_sent(self, sender, **kwargs):
+        """Handle agent message sent via AgentChatSignals."""
+        message = kwargs.get('message')
+        if message:
+            # Convert the AgentMessage to a StreamEvent-like object for compatibility
+            event_data = {
+                "content": message.content,
+                "sender_name": message.sender_name,
+                "sender_id": message.sender_id,
+                "message_type": message.message_type.value if hasattr(message.message_type, 'value') else str(message.message_type),
+                "session_id": message.metadata.get("session_id", "unknown") if message.metadata else "unknown",
+                "event_type": message.metadata.get("event_type", "agent_response") if message.metadata else "agent_response"
+            }
+
+            # Create a StreamEvent-like object
+            stream_event = StreamEvent(event_data["event_type"], event_data)
+
+            # Get session from agent
+            session = self.agent.get_current_session() if self.agent else None
+
+            # Handle the event
+            self._on_stream_event(stream_event, session)
+
+    async def _stream_response(self, message: str):
+        """Stream response from agent with multi-agent events."""
+        try:
+            # Register UI callback with stream manager
+            self.agent.add_ui_callback(self._stream_handler.handle_event)
+
+            try:
+                # Define synchronous callbacks that will emit Qt signals
+                def on_token(token):
+                    # Use Qt signal in a thread-safe way
+                    self.response_token_received.emit(token)
+
+                def on_complete(response):
+                    # Use Qt signal in a thread-safe way
+                    self.response_complete.emit(response)
+
+                # Stream tokens from agent - no more on_stream_event callback needed
+                async for token in self.agent.chat_stream(
+                    message=message,
+                    on_token=on_token,
+                    on_complete=on_complete
+                ):
+                    # Tokens are handled by signal callbacks
+                    pass
+            finally:
+                # Remove UI callback
+                self.agent.remove_ui_callback(self._stream_handler.handle_event)
+
+        except Exception as e:
+            # Ensure error is displayed
+            error_msg = f"{tr('Error')}: {str(e)}"
+            self.error_occurred.emit(error_msg)
+        finally:
+            # Reset processing state
+            self._is_processing = False
+            # Note: In group chat mode, we don't re-enable the input widget
+            # since it was never disabled
 
     async def _initialize_agent_async(self):
         """Initialize the agent asynchronously with current workspace and project."""

@@ -109,7 +109,6 @@ class CrewMember:
         message: str,
         on_token: Optional[Callable[[str], None]] = None,
         on_complete: Optional[Callable[[str], None]] = None,
-        on_stream_event: Optional[Callable[[Any], None]] = None,
         plan_id: Optional[str] = None,
     ) -> AsyncIterator[str]:
         if not self.llm_service.validate_config():

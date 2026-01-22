@@ -63,15 +63,11 @@ async def main():
     def on_complete(response):
         print(f"Response complete: {response}")
 
-    def on_stream_event(event):
-        print(f"Stream event: {event.event_type} - {event.data}")
-
     # Start the chat stream and process responses
     async for token in agent_manager.chat_stream(
         message="How can we improve user engagement in video editing applications?",
         on_token=on_token,
-        on_complete=on_complete,
-        on_stream_event=on_stream_event
+        on_complete=on_complete
     ):
         print(f"Received token: {token}")
         break  # Just process the first token for this example

@@ -29,7 +29,7 @@ def test_signal_connection():
         received_messages.append(kwargs.get('message'))
 
     signals = AgentChatSignals()
-    signals.agent_message_send.connect(message_handler)
+    signals.connect(message_handler)
 
     # Send a message
     message = signals.send_agent_message(

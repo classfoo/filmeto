@@ -18,10 +18,10 @@ def test_integration_with_existing_agentmessage():
     
     def message_handler(sender, **kwargs):
         received_messages.append(kwargs.get('message'))
-    
+
     signals = AgentChatSignals()
-    signals.agent_message_send.connect(message_handler)
-    
+    signals.connect(message_handler)
+
     # Send a message using the actual AgentMessage class from agent_chat_message
     message = signals.send_agent_message(
         content="Integration test message",
@@ -61,7 +61,7 @@ def test_different_message_types():
         received_messages.append(kwargs.get('message'))
     
     signals = AgentChatSignals()
-    signals.agent_message_send.connect(message_handler)
+    signals.connect(message_handler)
     
     # Test different message types
     message_types = [MessageType.TEXT, MessageType.CODE, MessageType.IMAGE, MessageType.SYSTEM]

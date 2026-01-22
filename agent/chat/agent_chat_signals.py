@@ -20,8 +20,27 @@ class AgentChatSignals:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance.agent_message_send = blinker.Signal()
+            cls._instance.__agent_message_send = blinker.Signal()
         return cls._instance
+
+    def connect(self, receiver, weak: bool = True):
+        """
+        Connect a receiver function to the agent_message_send signal.
+
+        Args:
+            receiver: A function that receives the signal
+            weak: Whether to use a weak reference (default True)
+        """
+        self.__agent_message_send.connect(receiver, weak=weak)
+
+    def disconnect(self, receiver):
+        """
+        Disconnect a receiver function from the agent_message_send signal.
+
+        Args:
+            receiver: The function to disconnect
+        """
+        self.__agent_message_send.disconnect(receiver)
 
     def send_agent_message(self, content: str, sender_id: str = "system", sender_name: str = "System",
                           message_type: MessageType = MessageType.TEXT, metadata: dict = None) -> AgentMessage:
@@ -45,5 +64,5 @@ class AgentChatSignals:
             sender_name=sender_name,
             metadata=metadata or {}
         )
-        self.agent_message_send.send(self, message=message)
+        self.__agent_message_send.send(self, message=message)
         return message

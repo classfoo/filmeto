@@ -285,7 +285,6 @@ class FilmetoAgent:
         responses: AsyncIterator[AgentMessage],
         session_id: str,
         on_token: Optional[Callable[[str], None]],
-        on_stream_event: Optional[Callable[[StreamEvent], None]],
     ) -> AsyncIterator[str]:
         async for response in responses:
             self.conversation_history.append(response)
@@ -308,7 +307,6 @@ class FilmetoAgent:
         plan_id: Optional[str],
         session_id: str,
         on_token: Optional[Callable[[str], None]],
-        on_stream_event: Optional[Callable[[StreamEvent], None]],
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[str]:
         async def response_iter():
@@ -342,7 +340,6 @@ class FilmetoAgent:
         message: str,
         session_id: str,
         on_token: Optional[Callable[[str], None]],
-        on_stream_event: Optional[Callable[[StreamEvent], None]],
     ) -> AsyncIterator[str]:
         error_msg = AgentMessage(
             content=message,
@@ -378,7 +375,7 @@ class FilmetoAgent:
         """Get the current streaming session."""
         return self.current_session
 
-    async def chat_stream(self, message: str, on_token=None, on_complete=None, on_stream_event=None):
+    async def chat_stream(self, message: str, on_token=None, on_complete=None):
         """
         Stream responses for a chat conversation with the agents.
 
@@ -386,7 +383,6 @@ class FilmetoAgent:
             message: The message to process
             on_token: Callback for each token received
             on_complete: Callback when response is complete
-            on_stream_event: Callback for stream events
         """
         # Ensure project is loaded if not provided but workspace exists
         if not self.project and self.workspace:
@@ -440,7 +436,6 @@ class FilmetoAgent:
                 plan_id=None,
                 session_id=session_id,
                 on_token=on_token,
-                on_stream_event=None,
             ):
                 yield content
             if on_complete:
@@ -469,7 +464,6 @@ class FilmetoAgent:
                 plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                 session_id=session_id,
                 on_token=on_token,
-                on_stream_event=None,
                 metadata=initial_prompt.metadata
             ):
                 yield content
@@ -500,7 +494,6 @@ class FilmetoAgent:
                     plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                     session_id=session_id,
                     on_token=on_token,
-                    on_stream_event=None,
                     metadata=initial_prompt.metadata
                 ):
                     yield content
@@ -523,7 +516,6 @@ class FilmetoAgent:
         producer_agent: CrewMember,
         session_id: str,
         on_token: Optional[Callable[[str], None]],
-        on_stream_event: Optional[Callable[[StreamEvent], None]],
     ) -> AsyncIterator[str]:
         project_name = self._resolve_project_name()
 
@@ -539,7 +531,6 @@ class FilmetoAgent:
             plan_id=active_plan_id,
             session_id=session_id,
             on_token=on_token,
-            on_stream_event=None,
         ):
             yield content
 
@@ -560,7 +551,6 @@ class FilmetoAgent:
                         plan=latest_plan,
                         session_id=session_id,
                         on_token=on_token,
-                        on_stream_event=None,
                     ):
                         yield content
 
@@ -569,7 +559,6 @@ class FilmetoAgent:
         plan: Plan,
         session_id: str,
         on_token: Optional[Callable[[str], None]],
-        on_stream_event: Optional[Callable[[StreamEvent], None]],  # Kept for backward compatibility but not used
     ) -> AsyncIterator[str]:
         plan_instance = self.plan_service.create_plan_instance(plan)
         self.plan_service.start_plan_execution(plan_instance)
@@ -582,7 +571,6 @@ class FilmetoAgent:
                         "Plan execution blocked by unmet dependencies or missing agents.",
                         session_id,
                         on_token,
-                        on_stream_event,
                     ):
                         yield content
                 break
@@ -597,7 +585,6 @@ class FilmetoAgent:
                         error_message,
                         session_id,
                         on_token,
-                        on_stream_event,
                     ):
                         yield content
                     continue
