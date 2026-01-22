@@ -50,6 +50,9 @@ class AgentChatHistoryWidget(BaseWidget):
         self._scroll_timer.setSingleShot(True)
         self._scroll_timer.timeout.connect(self._scroll_to_bottom)
 
+        # Track if user is at the bottom of the chat
+        self._user_at_bottom = True
+
         # Sub-agent metadata cache
         self._crew_member_metadata: Dict[str, Dict[str, Any]] = {}
         self._load_crew_member_metadata()
@@ -356,6 +359,9 @@ class AgentChatHistoryWidget(BaseWidget):
             }
         """)
 
+        # Connect scroll bar value change to track user position
+        self.scroll_area.verticalScrollBar().valueChanged.connect(self._on_scroll_value_changed)
+
         # Container widget for messages
         self.messages_container = QWidget()
         self.messages_container.setStyleSheet("""
@@ -371,10 +377,22 @@ class AgentChatHistoryWidget(BaseWidget):
         self.scroll_area.setWidget(self.messages_container)
         layout.addWidget(self.scroll_area)
     
-    def _scroll_to_bottom(self):
-        """Scroll to bottom of chat."""
+    def _on_scroll_value_changed(self, value):
+        """Track when user scrolls and whether they're at the bottom."""
         scrollbar = self.scroll_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        # Calculate if user is at/near the bottom
+        # If the difference between max value and current value is less than 50 pixels,
+        # consider the user to be at/near the bottom
+        scroll_diff = scrollbar.maximum() - value
+        self._user_at_bottom = scroll_diff < 50
+
+    def _scroll_to_bottom(self):
+        """Scroll to bottom of chat only if user was previously at the bottom."""
+        scrollbar = self.scroll_area.verticalScrollBar()
+
+        # Only scroll to bottom if the user was already at the bottom
+        if self._user_at_bottom:
+            scrollbar.setValue(scrollbar.maximum())
     
     def _schedule_scroll(self):
         """Schedule a scroll to bottom (debounced)."""
