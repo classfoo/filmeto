@@ -730,3 +730,29 @@ class PlanService:
                         instances.append(instance)
 
         return instances
+
+    def get_last_active_plan_for_project(self, project_name: str) -> Optional[Plan]:
+        """
+        Get the most recent plan for a project that is in an active state.
+        Returns the plan if it's active (CREATED or RUNNING), otherwise returns None.
+
+        Args:
+            project_name: Name of the project (used as identifier)
+
+        Returns:
+            Plan if the most recent plan is active, otherwise None
+        """
+        plans = self.get_all_plans_for_project(project_name)
+        if not plans:
+            return None
+
+        # Sort plans by creation date, most recent first
+        sorted_plans = sorted(plans, key=lambda p: p.created_at, reverse=True)
+
+        # Return the first plan that is in an active state (CREATED or RUNNING)
+        for plan in sorted_plans:
+            if plan.status in [PlanStatus.CREATED, PlanStatus.RUNNING]:
+                return plan
+
+        # If no active plan is found, return None
+        return None

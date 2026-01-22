@@ -515,90 +515,43 @@ class FilmetoAgent:
         on_stream_event: Optional[Callable[[StreamEvent], None]],
     ) -> AsyncIterator[str]:
         project_name = self._resolve_project_name()
-        if not project_name:
-            async for content in self._stream_crew_member(
-                producer_agent,
-                initial_prompt.content,
-                plan_id=None,
-                session_id=session_id,
-                on_token=on_token,
-                on_stream_event=on_stream_event,
-            ):
-                yield content
-            return
 
-        plan = self._create_plan(project_name, initial_prompt.content)
-        if not plan:
-            async for content in self._stream_crew_member(
-                producer_agent,
-                initial_prompt.content,
-                plan_id=None,
-                session_id=session_id,
-                on_token=on_token,
-                on_stream_event=on_stream_event,
-            ):
-                yield content
-            return
+        # Determine the active plan ID - get the last active plan for the project
+        active_plan = self.plan_service.get_last_active_plan_for_project(project_name) if project_name else None
+        active_plan_id = active_plan.id if active_plan else None
 
-        producer_message = self._build_producer_message(initial_prompt.content, plan.id)
-        producer_response = None
+        # Stream directly to the producer agent without creating a plan automatically
+        # The producer will decide whether to create a plan using the create_execution_plan skill
         async for content in self._stream_crew_member(
             producer_agent,
-            producer_message,
-            plan_id=plan.id,
-            session_id=session_id,
-            on_token=on_token,
-            on_stream_event=on_stream_event,
-            metadata={"plan_id": plan.id},
-        ):
-            producer_response = content
-            yield content
-
-        if self._producer_response_has_error(producer_response):
-            return
-
-        plan = self.plan_service.load_plan(project_name, plan.id)
-        if not plan or not plan.tasks:
-            retry_message = self._build_producer_message(initial_prompt.content, plan.id, retry=True)
-            retry_response = None
-            async for content in self._stream_crew_member(
-                producer_agent,
-                retry_message,
-                plan_id=plan.id,
-                session_id=session_id,
-                on_token=on_token,
-                on_stream_event=on_stream_event,
-                metadata={"plan_id": plan.id, "retry": True},
-            ):
-                retry_response = content
-                yield content
-            if self._producer_response_has_error(retry_response):
-                return
-            plan = self.plan_service.load_plan(project_name, plan.id)
-
-        if not plan or not plan.tasks:
-            # Instead of treating this as an error, let's continue with a message
-            # Producer may have handled the request without creating plan tasks
-            # Use the same pattern as error messages but with a regular agent_response event
-            message = "Producer handled the request without creating specific plan tasks."
-            if on_token:
-                on_token(message)
-            if on_stream_event:
-                on_stream_event(StreamEvent("agent_response", {
-                    "content": message,
-                    "sender_name": "System",
-                    "session_id": session_id,
-                }))
-            yield message
-            return
-
-        async for content in self._execute_plan_tasks(
-            plan=plan,
+            initial_prompt.content,
+            plan_id=active_plan_id,
             session_id=session_id,
             on_token=on_token,
             on_stream_event=on_stream_event,
         ):
             yield content
+
+        # After the producer responds, check if a plan was created during the interaction
+        # If a plan was created, execute the plan tasks
+        if project_name:
+            # Check if any plan was created during the producer's response
+            # This would happen if the producer used the create_execution_plan skill
+            # Get the most recently created active plan for this project
+            latest_plan = self.plan_service.get_last_active_plan_for_project(project_name)
+            if latest_plan and latest_plan.id != active_plan_id:  # Only execute if a new plan was created
+                # Update the active plan ID to the newly created plan
+                active_plan_id = latest_plan.id
+
+                # Check if the plan has tasks to execute
+                if latest_plan and latest_plan.tasks:
+                    async for content in self._execute_plan_tasks(
+                        plan=latest_plan,
+                        session_id=session_id,
+                        on_token=on_token,
+                        on_stream_event=on_stream_event,
+                    ):
+                        yield content
 
     async def _execute_plan_tasks(
         self,
