@@ -11,15 +11,15 @@ from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QFont, QPen
 from app.ui.base_widget import BaseWidget
 from app.ui.components.avatar_widget import AvatarWidget
 from agent.chat.agent_chat_message import AgentMessage, StructureContent, ContentType
+from app.ui.chat.message.base_structured_content_widget import BaseStructuredContentWidget
 
 
-class TableWidget(QWidget):
+class TableWidget(BaseStructuredContentWidget):
     """Widget for displaying table content."""
 
-    def __init__(self, content: StructureContent, parent=None):
+    def __init__(self, structure_content: StructureContent, parent=None):
         """Initialize table widget."""
-        super().__init__(parent)
-        self.content = content
+        super().__init__(structure_content, parent)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -29,8 +29,8 @@ class TableWidget(QWidget):
         layout.setSpacing(4)
 
         # Title if available
-        if self.content.title:
-            title_label = QLabel(self.content.title, self)
+        if self.structure_content.title:
+            title_label = QLabel(self.structure_content.title, self)
             title_label.setStyleSheet("""
                 QLabel {
                     color: #7c4dff;
@@ -41,8 +41,8 @@ class TableWidget(QWidget):
             layout.addWidget(title_label)
 
         # Description if available
-        if self.content.description:
-            desc_label = QLabel(self.content.description, self)
+        if self.structure_content.description:
+            desc_label = QLabel(self.structure_content.description, self)
             desc_label.setStyleSheet("""
                 QLabel {
                     color: #aaaaaa;
@@ -74,9 +74,9 @@ class TableWidget(QWidget):
         """)
 
         # Populate table from data (should be a dict with 'headers' and 'rows')
-        if isinstance(self.content.data, dict):
-            headers = self.content.data.get('headers', [])
-            rows = self.content.data.get('rows', [])
+        if isinstance(self.structure_content.data, dict):
+            headers = self.structure_content.data.get('headers', [])
+            rows = self.structure_content.data.get('rows', [])
 
             if headers:
                 table_widget.setColumnCount(len(headers))
@@ -88,14 +88,14 @@ class TableWidget(QWidget):
                     for col_idx, cell_data in enumerate(row_data):
                         item = QTableWidgetItem(str(cell_data))
                         table_widget.setItem(row_idx, col_idx, item)
-        elif isinstance(self.content.data, list):
+        elif isinstance(self.structure_content.data, list):
             # If data is a list of lists, treat each inner list as a row
-            if self.content.data:
-                num_cols = max(len(row) for row in self.content.data) if self.content.data else 0
+            if self.structure_content.data:
+                num_cols = max(len(row) for row in self.structure_content.data) if self.structure_content.data else 0
                 table_widget.setColumnCount(num_cols)
-                table_widget.setRowCount(len(self.content.data))
+                table_widget.setRowCount(len(self.structure_content.data))
 
-                for row_idx, row_data in enumerate(self.content.data):
+                for row_idx, row_data in enumerate(self.structure_content.data):
                     for col_idx, cell_data in enumerate(row_data):
                         item = QTableWidgetItem(str(cell_data))
                         table_widget.setItem(row_idx, col_idx, item)
@@ -109,3 +109,60 @@ class TableWidget(QWidget):
                 border-radius: 4px;
             }
         """)
+
+    def update_content(self, structure_content: StructureContent):
+        """Update the widget with new structure content."""
+        # Update the content
+        self.structure_content = structure_content
+        # Rebuild UI to reflect changes
+        for i in reversed(range(self.layout().count())):
+            child = self.layout().itemAt(i).widget()
+            if child is not None:
+                child.setParent(None)
+        self._setup_ui()
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get the current state of the widget."""
+        return {}
+
+    def set_state(self, state: Dict[str, Any]):
+        """Set the state of the widget."""
+        pass
+
+    def get_width(self, max_width: int) -> int:
+        """Get the width of the widget based on its content."""
+        # For table widget, we'll calculate based on the table content
+        # Calculate the width based on the number of columns and content
+        estimated_width = 0
+
+        # If data is a dict with headers and rows
+        if isinstance(self.structure_content.data, dict):
+            headers = self.structure_content.data.get('headers', [])
+            rows = self.structure_content.data.get('rows', [])
+
+            # Estimate width based on headers
+            for header in headers:
+                temp_label = QLabel(str(header))
+                font_metrics = temp_label.fontMetrics()
+                estimated_width += font_metrics.horizontalAdvance(str(header)) + 20  # Add padding
+
+            # If no headers, estimate based on first row
+            if not headers and rows:
+                first_row = rows[0] if rows else []
+                for cell in first_row:
+                    temp_label = QLabel(str(cell))
+                    font_metrics = temp_label.fontMetrics()
+                    estimated_width += font_metrics.horizontalAdvance(str(cell)) + 20  # Add padding
+        elif isinstance(self.structure_content.data, list):
+            # If data is a list of lists
+            if self.structure_content.data:
+                first_row = self.structure_content.data[0]
+                for cell in first_row:
+                    temp_label = QLabel(str(cell))
+                    font_metrics = temp_label.fontMetrics()
+                    estimated_width += font_metrics.horizontalAdvance(str(cell)) + 20  # Add padding
+
+        # Add some extra space for table borders and margins
+        estimated_width += 40  # Additional padding for table elements
+
+        return min(estimated_width, max_width)

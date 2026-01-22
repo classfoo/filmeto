@@ -11,15 +11,15 @@ from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QFont, QPen
 from app.ui.base_widget import BaseWidget
 from app.ui.components.avatar_widget import AvatarWidget
 from agent.chat.agent_chat_message import AgentMessage, StructureContent, ContentType
+from app.ui.chat.message.base_structured_content_widget import BaseStructuredContentWidget
 
 
-class ButtonWidget(QWidget):
+class ButtonWidget(BaseStructuredContentWidget):
     """Widget for displaying button content."""
 
-    def __init__(self, content: StructureContent, parent=None):
+    def __init__(self, structure_content: StructureContent, parent=None):
         """Initialize button widget."""
-        super().__init__(parent)
-        self.content = content
+        super().__init__(structure_content, parent)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -29,11 +29,11 @@ class ButtonWidget(QWidget):
         layout.setSpacing(8)
 
         # Button data (should be a dict with 'text' and 'action')
-        if isinstance(self.content.data, dict):
-            text = self.content.data.get('text', 'Button')
-            action = self.content.data.get('action', '')
+        if isinstance(self.structure_content.data, dict):
+            text = self.structure_content.data.get('text', 'Button')
+            action = self.structure_content.data.get('action', '')
         else:
-            text = str(self.content.data)
+            text = str(self.structure_content.data)
             action = ''
 
         # Button
@@ -65,6 +65,50 @@ class ButtonWidget(QWidget):
                 border-radius: 4px;
             }
         """)
+
+    def update_content(self, structure_content: StructureContent):
+        """Update the widget with new structure content."""
+        # Update the content
+        self.structure_content = structure_content
+        # Rebuild UI to reflect changes
+        for i in reversed(range(self.layout().count())):
+            child = self.layout().itemAt(i).widget()
+            if child is not None:
+                child.setParent(None)
+        self._setup_ui()
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get the current state of the widget."""
+        return {}
+
+    def set_state(self, state: Dict[str, Any]):
+        """Set the state of the widget."""
+        pass
+
+    def get_width(self, max_width: int) -> int:
+        """Get the width of the widget based on its content."""
+        # For button widget, we'll calculate based on the button text content
+        # Button data (should be a dict with 'text' and 'action')
+        if isinstance(self.structure_content.data, dict):
+            text = self.structure_content.data.get('text', 'Button')
+        else:
+            text = str(self.structure_content.data)
+
+        if not text:
+            return 0
+
+        # Create a temporary button to measure the content width
+        temp_button = QPushButton(text)
+        font_metrics = temp_button.fontMetrics()
+
+        # Calculate the width of the text
+        text_width = font_metrics.horizontalAdvance(text)
+
+        # Add padding for button styling
+        padding = 24  # Approximate padding for button styling
+
+        total_width = text_width + padding
+        return min(total_width, max_width)
 
     def button_clicked(self, action: str):
         """Handle button click."""

@@ -231,3 +231,30 @@ class SkillContentWidget(BaseStructuredContentWidget):
         if self.available_width is not None:
             # Set the maximum width of the container frame to the available width
             self.container_frame.setMaximumWidth(self.available_width)
+
+    def get_width(self, max_width: int) -> int:
+        """Get the width of the widget based on its content."""
+        # For skill content widget, we'll calculate based on the text content
+        # Get the text from title and status labels
+        title_text = self.title_label.text() or ""
+        status_text = self.status_label.text() or ""
+
+        # Get font metrics for both labels
+        title_font_metrics = self.title_label.fontMetrics()
+        status_font_metrics = self.status_label.fontMetrics()
+
+        # Calculate the width for title text
+        title_lines = title_text.splitlines() if title_text else [""]
+        max_title_width = 0
+        for line in title_lines:
+            max_title_width = max(max_title_width, title_font_metrics.horizontalAdvance(line))
+
+        # Calculate the width for status text
+        status_lines = status_text.splitlines() if status_text else [""]
+        max_status_width = 0
+        for line in status_lines:
+            max_status_width = max(max_status_width, status_font_metrics.horizontalAdvance(line))
+
+        # Return the maximum of the two widths, constrained by max_width
+        max_content_width = max(max_title_width, max_status_width)
+        return min(max_content_width, max_width)

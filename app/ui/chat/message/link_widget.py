@@ -11,15 +11,15 @@ from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QFont, QPen
 from app.ui.base_widget import BaseWidget
 from app.ui.components.avatar_widget import AvatarWidget
 from agent.chat.agent_chat_message import AgentMessage, StructureContent, ContentType
+from app.ui.chat.message.base_structured_content_widget import BaseStructuredContentWidget
 
 
-class LinkWidget(QWidget):
+class LinkWidget(BaseStructuredContentWidget):
     """Widget for displaying link content."""
 
-    def __init__(self, content: StructureContent, parent=None):
+    def __init__(self, structure_content: StructureContent, parent=None):
         """Initialize link widget."""
-        super().__init__(parent)
-        self.content = content
+        super().__init__(structure_content, parent)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -33,11 +33,11 @@ class LinkWidget(QWidget):
         layout.addWidget(icon_label)
 
         # Link data (should be a dict with 'url' and 'text')
-        if isinstance(self.content.data, dict):
-            url = self.content.data.get('url', '')
-            text = self.content.data.get('text', url)
+        if isinstance(self.structure_content.data, dict):
+            url = self.structure_content.data.get('url', '')
+            text = self.structure_content.data.get('text', url)
         else:
-            url = str(self.content.data)
+            url = str(self.structure_content.data)
             text = url
 
         # Link button
@@ -65,6 +65,51 @@ class LinkWidget(QWidget):
                 border-radius: 3px;
             }
         """)
+
+    def update_content(self, structure_content: StructureContent):
+        """Update the widget with new structure content."""
+        # Update the content
+        self.structure_content = structure_content
+        # Rebuild UI to reflect changes
+        for i in reversed(range(self.layout().count())):
+            child = self.layout().itemAt(i).widget()
+            if child is not None:
+                child.setParent(None)
+        self._setup_ui()
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get the current state of the widget."""
+        return {}
+
+    def set_state(self, state: Dict[str, Any]):
+        """Set the state of the widget."""
+        pass
+
+    def get_width(self, max_width: int) -> int:
+        """Get the width of the widget based on its content."""
+        # For link widget, we'll calculate based on the text content
+        # Link data (should be a dict with 'url' and 'text')
+        if isinstance(self.structure_content.data, dict):
+            text = self.structure_content.data.get('text', self.structure_content.data.get('url', ''))
+        else:
+            text = str(self.structure_content.data)
+
+        if not text:
+            return 0
+
+        # Create a temporary button to measure the content width
+        temp_button = QPushButton(text)
+        font_metrics = temp_button.fontMetrics()
+
+        # Calculate the width of the text
+        text_width = font_metrics.horizontalAdvance(text)
+
+        # Add some padding for the icon and spacing
+        icon_width = font_metrics.horizontalAdvance("🔗")
+        spacing = 16  # Approximate spacing
+
+        total_width = text_width + icon_width + spacing
+        return min(total_width, max_width)
 
     def _handle_link_click(self, url: str):
         """Handle link click and emit reference clicked signal."""

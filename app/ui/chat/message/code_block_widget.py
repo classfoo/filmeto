@@ -11,15 +11,15 @@ from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QFont, QPen
 from app.ui.base_widget import BaseWidget
 from app.ui.components.avatar_widget import AvatarWidget
 from agent.chat.agent_chat_message import AgentMessage, StructureContent, ContentType
+from app.ui.chat.message.base_structured_content_widget import BaseStructuredContentWidget
 
 
-class CodeBlockWidget(QWidget):
+class CodeBlockWidget(BaseStructuredContentWidget):
     """Widget for displaying code blocks."""
 
-    def __init__(self, content: StructureContent, parent=None):
+    def __init__(self, structure_content: StructureContent, parent=None):
         """Initialize code block widget."""
-        super().__init__(parent)
-        self.content = content
+        super().__init__(structure_content, parent)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -29,8 +29,8 @@ class CodeBlockWidget(QWidget):
         layout.setSpacing(4)
 
         # Title if available
-        if self.content.title:
-            title_label = QLabel(self.content.title, self)
+        if self.structure_content.title:
+            title_label = QLabel(self.structure_content.title, self)
             title_label.setStyleSheet("""
                 QLabel {
                     color: #7c4dff;
@@ -41,8 +41,8 @@ class CodeBlockWidget(QWidget):
             layout.addWidget(title_label)
 
         # Description if available
-        if self.content.description:
-            desc_label = QLabel(self.content.description, self)
+        if self.structure_content.description:
+            desc_label = QLabel(self.structure_content.description, self)
             desc_label.setStyleSheet("""
                 QLabel {
                     color: #aaaaaa;
@@ -67,11 +67,11 @@ class CodeBlockWidget(QWidget):
         """)
 
         # Extract code from data (which should be a dict with 'language' and 'code')
-        if isinstance(self.content.data, dict):
-            code_str = self.content.data.get('code', str(self.content.data))
-            language = self.content.data.get('language', '')
+        if isinstance(self.structure_content.data, dict):
+            code_str = self.structure_content.data.get('code', str(self.structure_content.data))
+            language = self.structure_content.data.get('language', '')
         else:
-            code_str = str(self.content.data)
+            code_str = str(self.structure_content.data)
             language = ''
 
         code_text.setPlainText(code_str)
@@ -84,3 +84,48 @@ class CodeBlockWidget(QWidget):
                 border-radius: 4px;
             }
         """)
+
+    def update_content(self, structure_content: StructureContent):
+        """Update the widget with new structure content."""
+        # Update the content
+        self.structure_content = structure_content
+        # Rebuild UI to reflect changes
+        for i in reversed(range(self.layout().count())):
+            child = self.layout().itemAt(i).widget()
+            if child is not None:
+                child.setParent(None)
+        self._setup_ui()
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get the current state of the widget."""
+        return {}
+
+    def set_state(self, state: Dict[str, Any]):
+        """Set the state of the widget."""
+        pass
+
+    def get_width(self, max_width: int) -> int:
+        """Get the width of the widget based on its content."""
+        # For code block widget, we'll calculate based on the text content
+        # Extract code from data (which should be a dict with 'language' and 'code')
+        if isinstance(self.structure_content.data, dict):
+            code_str = self.structure_content.data.get('code', str(self.structure_content.data))
+        else:
+            code_str = str(self.structure_content.data)
+
+        if not code_str:
+            return 0
+
+        # Create a temporary QTextEdit to measure the content width
+        temp_text_edit = QTextEdit()
+        temp_text_edit.setPlainText(code_str)
+        font_metrics = temp_text_edit.fontMetrics()
+
+        # Split the code into lines and find the longest line
+        lines = code_str.splitlines()
+        max_line_width = 0
+        for line in lines:
+            line_width = font_metrics.horizontalAdvance(line)
+            max_line_width = max(max_line_width, line_width)
+
+        return min(max_line_width, max_width)

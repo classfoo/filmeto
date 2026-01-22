@@ -74,8 +74,21 @@ class BaseStructuredContentWidget(ABC, QWidget, metaclass=BaseStructuredContentW
     def set_state(self, state: Dict[str, Any]):
         """
         Set the state of the widget.
-        
+
         Args:
             state: Dictionary representing the state to set
+        """
+        pass
+
+    @abstractmethod
+    def get_width(self, max_width: int) -> int:
+        """
+        Get the width of the widget based on its content.
+
+        Args:
+            max_width: Maximum allowed width
+
+        Returns:
+            Calculated width of the widget
         """
         pass
