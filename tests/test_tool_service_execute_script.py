@@ -52,6 +52,8 @@ class TestToolServiceExecuteScript(unittest.TestCase):
         script_content = '''
 # Call the get_project_crew_members tool
 result = execute_tool("get_project_crew_members", {})
+import json
+print(json.dumps(result))
 '''
 
         # Create a temporary script file
@@ -61,7 +63,24 @@ result = execute_tool("get_project_crew_members", {})
 
         try:
             # Execute the script
-            result = self.tool_service.execute_script(script_path)
+            output = self.tool_service.execute_script(script_path)
+            # Extract the last line which should be the JSON result
+            if output:
+                lines = output.strip().split('\n')
+                # Find the last line that looks like JSON
+                json_line = None
+                for line in reversed(lines):
+                    line = line.strip()
+                    if line.startswith('[') or line.startswith('{'):
+                        json_line = line
+                        break
+                if json_line:
+                    import json
+                    result = json.loads(json_line)
+                else:
+                    result = []
+            else:
+                result = []
         finally:
             # Clean up the temporary file
             os.remove(script_path)
@@ -94,6 +113,8 @@ result = execute_tool("get_project_crew_members", {})
         script_content = '''
 # Call the get_project_crew_members tool with empty parameters
 result = execute_tool("get_project_crew_members", {})
+import json
+print(json.dumps(result))
 '''
 
         # Create a temporary script file
@@ -102,7 +123,24 @@ result = execute_tool("get_project_crew_members", {})
             script_path = f.name
 
         try:
-            result = self.tool_service.execute_script(script_path)
+            output = self.tool_service.execute_script(script_path)
+            # Extract the last line which should be the JSON result
+            if output:
+                lines = output.strip().split('\n')
+                # Find the last line that looks like JSON
+                json_line = None
+                for line in reversed(lines):
+                    line = line.strip()
+                    if line.startswith('[') or line.startswith('{'):
+                        json_line = line
+                        break
+                if json_line:
+                    import json
+                    result = json.loads(json_line)
+                else:
+                    result = []
+            else:
+                result = []
         finally:
             # Clean up the temporary file
             os.remove(script_path)
