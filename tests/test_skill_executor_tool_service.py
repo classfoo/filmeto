@@ -53,6 +53,10 @@ class TestSkillExecutorWithToolService(unittest.TestCase):
         
         # Create a simple test script content
         self.test_script_content = '''
+import sys
+import json
+import argparse
+
 def execute(context, input_text="World"):
     """Simple test function that returns a greeting."""
     return {
@@ -61,10 +65,36 @@ def execute(context, input_text="World"):
         "message": f"Greeted {input_text} successfully"
     }
 
-# This is the main execution
+def main():
+    """Main function for script execution."""
+    # Parse command line arguments
+    # Handle both named arguments and potential positional arguments
+    args = sys.argv[1:]  # Skip script name
+
+    input_text = "World"  # default value
+    project_path = None
+
+    i = 0
+    while i < len(args):
+        if args[i] == '--input-text' and i + 1 < len(args):
+            input_text = args[i + 1]
+            i += 2
+        elif args[i] == '--project-path' and i + 1 < len(args):
+            project_path = args[i + 1]
+            i += 2
+        else:
+            # Skip unknown arguments
+            i += 1
+
+    # Create a minimal context
+    context = {"project_path": project_path} if project_path else {}
+
+    # Execute the function and print the result
+    result = execute(context, input_text)
+    print(json.dumps(result))
+
 if __name__ == "__main__":
-    # When executed as a script, this won't run
-    pass
+    main()
 '''
         
         # Write the test script to a temporary file

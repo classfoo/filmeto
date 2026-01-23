@@ -133,34 +133,68 @@ def create_execution_plan(plan_name: str, description: str = "", tasks: list = N
 
 def main():
     """CLI entry point for standalone execution."""
-    parser = argparse.ArgumentParser(
-        description="Create an execution plan for film production projects"
-    )
-    parser.add_argument(
-        "plan_name", type=str,
-        help="Name of the execution plan"
-    )
-    parser.add_argument(
-        "--description", type=str, default="",
-        help="Description of the plan"
-    )
-    parser.add_argument(
-        "--tasks", type=str, default="[]",
-        help="JSON string of tasks for the plan"
-    )
-    parser.add_argument(
-        "--project-path", type=str, required=True,
-        help="Path to the project directory"
-    )
+    # Handle both traditional positional args and new approach with named args
+    args = sys.argv[1:]  # Skip script name
 
-    args = parser.parse_args()
+    plan_name = None
+    description = ""
+    tasks_str = "[]"
+    project_path = None
+
+    # Process arguments by looking for known flags first
+    i = 0
+    while i < len(args):
+        if args[i] == '--plan-name' and i + 1 < len(args):
+            plan_name = args[i + 1]
+            i += 2
+        elif args[i] == '--description' and i + 1 < len(args):
+            description = args[i + 1]
+            i += 2
+        elif args[i] == '--tasks' and i + 1 < len(args):
+            tasks_str = args[i + 1]
+            i += 2
+        elif args[i] == '--project-path' and i + 1 < len(args):
+            project_path = args[i + 1]
+            i += 2
+        else:
+            # This is either a positional argument or an unknown flag
+            # For backward compatibility, assume first non-flag argument is plan_name
+            if plan_name is None and not args[i].startswith('--'):
+                plan_name = args[i]
+                i += 1
+            # For the new approach, project_path might be passed as a positional argument
+            elif project_path is None and not args[i].startswith('--'):
+                project_path = args[i]
+                i += 1
+            else:
+                # Skip unknown arguments
+                i += 1
+
+    # Validate required arguments
+    if not plan_name:
+        error_result = {
+            "success": False,
+            "error": "missing_plan_name",
+            "message": "plan_name is required"
+        }
+        print(json.dumps(error_result, indent=2))
+        sys.exit(1)
+
+    if not project_path:
+        error_result = {
+            "success": False,
+            "error": "missing_project_path",
+            "message": "project_path is required"
+        }
+        print(json.dumps(error_result, indent=2))
+        sys.exit(1)
 
     try:
         # Parse tasks JSON
-        tasks = json.loads(args.tasks)
+        tasks = json.loads(tasks_str)
 
         # Create the execution plan
-        result = create_execution_plan(args.plan_name, args.description, tasks)
+        result = create_execution_plan(plan_name, description, tasks)
 
         print(json.dumps(result, indent=2))
 
@@ -168,7 +202,7 @@ def main():
         error_result = {
             "success": False,
             "error": "invalid_json",
-            "message": f"Invalid JSON for tasks: {args.tasks}"
+            "message": f"Invalid JSON for tasks: {tasks_str}"
         }
         print(json.dumps(error_result, indent=2))
         sys.exit(1)

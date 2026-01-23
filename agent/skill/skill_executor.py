@@ -75,8 +75,8 @@ class SkillExecutor:
     Executes skill scripts in-context with proper workspace and project access.
 
     This class executes skill scripts exclusively using ToolService's execute_script method
-    to enable skill-to-tool integration. Scripts are executed through a wrapper that
-    provides the necessary context and arguments to the skill functions.
+    to enable skill-to-tool integration. Scripts are executed directly with parameters
+    passed through the argv argument rather than using a wrapper script.
     """
 
     def __init__(self):
@@ -102,6 +102,7 @@ class SkillExecutor:
             context: SkillContext containing workspace, project, etc.
             args: Arguments to pass to the skill function
             script_name: Optional specific script to execute (uses first by default)
+            argv: Optional command-line arguments to pass to the script
 
         Returns:
             Dict with execution result, including success status and output
@@ -131,83 +132,42 @@ class SkillExecutor:
                 "message": f"Script not found for skill '{skill.name}'."
             }
 
+        # Prepare argv for the script execution if not provided
+        if argv is None:
+            # Convert args to command-line arguments format
+            # argv[0] should be the script name when executed directly, but ToolService handles this
+            argv = []
 
-        # Prepare the execution context for the script
-        # For complex objects, we'll pass minimal representations
-        workspace_repr = f'"{getattr(context.workspace, "workspace_path", "")}"' if context.workspace else 'None'
-        project_repr = f'"{getattr(context.project, "project_path", "")}"' if context.project else 'None'
+            # Add context information as arguments
+            if context.project and hasattr(context.project, 'project_path'):
+                argv.extend(["--project-path", context.project.project_path])
 
-        wrapper_script = f'''
-# Prepare the skill execution context
-# Note: We'll pass basic context values, but complex objects need special handling
-context_dict = {{
-    "workspace_path": {workspace_repr},
-    "project_path": {project_repr},
-    "screenplay_manager": {repr(getattr(context, 'screenplay_manager', None))},
-    "llm_service": {repr(getattr(context, 'llm_service', None))},
-    "additional_context": {repr(getattr(context, 'additional_context', {}))}
-}}
+            # Add skill arguments
+            if args:
+                # Separate positional and named arguments
+                positional_args = []
+                named_args = []
 
-# Prepare arguments
-skill_args = {repr(args or {})}
+                for key, value in args.items():
+                    # Handle positional arguments (like plan_name in create_execution_plan)
+                    if key in ['plan_name']:  # Common positional arguments
+                        positional_args.append(str(value))
+                    else:
+                        named_args.extend([f"--{key.replace('_', '-')}", str(value)])
 
-# Execute the skill script with the context
-with open("{script_path}", 'r', encoding='utf-8') as f:
-    script_content = f.read()
-
-# Execute the skill script in a namespace that includes the context
-script_namespace = {{
-    "__builtins__": __builtins__,
-    "context_dict": context_dict,
-    "skill_args": skill_args,
-    "execute_tool": execute_tool  # Make sure execute_tool is available
-}}
-
-# Execute the skill script in the namespace
-exec(script_content, script_namespace)
-
-# Call the main function of the skill with context and args
-# This assumes the skill script has an 'execute' function
-if 'execute' in script_namespace:
-    result = script_namespace['execute'](context_dict, **skill_args)
-elif 'execute_in_context' in script_namespace:
-    result = script_namespace['execute_in_context'](context_dict, **skill_args)
-else:
-    # Try to find a function matching the skill name
-    skill_fn_name = "{skill.name.replace("-", "_")}"
-    if skill_fn_name in script_namespace:
-        result = script_namespace[skill_fn_name](**skill_args)
-    else:
-        # If no standard function found, return an error
-        result = {{
-            "success": False,
-            "error": "no_entry_point",
-            "message": f"No execute function found in skill '{{skill.name}}'. "
-                      f"Expected 'execute(context, **kwargs)' or '{{skill_fn_name}}(...)' function."
-        }}
-
-# Print the result so it can be captured by ToolService
-import json
-print(json.dumps(result))
-'''
-
-        # Create a temporary script file for the wrapper
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-            f.write(wrapper_script)
-            wrapper_script_path = f.name
+                # Add positional arguments first, then named arguments
+                argv.extend(positional_args)
+                argv.extend(named_args)
 
         try:
-            # Execute the wrapper script using ToolService's execute_script
-            output = self.tool_service.execute_script(wrapper_script_path, argv)
+            # Execute the script directly using ToolService's execute_script with argv
+            output = self.tool_service.execute_script(script_path, argv)
 
-            # Check if output is already a dict (error case) or string (normal case)
-            if isinstance(output, dict):
-                # If output is already a dict, it's likely an error result
-                result = output
-            elif output:
+            # Process the output
+            if output:
                 # Parse the JSON output to get the actual result
                 lines = output.strip().split('\n')
-                # Find the last line that looks like JSON (the result we printed)
+                # Find the last line that looks like JSON (the result we expect to be printed)
                 json_line = None
                 for line in reversed(lines):
                     line = line.strip()
@@ -223,9 +183,13 @@ print(json.dumps(result))
             else:
                 # If no output, return a default success result
                 result = {"success": True, "message": "Skill executed successfully."}
-        finally:
-            # Clean up the temporary wrapper file
-            os.remove(wrapper_script_path)
+        except Exception as e:
+            result = {
+                "success": False,
+                "error": str(e),
+                "message": f"Error executing skill script: {str(e)}"
+            }
+
         return self._normalize_result(result)
 
     def _normalize_result(self, result: Any) -> Dict[str, Any]:
