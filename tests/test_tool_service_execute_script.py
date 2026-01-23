@@ -4,6 +4,7 @@ Unit test for ToolService execute_script functionality with get_project_crew_mem
 import unittest
 import sys
 import os
+import tempfile
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -48,13 +49,22 @@ class TestToolServiceExecuteScript(unittest.TestCase):
     def test_execute_script_with_get_project_crew_members(self):
         """Test that execute_script can call get_project_crew_members tool and return correct results"""
         # Script that calls the get_project_crew_members tool
-        script_code = '''
+        script_content = '''
 # Call the get_project_crew_members tool
 result = execute_tool("get_project_crew_members", {})
 '''
-        
-        # Execute the script
-        result = self.tool_service.execute_script(script_code)
+
+        # Create a temporary script file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(script_content)
+            script_path = f.name
+
+        try:
+            # Execute the script
+            result = self.tool_service.execute_script(script_path)
+        finally:
+            # Clean up the temporary file
+            os.remove(script_path)
         
         # Verify the result
         self.assertIsNotNone(result, "Result should not be None")
@@ -81,12 +91,21 @@ result = execute_tool("get_project_crew_members", {})
 
     def test_execute_script_with_parameters(self):
         """Test that execute_script works even when passing parameters to the tool"""
-        script_code = '''
+        script_content = '''
 # Call the get_project_crew_members tool with empty parameters
 result = execute_tool("get_project_crew_members", {})
 '''
-        
-        result = self.tool_service.execute_script(script_code)
+
+        # Create a temporary script file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(script_content)
+            script_path = f.name
+
+        try:
+            result = self.tool_service.execute_script(script_path)
+        finally:
+            # Clean up the temporary file
+            os.remove(script_path)
         
         # Verify the result
         self.assertIsNotNone(result)
@@ -110,25 +129,43 @@ result = execute_tool("get_project_crew_members", {})
 
     def test_script_syntax_error_handling(self):
         """Test that syntax errors in scripts are properly handled"""
-        invalid_script = '''
+        invalid_script_content = '''
 result = execute_tool("get_project_crew_members", {}
 '''  # Missing closing parenthesis
-        
-        with self.assertRaises(ValueError) as context:
-            self.tool_service.execute_script(invalid_script)
-        
-        self.assertIn("Syntax error in script", str(context.exception))
+
+        # Create a temporary script file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(invalid_script_content)
+            script_path = f.name
+
+        try:
+            with self.assertRaises(ValueError) as context:
+                self.tool_service.execute_script(script_path)
+
+            self.assertIn("Syntax error in script", str(context.exception))
+        finally:
+            # Clean up the temporary file
+            os.remove(script_path)
 
     def test_nonexistent_tool_error_handling(self):
         """Test that calling a nonexistent tool raises an error"""
-        script_code = '''
+        script_content = '''
 result = execute_tool("nonexistent_tool", {})
 '''
 
-        with self.assertRaises(RuntimeError) as context:
-            self.tool_service.execute_script(script_code)
+        # Create a temporary script file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(script_content)
+            script_path = f.name
 
-        self.assertIn("Tool 'nonexistent_tool' not found", str(context.exception))
+        try:
+            with self.assertRaises(RuntimeError) as context:
+                self.tool_service.execute_script(script_path)
+
+            self.assertIn("Tool 'nonexistent_tool' not found", str(context.exception))
+        finally:
+            # Clean up the temporary file
+            os.remove(script_path)
 
 
 if __name__ == '__main__':

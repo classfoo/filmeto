@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -129,19 +130,13 @@ class SkillExecutor:
                 "message": f"Script not found for skill '{skill.name}'."
             }
 
-        # Execute using ToolService's execute_script for skill-to-tool integration
-        # Read the script content
-        with open(script_path, 'r', encoding='utf-8') as f:
-            script_content = f.read()
 
         # Prepare the execution context for the script
-        # Create a script that calls the skill as a tool
-        # Use repr() to properly escape the script content
         # For complex objects, we'll pass minimal representations
         workspace_repr = f'"{getattr(context.workspace, "workspace_path", "")}"' if context.workspace else 'None'
         project_repr = f'"{getattr(context.project, "project_path", "")}"' if context.project else 'None'
-        
-        execution_script = f'''
+
+        wrapper_script = f'''
 # Prepare the skill execution context
 # Note: We'll pass basic context values, but complex objects need special handling
 context_dict = {{
@@ -156,20 +151,31 @@ context_dict = {{
 skill_args = {repr(args or {})}
 
 # Execute the skill script with the context
-script_content = {repr(script_content)}
-exec(script_content)
+with open("{script_path}", 'r', encoding='utf-8') as f:
+    script_content = f.read()
+
+# Execute the skill script in a namespace that includes the context
+script_namespace = {{
+    "__builtins__": __builtins__,
+    "context_dict": context_dict,
+    "skill_args": skill_args,
+    "execute_tool": execute_tool  # Make sure execute_tool is available
+}}
+
+# Execute the skill script in the namespace
+exec(script_content, script_namespace)
 
 # Call the main function of the skill with context and args
 # This assumes the skill script has an 'execute' function
-if 'execute' in locals():
-    result = execute(context_dict, **skill_args)
-elif 'execute_in_context' in locals():
-    result = execute_in_context(context_dict, **skill_args)
+if 'execute' in script_namespace:
+    result = script_namespace['execute'](context_dict, **skill_args)
+elif 'execute_in_context' in script_namespace:
+    result = script_namespace['execute_in_context'](context_dict, **skill_args)
 else:
     # Try to find a function matching the skill name
     skill_fn_name = "{skill.name.replace("-", "_")}"
-    if skill_fn_name in locals():
-        result = locals()[skill_fn_name](**skill_args)
+    if skill_fn_name in script_namespace:
+        result = script_namespace[skill_fn_name](**skill_args)
     else:
         # If no standard function found, return an error
         result = {{
@@ -180,8 +186,17 @@ else:
         }}
 '''
 
-        # Execute the script using ToolService
-        result = self.tool_service.execute_script(execution_script)
+        # Create a temporary script file for the wrapper
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(wrapper_script)
+            wrapper_script_path = f.name
+
+        try:
+            # Execute the wrapper script using ToolService's execute_script
+            result = self.tool_service.execute_script(wrapper_script_path)
+        finally:
+            # Clean up the temporary wrapper file
+            os.remove(wrapper_script_path)
         return self._normalize_result(result)
 
     def _normalize_result(self, result: Any) -> Dict[str, Any]:
