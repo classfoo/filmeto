@@ -41,7 +41,27 @@ Soul profile:
 {% endif %}
 
 {% if context_info %}
+{% if "User's question:" in context_info %}
+{% set parts = context_info.split("User's question:") %}
+{% set main_context = parts[0] %}
+{% set user_question = parts[1].strip() %}
+{{ main_context }}
+{% else %}
 {{ context_info }}
+{% endif %}
 {% endif %}
 
 {{ action_instructions }}
+{% if context_info and "User's question:" in context_info %}
+{% set parts = context_info.split("User's question:") %}
+{% set user_question = parts[1].strip() %}
+
+## CRITICAL INSTRUCTION: Focus on the User's Question
+
+THE PRIMARY OBJECTIVE FOR THIS REACT CYCLE IS TO ADDRESS THE FOLLOWING USER QUESTION:
+"{{ user_question }}"
+
+All thoughts, observations, and actions in this ReAct cycle must be DIRECTLY RELATED to answering this question or completing the task it represents. Everything else in the context (project information, plan details, etc.) should be considered BACKGROUND CONTEXT that supports addressing the user's question.
+
+REMEMBER: Every step you take should move toward resolving the user's question. If you have skills available that can help address the question, use them. If you need to gather more information to answer the question, use your skills to do so.
+{% endif %}
