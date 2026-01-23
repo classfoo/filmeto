@@ -90,49 +90,64 @@ class App():
     
     def _setup_qt_message_handler(self):
         """Setup Qt message handler to log Qt warnings and errors"""
+        # Flag to prevent recursion in the message handler
+        _handling_message = False
+
         def qt_message_handler(msg_type, context, message):
+            nonlocal _handling_message
             """Custom Qt message handler"""
-            # Map Qt message types to logging levels
-            if msg_type == QtMsgType.QtDebugMsg:
-                logger.debug(f"Qt: {message}")
-            elif msg_type == QtMsgType.QtInfoMsg:
-                logger.info(f"Qt: {message}")
-            elif msg_type == QtMsgType.QtWarningMsg:
-                logger.warning(f"Qt Warning: {message}")
-                if context.file:
-                    logger.warning(f"  File: {context.file}:{context.line}")
-                if context.function:
-                    logger.warning(f"  Function: {context.function}")
-            elif msg_type == QtMsgType.QtCriticalMsg:
-                logger.error(f"Qt Critical: {message}")
-                if context.file:
-                    logger.error(f"  File: {context.file}:{context.line}")
-                if context.function:
-                    logger.error(f"  Function: {context.function}")
-                # Log stack trace for critical messages
+            # Prevent recursion if there's an error during message handling
+            if _handling_message:
+                # If we're already handling a message, just print to stderr to avoid recursion
                 import sys
-                if sys.exc_info()[0] is not None:  # Check if there's an active exception
-                    logger.error("Stack trace:")
-                    logger.error(traceback.format_exc())
-                else:
-                    # Print the current call stack if no exception is active
-                    logger.error("Current call stack:")
-                    logger.error(''.join(traceback.format_stack()))
-            elif msg_type == QtMsgType.QtFatalMsg:
-                logger.critical(f"Qt Fatal: {message}")
-                if context.file:
-                    logger.critical(f"  File: {context.file}:{context.line}")
-                if context.function:
-                    logger.critical(f"  Function: {context.function}")
-                # Log full stack trace for fatal errors
-                import sys
-                if sys.exc_info()[0] is not None:  # Check if there's an active exception
-                    logger.critical("Stack trace:")
-                    logger.critical(traceback.format_exc())
-                else:
-                    # Print the current call stack if no exception is active
-                    logger.critical("Current call stack:")
-                    logger.critical(''.join(traceback.format_stack()))
+                sys.stderr.write(f"Recursive Qt message: {message}\n")
+                return
+
+            _handling_message = True
+            try:
+                # Map Qt message types to logging levels
+                if msg_type == QtMsgType.QtDebugMsg:
+                    logger.debug(f"Qt: {message}")
+                elif msg_type == QtMsgType.QtInfoMsg:
+                    logger.info(f"Qt: {message}")
+                elif msg_type == QtMsgType.QtWarningMsg:
+                    logger.warning(f"Qt Warning: {message}")
+                    if context.file:
+                        logger.warning(f"  File: {context.file}:{context.line}")
+                    if context.function:
+                        logger.warning(f"  Function: {context.function}")
+                elif msg_type == QtMsgType.QtCriticalMsg:
+                    logger.error(f"Qt Critical: {message}")
+                    if context.file:
+                        logger.error(f"  File: {context.file}:{context.line}")
+                    if context.function:
+                        logger.error(f"  Function: {context.function}")
+                    # Log stack trace for critical messages
+                    import sys
+                    if sys.exc_info()[0] is not None:  # Check if there's an active exception
+                        logger.error("Stack trace:")
+                        logger.error(traceback.format_exc())
+                    else:
+                        # Print the current call stack if no exception is active
+                        logger.error("Current call stack:")
+                        logger.error(''.join(traceback.format_stack()))
+                elif msg_type == QtMsgType.QtFatalMsg:
+                    logger.critical(f"Qt Fatal: {message}")
+                    if context.file:
+                        logger.critical(f"  File: {context.file}:{context.line}")
+                    if context.function:
+                        logger.critical(f"  Function: {context.function}")
+                    # Log full stack trace for fatal errors
+                    import sys
+                    if sys.exc_info()[0] is not None:  # Check if there's an active exception
+                        logger.critical("Stack trace:")
+                        logger.critical(traceback.format_exc())
+                    else:
+                        # Print the current call stack if no exception is active
+                        logger.critical("Current call stack:")
+                        logger.critical(''.join(traceback.format_stack()))
+            finally:
+                _handling_message = False
 
         qInstallMessageHandler(qt_message_handler)
 
@@ -308,10 +323,61 @@ class App():
             task_manager.shutdown()
             logger.info("LayerComposeTaskManager shutdown complete")
         except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
+            logger.error(f"Error during LayerComposeTaskManager cleanup: {e}")
             logger.error("Full stack trace:")
             logger.error(traceback.format_exc())
-        
+
+        try:
+            # Shut down the global download worker if it exists
+            logger.info("Shutting down global download worker...")
+            from utils.download_utils import shutdown_download_worker
+            shutdown_download_worker()
+            logger.info("Global download worker shutdown complete")
+        except Exception as e:
+            logger.error(f"Error during download worker cleanup: {e}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())
+
+        try:
+            # Clean up any remaining QThreads that might be running
+            logger.info("Checking for any remaining QThreads...")
+            from PySide6.QtCore import QThread
+            import gc
+            for obj in gc.get_objects():
+                if isinstance(obj, QThread) and obj.isRunning():
+                    logger.warning(f"Found running QThread {obj}, attempting to stop it...")
+                    try:
+                        obj.quit()
+                        if not obj.wait(5000):  # Wait up to 5 seconds
+                            logger.warning(f"Thread didn't stop gracefully, terminating: {obj}")
+                            obj.terminate()
+                            obj.wait(1000)  # Wait 1 more second after terminate
+                    except Exception as e:
+                        logger.error(f"Error stopping QThread {obj}: {e}")
+        except Exception as e:
+            logger.error(f"Error during QThread cleanup: {e}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())
+
+        try:
+            # Shut down the global worker pool if it exists
+            logger.info("Shutting down global worker pool...")
+            from app.ui.worker.worker import _global_pool
+            if _global_pool is not None:
+                logger.info("Waiting for all tasks in global worker pool to complete...")
+                _global_pool.wait_all()
+            logger.info("Global worker pool shutdown complete")
+        except Exception as e:
+            logger.error(f"Error during worker pool cleanup: {e}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())
+
+        # Force garbage collection to ensure objects are cleaned up
+        logger.info("Performing garbage collection...")
+        import gc
+        collected = gc.collect()
+        logger.info(f"Garbage collected {collected} objects")
+
         logger.info("Cleanup complete")
 
     @property

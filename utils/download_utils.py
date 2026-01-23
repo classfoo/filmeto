@@ -259,6 +259,27 @@ class DownloaderWindow(QWidget):
         event.accept()
 
 
+# Global download worker instance to ensure proper cleanup
+_global_download_worker = None
+
+
+def get_download_worker():
+    """Get or create the global download worker instance."""
+    global _global_download_worker
+    if _global_download_worker is None:
+        _global_download_worker = DownloadWorker()
+        _global_download_worker.start()  # Start the worker thread
+    return _global_download_worker
+
+
+def shutdown_download_worker():
+    """Shutdown the global download worker."""
+    global _global_download_worker
+    if _global_download_worker is not None:
+        _global_download_worker.stop()
+        _global_download_worker = None
+
+
 # ----------------------------- 5. 使用示例 -----------------------------
 if __name__ == "__main__":
     app = QApplication([])

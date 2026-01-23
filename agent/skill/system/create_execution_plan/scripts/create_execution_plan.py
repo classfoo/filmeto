@@ -178,7 +178,6 @@ def main():
             "message": "plan_name is required"
         }
         print(json.dumps(error_result, indent=2))
-        sys.exit(1)
 
     if not project_path:
         error_result = {
@@ -187,7 +186,6 @@ def main():
             "message": "project_path is required"
         }
         print(json.dumps(error_result, indent=2))
-        sys.exit(1)
 
     try:
         # Parse tasks JSON
@@ -205,7 +203,6 @@ def main():
             "message": f"Invalid JSON for tasks: {tasks_str}"
         }
         print(json.dumps(error_result, indent=2))
-        sys.exit(1)
     except Exception as e:
         error_result = {
             "success": False,
@@ -213,8 +210,6 @@ def main():
             "message": f"Error in execution plan creation: {str(e)}"
         }
         print(json.dumps(error_result, indent=2))
-        sys.exit(1)
-
 
 # Alias for SkillExecutor compatibility
 execute_in_context = execute
