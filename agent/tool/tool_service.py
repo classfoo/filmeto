@@ -16,6 +16,26 @@ class ToolService:
     def __init__(self):
         self.tools: Dict[str, BaseTool] = {}
         self.context: Dict[str, Any] = {}
+        self._register_system_tools()
+
+    def _register_system_tools(self):
+        """Register all system tools from the system module."""
+        try:
+            from .system import __all__ as system_tools
+            import importlib
+
+            # Dynamically register all system tools
+            for tool_class_name in system_tools:
+                # Import the tool class dynamically
+                module = importlib.import_module('.system', package=__package__)
+                tool_class = getattr(module, tool_class_name)
+
+                # Create an instance and register it
+                tool_instance = tool_class()
+                self.register_tool(tool_instance)
+        except ImportError:
+            # If system tools are not available, continue without registering them
+            pass
 
     @contextmanager
     def _sys_path_manager(self, project_root: str):
