@@ -2,6 +2,7 @@
 import asyncio
 import threading
 import queue
+import traceback
 from asyncio import Queue, Task
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Any, Optional, Union, Awaitable
@@ -117,7 +118,9 @@ class AsyncQueueManager:
                             await self.processor(item)
                             logger.info(f"✅ {self.name} 处理完成: {item}")
                         except Exception as e:
-                            logger.error(f"❌ {self.name} 处理失败 {item}: {e}", exc_info=True)
+                            logger.error(f"❌ {self.name} 处理失败 {item}: {e}")
+                            logger.error("Full stack trace:")
+                            logger.error(traceback.format_exc())
                         finally:
                             self.queue.task_done()
                             logger.info(f"✅ {self.name} task_done 调用: {item}")
@@ -125,7 +128,9 @@ class AsyncQueueManager:
                         logger.info(f"🛑 {self.name} 被取消")
                         break
                     except Exception as e:
-                        logger.error(f"❌ {self.name} 发生未预期错误: {e}", exc_info=True)
+                        logger.error(f"❌ {self.name} 发生未预期错误: {e}")
+                        logger.error("Full stack trace:")
+                        logger.error(traceback.format_exc())
             else:
                 # 并发处理模式
                 logger.info(f"🔵 {self.name} 使用并发处理模式 | 并发数: {self.max_concurrent}")
@@ -140,7 +145,9 @@ class AsyncQueueManager:
                             await self.processor(item)
                             logger.info(f"✅ {self.name} 处理完成: {item}")
                         except Exception as e:
-                            logger.error(f"❌ {self.name} 处理失败 {item}: {e}", exc_info=True)
+                            logger.error(f"❌ {self.name} 处理失败 {item}: {e}")
+                            logger.error("Full stack trace:")
+                            logger.error(traceback.format_exc())
                         finally:
                             self.queue.task_done()
                             logger.info(f"✅ {self.name} task_done 调用: {item}")
@@ -166,7 +173,9 @@ class AsyncQueueManager:
                         logger.info(f"🛑 {self.name} 被取消")
                         break
                     except Exception as e:
-                        logger.error(f"❌ {self.name} 发生未预期错误: {e}", exc_info=True)
+                        logger.error(f"❌ {self.name} 发生未预期错误: {e}")
+                        logger.error("Full stack trace:")
+                        logger.error(traceback.format_exc())
                 
                 # At this point, either we've been asked to stop and queue is empty,
                 # or the task was cancelled. Wait for any remaining queue operations to complete.
@@ -176,7 +185,9 @@ class AsyncQueueManager:
             
             logger.info(f"👋 {self.name} 循环退出")
         except Exception as e:
-            logger.error(f"❌ {self.name} _run方法发生未预期的顶级错误: {e}", exc_info=True)
+            logger.error(f"❌ {self.name} _run方法发生未预期的顶级错误: {e}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())
             raise
 
 
@@ -338,7 +349,9 @@ class SyncQueueManager:
                 logger.info(f"✅ {self.name} 任务完成: {item}")
                 
             except Exception as e:
-                logger.error(f"❌ {self.name} 工作线程发生错误: {e}", exc_info=True)
+                logger.error(f"❌ {self.name} 工作线程发生错误: {e}")
+                logger.error("Full stack trace:")
+                logger.error(traceback.format_exc())
         
         logger.info(f"👋 {self.name} 串行工作线程退出")
 
@@ -364,7 +377,9 @@ class SyncQueueManager:
                 logger.info(f"✅ {self.name} 任务完成: {item}")
                 
             except Exception as e:
-                logger.error(f"❌ {self.name} 并发工作线程发生错误: {e}", exc_info=True)
+                logger.error(f"❌ {self.name} 并发工作线程发生错误: {e}")
+                logger.error("Full stack trace:")
+                logger.error(traceback.format_exc())
         
         logger.info(f"👋 {self.name} 并发工作线程退出")
 
@@ -379,4 +394,6 @@ class SyncQueueManager:
                 # If processor is sync, run it directly
                 self.processor(item)
         except Exception as e:
-            logger.error(f"❌ {self.name} 处理项目失败 {item}: {e}", exc_info=True)
+            logger.error(f"❌ {self.name} 处理项目失败 {item}: {e}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())

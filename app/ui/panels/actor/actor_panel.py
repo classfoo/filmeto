@@ -2,6 +2,7 @@
 
 import logging
 import os
+import traceback
 from typing import List, Optional
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QFrame, QLabel,
@@ -369,8 +370,8 @@ class ActorPanel(ThreadSafetyMixin, BasePanel):
         logger.error(f"❌ Error loading actor manager: {error_msg}")
         logger.error(f"Exception: {exception}")
         logger.error(f"Exception type: {type(exception)}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error("Full stack trace:")
+        logger.error(traceback.format_exc())
 
         # Don't mark as loaded immediately - allow for retry in certain cases
         if not hasattr(self, '_load_attempts'):
@@ -449,7 +450,9 @@ class ActorPanel(ThreadSafetyMixin, BasePanel):
                         else:
                             return None
                 except Exception as e:
-                    logger.error(f"Error loading actor manager (attempt {retry_count + 1}): {e}", exc_info=True)
+                    logger.error(f"Error loading actor manager (attempt {retry_count + 1}): {e}")
+                    logger.error("Full stack trace:")
+                    logger.error(traceback.format_exc())
                     if retry_count < max_retries - 1:
                         import time
                         time.sleep(0.5)  # Wait before retry

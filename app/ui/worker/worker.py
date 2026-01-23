@@ -11,12 +11,13 @@ Usage:
     worker.finished.connect(on_result)
     worker.error.connect(on_error)
     worker.start()
-    
+
     # Or use the convenience function
     run_in_background(my_function, on_finished=callback, args=(arg1,), kwargs={'key': val})
 """
 
 import logging
+import traceback
 from typing import Any, Callable, Optional, Tuple, Dict, List
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
@@ -77,7 +78,9 @@ class TaskExecutor(QObject):
             
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Task execution failed: {error_msg}", exc_info=True)
+            logger.error(f"Task execution failed: {error_msg}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())
             self.error.emit(error_msg, e)
     
     def report_progress(self, percent: int, message: str = ""):

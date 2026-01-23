@@ -117,7 +117,8 @@ if __name__ == "__main__":
         logger.critical("FATAL ERROR IN MAIN")
         logger.critical("=" * 80)
         logger.critical(f"Exception: {e}")
-        logger.critical("Stack trace:", exc_info=True)
+        logger.critical("Stack trace:")
+        logger.critical(traceback.format_exc())
         logger.critical("=" * 80)
         
         # Re-raise to trigger sys.excepthook

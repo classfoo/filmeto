@@ -110,7 +110,14 @@ class App():
                 if context.function:
                     logger.error(f"  Function: {context.function}")
                 # Log stack trace for critical messages
-                logger.error("Stack trace:", exc_info=True)
+                import sys
+                if sys.exc_info()[0] is not None:  # Check if there's an active exception
+                    logger.error("Stack trace:")
+                    logger.error(traceback.format_exc())
+                else:
+                    # Print the current call stack if no exception is active
+                    logger.error("Current call stack:")
+                    logger.error(''.join(traceback.format_stack()))
             elif msg_type == QtMsgType.QtFatalMsg:
                 logger.critical(f"Qt Fatal: {message}")
                 if context.file:
@@ -118,8 +125,15 @@ class App():
                 if context.function:
                     logger.critical(f"  Function: {context.function}")
                 # Log full stack trace for fatal errors
-                logger.critical("Stack trace:", exc_info=True)
-        
+                import sys
+                if sys.exc_info()[0] is not None:  # Check if there's an active exception
+                    logger.critical("Stack trace:")
+                    logger.critical(traceback.format_exc())
+                else:
+                    # Print the current call stack if no exception is active
+                    logger.critical("Current call stack:")
+                    logger.critical(''.join(traceback.format_stack()))
+
         qInstallMessageHandler(qt_message_handler)
 
     def start(self):
@@ -160,14 +174,14 @@ class App():
             with TimingContext("Workspace initialization"):
                 logger.info("Initializing workspace...")
                 workspacePath = os.path.join(self.main_path, "workspace")
-                self.workspace = Workspace(workspacePath, "demo", load_data=False, defer_heavy_init=True)
-            
+                self._workspace = Workspace(workspacePath, "demo", load_data=False, defer_heavy_init=True)
+
             # Initialize server manager (defer plugin discovery)
             with TimingContext("Server manager initialization"):
                 logger.info("Initializing server manager...")
                 workspacePath = os.path.join(self.main_path, "workspace")
                 self.server_manager = ServerManager(workspacePath, defer_plugin_discovery=True)
-                self.server = self.server_manager.get_server("local")
+                self._server = self.server_manager.get_server("local")
             
             # Complete deferred initializations synchronously
             with TimingContext("Deferred initializations"):
@@ -219,7 +233,8 @@ class App():
             logger.critical("CRITICAL ERROR IN APP.START()")
             logger.critical("="*80)
             logger.critical(f"Exception: {e}")
-            logger.critical("Full stack trace:", exc_info=True)
+            logger.critical("Full stack trace:")
+            logger.critical(traceback.format_exc())
             logger.critical("="*80)
             raise
     
@@ -293,14 +308,18 @@ class App():
             task_manager.shutdown()
             logger.info("LayerComposeTaskManager shutdown complete")
         except Exception as e:
-            logger.error(f"Error during cleanup: {e}", exc_info=True)
+            logger.error(f"Error during cleanup: {e}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())
         
         logger.info("Cleanup complete")
 
+    @property
     def workspace(self):
-        return self.workspace
+        return self._workspace
 
+    @property
     def server(self):
-        return self.server
+        return self._server
 if __name__ == "__main__":
     App()
