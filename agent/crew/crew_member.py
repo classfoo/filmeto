@@ -72,6 +72,7 @@ class CrewMemberAction:
     args: Optional[Any] = None
     plan_id: Optional[str] = None
     plan_update: Optional[Dict[str, Any]] = None
+    thinking: Optional[str] = None
     raw: Optional[str] = None
 
 
@@ -178,6 +179,21 @@ class CrewMember:
             )
 
             action = self._parse_action(response_text)
+
+            # Send thinking to AgentMessage if available
+            if action.thinking:
+                await self.signals.send_agent_message(
+                    content=action.thinking,
+                    sender_id=self.config.name,
+                    sender_name=self.config.name,
+                    message_type=MessageType.THINKING,
+                    metadata={
+                        "session_id": getattr(self, '_session_id', 'unknown'),
+                        "event_type": "agent_thinking",
+                        "step": step + 1,
+                        "thinking": action.thinking
+                    }
+                )
 
             if action.action_type == "skill":
                 # Execute skill with structured content reporting
@@ -511,12 +527,16 @@ class CrewMember:
         if action_type not in {"final", "skill"}:
             action_type = "final"
 
+        # Extract thinking if present in the payload
+        thinking = payload.get("thinking") or payload.get("thought") or payload.get("reasoning")
+
         return CrewMemberAction(
             action_type=action_type,
             response=payload.get("response") or payload.get("final"),
             skill=payload.get("skill") or payload.get("tool"),
             script=payload.get("script"),
             args=payload.get("args") or payload.get("arguments") or payload.get("input"),
+            thinking=thinking,
             raw=response_text,
         )
 

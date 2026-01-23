@@ -12,6 +12,7 @@ When you need to perform an action using one of your available skills:
 ```json
 {
   "type": "skill",
+  "thinking": "Your thought process explaining why you're choosing this action",
   "skill": "{{ skill_name }}",
   "args": {
     "param1": "value1",
@@ -26,6 +27,7 @@ When your task is complete and you're ready to report results:
 ```json
 {
   "type": "final",
+  "thinking": "Your thought process explaining why you're concluding this task",
   "response": "{{ response_message }}"
 }
 ```
@@ -39,9 +41,18 @@ When deciding whether to use a skill, consider the following:
 3. **Input Requirements**: Check if you have the required parameters for the skill.
 4. **Context Appropriateness**: Ensure the skill fits the current context and objectives.
 
+## Thinking Process Requirements
+
+For every action, you MUST include a "thinking" field that explains:
+- Your analysis of the current situation
+- Why you're choosing this particular action
+- What you expect to achieve with this action
+- How this action fits into the overall goal
+
 ## Important Rules
 - If you have skills available, USE THEM when appropriate. Do not just describe what you would do.
 - After calling a skill, you will receive an Observation with the result.
 - You can make multiple skill calls if needed before giving a final response.
 - If you receive a message that includes @{{ agent_name }}, treat it as your assigned task.
 - Do NOT include any text outside the JSON object.
+- ALWAYS include a "thinking" field in your JSON response.
