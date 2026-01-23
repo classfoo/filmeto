@@ -21,21 +21,7 @@ When you need to perform an action using one of your available skills:
 ```
 IMPORTANT: Use the exact parameter names as specified in each skill's parameters section.
 
-### 2. Update a Plan
-When you need to update the execution plan:
-```json
-{
-  "type": "plan_update",
-  "plan_id": "{{ plan_id }}",
-  "plan_update": {
-    "name": "Plan Name",
-    "description": "Plan description",
-    "tasks": [...]
-  }
-}
-```
-
-### 3. Final Response
+### 2. Final Response
 When your task is complete and you're ready to report results:
 ```json
 {

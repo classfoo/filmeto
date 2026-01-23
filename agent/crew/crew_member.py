@@ -203,26 +203,6 @@ class CrewMember:
                 )
                 continue
 
-            if action.action_type == "plan_update":
-                observation = self._apply_plan_update(action, plan_id=plan_id)
-                messages.append({"role": "assistant", "content": response_text})
-                messages.append({"role": "user", "content": f"Observation: {observation}"})
-
-                # Use AgentChatSignals to notify about plan update
-                await self.signals.send_agent_message(
-                    content=f"Plan updated: {observation}",
-                    sender_id=self.config.name,
-                    sender_name=self.config.name,
-                    message_type=MessageType.SYSTEM,
-                    metadata={
-                        "session_id": getattr(self, '_session_id', 'unknown'),
-                        "event_type": "plan_update",
-                        "plan_id": plan_id,
-                        "observation": observation
-                    }
-                )
-                continue
-
             final_response = action.response or response_text
             break
 
@@ -528,7 +508,7 @@ class CrewMember:
 
         action_type = payload.get("type") or payload.get("action") or "final"
         action_type = str(action_type).strip().lower()
-        if action_type not in {"final", "skill", "plan_update"}:
+        if action_type not in {"final", "skill"}:
             action_type = "final"
 
         return CrewMemberAction(
@@ -537,8 +517,6 @@ class CrewMember:
             skill=payload.get("skill") or payload.get("tool"),
             script=payload.get("script"),
             args=payload.get("args") or payload.get("arguments") or payload.get("input"),
-            plan_id=payload.get("plan_id"),
-            plan_update=payload.get("plan_update") or payload.get("plan") or payload.get("changes"),
             raw=response_text,
         )
 
@@ -654,36 +632,6 @@ class CrewMember:
 
         return result_message
 
-    def _apply_plan_update(self, action: CrewMemberAction, plan_id: Optional[str]) -> str:
-        if not self.project_name:
-            return "Project name is missing for plan update."
-
-        target_plan_id = action.plan_id or plan_id
-        if not target_plan_id:
-            return "Plan id is missing for plan update."
-
-        changes = action.plan_update or {}
-        if not isinstance(changes, dict):
-            return "Plan update payload must be an object."
-
-        plan_name = changes.get("name")
-        description = changes.get("description")
-        metadata = changes.get("metadata")
-        tasks = changes.get("tasks")
-        append_tasks = changes.get("append_tasks")
-
-        updated_plan = self.plan_service.update_plan(
-            project_name=self.project_name,
-            plan_id=target_plan_id,
-            name=plan_name,
-            description=description,
-            tasks=_coerce_tasks(tasks),
-            append_tasks=_coerce_tasks(append_tasks),
-            metadata=metadata,
-        )
-        if updated_plan is None:
-            return f"Plan '{target_plan_id}' not found for update."
-        return f"Plan '{target_plan_id}' updated."
 
 
 def _parse_frontmatter(content: str) -> (Dict[str, Any], str):
