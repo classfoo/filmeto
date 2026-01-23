@@ -91,7 +91,8 @@ class SkillExecutor:
         skill: Skill,
         context: SkillContext,
         args: Optional[Dict[str, Any]] = None,
-        script_name: Optional[str] = None
+        script_name: Optional[str] = None,
+        argv: Optional[list] = None
     ) -> Dict[str, Any]:
         """
         Execute a skill with the given context and arguments using ToolService.
@@ -184,6 +185,10 @@ else:
             "message": f"No execute function found in skill '{{skill.name}}'. "
                       f"Expected 'execute(context, **kwargs)' or '{{skill_fn_name}}(...)' function."
         }}
+
+# Print the result so it can be captured by ToolService
+import json
+print(json.dumps(result))
 '''
 
         # Create a temporary script file for the wrapper
@@ -193,7 +198,31 @@ else:
 
         try:
             # Execute the wrapper script using ToolService's execute_script
-            result = self.tool_service.execute_script(wrapper_script_path)
+            output = self.tool_service.execute_script(wrapper_script_path, argv)
+
+            # Check if output is already a dict (error case) or string (normal case)
+            if isinstance(output, dict):
+                # If output is already a dict, it's likely an error result
+                result = output
+            elif output:
+                # Parse the JSON output to get the actual result
+                lines = output.strip().split('\n')
+                # Find the last line that looks like JSON (the result we printed)
+                json_line = None
+                for line in reversed(lines):
+                    line = line.strip()
+                    if line.startswith('[') or line.startswith('{'):
+                        json_line = line
+                        break
+                if json_line:
+                    import json
+                    result = json.loads(json_line)
+                else:
+                    # If no JSON found, return the raw output
+                    result = {"success": True, "output": output}
+            else:
+                # If no output, return a default success result
+                result = {"success": True, "message": "Skill executed successfully."}
         finally:
             # Clean up the temporary wrapper file
             os.remove(wrapper_script_path)

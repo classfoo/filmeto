@@ -1,6 +1,8 @@
 import ast
 import sys
 import runpy
+import io
+import contextlib
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List
@@ -48,6 +50,17 @@ class ToolService:
         finally:
             sys.path[:] = original_path
 
+    @contextmanager
+    def _sys_argv_manager(self, new_argv: list):
+        """Context manager to temporarily modify sys.argv."""
+        import sys
+        original_argv = sys.argv[:]
+        sys.argv = new_argv if new_argv is not None else ['']
+        try:
+            yield
+        finally:
+            sys.argv[:] = original_argv
+
     def _find_project_root(self, start_path: Path) -> Path:
         """
         Find the project root by looking for typical project markers.
@@ -92,15 +105,16 @@ class ToolService:
         tool = self.tools[tool_name]
         return tool.execute(parameters, self.context)
     
-    def execute_script(self, script_path: str) -> Any:
+    def execute_script(self, script_path: str, argv: list = None) -> Any:
         """
         Execute a script that can call various tools.
 
         Args:
             script_path: Absolute path to the script file to execute
+            argv: Optional list of command-line arguments to pass to the script
 
         Returns:
-            Result of the script execution
+            Result of the script execution (captured stdout)
         """
         # Define the execute_tool function that will be available in the script
         def script_execute_tool(tool_name: str, parameters: Dict[str, Any]):
@@ -116,18 +130,21 @@ class ToolService:
         script_dir = Path(script_path).parent
         project_root = self._find_project_root(script_dir)
 
-        # Execute the script using runpy.run_path with the context manager
+        # Execute the script using runpy.run_path with the context managers
         try:
-            with self._sys_path_manager(str(project_root)):
-                # Run the script with the prepared globals
-                result_namespace = runpy.run_path(script_path, init_globals=script_globals, run_name="__main__")
+            # Capture stdout during script execution
+            captured_output = io.StringIO()
 
-                # Return the result if it's stored in a variable named 'result'
-                if 'result' in result_namespace:
-                    return result_namespace['result']
-                else:
-                    # If no explicit result, return None
-                    return None
+            with self._sys_path_manager(str(project_root)), self._sys_argv_manager(argv), \
+                 contextlib.redirect_stdout(captured_output):
+                # Run the script with the prepared globals
+                runpy.run_path(script_path, init_globals=script_globals, run_name="__main__")
+
+            # Get the captured output
+            output = captured_output.getvalue()
+
+            # Return the captured output (strip trailing newline if present)
+            return output.rstrip() if output else None
         except SyntaxError as e:
             raise ValueError(f"Syntax error in script: {str(e)}")
         except FileNotFoundError:
