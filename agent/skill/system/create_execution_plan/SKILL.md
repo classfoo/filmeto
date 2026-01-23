@@ -50,6 +50,10 @@ Tasks can have dependencies defined in the 'needs' field, which should contain a
 
 The skill can be invoked when users want to create a structured execution plan for a film production project. The plan will be created with the specified tasks assigned to appropriate crew members.
 
+## Execution Context
+
+This skill supports both direct script execution and in-context execution via the SkillExecutor. When executed through the SkillExecutor, it receives a SkillContext object containing project and workspace information, and arguments are passed directly to the execute function.
+
 ## Example Call
 
 ```json
@@ -96,4 +100,4 @@ Returns a JSON object containing:
 - `message`: Human-readable status message
 - `plan_id`: Unique identifier for the created plan
 - `plan_name`: Name of the created plan
-- `project_name`: Name of the project the plan belongs to
+- `project`: Name of the project the plan belongs to
