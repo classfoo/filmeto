@@ -10,6 +10,7 @@ import sys
 import argparse
 from typing import Dict, Any, TYPE_CHECKING
 import os
+import ast
 
 if TYPE_CHECKING:
     from agent.skill.skill_executor import SkillContext
@@ -188,8 +189,15 @@ def main():
         print(json.dumps(error_result, indent=2))
 
     try:
-        # Parse tasks JSON
-        tasks = json.loads(tasks_str)
+        # Parse tasks - try JSON first, then fall back to Python literal evaluation
+        try:
+            tasks = json.loads(tasks_str)
+        except json.JSONDecodeError:
+            # If JSON parsing fails, try to parse as Python literal
+            try:
+                tasks = ast.literal_eval(tasks_str)
+            except (ValueError, SyntaxError):
+                raise json.JSONDecodeError(f"Invalid JSON or Python literal for tasks: {tasks_str}", tasks_str, 0)
 
         # Create the execution plan
         result = create_execution_plan(plan_name, description, tasks)

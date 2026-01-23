@@ -93,7 +93,7 @@ class SkillExecutor:
         args: Optional[Dict[str, Any]] = None,
         script_name: Optional[str] = None,
         argv: Optional[list] = None
-    ) -> Dict[str, Any]:
+    ) -> str:
         """
         Execute a skill with the given context and arguments using ToolService.
 
@@ -105,14 +105,10 @@ class SkillExecutor:
             argv: Optional command-line arguments to pass to the script
 
         Returns:
-            Dict with execution result, including success status and output
+            String with execution result
         """
         if not skill.scripts:
-            return {
-                "success": False,
-                "error": "no_scripts",
-                "message": f"Skill '{skill.name}' has no executable scripts."
-            }
+            return f"Error: Skill '{skill.name}' has no executable scripts."
 
         # Find the script to execute
         script_path = None
@@ -126,11 +122,7 @@ class SkillExecutor:
             script_path = skill.scripts[0]
 
         if not script_path or not os.path.exists(script_path):
-            return {
-                "success": False,
-                "error": "script_not_found",
-                "message": f"Script not found for skill '{skill.name}'."
-            }
+            return f"Error: Script not found for skill '{skill.name}'."
 
         # Prepare argv for the script execution if not provided
         if argv is None:
@@ -161,60 +153,12 @@ class SkillExecutor:
 
         try:
             # Execute the script directly using ToolService's execute_script with argv
+            # Return the raw output directly without any processing
             output = self.tool_service.execute_script(script_path, argv)
-
-            # Process the output
-            if output:
-                # Parse the JSON output to get the actual result
-                lines = output.strip().split('\n')
-                # Find the last line that looks like JSON (the result we expect to be printed)
-                json_line = None
-                for line in reversed(lines):
-                    line = line.strip()
-                    if line.startswith('[') or line.startswith('{'):
-                        json_line = line
-                        break
-                if json_line:
-                    import json
-                    result = json.loads(json_line)
-                else:
-                    # If no JSON found, return the raw output
-                    result = {"success": True, "output": output}
-            else:
-                # If no output, return a default success result
-                result = {"success": True, "message": "Skill executed successfully."}
+            return str(output) if output is not None else ""
         except Exception as e:
-            result = {
-                "success": False,
-                "error": str(e),
-                "message": f"Error executing skill script: {str(e)}"
-            }
+            return f"Error executing skill script: {str(e)}"
 
-        return self._normalize_result(result)
-
-    def _normalize_result(self, result: Any) -> Dict[str, Any]:
-        """Normalize the skill execution result to a standard format."""
-        if isinstance(result, dict):
-            if 'success' not in result:
-                result['success'] = True
-            return result
-        elif isinstance(result, str):
-            return {
-                "success": True,
-                "output": result,
-                "message": result
-            }
-        elif result is None:
-            return {
-                "success": True,
-                "message": "Skill executed successfully."
-            }
-        else:
-            return {
-                "success": True,
-                "output": result,
-                "message": str(result)
-            }
 
     def clear_cache(self):
         """Clear cached modules to force reload on next execution."""

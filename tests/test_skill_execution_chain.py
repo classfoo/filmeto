@@ -145,7 +145,7 @@ class TestSkillExecutor:
         """Test executing a non-existent skill."""
         from agent.skill.skill_executor import SkillContext
         from agent.skill.skill_service import Skill
-        
+
         fake_skill = Skill(
             name='nonexistent_skill',
             description='A skill that does not exist',
@@ -153,28 +153,13 @@ class TestSkillExecutor:
             skill_path='/fake/path',
             scripts=[]
         )
-        
+
         context = SkillContext()
         result = self.executor.execute_skill(fake_skill, context)
-        
-        assert result['success'] is False
-        assert 'no_scripts' in result.get('error', '')
 
-    def test_execute_skill_normalizes_result(self):
-        """Test that the executor normalizes results properly."""
-        # Test dict result
-        result = self.executor._normalize_result({'data': 'test'})
-        assert result['success'] is True
-        assert result['data'] == 'test'
-        
-        # Test string result
-        result = self.executor._normalize_result('Test output')
-        assert result['success'] is True
-        assert result['output'] == 'Test output'
-        
-        # Test None result
-        result = self.executor._normalize_result(None)
-        assert result['success'] is True
+        assert isinstance(result, str)
+        assert 'no executable scripts' in result
+
 
 
 class TestSkillServiceInContextExecution:
@@ -199,22 +184,22 @@ class TestSkillServiceInContextExecution:
         """Clean up after tests."""
         shutil.rmtree(self.temp_dir)
 
-    def test_execute_skill_in_context_returns_dict(self):
-        """Test that execute_skill_in_context returns a dict."""
+    def test_execute_skill_in_context_returns_string(self):
+        """Test that execute_skill_in_context returns a string."""
         from app.data.screen_play import ScreenPlayManager
-        
+
         # Create a real screenplay manager
         screenplay_manager = ScreenPlayManager(self.project_path)
-        
+
         # Create a mock project
         mock_project = MagicMock()
         mock_project.project_path = str(self.project_path)
         mock_project.screenplay_manager = screenplay_manager
-        
+
         # Get the skill object first
         skill = self.skill_service.get_skill('write_screenplay_outline')
         assert skill is not None, "Skill 'write_screenplay_outline' should exist"
-        
+
         result = self.skill_service.execute_skill_in_context(
             skill=skill,
             project=mock_project,
@@ -224,9 +209,8 @@ class TestSkillServiceInContextExecution:
                 'num_scenes': 3
             }
         )
-        
-        assert isinstance(result, dict)
-        assert 'success' in result
+
+        assert isinstance(result, str)
 
     def test_execute_skill_in_context_with_none_skill(self):
         """Test execute_skill_in_context with None skill."""
@@ -234,9 +218,9 @@ class TestSkillServiceInContextExecution:
             skill=None,
             args={}
         )
-        
-        assert result['success'] is False
-        assert 'not provided' in result['message'].lower() or 'no skill' in result['message'].lower()
+
+        assert isinstance(result, str)
+        assert 'No skill object was provided' in result
 
     def test_get_skill_prompt_info(self):
         """Test getting formatted skill information for prompts."""
@@ -249,7 +233,7 @@ class TestSkillServiceInContextExecution:
     def test_execute_skill_from_knowledge_without_llm(self):
         """Test execute_skill_in_context with a skill that has no scripts (knowledge-based)."""
         from agent.skill.skill_service import Skill
-        
+
         # Create a skill with knowledge but no scripts
         knowledge_skill = Skill(
             name='test_knowledge_skill',
@@ -261,17 +245,15 @@ class TestSkillServiceInContextExecution:
             skill_path='/fake/path',
             scripts=None  # No scripts
         )
-        
+
         result = self.skill_service.execute_skill_in_context(
             skill=knowledge_skill,
             args={'input': 'test input'},
             llm_service=None  # No LLM service, should return knowledge guidance
         )
-        
-        assert result['success'] is True
-        assert result.get('output_type') == 'knowledge_guidance'
-        assert 'knowledge' in result
-        assert 'guidance' in result['knowledge'].lower() or 'instructions' in result['knowledge'].lower()
+
+        assert isinstance(result, str)
+        assert 'guidance' in result.lower() or 'instructions' in result.lower()
 
 
 class TestCrewMemberSkillIntegration:

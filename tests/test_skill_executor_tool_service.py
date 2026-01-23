@@ -117,17 +117,14 @@ if __name__ == "__main__":
             workspace=MockWorkspace(),
             project=MockProject()
         )
-        
+
         # Execute the skill with arguments
         args = {"input_text": "ToolService"}
         result = self.executor.execute_skill(self.mock_skill, context, args)
-        
-        # Verify the result
-        self.assertIsNotNone(result)
-        self.assertTrue(result.get("success"), f"Skill execution failed: {result}")
-        self.assertIn("output", result)
-        self.assertEqual(result["output"], "Hello, ToolService!")
-        self.assertIn("message", result)
+
+        # Verify the result is a string
+        self.assertIsInstance(result, str)
+        self.assertIn("Hello, ToolService!", result)
 
     def test_execute_skill_with_empty_args(self):
         """Test executing a skill with empty arguments (should use defaults)"""
@@ -135,39 +132,35 @@ if __name__ == "__main__":
             workspace=MockWorkspace(),
             project=MockProject()
         )
-        
+
         # Execute with no args (should use default "World")
         result = self.executor.execute_skill(self.mock_skill, context, {})
-        
+
         # Verify the result uses the default value
-        self.assertIsNotNone(result)
-        self.assertTrue(result.get("success"))
-        self.assertIn("output", result)
-        self.assertEqual(result["output"], "Hello, World!")
+        self.assertIsInstance(result, str)
+        self.assertIn("Hello, World!", result)
 
     def test_tool_service_integration(self):
         """Test that ToolService is being used in the execution"""
         # Verify that the executor has a ToolService instance
         self.assertIsNotNone(self.executor.tool_service)
-        
+
         # Mock the ToolService's execute_script method to verify it's called
         original_execute_script = self.executor.tool_service.execute_script
-        self.executor.tool_service.execute_script = MagicMock(return_value={
-            "success": True,
-            "output": "Mocked result",
-            "message": "Mocked execution"
-        })
-        
+        self.executor.tool_service.execute_script = MagicMock(return_value="Mocked result")
+
         context = SkillContext(
             workspace=MockWorkspace(),
             project=MockProject()
         )
-        
+
         result = self.executor.execute_skill(self.mock_skill, context, {"input_text": "Test"})
-        
+
         # Verify that execute_script was called
         self.executor.tool_service.execute_script.assert_called_once()
-        
+        # Verify that the result is the mocked return value
+        self.assertEqual(result, "Mocked result")
+
         # Restore the original method
         self.executor.tool_service.execute_script = original_execute_script
 
@@ -196,9 +189,11 @@ def execute(context, input_text="World"):
         self.mock_skill.scripts = [invalid_script_path]
 
         try:
-            # This should fail since the script has invalid syntax
-            with self.assertRaises(Exception):
-                self.executor.execute_skill(self.mock_skill, context, {"input_text": "Test"})
+            # Execute the skill - should return an error string
+            result = self.executor.execute_skill(self.mock_skill, context, {"input_text": "Test"})
+            # Result should be a string indicating an error occurred
+            self.assertIsInstance(result, str)
+            self.assertIn("Error", result)
         finally:
             # Clean up
             if os.path.exists(invalid_script_path):

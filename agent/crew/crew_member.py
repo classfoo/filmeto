@@ -562,22 +562,7 @@ class CrewMember:
             llm_service=self.llm_service
         )
 
-        if isinstance(result, dict):
-            if result.get("success"):
-                message = result.get("message", "Skill executed successfully.")
-                # Include additional details if available
-                if "created_scenes" in result:
-                    message += f"\nCreated scenes: {result['created_scenes']}"
-                if "outline_summary" in result:
-                    summary = "\n".join([f"  - {s['scene_id']}: {s['logline']}" for s in result['outline_summary'][:5]])
-                    message += f"\nOutline:\n{summary}"
-                # Include knowledge output if available
-                if "output" in result:
-                    message += f"\n\nOutput:\n{result['output']}"
-                return message
-            else:
-                return f"Skill execution failed: {result.get('message', result.get('error', 'Unknown error'))}"
-
+        # The result is now a string, so return it directly
         return str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
 
     async def _execute_skill_with_structured_content(
@@ -648,23 +633,8 @@ class CrewMember:
             llm_service=self.llm_service
         )
 
-        # Format the result message
-        if isinstance(result, dict):
-            if result.get("success"):
-                result_message = result.get("message", "Skill executed successfully.")
-                # Include additional details if available
-                if "created_scenes" in result:
-                    result_message += f"\nCreated scenes: {result['created_scenes']}"
-                if "outline_summary" in result:
-                    summary = "\n".join([f"  - {s['scene_id']}: {s['logline']}" for s in result['outline_summary'][:5]])
-                    result_message += f"\nOutline:\n{summary}"
-                # Include knowledge output if available
-                if "output" in result:
-                    result_message += f"\n\nOutput:\n{result['output']}"
-            else:
-                result_message = f"Skill execution failed: {result.get('message', result.get('error', 'Unknown error'))}"
-        else:
-            result_message = str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
+        # The result is now a string, so format it directly
+        result_message = str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
 
         # Use AgentChatSignals to send end state event
         await self.signals.send_agent_message(

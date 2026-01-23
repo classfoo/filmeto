@@ -309,7 +309,7 @@ class SkillService:
         args: Optional[Dict[str, Any]] = None,
         script_name: Optional[str] = None,
         llm_service: Any = None
-    ) -> Dict[str, Any]:
+    ) -> str:
         """
         Execute a skill in-context with the provided workspace and project.
 
@@ -327,16 +327,12 @@ class SkillService:
             llm_service: Optional LLM service for knowledge-based execution
 
         Returns:
-            Dict with execution result
+            String with execution result
         """
         from agent.skill.skill_executor import SkillExecutor, SkillContext
 
         if skill is None:
-            return {
-                "success": False,
-                "error": "skill_not_provided",
-                "message": "No skill object was provided."
-            }
+            return "Error: No skill object was provided."
 
         # Create the skill context with additional context from knowledge
         context = SkillContext(
@@ -368,15 +364,33 @@ class SkillService:
                 # Then execute the script with the updated arguments
                 executor = SkillExecutor()
                 result = executor.execute_skill(skill, context, updated_args, script_name)
+                # Convert the string result to a dictionary format for consistency
+                result = {"success": True, "output": result, "message": result}
             else:
                 # If LLM didn't provide execution details, proceed with direct script execution
                 executor = SkillExecutor()
                 result = executor.execute_skill(skill, context, args, script_name)
+                # Convert the string result to a dictionary format for consistency
+                result = {"success": True, "output": result, "message": result}
         else:
             # Strategy 2: Use knowledge prompt to generate output via LLM
             result = await self._execute_skill_from_knowledge(skill, context, args, llm_service)
 
-        return result
+        # Convert result to string if it's a dictionary
+        if isinstance(result, dict):
+            # Extract the most relevant information from the result dict
+            if result.get("success") and "output" in result:
+                return str(result["output"])
+            elif "message" in result:
+                return str(result["message"])
+            elif "error" in result:
+                return f"Error: {result['error']} - {result.get('message', '')}"
+            else:
+                # If none of the above, return the whole dict as string
+                return str(result)
+        else:
+            # If result is already a string or other type, return as string
+            return str(result)
 
     async def _execute_skill_from_knowledge(
         self,
