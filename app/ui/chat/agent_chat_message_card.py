@@ -224,7 +224,12 @@ class BaseMessageCard(QFrame):
         """Add a widget for the given StructureContent based on its type."""
         widget = None
 
-        if structure_content.content_type == ContentType.TEXT:
+        # Check if this is thinking content by looking at the content type
+        if structure_content.content_type == ContentType.THINKING:
+            # Use the ThinkingContentWidget for thinking content
+            from app.ui.chat.message.thinking_content_widget import ThinkingContentWidget
+            widget = ThinkingContentWidget(structure_content, self.structure_content)
+        elif structure_content.content_type == ContentType.TEXT:
             widget = TextContentWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.CODE_BLOCK:
             widget = CodeBlockWidget(structure_content, self.structure_content)
@@ -248,6 +253,7 @@ class BaseMessageCard(QFrame):
             self.structure_content.add_structured_content_widget(widget)
             # Trigger a width recalculation after adding structure content
             self._update_bubble_width()
+
 
     def set_content(self, content: str):
         """Set the content (replace)."""

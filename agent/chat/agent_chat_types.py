@@ -15,6 +15,7 @@ class MessageType(Enum):
     COMMAND = "command"
     ERROR = "error"
     SYSTEM = "system"
+    THINKING = "thinking"
     TOOL_CALL = "tool_call"
     TOOL_RESPONSE = "tool_response"
 
@@ -35,3 +36,4 @@ class ContentType(Enum):
     PROGRESS = "progress"
     METADATA = "metadata"
     SKILL = "skill"
+    THINKING = "thinking"

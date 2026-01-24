@@ -800,6 +800,36 @@ class AgentChatHistoryWidget(BaseWidget):
                 append=False,
                 structured_content=skill_content
             )
+        elif event.event_type == "agent_thinking":
+            # Handle thinking events
+            thinking_content = event.data.get('thinking', 'Thinking...')
+            sender_name = event.data.get('sender_name', 'Unknown')
+            sender_id = event.data.get('sender_id', sender_name.lower())
+            message_id = event.data.get('message_id', str(uuid.uuid4()))
+
+            # Check if this is a user message that would cause duplication
+            if sender_id == "user":
+                # Skip adding user messages that come through the agent system
+                return
+
+            # Get or create the card
+            card = self.get_or_create_agent_card(
+                message_id,
+                sender_name,
+                sender_name
+            )
+
+            # Add thinking content to the card using StructureContent
+            from agent.chat.agent_chat_message import StructureContent, ContentType
+            thinking_structure = StructureContent(
+                content_type=ContentType.THINKING,
+                data=thinking_content,
+                title="Thinking Process",
+                description="Agent's thought process"
+            )
+
+            # Add the thinking content using the standard method
+            card.add_structure_content_widget(thinking_structure)
         elif hasattr(event, 'content') and event.content:
             # Handle regular content events (fallback for other types)
             # Check if this is a user message that would cause duplication

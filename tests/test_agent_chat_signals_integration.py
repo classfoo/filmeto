@@ -65,7 +65,7 @@ async def test_different_message_types():
     signals.connect(message_handler)
 
     # Test different message types
-    message_types = [MessageType.TEXT, MessageType.CODE, MessageType.IMAGE, MessageType.SYSTEM]
+    message_types = [MessageType.TEXT, MessageType.CODE, MessageType.IMAGE, MessageType.SYSTEM, MessageType.THINKING]
 
     for msg_type in message_types:
         await signals.send_agent_message(

@@ -182,16 +182,17 @@ class CrewMember:
 
             # Send thinking to AgentMessage if available
             if action.thinking:
+                # Send thinking as a structured content event
                 await self.signals.send_agent_message(
-                    content=action.thinking,
+                    content="",  # Empty content for thinking event
                     sender_id=self.config.name,
                     sender_name=self.config.name,
-                    message_type=MessageType.THINKING,
+                    message_type=MessageType.SYSTEM,  # Use SYSTEM type for thinking event
                     metadata={
                         "session_id": getattr(self, '_session_id', 'unknown'),
                         "event_type": "agent_thinking",
-                        "step": step + 1,
-                        "thinking": action.thinking
+                        "thinking": action.thinking,
+                        "step": step + 1
                     }
                 )
 
