@@ -123,3 +123,21 @@ class TextContentWidget(BaseStructuredContentWidget):
         self.structure_content.description = description
         self.structure_content.data = data
         self._setup_ui()
+
+    def update_available_width(self, width: int):
+        """Update the available width for this widget."""
+        # Set maximum width for the widget to respect the available width
+        self.setMaximumWidth(width)
+        # Also update the text label to wrap appropriately
+        for i in range(self.layout().count()):
+            item = self.layout().itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, QLabel):
+                    widget.setMaximumWidth(width - 20)  # Account for margins/padding
+
+    def get_width(self, max_width: int = 0):
+        """Get the current width of this widget."""
+        if max_width > 0:
+            return min(self.width(), max_width)
+        return self.width()

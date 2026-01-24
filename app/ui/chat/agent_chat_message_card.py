@@ -35,7 +35,6 @@ class BaseMessageCard(QFrame):
 
     def __init__(
         self,
-        content: str,
         sender_name: str,
         icon: str,
         color: str,
@@ -61,7 +60,7 @@ class BaseMessageCard(QFrame):
         self._is_thinking = False
         self._is_complete = False
 
-        self._setup_ui(content)
+        self._setup_ui()
 
     def _setup_ui(self, content: str):
         """Set up UI."""
@@ -138,26 +137,30 @@ class BaseMessageCard(QFrame):
         # Calculate initial available bubble width
         self._available_bubble_width_value = self._calculate_available_bubble_width()
 
-        # Replace content_label with structure_content widget, passing available width
-        self.structure_content = StructureContentWidget(content, self.bubble_container, self._available_bubble_width_value)
-        self.structure_content.setStyleSheet(f"""
-            QLabel#message_content {{
-                background-color: {self.background_color};
-                color: {self.text_color};
-                font-size: 13px;
-                border-radius: 5px;
-            }}
-        """)
-        self.bubble_layout.addWidget(self.structure_content)
-        self.content_layout.addWidget(self.bubble_container)
+        # Create a layout specifically for structured content
+        self.structured_content_layout = QVBoxLayout()
+        self.structured_content_layout.setContentsMargins(0, 0, 0, 0)
+        self.structured_content_layout.setSpacing(6)
 
-        # No need for separate structured container since it's handled by structure_content
+        # Add the structured content layout to the bubble container
+        self.bubble_layout.insertLayout(0, self.structured_content_layout)
 
-        main_layout.addWidget(self.content_area)
+        # Add structured content widgets including text content
+        # Convert the initial text content to a StructureContent object if it exists
+        if content:
+            text_structure = StructureContent(
+                content_type=ContentType.TEXT,
+                data=content,
+                title="",
+                description=""
+            )
+            self.add_structure_content_widget(text_structure)
 
-        # Add structured content widgets
         for structure_content in self.structured_content_list:
             self.add_structure_content_widget(structure_content)
+
+        # Add the bubble container to the content area
+        self.content_layout.addWidget(self.bubble_container)
 
         # Apply card styling
         self._apply_style()
@@ -191,19 +194,42 @@ class BaseMessageCard(QFrame):
         return self._available_bubble_width_value
 
     def _calculate_text_width(self, max_text_width: int) -> int:
-        text = self.structure_content.get_content() or ""
-        if not text:
-            return 0
-        font_metrics = self.structure_content.get_content_label().fontMetrics()
-        lines = text.splitlines() or [text]
+        # Find the text content widget and calculate its width
         max_line_width = 0
-        for line in lines:
-            max_line_width = max(max_line_width, font_metrics.horizontalAdvance(line))
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                # If it's a TextContentWidget, calculate its text width
+                if isinstance(widget, TextContentWidget):
+                    text = str(widget.structure_content.data) if widget.structure_content.data else ""
+                    if text:
+                        font_metrics = widget.fontMetrics()
+                        lines = text.splitlines() or [text]
+                        for line in lines:
+                            line_width = font_metrics.horizontalAdvance(line)
+                            max_line_width = max(max_line_width, line_width)
         return min(max_line_width, max_text_width)
 
-    def _calculate_structured_content_width(self, max_width: int) -> int:
+    def _calculate_structure_content_width(self, max_width: int) -> int:
         """Preferred width of structured content (skill, thinking, code, etc.) for bubble sizing."""
-        return self.structure_content.get_structured_content_preferred_width(max_width)
+        max_content_width = 0
+
+        # Iterate through all widgets in the structured content layout
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                # Skip stretch items
+                if widget is None:
+                    continue
+
+                # Calculate the preferred width for each structured content widget
+                if hasattr(widget, 'sizeHint'):
+                    widget_width = widget.sizeHint().width()
+                    max_content_width = max(max_content_width, widget_width)
+
+        return max_content_width
 
     def _update_bubble_width(self):
         self._available_bubble_width_value = self._calculate_available_bubble_width()
@@ -212,15 +238,20 @@ class BaseMessageCard(QFrame):
         max_content_width = max(0, max_width - padding)
 
         text_width = self._calculate_text_width(max_content_width)
-        structured_width = self._calculate_structured_content_width(max_content_width)
+        structured_width = self._calculate_structure_content_width(max_content_width)
         content_width = max(text_width, structured_width)
         bubble_width = min(max_width, content_width + padding)
         actual_content_width = max(0, bubble_width - padding)
 
-        self.structure_content.get_content_label().setMaximumWidth(max_content_width)
         self.bubble_container.setFixedWidth(max(1, bubble_width))
-        self.structure_content.setMaximumWidth(bubble_width)
-        self.structure_content.update_available_width(actual_content_width)
+
+        # Update available width for all structured content widgets
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if widget and hasattr(widget, 'update_available_width'):
+                    widget.update_available_width(actual_content_width)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -235,49 +266,97 @@ class BaseMessageCard(QFrame):
         if structure_content.content_type == ContentType.THINKING:
             # Use the ThinkingContentWidget for thinking content
             from app.ui.chat.message.thinking_content_widget import ThinkingContentWidget
-            widget = ThinkingContentWidget(structure_content, self.structure_content)
+            widget = ThinkingContentWidget(structure_content, self.bubble_container)
         elif structure_content.content_type == ContentType.TEXT:
-            widget = TextContentWidget(structure_content, self.structure_content)
+            widget = TextContentWidget(structure_content, self.bubble_container)
         elif structure_content.content_type == ContentType.CODE_BLOCK:
-            widget = CodeBlockWidget(structure_content, self.structure_content)
+            widget = CodeBlockWidget(structure_content, self.bubble_container)
         elif structure_content.content_type == ContentType.TABLE:
-            widget = TableWidget(structure_content, self.structure_content)
+            widget = TableWidget(structure_content, self.bubble_container)
         elif structure_content.content_type == ContentType.LINK:
-            widget = LinkWidget(structure_content, self.structure_content)
+            widget = LinkWidget(structure_content, self.bubble_container)
         elif structure_content.content_type == ContentType.BUTTON:
-            widget = ButtonWidget(structure_content, self.structure_content)
+            widget = ButtonWidget(structure_content, self.bubble_container)
         elif structure_content.content_type == ContentType.SKILL:
             from app.ui.chat.message.skill_content_widget import SkillContentWidget
-            # Pass None initially so the widget can report natural width for bubble calculation
-            widget = SkillContentWidget(structure_content, self.structure_content, available_width=None)
+            # Pass available width initially so the widget can adjust to bubble width
+            widget = SkillContentWidget(structure_content, self.bubble_container, available_width=self._available_bubble_width_value)
         # Add more content types as needed
         else:
             # Default to text content for unrecognized types
-            widget = TextContentWidget(structure_content, self.structure_content)
+            widget = TextContentWidget(structure_content, self.bubble_container)
 
         if widget:
-            self.structure_content.add_structured_content_widget(widget)
+            # Add the widget to the structured content layout
+            self.structured_content_layout.addWidget(widget)
             # Trigger a width recalculation after adding structure content
             self._update_bubble_width()
 
 
     def set_content(self, content: str):
         """Set the content (replace)."""
-        self.structure_content.set_content(content)
+        # Find the first TextContentWidget and update its content
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, TextContentWidget):
+                    # Update the structure content data
+                    widget.structure_content.data = content
+                    # Update the UI
+                    for j in reversed(range(widget.layout().count())):
+                        child = widget.layout().itemAt(j).widget()
+                        if child is not None:
+                            child.setParent(None)
+                    widget._setup_ui()
+                    break
         self._update_bubble_width()
 
     def append_content(self, content: str):
         """Append content."""
-        self.structure_content.append_content(content)
+        # Find the first TextContentWidget and append to its content
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, TextContentWidget):
+                    # Append to the structure content data
+                    current_content = str(widget.structure_content.data) if widget.structure_content.data else ""
+                    widget.structure_content.data = current_content + content
+                    # Update the UI
+                    for j in reversed(range(widget.layout().count())):
+                        child = widget.layout().itemAt(j).widget()
+                        if child is not None:
+                            child.setParent(None)
+                    widget._setup_ui()
+                    break
         self._update_bubble_width()
 
     def get_content(self) -> str:
         """Get current content."""
-        return self.structure_content.get_content()
+        # Find the first TextContentWidget and return its content
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, TextContentWidget):
+                    return str(widget.structure_content.data) if widget.structure_content.data else ""
+        return ""
 
     def get_content_label(self):
         """Get the content label widget (for backward compatibility)."""
-        return self.structure_content.get_content_label()
+        # Find the first TextContentWidget and return its content label
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                if isinstance(widget, TextContentWidget):
+                    # Return the actual QLabel that contains the text
+                    for j in range(widget.layout().count()):
+                        child_item = widget.layout().itemAt(j)
+                        if child_item and child_item.widget() and isinstance(child_item.widget(), QLabel):
+                            return child_item.widget()
+        return None
 
     def set_thinking(self, is_thinking: bool, thinking_text: str = ""):
         """Set thinking state (placeholder for backward compatibility)."""
@@ -309,7 +388,26 @@ class BaseMessageCard(QFrame):
 
     def clear_structured_content(self):
         """Clear all structured content."""
-        self.structure_content.clear_structured_content()
+        # Remove all structured content widgets except the first text content widget if it exists
+        # We'll iterate backwards to safely remove widgets
+        text_widget_kept = False
+        for i in reversed(range(self.bubble_layout.count())):
+            item = self.bubble_layout.itemAt(i)
+            if item and item.widget():
+                widget = item.widget()
+                # Keep the first TextContentWidget as the main content
+                if isinstance(widget, TextContentWidget) and not text_widget_kept:
+                    text_widget_kept = True
+                    continue  # Don't remove this widget
+                elif isinstance(widget, TextContentWidget) and text_widget_kept:
+                    # Remove additional TextContentWidgets
+                    widget.setParent(None)
+                    widget.deleteLater()
+                elif not isinstance(widget, TextContentWidget):
+                    # Remove non-TextContentWidgets
+                    widget.setParent(None)
+                    widget.deleteLater()
+        self._update_bubble_width()
 
 
 class AgentMessageCard(BaseMessageCard):
@@ -388,15 +486,21 @@ class AgentMessageCard(BaseMessageCard):
 
     def update_from_agent_message(self, agent_message: AgentMessage):
         """Update the card from a new agent message."""
-        # Update basic content from structured_content
-        text_content = agent_message.get_text_content()
-        self.structure_content.set_content(text_content)
-        self._update_bubble_width()
-
         # Clear existing structured content
         self.clear_structured_content()
 
-        # Add new structured content
+        # Add new structured content including text content
+        text_content = agent_message.get_text_content()
+        if text_content:
+            text_structure = StructureContent(
+                content_type=ContentType.TEXT,
+                data=text_content,
+                title="",
+                description=""
+            )
+            self.add_structure_content_widget(text_structure)
+
+        # Add other structured content
         for structure_content in agent_message.structured_content:
             self.add_structure_content_widget(structure_content)
 
