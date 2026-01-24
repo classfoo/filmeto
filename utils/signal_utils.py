@@ -88,8 +88,17 @@ class AsyncSignal(BaseSignal):
         """
         Emit the signal without waiting for slots to complete
         """
-        # Run the emit in the background
-        asyncio.create_task(self.emit(*args, **kwargs))
+        # Run the emit in the background and handle potential exceptions
+        task = asyncio.create_task(self.emit(*args, **kwargs))
+        
+        # Add a callback to handle exceptions in the task
+        def handle_exception(task):
+            if task.exception() is not None:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Exception in AsyncSignal.emit task: {task.exception()}", exc_info=True)
+        
+        task.add_done_callback(handle_exception)
     
     def close(self):
         """Clean up resources"""
@@ -140,8 +149,15 @@ class AsyncioSignal(BaseSignal):
         """
         task = asyncio.create_task(self.emit(*args, **kwargs))
         self._tasks.add(task)
-        # Remove completed tasks from the set
-        task.add_done_callback(lambda t: self._tasks.discard(t))
+        # Remove completed tasks from the set and handle exceptions
+        def handle_task_completion(t):
+            self._tasks.discard(t)
+            if t.exception() is not None:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Exception in AsyncioSignal.emit task: {t.exception()}", exc_info=True)
+        
+        task.add_done_callback(handle_task_completion)
     
     async def wait_all(self):
         """
