@@ -413,6 +413,24 @@ class AgentChatPlanWidget(BaseWidget):
             self.setMinimumHeight(0)
             self.setMaximumHeight(16777215)  # Default maximum
 
+    def handle_agent_message(self, message, _session=None):
+        """Handle an AgentMessage directly."""
+        if not message:
+            return
+        
+        # Check if this message contains plan update information
+        if hasattr(message, 'metadata') and message.metadata:
+            event_type = message.metadata.get("event_type", "")
+            if event_type == "plan_update":
+                plan_id = message.metadata.get("plan_id")
+                if plan_id:
+                    self._preferred_plan_id = plan_id
+                self.refresh_plan()
+        
+        # Also check for content that might indicate a plan update
+        if hasattr(message, 'content') and "plan" in message.content.lower():
+            self.refresh_plan()
+
     def handle_stream_event(self, event, _session=None):
         if not event:
             return

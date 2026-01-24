@@ -684,6 +684,28 @@ class AgentChatHistoryWidget(BaseWidget):
 
         self._schedule_scroll()
     
+    def handle_agent_message(self, message, session):
+        """Handle an AgentMessage directly."""
+        # Convert AgentMessage to event-like object for compatibility
+        metadata = message.metadata or {}
+        event_data = {
+            "content": message.content,
+            "sender_name": message.sender_name,
+            "sender_id": message.sender_id,
+            "message_type": message.message_type.value if hasattr(message.message_type, 'value') else str(message.message_type),
+            "session_id": metadata.get("session_id", "unknown"),
+            "event_type": metadata.get("event_type", "agent_response"),
+            "message_id": metadata.get("message_id") or getattr(message, "message_id", None),
+        }
+        
+        class SimpleEvent:
+            def __init__(self, data):
+                self.event_type = data["event_type"]
+                self.data = data
+        
+        event = SimpleEvent(event_data)
+        self.handle_stream_event(event, session)
+
     @Slot(object, object)
     def handle_stream_event(self, event, session):
         """Handle a streaming event from the agent system."""

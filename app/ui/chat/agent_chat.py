@@ -71,7 +71,7 @@ class AgentChatWidget(BaseWidget):
             self._on_stream_event,
             Qt.QueuedConnection,
         )
-        self.stream_event.connect(self._on_stream_event, Qt.QueuedConnection)
+        # Removed stream_event connection since we're handling AgentMessage directly
 
         # Connect to AgentChatSignals for message handling
         self._signals = AgentChatSignals()
@@ -273,6 +273,8 @@ class AgentChatWidget(BaseWidget):
         # Process UI updates
         QApplication.processEvents()
 
+
+
     @Slot(str)
     def _on_token_received(self, token: str):
         """Handle received token from agent (legacy API)."""
@@ -333,27 +335,16 @@ class AgentChatWidget(BaseWidget):
     async def _on_agent_message_sent(self, sender, message:AgentMessage):
         """Handle agent message sent via AgentChatSignals."""
         if message:
-            # Convert the AgentMessage to a StreamEvent-like object for compatibility
-            metadata = message.metadata or {}
-            message_id = metadata.get("message_id") or getattr(message, "message_id", None)
-            event_data = {
-                "content": message.content,
-                "sender_name": message.sender_name,
-                "sender_id": message.sender_id,
-                "message_type": message.message_type.value if hasattr(message.message_type, 'value') else str(message.message_type),
-                "session_id": metadata.get("session_id", "unknown"),
-                "event_type": metadata.get("event_type", "agent_response"),
-                "message_id": message_id,
-            }
-
-            # Create a StreamEvent-like object
-            stream_event = StreamEvent(event_data["event_type"], event_data)
-
             # Get session from agent
             session = self.agent.get_current_session() if self.agent else None
+            
+            # Forward the AgentMessage directly to downstream components
+            self.chat_history_widget.handle_agent_message(message, session)
+            if self.plan_widget:
+                self.plan_widget.handle_agent_message(message, session)
 
-            # Handle the event
-            self.stream_event.emit(stream_event, session)
+            # Process UI updates
+            QApplication.processEvents()
 
     async def _stream_response(self, message: str):
         """Stream response from agent with multi-agent events."""
