@@ -9,8 +9,7 @@ from agent.chat.agent_chat_signals import AgentChatSignals
 from .utils import (
     create_text_message,
     create_error_message,
-    create_system_message,
-    format_card_data
+    create_system_message
 )
 from .llm.llm_service import LlmService
 from .skill.skill_service import SkillService
@@ -26,6 +25,5 @@ __all__ = [
     "AgentChatSignals",
     "create_text_message",
     "create_error_message",
-    "create_system_message",
-    "format_card_data"
+    "create_system_message"
 ]
