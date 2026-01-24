@@ -290,10 +290,10 @@ class FilmetoAgent:
         async for response in responses:
             self.conversation_history.append(response)
             if on_token:
-                on_token(response.content)
+                on_token(response.get_text_content())
             response.metadata["session_id"] = session_id
             await self.signals.send_agent_message(response)
-            yield response.content
+            yield response.get_text_content()
 
     async def _stream_crew_member(
         self,
@@ -313,13 +313,18 @@ class FilmetoAgent:
                 if plan_id:
                     response_metadata.setdefault("plan_id", plan_id)
                 response_metadata.setdefault("message_id", crew_member._current_message_id)
+                from agent.chat.agent_chat_message import StructureContent
+                from agent.chat.agent_chat_types import ContentType
                 response = AgentMessage(
-                    content=token,
                     message_type=MessageType.TEXT,
                     sender_id=crew_member.config.name,
                     sender_name=crew_member.config.name.capitalize(),
                     metadata=response_metadata,
                     message_id=crew_member._current_message_id,
+                    structured_content=[StructureContent(
+                        content_type=ContentType.TEXT,
+                        data=token
+                    )]
                 )
                 logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
                 yield response
@@ -337,19 +342,24 @@ class FilmetoAgent:
         session_id: str,
         on_token: Optional[Callable[[str], None]],
     ) -> AsyncIterator[str]:
+        from agent.chat.agent_chat_message import StructureContent
+        from agent.chat.agent_chat_types import ContentType
         error_msg = AgentMessage(
-            content=message,
             message_type=MessageType.ERROR,
             sender_id="system",
             sender_name="System",
+            structured_content=[StructureContent(
+                content_type=ContentType.TEXT,
+                data=message
+            )]
         )
         logger.info(f"❌ Sending error message: id={error_msg.message_id}, sender='system', content_preview='{message[:50]}{'...' if len(message) > 50 else ''}'")
         self.conversation_history.append(error_msg)
         if on_token:
-            on_token(error_msg.content)
+            on_token(error_msg.get_text_content())
         error_msg.metadata["session_id"] = session_id
         await self.signals.send_agent_message(error_msg)
-        yield error_msg.content
+        yield error_msg.get_text_content()
 
     def add_ui_callback(self, callback):
         """Add a UI callback for streaming events."""
@@ -392,11 +402,16 @@ class FilmetoAgent:
                     self.project = project_list[first_project_name]
 
         # Create an AgentMessage from the string
+        from agent.chat.agent_chat_message import StructureContent
+        from agent.chat.agent_chat_types import ContentType
         initial_prompt = AgentMessage(
-            content=message,
             message_type=MessageType.TEXT,
             sender_id="user",
-            sender_name="User"
+            sender_name="User",
+            structured_content=[StructureContent(
+                content_type=ContentType.TEXT,
+                data=message
+            )]
         )
         logger.info(f"📥 Created initial prompt message: id={initial_prompt.message_id}, sender='user', content_preview='{message[:50]}{'...' if len(message) > 50 else ''}'")
 
@@ -443,7 +458,7 @@ class FilmetoAgent:
         if mentioned_agent:
             async for content in self._stream_crew_member(
                 mentioned_agent,
-                initial_prompt.content,
+                initial_prompt.get_text_content(),
                 plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                 session_id=session_id,
                 on_token=on_token,
@@ -460,7 +475,7 @@ class FilmetoAgent:
             # Stream directly from the producer crew member
             async for content in self._stream_crew_member(
                 producer_agent,
-                initial_prompt.content,
+                initial_prompt.get_text_content(),
                 plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                 session_id=session_id,
                 on_token=on_token,
@@ -472,7 +487,7 @@ class FilmetoAgent:
             if responding_agent:
                 async for content in self._stream_crew_member(
                     responding_agent,
-                    initial_prompt.content,
+                    initial_prompt.get_text_content(),
                     plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                     session_id=session_id,
                     on_token=on_token,
@@ -508,7 +523,7 @@ class FilmetoAgent:
         # The producer will decide whether to create a plan using the create_execution_plan skill
         async for content in self._stream_crew_member(
             producer_agent,
-            initial_prompt.content,
+            initial_prompt.get_text_content(),
             plan_id=active_plan_id,
             session_id=session_id,
             on_token=on_token,
@@ -597,7 +612,7 @@ class FilmetoAgent:
         Returns:
             CrewMember: The selected agent or None if no agent should respond
         """
-        mentioned_agent = self._resolve_mentioned_title(message.content)
+        mentioned_agent = self._resolve_mentioned_title(message.get_text_content())
         if mentioned_agent:
             return mentioned_agent
 
@@ -605,7 +620,7 @@ class FilmetoAgent:
         if producer_agent:
             return producer_agent
 
-        content_lower = message.content.lower()
+        content_lower = message.get_text_content().lower()
         for agent in self.members.values():
             if (hasattr(agent, 'config') and
                 (agent.config.name.lower() in content_lower or
@@ -645,26 +660,52 @@ class FilmetoAgent:
             try:
                 # Create a temporary stream to collect the agent's response
                 async def agent_response_stream():
-                    async for token in agent.chat_stream(message.content, on_token=None, plan_id=None):
+                    # Extract text content from message structured_content
+                    message_text = ""
+                    if message.structured_content:
+                        for sc in message.structured_content:
+                            if sc.content_type.value == "text" and isinstance(sc.data, str):
+                                message_text = sc.data
+                                break
+                    
+                    async for token in agent.chat_stream(message_text, on_token=None, plan_id=None):
+                        from agent.chat.agent_chat_message import StructureContent
+                        from agent.chat.agent_chat_types import ContentType
                         response = AgentMessage(
-                            content=token,
                             message_type=MessageType.TEXT,
                             sender_id=agent.config.name,
                             sender_name=agent.config.name.capitalize(),
-                            metadata={}
+                            metadata={},
+                            structured_content=[StructureContent(
+                                content_type=ContentType.TEXT,
+                                data=token
+                            )]
                         )
                         yield response
 
                 async for response in agent_response_stream():
                     self.conversation_history.append(response)
-                    yield response.content  # Yield just the content for consistency
+                    # Extract text content from structured_content for backward compatibility
+                    text_content = ""
+                    if response.structured_content:
+                        for sc in response.structured_content:
+                            if sc.content_type.value == "text" and isinstance(sc.data, str):
+                                text_content = sc.data
+                                break
+                    yield text_content  # Yield just the content for consistency
             except Exception as e:
+                from agent.chat.agent_chat_message import StructureContent
+                from agent.chat.agent_chat_types import ContentType
+                error_text = f"Error in agent {agent.config.name if hasattr(agent, 'config') else 'Unknown'}: {str(e)}"
                 error_msg = AgentMessage(
-                    content=f"Error in agent {agent.config.name if hasattr(agent, 'config') else 'Unknown'}: {str(e)}",
                     message_type=MessageType.ERROR,
                     sender_id="system",
-                    sender_name="System"
+                    sender_name="System",
+                    structured_content=[StructureContent(
+                        content_type=ContentType.TEXT,
+                        data=error_text
+                    )]
                 )
-                logger.info(f"❌ Broadcasting error message: id={error_msg.message_id}, sender='system', content_preview='{error_msg.content[:50]}{'...' if len(error_msg.content) > 50 else ''}'")
+                logger.info(f"❌ Broadcasting error message: id={error_msg.message_id}, sender='system', content_preview='{error_text[:50]}{'...' if len(error_text) > 50 else ''}'")
                 self.conversation_history.append(error_msg)
-                yield error_msg.content  # Yield just the content for consistency
+                yield error_text  # Yield just the content for consistency

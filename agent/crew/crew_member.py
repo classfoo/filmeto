@@ -118,11 +118,14 @@ class CrewMember:
             if on_token:
                 on_token(error_message)
             msg = AgentMessage(
-                content=error_message,
                 message_type=MessageType.ERROR,
                 sender_id=self.config.name,
                 sender_name=self.config.name,
                 metadata={"session_id": getattr(self, "_session_id", "unknown")},
+                structured_content=[StructureContent(
+                    content_type=ContentType.TEXT,
+                    data=error_message
+                )]
             )
             await self.signals.send_agent_message(msg)
             yield error_message
@@ -135,22 +138,10 @@ class CrewMember:
         messages = [{"role": "user", "content": user_prompt}]
         messages.extend(self.conversation_history)
 
-        msg = AgentMessage(
-            content=f"{self.config.name} is processing the request...",
-            message_type=MessageType.SYSTEM,
-            sender_id=self.config.name,
-            sender_name=self.config.name,
-            metadata={
-                "session_id": getattr(self, "_session_id", "unknown"),
-                "event_type": "agent_thinking",
-            },
-        )
-        await self.signals.send_agent_message(msg)
 
         final_response = None
         for step in range(self.config.max_steps):
             msg = AgentMessage(
-                content=f"{self.config.name} is calling the LLM (Step {step + 1}/{self.config.max_steps})",
                 message_type=MessageType.SYSTEM,
                 sender_id=self.config.name,
                 sender_name=self.config.name,
@@ -160,13 +151,16 @@ class CrewMember:
                     "step": step + 1,
                     "total_steps": self.config.max_steps,
                 },
+                structured_content=[StructureContent(
+                    content_type=ContentType.TEXT,
+                    data=f"{self.config.name} is calling the LLM (Step {step + 1}/{self.config.max_steps})"
+                )]
             )
             await self.signals.send_agent_message(msg)
 
             response_text = await self._complete(messages)
 
             msg = AgentMessage(
-                content=f"{self.config.name} LLM response (Step {step + 1})",
                 message_type=MessageType.SYSTEM,
                 sender_id=self.config.name,
                 sender_name=self.config.name,
@@ -176,6 +170,10 @@ class CrewMember:
                     "step": step + 1,
                     "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text,
                 },
+                structured_content=[StructureContent(
+                    content_type=ContentType.TEXT,
+                    data=f"{self.config.name} LLM response (Step {step + 1})"
+                )]
             )
             await self.signals.send_agent_message(msg)
 
@@ -193,7 +191,6 @@ class CrewMember:
                 if mid:
                     meta["message_id"] = mid
                 msg = AgentMessage(
-                    content="",
                     message_type=MessageType.THINKING,
                     sender_id=self.config.name,
                     sender_name=self.config.name,
@@ -599,7 +596,6 @@ class CrewMember:
             description="Skill execution starting",
         )
         kw = {
-            "content": "",
             "message_type": MessageType.SYSTEM,
             "sender_id": self.config.name,
             "sender_name": self.config.name,

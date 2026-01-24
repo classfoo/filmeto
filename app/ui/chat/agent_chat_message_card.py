@@ -329,9 +329,12 @@ class AgentMessageCard(BaseMessageCard):
         self.agent_icon = agent_icon  # Store the agent-specific icon
         self.crew_member_metadata = crew_member_metadata  # Store crew member metadata
 
+        # Extract text content from structured_content for BaseMessageCard
+        text_content = agent_message.get_text_content()
+        
         # Call parent constructor with agent-specific parameters
         super().__init__(
-            content=agent_message.content,
+            content=text_content,
             sender_name=agent_message.sender_name or agent_message.sender_id,
             icon=self.agent_icon,
             color=self.agent_color,
@@ -379,8 +382,9 @@ class AgentMessageCard(BaseMessageCard):
 
     def update_from_agent_message(self, agent_message: AgentMessage):
         """Update the card from a new agent message."""
-        # Update basic content
-        self.structure_content.set_content(agent_message.content)
+        # Update basic content from structured_content
+        text_content = agent_message.get_text_content()
+        self.structure_content.set_content(text_content)
         self._update_bubble_width()
 
         # Clear existing structured content
