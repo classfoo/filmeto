@@ -7,8 +7,8 @@ import logging
 import re
 import uuid
 from typing import AsyncIterator, Dict, List, Optional, Callable, Any
-from agent.chat.agent_chat_message import AgentMessage
-from agent.chat.agent_chat_types import MessageType
+from agent.chat.agent_chat_message import AgentMessage, StructureContent
+from agent.chat.agent_chat_types import ContentType, MessageType
 from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.llm.llm_service import LlmService
 from agent.plan.models import Plan, PlanInstance, PlanTask, TaskStatus
@@ -37,8 +37,8 @@ class AgentStreamSession:
 
 
 class StreamEvent:
-    """Represents an event in the streaming process."""
-    
+    """Legacy: event payload for stream callbacks. Kept for tests; production uses AgentChatSignals."""
+
     def __init__(self, event_type: str, data: Any, timestamp: float = None):
         import time
         self.event_type = event_type
@@ -71,7 +71,6 @@ class FilmetoAgent:
         self.streaming = streaming
         self.members: Dict[str, CrewMember] = {}
         self.conversation_history: List[AgentMessage] = []
-        self.ui_callbacks = []
         self.current_session: Optional[AgentStreamSession] = None
         self.llm_service = llm_service or LlmService(workspace)
         self.crew_member_service = crew_member_service or CrewService()
@@ -208,6 +207,23 @@ class FilmetoAgent:
             return text
         return text[: limit - 3].rstrip() + "..."
 
+    async def _emit_system_event(self, event_type: str, session_id: str, **kwargs: Any) -> None:
+        """Emit a system event via AgentChatSignals for UI feedback."""
+        meta = {"event_type": event_type, "session_id": session_id, **kwargs}
+        msg = AgentMessage(
+            message_type=MessageType.SYSTEM,
+            sender_id="system",
+            sender_name="System",
+            metadata=meta,
+            structured_content=[StructureContent(
+                content_type=ContentType.METADATA,
+                data={"event_type": event_type, **kwargs},
+                title=event_type,
+                description="",
+            )],
+        )
+        await self.signals.send_agent_message(msg)
+
     def _build_producer_message(self, user_message: str, plan_id: str, retry: bool = False) -> str:
         """
         Build a message for the producer agent.
@@ -342,8 +358,6 @@ class FilmetoAgent:
         session_id: str,
         on_token: Optional[Callable[[str], None]],
     ) -> AsyncIterator[str]:
-        from agent.chat.agent_chat_message import StructureContent
-        from agent.chat.agent_chat_types import ContentType
         error_msg = AgentMessage(
             message_type=MessageType.ERROR,
             sender_id="system",
@@ -360,16 +374,6 @@ class FilmetoAgent:
         error_msg.metadata["session_id"] = session_id
         await self.signals.send_agent_message(error_msg)
         yield error_msg.get_text_content()
-
-    def add_ui_callback(self, callback):
-        """Add a UI callback for streaming events."""
-        if callback not in self.ui_callbacks:
-            self.ui_callbacks.append(callback)
-
-    def remove_ui_callback(self, callback):
-        """Remove a UI callback."""
-        if callback in self.ui_callbacks:
-            self.ui_callbacks.remove(callback)
 
     def get_current_session(self) -> Optional[AgentStreamSession]:
         """Get the current streaming session."""
@@ -429,6 +433,12 @@ class FilmetoAgent:
 
         mentioned_crew_member = self._resolve_mentioned_crew_member(message)
         if mentioned_crew_member and mentioned_crew_member.config.name.lower() != _PRODUCER_NAME:
+            await self._emit_system_event(
+                "crew_member_start",
+                session_id,
+                crew_member_name=mentioned_crew_member.config.name,
+                message=message,
+            )
             async for content in self._stream_crew_member(
                 mentioned_crew_member,
                 message,
@@ -443,6 +453,12 @@ class FilmetoAgent:
 
         producer_agent = self._get_producer_crew_member()
         if producer_agent:
+            await self._emit_system_event(
+                "producer_start",
+                session_id,
+                crew_member_name=producer_agent.config.name,
+                message=initial_prompt.get_text_content(),
+            )
             async for content in self._handle_producer_flow(
                 initial_prompt=initial_prompt,
                 producer_agent=producer_agent,
@@ -456,6 +472,12 @@ class FilmetoAgent:
 
         mentioned_agent = self._resolve_mentioned_title(message)
         if mentioned_agent:
+            await self._emit_system_event(
+                "mentioned_agent_start",
+                session_id,
+                crew_member_name=mentioned_agent.config.name,
+                message=initial_prompt.get_text_content(),
+            )
             async for content in self._stream_crew_member(
                 mentioned_agent,
                 initial_prompt.get_text_content(),
@@ -472,6 +494,12 @@ class FilmetoAgent:
         # Prioritize producer if available and no specific agent is mentioned
         producer_agent = self._get_producer_crew_member()
         if producer_agent and not mentioned_crew_member:
+            await self._emit_system_event(
+                "producer_start",
+                session_id,
+                crew_member_name=producer_agent.config.name,
+                message=initial_prompt.get_text_content(),
+            )
             # Stream directly from the producer crew member
             async for content in self._stream_crew_member(
                 producer_agent,
@@ -485,6 +513,12 @@ class FilmetoAgent:
         else:
             responding_agent = await self._select_responding_agent(initial_prompt)
             if responding_agent:
+                await self._emit_system_event(
+                    "responding_agent_start",
+                    session_id,
+                    crew_member_name=responding_agent.config.name,
+                    message=initial_prompt.get_text_content(),
+                )
                 async for content in self._stream_crew_member(
                     responding_agent,
                     initial_prompt.get_text_content(),
@@ -541,6 +575,12 @@ class FilmetoAgent:
                 # Update the active plan ID to the newly created plan
                 active_plan_id = latest_plan.id
 
+                await self._emit_system_event(
+                    "plan_update",
+                    session_id,
+                    plan_id=latest_plan.id,
+                )
+
                 # Check if the plan has tasks to execute
                 if latest_plan and latest_plan.tasks:
                     async for content in self._execute_plan_tasks(
@@ -573,6 +613,13 @@ class FilmetoAgent:
 
             for task in ready_tasks:
                 self.plan_service.mark_task_running(plan_instance, task.id)
+                await self._emit_system_event(
+                    "plan_update",
+                    session_id,
+                    plan_id=plan.id,
+                    task_id=task.id,
+                    task_status="running",
+                )
                 target_agent = self._crew_member_lookup.get(task.title.lower())
                 if not target_agent:
                     error_message = f"Crew member '{task.title}' not found for task {task.id}."
@@ -592,11 +639,18 @@ class FilmetoAgent:
                     plan_id=plan.id,
                     session_id=session_id,
                     on_token=on_token,
-                    on_stream_event=None,
                     metadata={"plan_id": plan.id, "task_id": task.id},
                 ):
                     yield content
+                
                 self.plan_service.mark_task_completed(plan_instance, task.id)
+                await self._emit_system_event(
+                    "plan_update",
+                    session_id,
+                    plan_id=plan.id,
+                    task_id=task.id,
+                    task_status="completed",
+                )
 
             updated_plan = self.plan_service.load_plan(plan.project_name, plan.id)
             if updated_plan:
@@ -616,7 +670,7 @@ class FilmetoAgent:
         if mentioned_agent:
             return mentioned_agent
 
-        producer_agent = self.get_agent(_PRODUCER_NAME)
+        producer_agent = self.get_member(_PRODUCER_NAME)
         if producer_agent:
             return producer_agent
 

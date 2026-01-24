@@ -10,12 +10,10 @@ import asyncio
 import logging
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QSplitter
 from PySide6.QtCore import Qt
-from PySide6.QtCore import Signal, Slot, QObject
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Signal, Slot
 from qasync import asyncSlot
 
 from agent import AgentMessage
-from agent.filmeto_agent import StreamEvent, AgentStreamSession
 from agent.chat.agent_chat_signals import AgentChatSignals
 from app.ui.base_widget import BaseWidget
 from app.data.workspace import Workspace
@@ -28,21 +26,6 @@ from utils.signal_utils import AsyncSignal
 logger = logging.getLogger(__name__)
 
 
-class StreamEventHandler(QObject):
-    """Handler for stream events that bridges async agent to Qt signals."""
-
-    # Signal to emit stream events on Qt main thread
-    stream_event_received = Signal(object, object)  # StreamEvent, AgentStreamSession
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-    def handle_event(self, event: 'StreamEvent', session: 'AgentStreamSession'):
-        """Handle a stream event (called from agent thread)."""
-        # Emit signal to be handled on main thread
-        self.stream_event_received.emit(event, session)
-
-
 class AgentChatWidget(BaseWidget):
     """Agent chat component combining prompt input and chat history."""
 
@@ -50,7 +33,6 @@ class AgentChatWidget(BaseWidget):
     response_token_received = Signal(str)
     response_complete = Signal(str)
     error_occurred = Signal(str)
-    stream_event = Signal(object, object)  # StreamEvent, AgentStreamSession
 
     def __init__(self, workspace: Workspace, parent=None):
         """Initialize the agent chat component."""
@@ -65,14 +47,6 @@ class AgentChatWidget(BaseWidget):
         self._current_message_id = None
         self._is_processing = False
         self._initialization_in_progress = False
-
-        # Stream event handler for bridging async to Qt
-        self._stream_handler = StreamEventHandler(self)
-        self._stream_handler.stream_event_received.connect(
-            self._on_stream_event,
-            Qt.QueuedConnection,
-        )
-        # Removed stream_event connection since we're handling AgentMessage directly
 
         # Connect to AgentChatSignals for message handling
         self._signals = AgentChatSignals()
@@ -222,33 +196,20 @@ class AgentChatWidget(BaseWidget):
             self.error_occurred.emit(error_msg)
 
     async def _stream_response(self, message: str):
-        """Stream response from agent with multi-agent events."""
+        """Stream response from agent; real-time feedback via AgentChatSignals."""
         try:
-            # Register UI callback with stream manager
-            self.agent.add_ui_callback(self._stream_handler.handle_event)
+            def on_token(token):
+                self.response_token_received.emit(token)
 
-            try:
-                # Define synchronous callbacks that will emit Qt signals
-                def on_token(token):
-                    # Use Qt signal in a thread-safe way
-                    self.response_token_received.emit(token)
+            def on_complete(response):
+                self.response_complete.emit(response)
 
-                def on_complete(response):
-                    # Use Qt signal in a thread-safe way
-                    self.response_complete.emit(response)
-
-                # Stream tokens from agent - no more on_stream_event callback needed
-                async for token in self.agent.chat_stream(
-                    message=message,
-                    on_token=on_token,
-                    on_complete=on_complete
-                ):
-                    # Tokens are handled by signal callbacks
-                    pass
-            finally:
-                # Remove UI callback
-                self.agent.remove_ui_callback(self._stream_handler.handle_event)
-
+            async for token in self.agent.chat_stream(
+                message=message,
+                on_token=on_token,
+                on_complete=on_complete
+            ):
+                pass
         except Exception as e:
             # Ensure error is displayed
             error_msg = f"{tr('Error')}: {str(e)}"
@@ -258,20 +219,6 @@ class AgentChatWidget(BaseWidget):
             self._is_processing = False
             # Note: In group chat mode, we don't re-enable the input widget
             # since it was never disabled
-
-
-    @Slot(object, object)
-    def _on_stream_event(self, event: StreamEvent, session: AgentStreamSession):
-        """Handle stream event on Qt main thread."""
-        # Forward to chat history widget
-        self.chat_history_widget.handle_stream_event(event, session)
-        if self.plan_widget:
-            self.plan_widget.handle_stream_event(event, session)
-
-        # Process UI updates
-        QApplication.processEvents()
-
-
 
     @Slot(str)
     def _on_token_received(self, token: str):

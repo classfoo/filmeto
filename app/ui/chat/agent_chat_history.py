@@ -754,9 +754,17 @@ class AgentChatHistoryWidget(BaseWidget):
         self._schedule_scroll()
     
     async def handle_agent_message(self, message: AgentMessage, session):
-
         if message.sender_id == "user":
             return
+
+        # Skip creating chat cards for system lifecycle events (handled by plan widget or unused)
+        if getattr(message, "message_type", None):
+            from agent.chat.agent_chat_types import MessageType
+            if message.message_type == MessageType.SYSTEM and message.metadata.get("event_type") in (
+                "crew_member_start", "producer_start", "mentioned_agent_start",
+                "responding_agent_start", "plan_update", "plan_created",
+            ):
+                return
 
         message_id = (
             getattr(message, "message_id", None)
