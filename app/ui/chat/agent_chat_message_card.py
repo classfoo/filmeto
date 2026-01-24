@@ -201,19 +201,26 @@ class BaseMessageCard(QFrame):
             max_line_width = max(max_line_width, font_metrics.horizontalAdvance(line))
         return min(max_line_width, max_text_width)
 
+    def _calculate_structured_content_width(self, max_width: int) -> int:
+        """Preferred width of structured content (skill, thinking, code, etc.) for bubble sizing."""
+        return self.structure_content.get_structured_content_preferred_width(max_width)
+
     def _update_bubble_width(self):
-        # Update the cached value
         self._available_bubble_width_value = self._calculate_available_bubble_width()
         max_width = self._available_bubble_width_value
         padding = self.bubble_layout.contentsMargins().left() + self.bubble_layout.contentsMargins().right()
-        max_text_width = max(0, max_width - padding)
-        text_width = self._calculate_text_width(max_text_width)
-        bubble_width = min(max_width, text_width + padding)
-        self.structure_content.get_content_label().setMaximumWidth(max_text_width)
+        max_content_width = max(0, max_width - padding)
+
+        text_width = self._calculate_text_width(max_content_width)
+        structured_width = self._calculate_structured_content_width(max_content_width)
+        content_width = max(text_width, structured_width)
+        bubble_width = min(max_width, content_width + padding)
+        actual_content_width = max(0, bubble_width - padding)
+
+        self.structure_content.get_content_label().setMaximumWidth(max_content_width)
         self.bubble_container.setFixedWidth(max(1, bubble_width))
-        self.structure_content.setMaximumWidth(max_width)
-        # Also notify the structure content widget about the width change
-        self.structure_content.update_available_width(max_width)
+        self.structure_content.setMaximumWidth(bubble_width)
+        self.structure_content.update_available_width(actual_content_width)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -241,9 +248,8 @@ class BaseMessageCard(QFrame):
             widget = ButtonWidget(structure_content, self.structure_content)
         elif structure_content.content_type == ContentType.SKILL:
             from app.ui.chat.message.skill_content_widget import SkillContentWidget
-            # Pass the available width to the skill content widget
-            available_width = self._available_bubble_width_value
-            widget = SkillContentWidget(structure_content, self.structure_content, available_width)
+            # Pass None initially so the widget can report natural width for bubble calculation
+            widget = SkillContentWidget(structure_content, self.structure_content, available_width=None)
         # Add more content types as needed
         else:
             # Default to text content for unrecognized types

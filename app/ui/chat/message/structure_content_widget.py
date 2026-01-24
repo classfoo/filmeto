@@ -116,6 +116,28 @@ class StructureContentWidget(QWidget):
         """Get the size of the structured content area."""
         return (self.structured_content_container.width(), self.structured_content_container.height())
 
+    def get_structured_content_preferred_width(self, max_width: int = 0) -> int:
+        """Return the preferred width of structured content (skill, thinking, code, etc.) for bubble width calculation.
+        Uses sizeHint/minimumSizeHint of each child and the container aggregate; capped by max_width if > 0.
+        """
+        out = 0
+        for i in range(self.structured_content_layout.count()):
+            item = self.structured_content_layout.itemAt(i)
+            if not item or not item.widget():
+                continue
+            wdg = item.widget()
+            sh = wdg.sizeHint().width()
+            mh = wdg.minimumSizeHint().width()
+            w = max(0, sh) if sh > 0 else max(0, mh)
+            if max_width > 0:
+                w = min(w, max_width)
+            out = max(out, w)
+        container_w = self.structured_content_container.sizeHint().width()
+        if container_w > 0:
+            w = min(container_w, max_width) if max_width > 0 else container_w
+            out = max(out, w)
+        return out
+
     def get_total_size(self) -> tuple[int, int]:
         """Get the total size of the widget."""
         content_size = self.get_content_size()
