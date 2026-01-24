@@ -11,15 +11,15 @@ from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QFont, QPen
 from app.ui.base_widget import BaseWidget
 from app.ui.components.avatar_widget import AvatarWidget
 from agent.chat.agent_chat_message import AgentMessage, StructureContent, ContentType
+from app.ui.chat.message.base_structured_content_widget import BaseStructuredContentWidget
 
 
-class TableWidget(QWidget):
+class TableWidget(BaseStructuredContentWidget):
     """Widget for displaying table content."""
 
     def __init__(self, content: StructureContent, parent=None):
         """Initialize table widget."""
-        super().__init__(parent)
-        self.content = content
+        super().__init__(structure_content=content, parent=parent)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -29,8 +29,8 @@ class TableWidget(QWidget):
         layout.setSpacing(4)
 
         # Title if available
-        if self.content.title:
-            title_label = QLabel(self.content.title, self)
+        if self.structure_content.title:
+            title_label = QLabel(self.structure_content.title, self)
             title_label.setStyleSheet("""
                 QLabel {
                     color: #7c4dff;
@@ -41,8 +41,8 @@ class TableWidget(QWidget):
             layout.addWidget(title_label)
 
         # Description if available
-        if self.content.description:
-            desc_label = QLabel(self.content.description, self)
+        if self.structure_content.description:
+            desc_label = QLabel(self.structure_content.description, self)
             desc_label.setStyleSheet("""
                 QLabel {
                     color: #aaaaaa;
@@ -74,9 +74,9 @@ class TableWidget(QWidget):
         """)
 
         # Populate table from data (should be a dict with 'headers' and 'rows')
-        if isinstance(self.content.data, dict):
-            headers = self.content.data.get('headers', [])
-            rows = self.content.data.get('rows', [])
+        if isinstance(self.structure_content.data, dict):
+            headers = self.structure_content.data.get('headers', [])
+            rows = self.structure_content.data.get('rows', [])
 
             if headers:
                 table_widget.setColumnCount(len(headers))
@@ -88,14 +88,14 @@ class TableWidget(QWidget):
                     for col_idx, cell_data in enumerate(row_data):
                         item = QTableWidgetItem(str(cell_data))
                         table_widget.setItem(row_idx, col_idx, item)
-        elif isinstance(self.content.data, list):
+        elif isinstance(self.structure_content.data, list):
             # If data is a list of lists, treat each inner list as a row
-            if self.content.data:
-                num_cols = max(len(row) for row in self.content.data) if self.content.data else 0
+            if self.structure_content.data:
+                num_cols = max(len(row) for row in self.structure_content.data) if self.structure_content.data else 0
                 table_widget.setColumnCount(num_cols)
-                table_widget.setRowCount(len(self.content.data))
+                table_widget.setRowCount(len(self.structure_content.data))
 
-                for row_idx, row_data in enumerate(self.content.data):
+                for row_idx, row_data in enumerate(self.structure_content.data):
                     for col_idx, cell_data in enumerate(row_data):
                         item = QTableWidgetItem(str(cell_data))
                         table_widget.setItem(row_idx, col_idx, item)
@@ -109,3 +109,53 @@ class TableWidget(QWidget):
                 border-radius: 4px;
             }
         """)
+
+    def update_content(self, structure_content: StructureContent):
+        """
+        Update the widget with new structure content.
+        
+        Args:
+            structure_content: The new structure content to display
+        """
+        self.structure_content = structure_content
+        # Clear and re-layout the widget
+        for i in reversed(range(self.layout().count())): 
+            child = self.layout().itemAt(i).widget()
+            if child is not None:
+                child.setParent(None)
+        self._setup_ui()
+
+    def get_state(self) -> Dict[str, Any]:
+        """
+        Get the current state of the widget.
+        
+        Returns:
+            Dictionary representing the current state
+        """
+        return {
+            "title": self.structure_content.title,
+            "description": self.structure_content.description,
+            "data": self.structure_content.data,
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """
+        Set the state of the widget.
+        
+        Args:
+            state: Dictionary representing the state to set
+        """
+        # Update the structure content with state data
+        title = state.get("title", "")
+        description = state.get("description", "")
+        data = state.get("data", {})
+        
+        # Update the UI with the new state
+        for i in reversed(range(self.layout().count())): 
+            child = self.layout().itemAt(i).widget()
+            if child is not None:
+                child.setParent(None)
+        self.structure_content.title = title
+        self.structure_content.description = description
+        self.structure_content.data = data
+        self._setup_ui()
