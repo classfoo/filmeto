@@ -14,6 +14,7 @@ from PySide6.QtCore import Signal, Slot, QObject
 from PySide6.QtWidgets import QApplication
 from qasync import asyncSlot
 
+from agent import AgentMessage
 from agent.filmeto_agent import StreamEvent, AgentStreamSession
 from agent.chat.agent_chat_signals import AgentChatSignals
 from app.ui.base_widget import BaseWidget
@@ -329,9 +330,8 @@ class AgentChatWidget(BaseWidget):
         # since it was never disabled
 
     @asyncSlot()
-    async def _on_agent_message_sent(self, sender, **kwargs):
+    async def _on_agent_message_sent(self, sender, message:AgentMessage):
         """Handle agent message sent via AgentChatSignals."""
-        message = kwargs.get('message')
         if message:
             # Convert the AgentMessage to a StreamEvent-like object for compatibility
             metadata = message.metadata or {}
