@@ -62,7 +62,7 @@ class BaseMessageCard(QFrame):
 
         self._setup_ui()
 
-    def _setup_ui(self, content: str):
+    def _setup_ui(self):
         """Set up UI."""
         self.setObjectName("base_message_card")
         self.setFrameShape(QFrame.NoFrame)
@@ -145,17 +145,7 @@ class BaseMessageCard(QFrame):
         # Add the structured content layout to the bubble container
         self.bubble_layout.insertLayout(0, self.structured_content_layout)
 
-        # Add structured content widgets including text content
-        # Convert the initial text content to a StructureContent object if it exists
-        if content:
-            text_structure = StructureContent(
-                content_type=ContentType.TEXT,
-                data=content,
-                title="",
-                description=""
-            )
-            self.add_structure_content_widget(text_structure)
-
+        # Add all structured content widgets from the structured_content_list
         for structure_content in self.structured_content_list:
             self.add_structure_content_widget(structure_content)
 
@@ -309,7 +299,15 @@ class BaseMessageCard(QFrame):
                         if child is not None:
                             child.setParent(None)
                     widget._setup_ui()
-                    break
+                    return  # Exit after updating the first text widget
+        # If no TextContentWidget was found, create one
+        text_structure = StructureContent(
+            content_type=ContentType.TEXT,
+            data=content,
+            title="",
+            description=""
+        )
+        self.add_structure_content_widget(text_structure)
         self._update_bubble_width()
 
     def append_content(self, content: str):
@@ -329,8 +327,10 @@ class BaseMessageCard(QFrame):
                         if child is not None:
                             child.setParent(None)
                     widget._setup_ui()
-                    break
-        self._update_bubble_width()
+                    self._update_bubble_width()
+                    return  # Exit after updating the first text widget
+        # If no TextContentWidget was found, create one with the content
+        self.set_content(content)
 
     def get_content(self) -> str:
         """Get current content."""
@@ -341,6 +341,7 @@ class BaseMessageCard(QFrame):
                 widget = item.widget()
                 if isinstance(widget, TextContentWidget):
                     return str(widget.structure_content.data) if widget.structure_content.data else ""
+        # If no TextContentWidget is found, return empty string
         return ""
 
     def get_content_label(self):
@@ -433,12 +434,20 @@ class AgentMessageCard(BaseMessageCard):
         self.agent_icon = agent_icon  # Store the agent-specific icon
         self.crew_member_metadata = crew_member_metadata  # Store crew member metadata
 
-        # Extract text content from structured_content for BaseMessageCard
+        # Convert text content to StructureContent if it exists and add to structured_content
+        all_structured_content = agent_message.structured_content.copy()
         text_content = agent_message.get_text_content()
-        
+        if text_content:
+            text_structure = StructureContent(
+                content_type=ContentType.TEXT,
+                data=text_content,
+                title="",
+                description=""
+            )
+            all_structured_content.insert(0, text_structure)  # Insert at the beginning
+
         # Call parent constructor with agent-specific parameters
         super().__init__(
-            content=text_content,
             sender_name=agent_message.sender_name or agent_message.sender_id,
             icon=self.agent_icon,
             color=self.agent_color,
@@ -446,7 +455,7 @@ class AgentMessageCard(BaseMessageCard):
             alignment=Qt.AlignLeft,
             background_color="#2b2d30",
             text_color="#e1e1e1",
-            structured_content=agent_message.structured_content
+            structured_content=all_structured_content
         )
 
         # Add crew title if available
@@ -490,6 +499,7 @@ class AgentMessageCard(BaseMessageCard):
         self.clear_structured_content()
 
         # Add new structured content including text content
+        all_structured_content = agent_message.structured_content.copy()
         text_content = agent_message.get_text_content()
         if text_content:
             text_structure = StructureContent(
@@ -498,26 +508,37 @@ class AgentMessageCard(BaseMessageCard):
                 title="",
                 description=""
             )
-            self.add_structure_content_widget(text_structure)
+            all_structured_content.insert(0, text_structure)  # Insert at the beginning
 
-        # Add other structured content
-        for structure_content in agent_message.structured_content:
+        # Add all structured content
+        for structure_content in all_structured_content:
             self.add_structure_content_widget(structure_content)
 
 class UserMessageCard(BaseMessageCard):
     """Card widget for displaying user messages."""
 
-    def __init__(self, content: str, parent=None):
+    def __init__(self, content: str = "", parent=None):
         """Initialize user message card."""
+        # Convert content to structured content
+        structured_content = []
+        if content:
+            text_structure = StructureContent(
+                content_type=ContentType.TEXT,
+                data=content,
+                title="",
+                description=""
+            )
+            structured_content.append(text_structure)
+
         super().__init__(
-            content=content,
             sender_name="You",
             icon="👤",
             color="#35373a",
             parent=parent,
             alignment=Qt.AlignRight,
             background_color="#35373a",
-            text_color="#e1e1e1"
+            text_color="#e1e1e1",
+            structured_content=structured_content
         )
 
         # Update the object name and styling for user messages
