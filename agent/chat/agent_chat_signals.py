@@ -6,8 +6,8 @@ blinker signals for agent chat functionality.
 """
 
 import blinker
+
 from .agent_chat_message import AgentMessage
-from agent.chat.agent_chat_types import MessageType
 
 
 class AgentChatSignals:
@@ -42,27 +42,15 @@ class AgentChatSignals:
         """
         self.__agent_message_send.disconnect(receiver)
 
-    async def send_agent_message(self, content: str, sender_id: str = "system", sender_name: str = "System",
-                                message_type: MessageType = MessageType.TEXT, metadata: dict = None) -> AgentMessage:
+    async def send_agent_message(self, message: AgentMessage) -> AgentMessage:
         """
-        Send an agent message via the blinker signal.
+        Send an AgentMessage via the blinker signal.
 
         Args:
-            content: The content of the message
-            sender_id: ID of the sender (defaults to "system")
-            sender_name: Name of the sender (defaults to "System")
-            message_type: Type of the message (defaults to MessageType.TEXT)
-            metadata: Additional metadata for the message (optional)
+            message: The AgentMessage to send.
 
         Returns:
-            AgentMessage: The message object that was sent
+            The same AgentMessage that was sent.
         """
-        message = AgentMessage(
-            content=content,
-            message_type=message_type,
-            sender_id=sender_id,
-            sender_name=sender_name,
-            metadata=metadata or {}
-        )
         self.__agent_message_send.send(self, message=message)
         return message

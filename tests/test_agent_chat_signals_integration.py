@@ -9,6 +9,7 @@ import os
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from agent.chat.agent_chat_message import AgentMessage
 from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.chat.agent_chat_types import MessageType
 
@@ -23,14 +24,14 @@ async def test_integration_with_existing_agentmessage():
     signals = AgentChatSignals()
     signals.connect(message_handler)
 
-    # Send a message using the actual AgentMessage class from agent_chat_message
-    message = await signals.send_agent_message(
+    message = AgentMessage(
         content="Integration test message",
+        message_type=MessageType.TEXT,
         sender_id="integration_test_agent",
         sender_name="Integration Test Agent",
-        message_type=MessageType.TEXT,
-        metadata={"test": True, "category": "integration"}
+        metadata={"test": True, "category": "integration"},
     )
+    await signals.send_agent_message(message)
 
     # Verify the received message
     assert len(received_messages) == 1
@@ -64,16 +65,16 @@ async def test_different_message_types():
     signals = AgentChatSignals()
     signals.connect(message_handler)
 
-    # Test different message types
     message_types = [MessageType.TEXT, MessageType.CODE, MessageType.IMAGE, MessageType.SYSTEM, MessageType.THINKING]
 
     for msg_type in message_types:
-        await signals.send_agent_message(
+        msg = AgentMessage(
             content=f"Test {msg_type.value} message",
+            message_type=msg_type,
             sender_id="test_agent",
             sender_name="Test Agent",
-            message_type=msg_type
         )
+        await signals.send_agent_message(msg)
 
     assert len(received_messages) == len(message_types)
 

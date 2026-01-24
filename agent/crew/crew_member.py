@@ -6,9 +6,10 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
 import yaml
 
-from agent.chat.agent_chat_types import MessageType
-from agent.llm.llm_service import LlmService
+from agent.chat.agent_chat_message import AgentMessage, StructureContent
 from agent.chat.agent_chat_signals import AgentChatSignals
+from agent.chat.agent_chat_types import ContentType, MessageType
+from agent.llm.llm_service import LlmService
 from agent.plan.models import PlanTask, TaskStatus
 from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill
@@ -116,14 +117,14 @@ class CrewMember:
             error_message = "LLM service is not configured."
             if on_token:
                 on_token(error_message)
-            # Use AgentChatSignals to send the error message
-            await self.signals.send_agent_message(
+            msg = AgentMessage(
                 content=error_message,
+                message_type=MessageType.ERROR,
                 sender_id=self.config.name,
                 sender_name=self.config.name,
-                message_type=MessageType.ERROR,
-                metadata={"session_id": getattr(self, '_session_id', 'unknown')}
+                metadata={"session_id": getattr(self, "_session_id", "unknown")},
             )
+            await self.signals.send_agent_message(msg)
             yield error_message
             if on_complete:
                 on_complete(error_message)
@@ -134,89 +135,83 @@ class CrewMember:
         messages = [{"role": "user", "content": user_prompt}]
         messages.extend(self.conversation_history)
 
-        # Use AgentChatSignals to notify that the agent is thinking
-        await self.signals.send_agent_message(
+        msg = AgentMessage(
             content=f"{self.config.name} is processing the request...",
+            message_type=MessageType.SYSTEM,
             sender_id=self.config.name,
             sender_name=self.config.name,
-            message_type=MessageType.SYSTEM,
             metadata={
-                "session_id": getattr(self, '_session_id', 'unknown'),
-                "event_type": "agent_thinking"
-            }
+                "session_id": getattr(self, "_session_id", "unknown"),
+                "event_type": "agent_thinking",
+            },
         )
+        await self.signals.send_agent_message(msg)
 
         final_response = None
         for step in range(self.config.max_steps):
-            # Use AgentChatSignals to notify that the agent is calling the LLM
-            await self.signals.send_agent_message(
+            msg = AgentMessage(
                 content=f"{self.config.name} is calling the LLM (Step {step + 1}/{self.config.max_steps})",
+                message_type=MessageType.SYSTEM,
                 sender_id=self.config.name,
                 sender_name=self.config.name,
-                message_type=MessageType.SYSTEM,
                 metadata={
-                    "session_id": getattr(self, '_session_id', 'unknown'),
+                    "session_id": getattr(self, "_session_id", "unknown"),
                     "event_type": "llm_call_start",
                     "step": step + 1,
-                    "total_steps": self.config.max_steps
-                }
+                    "total_steps": self.config.max_steps,
+                },
             )
+            await self.signals.send_agent_message(msg)
 
             response_text = await self._complete(messages)
 
-            # Use AgentChatSignals to notify that the LLM responded
-            await self.signals.send_agent_message(
+            msg = AgentMessage(
                 content=f"{self.config.name} LLM response (Step {step + 1})",
+                message_type=MessageType.SYSTEM,
                 sender_id=self.config.name,
                 sender_name=self.config.name,
-                message_type=MessageType.SYSTEM,
                 metadata={
-                    "session_id": getattr(self, '_session_id', 'unknown'),
+                    "session_id": getattr(self, "_session_id", "unknown"),
                     "event_type": "llm_call_end",
                     "step": step + 1,
-                    "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text
-                }
+                    "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text,
+                },
             )
+            await self.signals.send_agent_message(msg)
 
             action = self._parse_action(response_text)
 
-            # Send thinking to AgentMessage if available
             if action.thinking:
-                # Send thinking as a structured content event
-                await self.signals.send_agent_message(
-                    content=f"🤔 Thinking: {action.thinking}",  # Include the thinking content in the message
+                thinking_structure = StructureContent(
+                    content_type=ContentType.THINKING,
+                    data=action.thinking,
+                    title="Thinking Process",
+                    description="Agent's thought process",
+                )
+                mid = getattr(self, "_current_message_id", None)
+                meta = {"session_id": getattr(self, "_session_id", "unknown")}
+                if mid:
+                    meta["message_id"] = mid
+                msg = AgentMessage(
+                    content="",
+                    message_type=MessageType.THINKING,
                     sender_id=self.config.name,
                     sender_name=self.config.name,
-                    message_type=MessageType.THINKING,  # Use the THINKING type
-                    metadata={
-                        "session_id": getattr(self, '_session_id', 'unknown'),
-                        "event_type": "agent_thinking",
-                        "step": step + 1
-                    }
+                    metadata=meta,
+                    structured_content=[thinking_structure],
+                    message_id=mid or None,
                 )
+                if mid:
+                    msg.message_id = mid
+                await self.signals.send_agent_message(msg)
 
             if action.action_type == "skill":
-                # Execute skill with structured content reporting
                 observation = await self._execute_skill_with_structured_content(
                     action,
-                    message_id=getattr(self, '_current_message_id', 'unknown')
+                    message_id=getattr(self, "_current_message_id", None),
                 )
                 messages.append({"role": "assistant", "content": response_text})
                 messages.append({"role": "user", "content": f"Observation: {observation}"})
-
-                # Use AgentChatSignals to notify about skill execution
-                await self.signals.send_agent_message(
-                    content=f"Executing skill: {action.skill}",
-                    sender_id=self.config.name,
-                    sender_name=self.config.name,
-                    message_type=MessageType.SYSTEM,
-                    metadata={
-                        "session_id": getattr(self, '_session_id', 'unknown'),
-                        "event_type": "skill_execution",
-                        "skill": action.skill,
-                        "observation": observation
-                    }
-                )
                 continue
 
             final_response = action.response or response_text
@@ -587,40 +582,47 @@ class CrewMember:
         if not skill:
             return f"Skill '{action.skill}' not found."
 
-        # Use AgentChatSignals to send start state event
-        await self.signals.send_agent_message(
-            content=f"Starting skill: {action.skill}",
-            sender_id=self.config.name,
-            sender_name=self.config.name,
-            message_type=MessageType.SYSTEM,
-            metadata={
-                "session_id": getattr(self, '_session_id', 'unknown'),
-                "event_type": "skill_start",
-                "skill_name": action.skill,
-                "skill_args": action.args,
-                "message_id": message_id
-            }
-        )
-
-        # Use in-context execution for better integration
-        # Pass the skill object directly, allowing knowledge-based execution if no scripts
         args = _normalize_skill_args_dict(action.args)
-
-        # Use AgentChatSignals to send progress state event
         execution_mode = "script" if skill.scripts else "knowledge"
-        await self.signals.send_agent_message(
-            content=f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}...",
-            sender_id=self.config.name,
-            sender_name=self.config.name,
-            message_type=MessageType.SYSTEM,
-            metadata={
-                "session_id": getattr(self, '_session_id', 'unknown'),
-                "event_type": "skill_progress",
+        meta = {"session_id": getattr(self, "_session_id", "unknown")}
+        if message_id:
+            meta["message_id"] = message_id
+
+        skill_start = StructureContent(
+            content_type=ContentType.SKILL,
+            data={
+                "status": "starting",
                 "skill_name": action.skill,
-                "progress_text": f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}...",
-                "message_id": message_id
-            }
+                "message": f"Starting skill: {action.skill}",
+            },
+            title=f"Skill: {action.skill}",
+            description="Skill execution starting",
         )
+        kw = {
+            "content": "",
+            "message_type": MessageType.SYSTEM,
+            "sender_id": self.config.name,
+            "sender_name": self.config.name,
+            "metadata": dict(meta),
+            "structured_content": [skill_start],
+        }
+        if message_id:
+            kw["message_id"] = message_id
+        await self.signals.send_agent_message(AgentMessage(**kw))
+
+        progress_text = f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}..."
+        skill_progress = StructureContent(
+            content_type=ContentType.SKILL,
+            data={
+                "status": "in_progress",
+                "skill_name": action.skill,
+                "message": progress_text,
+            },
+            title=f"Skill: {action.skill}",
+            description="Skill execution in progress",
+        )
+        kw["structured_content"] = [skill_progress]
+        await self.signals.send_agent_message(AgentMessage(**kw))
 
         result = await self.skill_service.execute_skill_in_context(
             skill=skill,
@@ -630,25 +632,23 @@ class CrewMember:
             script_name=action.script,
             llm_service=self.llm_service
         )
-
-        # The result is now a string, so format it directly
         result_message = str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
+        success = result.get("success", True) if isinstance(result, dict) else True
 
-        # Use AgentChatSignals to send end state event
-        await self.signals.send_agent_message(
-            content=f"Skill '{action.skill}' completed: {result_message}",
-            sender_id=self.config.name,
-            sender_name=self.config.name,
-            message_type=MessageType.SYSTEM,
-            metadata={
-                "session_id": getattr(self, '_session_id', 'unknown'),
-                "event_type": "skill_end",
+        skill_end = StructureContent(
+            content_type=ContentType.SKILL,
+            data={
+                "status": "completed",
                 "skill_name": action.skill,
+                "message": result_message,
                 "result": result_message,
-                "success": result.get("success", True) if isinstance(result, dict) else True,
-                "message_id": message_id
-            }
+                "success": success,
+            },
+            title=f"Skill: {action.skill}",
+            description="Skill execution completed",
         )
+        kw["structured_content"] = [skill_end]
+        await self.signals.send_agent_message(AgentMessage(**kw))
 
         return result_message
 

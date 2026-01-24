@@ -9,8 +9,8 @@ import os
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.chat.agent_chat_message import AgentMessage
+from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.chat.agent_chat_types import MessageType
 
 
@@ -34,12 +34,13 @@ async def test_signal_connection():
     signals.connect(message_handler)
 
     # Send a message
-    message = await signals.send_agent_message(
+    message = AgentMessage(
         content="Hello, world!",
+        message_type=MessageType.TEXT,
         sender_id="agent1",
         sender_name="Test Agent",
-        message_type=MessageType.TEXT
     )
+    await signals.send_agent_message(message)
 
     # Check that the message was received
     assert len(received_messages) == 1

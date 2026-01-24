@@ -653,70 +653,70 @@ class AgentChatHistoryWidget(BaseWidget):
         is_thinking: bool = False,
         thinking_text: str = "",
         is_complete: bool = False,
-        structured_content = None,
-        error: str = None
+        structured_content=None,
+        error: str = None,
     ):
         """Update an agent message card."""
         card = self._message_cards.get(message_id)
         if not card:
             return
 
-        # For the new structure, we need to update the underlying agent message
-        # and then update the card display
         if content is not None:
             if append and card.agent_message.content:
                 card.agent_message.content += content
             else:
                 card.agent_message.content = content
-
-        # Update the card's display
         card.set_content(card.agent_message.content)
 
-        # For now, we're not handling thinking state in the new structure
-        # But we can add structured content if provided
-        if structured_content:
-            # Add the structured content to the card
-            card.add_structure_content_widget(structured_content)
+        if structured_content is not None:
+            from agent.chat.agent_chat_message import StructureContent
+
+            items = (
+                [structured_content]
+                if isinstance(structured_content, StructureContent)
+                else list(structured_content)
+            )
+            for sc in items:
+                card.agent_message.structured_content.append(sc)
+                card.add_structure_content_widget(sc)
 
         if error:
-            # Show error in content
             card.agent_message.content = f"❌ Error: {error}"
             card.set_content(card.agent_message.content)
 
         self._schedule_scroll()
     
-    async def handle_agent_message(self, message:AgentMessage, session):
-        """Handle an AgentMessage directly."""
-        # Process the AgentMessage directly without conversion
+    async def handle_agent_message(self, message: AgentMessage, session):
+        """Handle an AgentMessage directly. Uses StructureContent for display; no business data via metadata."""
         from PySide6.QtWidgets import QApplication
 
-        # Check if this is a user message that would cause duplication
-        # If sender_id is "user", we need to avoid duplication
         if message.sender_id == "user":
-            # Skip adding user messages that come through the agent system
-            # since they're already added when the user submits them in the UI
             return
 
-        # Create a message ID for this message
-        message_id = message.metadata.get("message_id") if message.metadata else getattr(message, "message_id", None)
+        message_id = (
+            getattr(message, "message_id", None)
+            or (message.metadata.get("message_id") if message.metadata else None)
+        )
         if not message_id:
             message_id = str(uuid.uuid4())
 
-        # Create or update the card with the content
         card = self.get_or_create_agent_card(
             message_id,
-            message.sender_name,  # This will be normalized in get_or_create_agent_card
-            message.sender_name
+            message.sender_name,
+            message.sender_name,
         )
 
-        # Update the card with the content
-        self.update_agent_card(
-            message_id,
-            content=message.content,
-            append=True
-        )
+        has_structure = bool(message.structured_content)
+        if has_structure:
+            for sc in message.structured_content:
+                self.update_agent_card(message_id, structured_content=sc)
+        if message.content:
+            self.update_agent_card(
+                message_id,
+                content=message.content,
+                append=not has_structure or bool(card.agent_message.content),
+            )
 
-        # Process UI updates to ensure changes are reflected
         QApplication.processEvents()
 
     @Slot(object, object)

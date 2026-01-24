@@ -27,29 +27,26 @@ A singleton class that provides:
 ## Usage
 
 ```python
+from agent.chat.agent_chat_message import AgentMessage
 from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.chat.agent_chat_types import MessageType
 
-# Get the singleton instance
 signals = AgentChatSignals()
 
-
-# Connect to the signal
 def message_handler(sender, **kwargs):
     message = kwargs.get('message')
     print(f"Received message from {message.sender_name} ({message.sender_id}): {message.content}")
 
+signals.connect(message_handler)
 
-signals.agent_message_send.connect(message_handler)
-
-# Send a message
-message = signals.send_agent_message(
+message = AgentMessage(
     content="Hello, world!",
+    message_type=MessageType.TEXT,
     sender_id="agent1",
     sender_name="AI Assistant",
-    message_type=MessageType.TEXT,
-    metadata={"priority": "high"}
+    metadata={"priority": "high"},
 )
+await signals.send_agent_message(message)
 ```
 
 ## Thread Safety

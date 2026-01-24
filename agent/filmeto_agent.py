@@ -291,14 +291,8 @@ class FilmetoAgent:
             self.conversation_history.append(response)
             if on_token:
                 on_token(response.content)
-            # Use AgentChatSignals to send the agent message
-            await self.signals.send_agent_message(
-                content=response.content,
-                sender_id=response.sender_id,
-                sender_name=response.sender_name,
-                message_type=response.message_type,
-                metadata={**response.metadata, "session_id": session_id}
-            )
+            response.metadata["session_id"] = session_id
+            await self.signals.send_agent_message(response)
             yield response.content
 
     async def _stream_crew_member(
@@ -353,14 +347,8 @@ class FilmetoAgent:
         self.conversation_history.append(error_msg)
         if on_token:
             on_token(error_msg.content)
-        # Use AgentChatSignals to send the error message
-        await self.signals.send_agent_message(
-            content=error_msg.content,
-            sender_id=error_msg.sender_id,
-            sender_name=error_msg.sender_name,
-            message_type=error_msg.message_type,
-            metadata={**error_msg.metadata, "session_id": session_id}
-        )
+        error_msg.metadata["session_id"] = session_id
+        await self.signals.send_agent_message(error_msg)
         yield error_msg.content
 
     def add_ui_callback(self, callback):
@@ -419,14 +407,8 @@ class FilmetoAgent:
         # Add the initial prompt to history
         self.conversation_history.append(initial_prompt)
 
-        # Use AgentChatSignals to send the user message
-        await self.signals.send_agent_message(
-            content=message,
-            sender_id="user",
-            sender_name="User",
-            message_type=MessageType.TEXT,
-            metadata={"session_id": session_id}
-        )
+        initial_prompt.metadata["session_id"] = session_id
+        await self.signals.send_agent_message(initial_prompt)
 
         self._ensure_crew_members_loaded()
 
