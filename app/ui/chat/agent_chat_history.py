@@ -687,8 +687,6 @@ class AgentChatHistoryWidget(BaseWidget):
         self._schedule_scroll()
     
     async def handle_agent_message(self, message: AgentMessage, session):
-        """Handle an AgentMessage directly. Uses StructureContent for display; no business data via metadata."""
-        from PySide6.QtWidgets import QApplication
 
         if message.sender_id == "user":
             return
@@ -716,8 +714,9 @@ class AgentChatHistoryWidget(BaseWidget):
                 content=message.content,
                 append=not has_structure or bool(card.agent_message.content),
             )
-
-        QApplication.processEvents()
+        # """Handle an AgentMessage directly. Uses StructureContent for display; no business data via metadata."""
+        # from PySide6.QtWidgets import QApplication
+        # QApplication.processEvents()
 
     @Slot(object, object)
     def handle_stream_event(self, event, session):

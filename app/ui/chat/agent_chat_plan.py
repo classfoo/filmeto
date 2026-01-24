@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, Signal, QSize
 from PySide6.QtGui import QColor, QPainter, QFont, QPen
 
+from agent import AgentMessage
 from app.ui.base_widget import BaseWidget
 from app.ui.components.avatar_widget import AvatarWidget
 from agent.plan.service import PlanService
@@ -413,13 +414,13 @@ class AgentChatPlanWidget(BaseWidget):
             self.setMinimumHeight(0)
             self.setMaximumHeight(16777215)  # Default maximum
 
-    async def handle_agent_message(self, message, _session=None):
+    async def handle_agent_message(self, message:AgentMessage, _session=None):
         """Handle an AgentMessage directly."""
         if not message:
             return
 
         # Check if this message contains plan update information
-        if hasattr(message, 'metadata') and message.metadata:
+        if message.metadata:
             event_type = message.metadata.get("event_type", "")
             if event_type == "plan_update":
                 plan_id = message.metadata.get("plan_id")
@@ -427,8 +428,12 @@ class AgentChatPlanWidget(BaseWidget):
                     self._preferred_plan_id = plan_id
                 self.refresh_plan()
 
-        # Also check for content that might indicate a plan update
-        if hasattr(message, 'content') and "plan" in message.content.lower():
+        # Check message content for plan-related information
+        if message.content and "plan" in message.content.lower():
+            self.refresh_plan()
+        
+        # Check message type for plan-related types
+        if hasattr(message, 'message_type') and str(message.message_type).lower() == "plan":
             self.refresh_plan()
 
         # Process UI updates to ensure changes are reflected
