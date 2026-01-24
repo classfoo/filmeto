@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QIcon, QFont, QPen
 
+from agent import AgentMessage
 from app.ui.base_widget import BaseWidget
 from utils.i18n_utils import tr
 
@@ -684,27 +685,39 @@ class AgentChatHistoryWidget(BaseWidget):
 
         self._schedule_scroll()
     
-    def handle_agent_message(self, message, session):
+    async def handle_agent_message(self, message:AgentMessage, session):
         """Handle an AgentMessage directly."""
-        # Convert AgentMessage to event-like object for compatibility
-        metadata = message.metadata or {}
-        event_data = {
-            "content": message.content,
-            "sender_name": message.sender_name,
-            "sender_id": message.sender_id,
-            "message_type": message.message_type.value if hasattr(message.message_type, 'value') else str(message.message_type),
-            "session_id": metadata.get("session_id", "unknown"),
-            "event_type": metadata.get("event_type", "agent_response"),
-            "message_id": metadata.get("message_id") or getattr(message, "message_id", None),
-        }
-        
-        class SimpleEvent:
-            def __init__(self, data):
-                self.event_type = data["event_type"]
-                self.data = data
-        
-        event = SimpleEvent(event_data)
-        self.handle_stream_event(event, session)
+        # Process the AgentMessage directly without conversion
+        from PySide6.QtWidgets import QApplication
+
+        # Check if this is a user message that would cause duplication
+        # If sender_id is "user", we need to avoid duplication
+        if message.sender_id == "user":
+            # Skip adding user messages that come through the agent system
+            # since they're already added when the user submits them in the UI
+            return
+
+        # Create a message ID for this message
+        message_id = message.metadata.get("message_id") if message.metadata else getattr(message, "message_id", None)
+        if not message_id:
+            message_id = str(uuid.uuid4())
+
+        # Create or update the card with the content
+        card = self.get_or_create_agent_card(
+            message_id,
+            message.sender_name,  # This will be normalized in get_or_create_agent_card
+            message.sender_name
+        )
+
+        # Update the card with the content
+        self.update_agent_card(
+            message_id,
+            content=message.content,
+            append=True
+        )
+
+        # Process UI updates to ensure changes are reflected
+        QApplication.processEvents()
 
     @Slot(object, object)
     def handle_stream_event(self, event, session):
