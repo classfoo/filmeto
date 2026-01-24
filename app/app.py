@@ -348,14 +348,53 @@ class App():
                     logger.warning(f"Found running QThread {obj}, attempting to stop it...")
                     try:
                         obj.quit()
-                        if not obj.wait(5000):  # Wait up to 5 seconds
-                            logger.warning(f"Thread didn't stop gracefully, terminating: {obj}")
-                            obj.terminate()
-                            obj.wait(1000)  # Wait 1 more second after terminate
+                        # Fixed: QThread.wait() doesn't take timeout as positional arg in newer PySide6 versions
+                        obj.wait(5000)  # Wait up to 5 seconds
                     except Exception as e:
                         logger.error(f"Error stopping QThread {obj}: {e}")
+                        try:
+                            # Fallback: try to terminate if quit didn't work
+                            if obj.isRunning():
+                                obj.terminate()
+                                obj.wait(1000)  # Wait 1 more second after terminate
+                        except Exception as term_e:
+                            logger.error(f"Error terminating QThread {obj}: {term_e}")
         except Exception as e:
             logger.error(f"Error during QThread cleanup: {e}")
+            logger.error("Full stack trace:")
+            logger.error(traceback.format_exc())
+        
+        try:
+            # Properly close asyncio tasks in the event loop
+            logger.info("Closing asyncio tasks...")
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    logger.info("Event loop is running, skipping manual task cancellation")
+                else:
+                    # Cancel all running tasks
+                    tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+                    if tasks:
+                        logger.info(f"Cancelling {len(tasks)} pending tasks")
+                        for task in tasks:
+                            task.cancel()
+                        
+                        # Wait for tasks to finish cancellation
+                        if tasks:
+                            # Use a different approach that doesn't require running the loop
+                            for task in tasks:
+                                try:
+                                    task.exception()  # This will raise the CancelledError if it was cancelled properly
+                                except (asyncio.CancelledError, asyncio.InvalidStateError):
+                                    pass  # Expected for cancelled tasks
+            except RuntimeError as e:
+                if "no current event loop" in str(e):
+                    logger.info("No event loop found, skipping task cancellation")
+                else:
+                    logger.error(f"Error accessing event loop: {e}")
+        except Exception as e:
+            logger.error(f"Error during asyncio task cleanup: {e}")
             logger.error("Full stack trace:")
             logger.error(traceback.format_exc())
 

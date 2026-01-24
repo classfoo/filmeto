@@ -77,6 +77,14 @@ class AgentChatWidget(BaseWidget):
         # Connect to AgentChatSignals for message handling
         self._signals = AgentChatSignals()
         self._signals.connect(self._on_agent_message_sent)
+        
+        # Queue and task for processing messages sequentially
+        self._message_queue = asyncio.Queue()
+        self._message_processing_task = None
+        
+        # Defer starting the message processor until after the event loop is running
+        # We'll start it when the first message arrives
+        self._message_processor_started = False
 
         # Connect internal signals
         self.response_token_received.connect(self._on_token_received)
@@ -321,17 +329,57 @@ class AgentChatWidget(BaseWidget):
         # Note: In group chat mode, we don't re-enable the input widget
         # since it was never disabled
 
+    def _start_message_processor(self):
+        """Start the message processing task if not already started."""
+        if not self._message_processor_started:
+            try:
+                # Try to create the task, but if there's no running event loop, schedule it for later
+                loop = asyncio.get_running_loop()
+                if self._message_processing_task is None or self._message_processing_task.done():
+                    self._message_processing_task = asyncio.create_task(self._process_messages())
+                    self._message_processor_started = True
+            except RuntimeError:
+                # No running event loop yet, defer the task creation
+                # We'll try again when the first message comes in
+                pass
+    
+    async def _process_messages(self):
+        """Process messages from the queue sequentially."""
+        while True:
+            try:
+                # Get the next message from the queue
+                message = await self._message_queue.get()
+                
+                if message is None:  # Sentinel value to stop the processor
+                    break
+                    
+                if message:
+                    try:
+                        # Get session from agent
+                        session = self.agent.get_current_session() if self.agent else None
+
+                        # Forward the AgentMessage directly to downstream components
+                        await self.chat_history_widget.handle_agent_message(message, session)
+                        if self.plan_widget:
+                            await self.plan_widget.handle_agent_message(message, session)
+                    except Exception as e:
+                        logger.error(f"Error handling agent message: {e}", exc_info=True)
+                    finally:
+                        # Mark the task as done
+                        self._message_queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in message processor: {e}", exc_info=True)
+    
     @asyncSlot()
     async def _on_agent_message_sent(self, sender, message:AgentMessage):
-        """Handle agent message sent via AgentChatSignals."""
-        if message:
-            # Get session from agent
-            session = self.agent.get_current_session() if self.agent else None
-
-            # Forward the AgentMessage directly to downstream components
-            await self.chat_history_widget.handle_agent_message(message, session)
-            if self.plan_widget:
-                await self.plan_widget.handle_agent_message(message, session)
+        """Handle agent message sent via AgentChatSignals by queuing it for processing."""
+        # Put the message in the queue for sequential processing
+        await self._message_queue.put(message)
+        
+        # Start the processor if needed (first message triggers the task creation)
+        self._start_message_processor()
 
     async def _initialize_agent_async(self):
         """Initialize the agent asynchronously with current workspace and project."""
