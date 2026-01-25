@@ -8,11 +8,14 @@ and provides features like streaming events, checkpointing, and resumption.
 
 from .react import React
 from .types import ReactEvent, ReactEventType, ReactStatus, CheckpointData
+from .react_service import ReactService, react_service
 
 __all__ = [
     'React',
     'ReactEvent',
     'ReactEventType',
     'ReactStatus',
-    'CheckpointData'
+    'CheckpointData',
+    'ReactService',
+    'react_service'
 ]

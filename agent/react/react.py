@@ -244,88 +244,103 @@ class React:
             "summary": f"ReAct process stopped after {self.max_steps} steps"
         })
 
-        self.status = ReactStatus.FINAL
+        # Reset the state to allow for a new conversation to start after this one completes
+        self.run_id = ""
+        self.step_id = 0
+        self.status = ReactStatus.IDLE
+        self.messages = []
         self._update_checkpoint()
     
-    async def chat_stream(self, user_message: str) -> AsyncGenerator[ReactEvent, None]:
+    async def chat_stream(self, user_message: str, start_fresh: bool = False) -> AsyncGenerator[ReactEvent, None]:
         """
         Trigger or continue the ReAct process with a user message.
-        
+
         Args:
             user_message: Message from the user
-            
+            start_fresh: Whether to start a new ReAct process or continue from existing state
+
         Yields:
             ReactEvent: Events during the ReAct process
         """
-        # If this is the start of a new run, initialize
-        if not self.run_id:
-            self.run_id = f"run_{int(time.time())}_{self.project_name}_{self.react_type}"
+        # If starting fresh, reset the state and initialize
+        if start_fresh:
+            # Generate a new run ID for this fresh run
+            self.run_id = f"run_{int(time.time()*1000000)}_{self.project_name}_{self.react_type}"  # Use microseconds to ensure uniqueness
             self.step_id = 0
             self.status = ReactStatus.RUNNING
-            
+
             # Build initial system prompt
             system_prompt = self._build_system_prompt()
             self.messages = [{"role": "system", "content": system_prompt}]
-        
+        elif not self.run_id:
+            # If not starting fresh but no run_id exists, initialize a new run
+            self.run_id = f"run_{int(time.time()*1000000)}_{self.project_name}_{self.react_type}"  # Use microseconds to ensure uniqueness
+            self.step_id = 0
+            self.status = ReactStatus.RUNNING
+
+            # Build initial system prompt
+            system_prompt = self._build_system_prompt()
+            self.messages = [{"role": "system", "content": system_prompt}]
+
         # Add user message to pending list
         self.pending_user_messages.append(user_message)
 
         # Process all pending messages
         pending_messages = self._drain_pending_messages()
-        
+
         # Add all pending messages to the conversation history
         for msg in pending_messages:
             self.messages.append({"role": "user", "content": msg})
-        
+
         # Perform ReAct loop
         for step in range(self.max_steps):
             self.step_id = step
             self._update_checkpoint()  # Update checkpoint at the beginning of each step
-            
+
             # Yield thinking event
             yield self._create_event(ReactEventType.LLM_THINKING, {
                 "message": f"Processing step {step + 1}/{self.max_steps}",
                 "step": step + 1,
                 "total_steps": self.max_steps
             })
-            
+
             # Call LLM to get response
             try:
                 response_text = await self._call_llm(self.messages)
-                
+
                 # Yield LLM output event
                 yield self._create_event(ReactEventType.LLM_OUTPUT, {
                     "content": response_text
                 })
-                
+
                 # Parse the response to determine next action
                 action = self._parse_action(response_text)
-                
+
                 if action["type"] == "tool":
                     # Yield tool start event
                     yield self._create_event(ReactEventType.TOOL_START, {
                         "tool_name": action["tool_name"],
                         "tool_args": action["tool_args"]
                     })
-                    
+
                     # Execute the tool
                     try:
                         tool_result = await self.react_tool_call_function(
-                            action["tool_name"], 
+                            action["tool_name"],
                             action["tool_args"]
                         )
-                        
+
                         # Yield tool end event
                         yield self._create_event(ReactEventType.TOOL_END, {
                             "tool_name": action["tool_name"],
                             "ok": True,
                             "result": tool_result
                         })
-                        
+
                         # Add assistant response and tool result to messages
                         self.messages.append({"role": "assistant", "content": response_text})
                         self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
-                        
+
                     except Exception as e:
                         # Yield tool end event with error
                         yield self._create_event(ReactEventType.TOOL_END, {
@@ -333,11 +348,11 @@ class React:
                             "ok": False,
                             "error": str(e)
                         })
-                        
+
                         # Add assistant response and error to messages
                         self.messages.append({"role": "assistant", "content": response_text})
                         self.messages.append({"role": "user", "content": f"Error: {str(e)}"})
-                        
+
                 elif action["type"] == "final":
                     # Yield final event
                     yield self._create_event(ReactEventType.FINAL, {
@@ -345,29 +360,26 @@ class React:
                         "stop_reason": "final_action",
                         "summary": "ReAct process completed successfully"
                     })
-                    
                     self.status = ReactStatus.FINAL
                     self._update_checkpoint()
                     return  # Exit the generator
-                
+
             except Exception as e:
                 # Yield error event
                 yield self._create_event(ReactEventType.ERROR, {
                     "error": str(e),
                     "details": repr(e)
                 })
-                
                 self.status = ReactStatus.FAILED
                 self._update_checkpoint()
                 raise e
-        
+
         # If we reach max steps without a final action
         yield self._create_event(ReactEventType.FINAL, {
             "final_response": "Reached maximum steps without completion",
             "stop_reason": "max_steps_reached",
             "summary": f"ReAct process stopped after {self.max_steps} steps"
         })
-        
         self.status = ReactStatus.FINAL
         self._update_checkpoint()
     

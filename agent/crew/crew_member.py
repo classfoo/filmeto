@@ -19,6 +19,7 @@ from agent.prompt.prompt_service import prompt_service
 # Import the new React module
 from agent.react.react import React
 from agent.react.types import ReactEvent, ReactEventType
+from agent.react.react_service import react_service
 
 
 @dataclass
@@ -140,8 +141,8 @@ class CrewMember:
             # If it's not a skill, return an error
             return {"error": f"Unknown tool: {tool_name}"}
 
-        # Create the React instance
-        react_instance = React(
+        # Get or create the React instance using the ReactService for reuse
+        react_instance = react_service.get_or_create_react(
             project_name=self.project_name,
             react_type=self.config.name,  # Use crew member name as react type
             base_prompt_template="react_base",  # Use the same template as before
@@ -153,7 +154,7 @@ class CrewMember:
 
         # Stream the events from the React instance
         final_response = ""
-        async for event in react_instance.chat_stream(message):
+        async for event in react_instance.chat_stream(message, start_fresh=True):
             # Handle different event types
             if event.event_type == ReactEventType.LLM_THINKING:
                 # Send thinking event to UI
