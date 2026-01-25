@@ -272,16 +272,15 @@ class React:
             should_start_fresh = self._pending_start_fresh
             self._pending_start_fresh = False  # Reset the flag
             # Process it in a new react loop
-            async for event in self.chat_stream(next_message, start_fresh=should_start_fresh):
+            async for event in self.chat_stream(next_message):
                 yield event
     
-    async def chat_stream(self, user_message: str, start_fresh: bool = False) -> AsyncGenerator[ReactEvent, None]:
+    async def chat_stream(self, user_message: str) -> AsyncGenerator[ReactEvent, None]:
         """
         Trigger or continue the ReAct process with a user message.
 
         Args:
             user_message: Message from the user
-            start_fresh: Whether to start a new ReAct process or continue from existing state
 
         Yields:
             ReactEvent: Events during the ReAct process
@@ -289,30 +288,19 @@ class React:
         # If we're already in a react loop, add the message to the waiting queue
         if self._in_react_loop:
             self.pending_user_messages.append(user_message)
-            # If start_fresh is requested, mark it for the next message
-            if start_fresh:
-                self._pending_start_fresh = True
+            # Always mark to start fresh for the next message when in a loop
+            self._pending_start_fresh = True
             return  # Exit early, the message will be processed in the current loop or after it ends
 
-        # If starting fresh, reset the state and initialize
-        if start_fresh:
-            # Generate a new run ID for this fresh run
-            self.run_id = f"run_{int(time.time()*1000000)}_{self.project_name}_{self.react_type}"  # Use microseconds to ensure uniqueness
-            self.step_id = 0
-            self.status = ReactStatus.RUNNING
+        # Always start fresh - reset the state and initialize
+        # Generate a new run ID for this fresh run
+        self.run_id = f"run_{int(time.time()*1000000)}_{self.project_name}_{self.react_type}"  # Use microseconds to ensure uniqueness
+        self.step_id = 0
+        self.status = ReactStatus.RUNNING
 
-            # Build initial system prompt
-            system_prompt = self._build_system_prompt()
-            self.messages = [{"role": "system", "content": system_prompt}]
-        elif not self.run_id:
-            # If not starting fresh but no run_id exists, initialize a new run
-            self.run_id = f"run_{int(time.time()*1000000)}_{self.project_name}_{self.react_type}"  # Use microseconds to ensure uniqueness
-            self.step_id = 0
-            self.status = ReactStatus.RUNNING
-
-            # Build initial system prompt
-            system_prompt = self._build_system_prompt()
-            self.messages = [{"role": "system", "content": system_prompt}]
+        # Build initial system prompt
+        system_prompt = self._build_system_prompt()
+        self.messages = [{"role": "system", "content": system_prompt}]
 
         # Add user message to pending list
         # The system prompt (rendered with template) is already in messages, and the user message will be added next
@@ -442,8 +430,8 @@ class React:
             # Check if we should start fresh for this message
             should_start_fresh = self._pending_start_fresh
             self._pending_start_fresh = False  # Reset the flag
-            # Process it in a new react loop
-            async for event in self.chat_stream(next_message, start_fresh=should_start_fresh):
+            # Process it in a new react loop - always start fresh
+            async for event in self.chat_stream(next_message):
                 yield event
     
     def _build_system_prompt(self) -> str:

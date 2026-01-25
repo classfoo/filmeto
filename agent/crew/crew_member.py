@@ -154,7 +154,7 @@ class CrewMember:
 
         # Stream the events from the React instance
         final_response = ""
-        async for event in react_instance.chat_stream(message, start_fresh=True):
+        async for event in react_instance.chat_stream(message):
             # Handle different event types
             if event.event_type == ReactEventType.LLM_THINKING:
                 # Send thinking event to UI
