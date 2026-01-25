@@ -420,12 +420,17 @@ Your response should be in JSON format with one of these structures:
             # Use the sync completion method in a thread executor to avoid async conflicts
             import asyncio
             loop = asyncio.get_event_loop()
+
+            # Use the model and temperature from the LLM service's configuration (which comes from global settings)
+            model_to_use = llm_service.default_model if llm_service.default_model else "qwen-plus"
+            temperature_to_use = llm_service.temperature if hasattr(llm_service, 'temperature') else 0.7
+
             response = await loop.run_in_executor(
                 None,
                 lambda: llm_service.completion(
-                    model="gpt-4o-mini",  # Default model
+                    model=model_to_use,
                     messages=messages,
-                    temperature=0.4,  # Default temperature from CrewMember
+                    temperature=temperature_to_use,
                     stream=False,
                 )
             )

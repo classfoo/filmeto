@@ -33,7 +33,7 @@ class LlmService:
         self.settings = getattr(workspace, 'settings', None) if workspace else None
         self.api_key = None
         self.api_base = None
-        self.default_model = 'gpt-4o-mini'
+        self.default_model = 'qwen-plus'
         self.temperature = 0.7
         self.language_prompts = {
             'zh_CN': '请使用中文回答。',
