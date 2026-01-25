@@ -153,8 +153,16 @@ class BaseMessageCard(QFrame):
         # Add the bubble container to the content area
         self.content_layout.addWidget(self.bubble_container)
 
-        # Add the content area to the main layout (this was missing!)
-        main_layout.addWidget(self.content_area)
+        # Add the content area to the main layout with proper alignment
+        # Add stretch to push content area to the correct side based on alignment
+        if self.alignment == Qt.AlignRight:
+            # For right-aligned messages, add stretch at the beginning to push content to the right
+            main_layout.addStretch()
+            main_layout.addWidget(self.content_area)
+        else:
+            # For left-aligned messages, add stretch at the end to push content to the left
+            main_layout.addWidget(self.content_area)
+            main_layout.addStretch()
 
         # Apply card styling
         self._apply_style()
