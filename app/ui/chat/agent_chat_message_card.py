@@ -143,15 +143,18 @@ class BaseMessageCard(QFrame):
         self.structured_content_layout.setContentsMargins(0, 0, 0, 0)
         self.structured_content_layout.setSpacing(6)
 
-        # Add the structured content layout to the bubble container
-        self.bubble_layout.insertLayout(0, self.structured_content_layout)
-
         # Add all structured content widgets from the structured_content_list
         for structure_content in self.structured_content_list:
             self.add_structure_content_widget(structure_content)
 
+        # Add the structured content layout to the bubble container
+        self.bubble_layout.insertLayout(0, self.structured_content_layout)
+
         # Add the bubble container to the content area
         self.content_layout.addWidget(self.bubble_container)
+
+        # Add the content area to the main layout (this was missing!)
+        main_layout.addWidget(self.content_area)
 
         # Apply card styling
         self._apply_style()
@@ -257,6 +260,9 @@ class BaseMessageCard(QFrame):
         self.content_area.adjustSize()
         self.adjustSize()
 
+        # Reset minimum height to allow proper size calculation
+        self.bubble_container.setMinimumHeight(0)
+
         # Ensure the bubble container has a minimum height to accommodate content
         # Calculate the minimum height needed for the content
         content_height = self.bubble_layout.sizeHint().height()
@@ -264,6 +270,9 @@ class BaseMessageCard(QFrame):
 
         # Set minimum height to ensure avatar is fully visible
         self.bubble_container.setMinimumHeight(min_bubble_height)
+
+        # Final adjustment to ensure proper sizing
+        self.bubble_container.updateGeometry()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
