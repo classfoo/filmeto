@@ -15,6 +15,7 @@ from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
+from agent.react import ReactEventType, react_service
 
 
 @dataclass
@@ -133,56 +134,46 @@ class CrewMember:
                 on_complete(error_message)
             return
 
-        # Embed the user's question into the react_base template
-        user_prompt = self._build_user_prompt(message, plan_id=plan_id)
-        messages = [{"role": "user", "content": user_prompt}]
-        messages.extend(self.conversation_history)
+        def build_prompt_function() -> str:
+            return self._build_system_prompt(plan_id=plan_id)
 
+        async def tool_call_function(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
+            if tool_name == "skill":
+                skill_name = tool_args.get("skill_name") or tool_args.get("name")
+                skill_args = tool_args.get("args") or tool_args.get("arguments") or {}
+                if skill_name:
+                    action = CrewMemberAction(
+                        action_type="skill",
+                        skill=skill_name,
+                        args=skill_args,
+                    )
+                    result = await self._execute_skill_with_structured_content(
+                        action,
+                        message_id=getattr(self, "_current_message_id", None),
+                    )
+                    return {"result": result}
+            return {"error": f"Unknown tool: {tool_name}"}
+
+        react_instance = react_service.get_or_create_react(
+            project_name=self.project_name,
+            react_type=self.config.name,
+            build_prompt_function=build_prompt_function,
+            tool_call_function=tool_call_function,
+            workspace=self.workspace,
+            llm_service=self.llm_service,
+            max_steps=self.config.max_steps,
+        )
 
         final_response = None
-        for step in range(self.config.max_steps):
-            msg = AgentMessage(
-                message_type=MessageType.SYSTEM,
-                sender_id=self.config.name,
-                sender_name=self.config.name,
-                metadata={
-                    "session_id": getattr(self, "_session_id", "unknown"),
-                    "event_type": "llm_call_start",
-                    "step": step + 1,
-                    "total_steps": self.config.max_steps,
-                },
-                structured_content=[StructureContent(
-                    content_type=ContentType.TEXT,
-                    data=f"{self.config.name} is calling the LLM (Step {step + 1}/{self.config.max_steps})"
-                )]
-            )
-            await self.signals.send_agent_message(msg)
+        saw_event = False
+        emitted_final = False
 
-            response_text = await self._complete(messages)
-
-            msg = AgentMessage(
-                message_type=MessageType.SYSTEM,
-                sender_id=self.config.name,
-                sender_name=self.config.name,
-                metadata={
-                    "session_id": getattr(self, "_session_id", "unknown"),
-                    "event_type": "llm_call_end",
-                    "step": step + 1,
-                    "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text,
-                },
-                structured_content=[StructureContent(
-                    content_type=ContentType.TEXT,
-                    data=f"{self.config.name} LLM response (Step {step + 1})"
-                )]
-            )
-            await self.signals.send_agent_message(msg)
-
-            action = self._parse_action(response_text)
-
-            if action.thinking:
+        async for event in react_instance.chat_stream(message):
+            saw_event = True
+            if event.event_type == ReactEventType.LLM_THINKING:
                 thinking_structure = StructureContent(
                     content_type=ContentType.THINKING,
-                    data=action.thinking,
+                    data=event.payload.get("message", ""),
                     title="Thinking Process",
                     description="Agent's thought process",
                 )
@@ -201,18 +192,22 @@ class CrewMember:
                 if mid:
                     msg.message_id = mid
                 await self.signals.send_agent_message(msg)
-
-            if action.action_type == "skill":
-                observation = await self._execute_skill_with_structured_content(
-                    action,
-                    message_id=getattr(self, "_current_message_id", None),
-                )
-                messages.append({"role": "assistant", "content": response_text})
-                messages.append({"role": "user", "content": f"Observation: {observation}"})
+            elif event.event_type == ReactEventType.LLM_OUTPUT:
                 continue
+            elif event.event_type == ReactEventType.FINAL:
+                final_response = event.payload.get("final_response", "")
+                break
+            elif event.event_type == ReactEventType.ERROR:
+                error_message = event.payload.get("error", "Unknown error occurred")
+                if on_token:
+                    on_token(error_message)
+                yield error_message
+                emitted_final = True
+                final_response = error_message
+                break
 
-            final_response = action.response or response_text
-            break
+        if not saw_event:
+            return
 
         if final_response is None:
             final_response = "Reached max steps without a final response."
@@ -220,9 +215,11 @@ class CrewMember:
         self.conversation_history.append({"role": "user", "content": message})
         self.conversation_history.append({"role": "assistant", "content": final_response})
 
-        if on_token:
-            on_token(final_response)
-        yield final_response
+        if not emitted_final:
+            if on_token:
+                on_token(final_response)
+            yield final_response
+
         if on_complete:
             on_complete(final_response)
 
