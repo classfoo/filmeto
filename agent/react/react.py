@@ -68,6 +68,8 @@ class React:
         self.status: str = ReactStatus.IDLE
         self.messages: List[Dict[str, str]] = []
         self.pending_user_messages: List[str] = []
+        self._in_react_loop: bool = False  # Flag to track if we're currently in a react step loop
+        self._pending_start_fresh: bool = False  # Flag to track if next queued message should start fresh
 
         # Attempt to load existing checkpoint
         checkpoint = self.storage.load_checkpoint()
@@ -144,112 +146,134 @@ class React:
         self.status = checkpoint.status
         self.messages = checkpoint.messages
         self.pending_user_messages = list(checkpoint.pending_user_messages)
+        # Reset the loop flag when resuming (will be set when we enter the loop)
+        self._in_react_loop = False
 
         # Continue the ReAct process from where it left off
         remaining_steps = self.max_steps - self.step_id
 
-        for step in range(remaining_steps):
-            current_step = self.step_id + step
-            self.step_id = current_step
-            self._update_checkpoint()  # Update checkpoint at the beginning of each step
-
-            # Yield thinking event
-            yield self._create_event(ReactEventType.LLM_THINKING, {
-                "message": f"Resuming step {current_step + 1}/{self.max_steps}",
-                "step": current_step + 1,
-                "total_steps": self.max_steps
-            })
-
-            # Process any pending messages first
-            pending_messages = self._drain_pending_messages()
-            for msg in pending_messages:
-                self.messages.append({"role": "user", "content": msg})
-
-            # Call LLM to get response
-            try:
-                response_text = await self._call_llm(self.messages)
-
-                # Yield LLM output event
-                yield self._create_event(ReactEventType.LLM_OUTPUT, {
-                    "content": response_text
-                })
-
-                # Parse the response to determine next action
-                action = self._parse_action(response_text)
-
-                if action["type"] == "tool":
-                    # Yield tool start event
-                    yield self._create_event(ReactEventType.TOOL_START, {
-                        "tool_name": action["tool_name"],
-                        "tool_args": action["tool_args"]
-                    })
-
-                    # Execute the tool
-                    try:
-                        tool_result = await self.react_tool_call_function(
-                            action["tool_name"],
-                            action["tool_args"]
-                        )
-
-                        # Yield tool end event
-                        yield self._create_event(ReactEventType.TOOL_END, {
-                            "tool_name": action["tool_name"],
-                            "ok": True,
-                            "result": tool_result
-                        })
-
-                        # Add assistant response and tool result to messages
-                        self.messages.append({"role": "assistant", "content": response_text})
-                        self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
-
-                    except Exception as e:
-                        # Yield tool end event with error
-                        yield self._create_event(ReactEventType.TOOL_END, {
-                            "tool_name": action["tool_name"],
-                            "ok": False,
-                            "error": str(e)
-                        })
-
-                        # Add assistant response and error to messages
-                        self.messages.append({"role": "assistant", "content": response_text})
-                        self.messages.append({"role": "user", "content": f"Error: {str(e)}"})
-
-                elif action["type"] == "final":
-                    # Yield final event
-                    yield self._create_event(ReactEventType.FINAL, {
-                        "final_response": action["final"],
-                        "stop_reason": "final_action",
-                        "summary": "ReAct process completed successfully"
-                    })
-
-                    self.status = ReactStatus.FINAL
-                    self._update_checkpoint()
-                    return  # Exit the generator
-
-            except Exception as e:
-                # Yield error event
-                yield self._create_event(ReactEventType.ERROR, {
-                    "error": str(e),
-                    "details": repr(e)
-                })
-
-                self.status = ReactStatus.FAILED
-                self._update_checkpoint()
-                raise e
-
-        # If we reach max steps without a final action
-        yield self._create_event(ReactEventType.FINAL, {
-            "final_response": "Reached maximum steps without completion",
-            "stop_reason": "max_steps_reached",
-            "summary": f"ReAct process stopped after {self.max_steps} steps"
-        })
-
-        # Reset the state to allow for a new conversation to start after this one completes
-        self.run_id = ""
-        self.step_id = 0
-        self.status = ReactStatus.IDLE
-        self.messages = []
+        # Set flag to indicate we're entering the react loop
+        self._in_react_loop = True
         self._update_checkpoint()
+
+        try:
+            for step in range(remaining_steps):
+                current_step = self.step_id + step
+                self.step_id = current_step
+                self._update_checkpoint()  # Update checkpoint at the beginning of each step
+
+                # Yield thinking event
+                yield self._create_event(ReactEventType.LLM_THINKING, {
+                    "message": f"Resuming step {current_step + 1}/{self.max_steps}",
+                    "step": current_step + 1,
+                    "total_steps": self.max_steps
+                })
+
+                # Before calling LLM, drain any new pending messages that arrived during the loop
+                new_pending = self._drain_pending_messages()
+                if new_pending:
+                    # Add new pending messages to the conversation history
+                    for msg in new_pending:
+                        self.messages.append({"role": "user", "content": msg})
+
+                # Call LLM to get response
+                try:
+                    response_text = await self._call_llm(self.messages)
+
+                    # Yield LLM output event
+                    yield self._create_event(ReactEventType.LLM_OUTPUT, {
+                        "content": response_text
+                    })
+
+                    # Parse the response to determine next action
+                    action = self._parse_action(response_text)
+
+                    if action["type"] == "tool":
+                        # Yield tool start event
+                        yield self._create_event(ReactEventType.TOOL_START, {
+                            "tool_name": action["tool_name"],
+                            "tool_args": action["tool_args"]
+                        })
+
+                        # Execute the tool
+                        try:
+                            tool_result = await self.react_tool_call_function(
+                                action["tool_name"],
+                                action["tool_args"]
+                            )
+
+                            # Yield tool end event
+                            yield self._create_event(ReactEventType.TOOL_END, {
+                                "tool_name": action["tool_name"],
+                                "ok": True,
+                                "result": tool_result
+                            })
+
+                            # Add assistant response and tool result to messages
+                            self.messages.append({"role": "assistant", "content": response_text})
+                            self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
+
+                        except Exception as e:
+                            # Yield tool end event with error
+                            yield self._create_event(ReactEventType.TOOL_END, {
+                                "tool_name": action["tool_name"],
+                                "ok": False,
+                                "error": str(e)
+                            })
+
+                            # Add assistant response and error to messages
+                            self.messages.append({"role": "assistant", "content": response_text})
+                            self.messages.append({"role": "user", "content": f"Error: {str(e)}"})
+
+                    elif action["type"] == "final":
+                        # Yield final event
+                        yield self._create_event(ReactEventType.FINAL, {
+                            "final_response": action["final"],
+                            "stop_reason": "final_action",
+                            "summary": "ReAct process completed successfully"
+                        })
+
+                        self.status = ReactStatus.FINAL
+                        self._update_checkpoint()
+                        break  # Exit the loop
+
+                except Exception as e:
+                    # Yield error event
+                    yield self._create_event(ReactEventType.ERROR, {
+                        "error": str(e),
+                        "details": repr(e)
+                    })
+
+                    self.status = ReactStatus.FAILED
+                    self._update_checkpoint()
+                    raise e
+
+            # If we reach max steps without a final action
+            if self.status != ReactStatus.FINAL:
+                yield self._create_event(ReactEventType.FINAL, {
+                    "final_response": "Reached maximum steps without completion",
+                    "stop_reason": "max_steps_reached",
+                    "summary": f"ReAct process stopped after {self.max_steps} steps"
+                })
+                self.status = ReactStatus.FINAL
+                self._update_checkpoint()
+
+        finally:
+            # Set flag to indicate we're exiting the react loop
+            self._in_react_loop = False
+            self._update_checkpoint()
+
+        # After the react loop ends, check if there are pending messages
+        # If so, automatically start a new react loop
+        while self.pending_user_messages:
+            # Get the next pending message
+            next_message = self.pending_user_messages.pop(0)
+            # Check if we should start fresh for this message
+            should_start_fresh = self._pending_start_fresh
+            self._pending_start_fresh = False  # Reset the flag
+            # Process it in a new react loop
+            async for event in self.chat_stream(next_message, start_fresh=should_start_fresh):
+                yield event
     
     async def chat_stream(self, user_message: str, start_fresh: bool = False) -> AsyncGenerator[ReactEvent, None]:
         """
@@ -262,6 +286,14 @@ class React:
         Yields:
             ReactEvent: Events during the ReAct process
         """
+        # If we're already in a react loop, add the message to the waiting queue
+        if self._in_react_loop:
+            self.pending_user_messages.append(user_message)
+            # If start_fresh is requested, mark it for the next message
+            if start_fresh:
+                self._pending_start_fresh = True
+            return  # Exit early, the message will be processed in the current loop or after it ends
+
         # If starting fresh, reset the state and initialize
         if start_fresh:
             # Generate a new run ID for this fresh run
@@ -283,6 +315,7 @@ class React:
             self.messages = [{"role": "system", "content": system_prompt}]
 
         # Add user message to pending list
+        # The system prompt (rendered with template) is already in messages, and the user message will be added next
         self.pending_user_messages.append(user_message)
 
         # Process all pending messages
@@ -292,96 +325,126 @@ class React:
         for msg in pending_messages:
             self.messages.append({"role": "user", "content": msg})
 
-        # Perform ReAct loop
-        for step in range(self.max_steps):
-            self.step_id = step
-            self._update_checkpoint()  # Update checkpoint at the beginning of each step
-
-            # Yield thinking event
-            yield self._create_event(ReactEventType.LLM_THINKING, {
-                "message": f"Processing step {step + 1}/{self.max_steps}",
-                "step": step + 1,
-                "total_steps": self.max_steps
-            })
-
-            # Call LLM to get response
-            try:
-                response_text = await self._call_llm(self.messages)
-
-                # Yield LLM output event
-                yield self._create_event(ReactEventType.LLM_OUTPUT, {
-                    "content": response_text
-                })
-
-                # Parse the response to determine next action
-                action = self._parse_action(response_text)
-
-                if action["type"] == "tool":
-                    # Yield tool start event
-                    yield self._create_event(ReactEventType.TOOL_START, {
-                        "tool_name": action["tool_name"],
-                        "tool_args": action["tool_args"]
-                    })
-
-                    # Execute the tool
-                    try:
-                        tool_result = await self.react_tool_call_function(
-                            action["tool_name"],
-                            action["tool_args"]
-                        )
-
-                        # Yield tool end event
-                        yield self._create_event(ReactEventType.TOOL_END, {
-                            "tool_name": action["tool_name"],
-                            "ok": True,
-                            "result": tool_result
-                        })
-
-                        # Add assistant response and tool result to messages
-                        self.messages.append({"role": "assistant", "content": response_text})
-                        self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
-
-                    except Exception as e:
-                        # Yield tool end event with error
-                        yield self._create_event(ReactEventType.TOOL_END, {
-                            "tool_name": action["tool_name"],
-                            "ok": False,
-                            "error": str(e)
-                        })
-
-                        # Add assistant response and error to messages
-                        self.messages.append({"role": "assistant", "content": response_text})
-                        self.messages.append({"role": "user", "content": f"Error: {str(e)}"})
-
-                elif action["type"] == "final":
-                    # Yield final event
-                    yield self._create_event(ReactEventType.FINAL, {
-                        "final_response": action["final"],
-                        "stop_reason": "final_action",
-                        "summary": "ReAct process completed successfully"
-                    })
-                    self.status = ReactStatus.FINAL
-                    self._update_checkpoint()
-                    return  # Exit the generator
-
-            except Exception as e:
-                # Yield error event
-                yield self._create_event(ReactEventType.ERROR, {
-                    "error": str(e),
-                    "details": repr(e)
-                })
-                self.status = ReactStatus.FAILED
-                self._update_checkpoint()
-                raise e
-
-        # If we reach max steps without a final action
-        yield self._create_event(ReactEventType.FINAL, {
-            "final_response": "Reached maximum steps without completion",
-            "stop_reason": "max_steps_reached",
-            "summary": f"ReAct process stopped after {self.max_steps} steps"
-        })
-        self.status = ReactStatus.FINAL
+        # Set flag to indicate we're entering the react loop
+        self._in_react_loop = True
         self._update_checkpoint()
+
+        try:
+            # Perform ReAct loop
+            for step in range(self.max_steps):
+                self.step_id = step
+                self._update_checkpoint()  # Update checkpoint at the beginning of each step
+
+                # Before calling LLM, drain any new pending messages that arrived during the loop
+                new_pending = self._drain_pending_messages()
+                if new_pending:
+                    # Add new pending messages to the conversation history
+                    for msg in new_pending:
+                        self.messages.append({"role": "user", "content": msg})
+
+                # Yield thinking event
+                yield self._create_event(ReactEventType.LLM_THINKING, {
+                    "message": f"Processing step {step + 1}/{self.max_steps}",
+                    "step": step + 1,
+                    "total_steps": self.max_steps
+                })
+
+                # Call LLM to get response
+                try:
+                    response_text = await self._call_llm(self.messages)
+
+                    # Yield LLM output event
+                    yield self._create_event(ReactEventType.LLM_OUTPUT, {
+                        "content": response_text
+                    })
+
+                    # Parse the response to determine next action
+                    action = self._parse_action(response_text)
+
+                    if action["type"] == "tool":
+                        # Yield tool start event
+                        yield self._create_event(ReactEventType.TOOL_START, {
+                            "tool_name": action["tool_name"],
+                            "tool_args": action["tool_args"]
+                        })
+
+                        # Execute the tool
+                        try:
+                            tool_result = await self.react_tool_call_function(
+                                action["tool_name"],
+                                action["tool_args"]
+                            )
+
+                            # Yield tool end event
+                            yield self._create_event(ReactEventType.TOOL_END, {
+                                "tool_name": action["tool_name"],
+                                "ok": True,
+                                "result": tool_result
+                            })
+
+                            # Add assistant response and tool result to messages
+                            self.messages.append({"role": "assistant", "content": response_text})
+                            self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
+
+                        except Exception as e:
+                            # Yield tool end event with error
+                            yield self._create_event(ReactEventType.TOOL_END, {
+                                "tool_name": action["tool_name"],
+                                "ok": False,
+                                "error": str(e)
+                            })
+
+                            # Add assistant response and error to messages
+                            self.messages.append({"role": "assistant", "content": response_text})
+                            self.messages.append({"role": "user", "content": f"Error: {str(e)}"})
+
+                    elif action["type"] == "final":
+                        # Yield final event
+                        yield self._create_event(ReactEventType.FINAL, {
+                            "final_response": action["final"],
+                            "stop_reason": "final_action",
+                            "summary": "ReAct process completed successfully"
+                        })
+                        self.status = ReactStatus.FINAL
+                        self._update_checkpoint()
+                        break  # Exit the loop
+
+                except Exception as e:
+                    # Yield error event
+                    yield self._create_event(ReactEventType.ERROR, {
+                        "error": str(e),
+                        "details": repr(e)
+                    })
+                    self.status = ReactStatus.FAILED
+                    self._update_checkpoint()
+                    raise e
+
+            # If we reach max steps without a final action
+            if self.status != ReactStatus.FINAL:
+                yield self._create_event(ReactEventType.FINAL, {
+                    "final_response": "Reached maximum steps without completion",
+                    "stop_reason": "max_steps_reached",
+                    "summary": f"ReAct process stopped after {self.max_steps} steps"
+                })
+                self.status = ReactStatus.FINAL
+                self._update_checkpoint()
+
+        finally:
+            # Set flag to indicate we're exiting the react loop
+            self._in_react_loop = False
+            self._update_checkpoint()
+
+        # After the react loop ends, check if there are pending messages
+        # If so, automatically start a new react loop
+        while self.pending_user_messages:
+            # Get the next pending message
+            next_message = self.pending_user_messages.pop(0)
+            # Check if we should start fresh for this message
+            should_start_fresh = self._pending_start_fresh
+            self._pending_start_fresh = False  # Reset the flag
+            # Process it in a new react loop
+            async for event in self.chat_stream(next_message, start_fresh=should_start_fresh):
+                yield event
     
     def _build_system_prompt(self) -> str:
         """
