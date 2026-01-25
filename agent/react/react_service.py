@@ -57,8 +57,8 @@ class ReactService:
         self,
         project_name: str,
         react_type: str,
-        base_prompt_template: str,
-        react_tool_call_function: Callable[[str, Dict[str, Any]], Any],
+        build_prompt_function = None,
+        react_tool_call_function: Callable[[str, Dict[str, Any]], Any] = None,
         *,
         workspace=None,
         llm_service=None,
@@ -70,7 +70,7 @@ class ReactService:
         Args:
             project_name: Name of the project
             react_type: Type of ReAct process
-            base_prompt_template: Template for the base prompt
+            build_prompt_function: Optional function to build the prompt dynamically
             react_tool_call_function: Async function to call tools (tool_name, tool_args) -> result
             workspace: Workspace instance to use for the React process
             llm_service: LlmService instance to use for LLM calls
@@ -89,7 +89,7 @@ class ReactService:
         react_instance = React(
             project_name=project_name,
             react_type=react_type,
-            base_prompt_template=base_prompt_template,
+            build_prompt_function=build_prompt_function,
             react_tool_call_function=react_tool_call_function,
             workspace=workspace,
             llm_service=llm_service,

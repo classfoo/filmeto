@@ -22,11 +22,11 @@ class React:
         self,
         project_name: str,
         react_type: str,
-        base_prompt_template: str,
-        react_tool_call_function: Callable[[str, Dict[str, Any]], Any],
+        build_prompt_function: Optional[Callable[[str], str]] = None,
+        react_tool_call_function: Callable[[str, Dict[str, Any]], Any] = None,
         *,
-        workspace,
-        llm_service,
+        workspace = None,
+        llm_service = None,
         max_steps: int = 20,
     ):
         """
@@ -35,7 +35,7 @@ class React:
         Args:
             project_name: Name of the project (used for identification and storage)
             react_type: Type of ReAct process (used for identification and storage)
-            base_prompt_template: Template for the base prompt
+            build_prompt_function: Optional function to build the prompt dynamically
             react_tool_call_function: Async function to call tools (tool_name, tool_args) -> result
             workspace: Workspace instance to use for the React process
             llm_service: LlmService instance to use for LLM calls
@@ -43,7 +43,7 @@ class React:
         """
         self.project_name = project_name
         self.react_type = react_type
-        self.base_prompt_template = base_prompt_template
+        self.build_prompt_function = build_prompt_function
         self.react_tool_call_function = react_tool_call_function
         self.workspace = workspace
         self.llm_service = llm_service
@@ -298,16 +298,16 @@ class React:
         self.step_id = 0
         self.status = ReactStatus.RUNNING
 
-        # Build initial system prompt
-        system_prompt = self._build_system_prompt()
-        self.messages = [{"role": "system", "content": system_prompt}]
-
-        # Add user message to pending list
-        # The system prompt (rendered with template) is already in messages, and the user message will be added next
+        # Add user message to pending list first
         self.pending_user_messages.append(user_message)
 
         # Process all pending messages
         pending_messages = self._drain_pending_messages()
+
+        # Build initial system prompt using the first pending user message
+        first_user_message = pending_messages[0] if pending_messages else user_message
+        system_prompt = self._build_system_prompt(first_user_message)
+        self.messages = [{"role": "system", "content": system_prompt}]
 
         # Add all pending messages to the conversation history
         for msg in pending_messages:
@@ -434,23 +434,29 @@ class React:
             async for event in self.chat_stream(next_message):
                 yield event
     
-    def _build_system_prompt(self) -> str:
+    def _build_system_prompt(self, user_input: str = "") -> str:
         """
-        Build the system prompt using the base template.
+        Build the system prompt using the build_prompt_function if available,
+        otherwise using the base template for backward compatibility.
         """
-        # Try to render the prompt using the prompt service
+        # Use the build_prompt_function if provided
+        if self.build_prompt_function:
+            return self.build_prompt_function(user_input)
+
+        # For backward compatibility, try to render the prompt using the prompt service
+        # This assumes we still have a base_prompt_template-like mechanism
         rendered_prompt = prompt_service.render_prompt(
-            name=self.base_prompt_template,
+            name="react_base",  # Default template name
             title="ReAct Agent",
             agent_name=self.react_type,
             project_name=self.project_name
         )
-        
+
         # If the prompt service didn't work, use the template directly
         if rendered_prompt is None:
             # For now, just return a basic ReAct prompt
             return f"""You are a ReAct-style agent. Follow the ReAct (Reasoning and Acting) framework to solve problems.
-            
+
 Your response should be in JSON format with one of these structures:
 - For tool use: {{"type": "tool", "tool_name": "...", "tool_args": {{...}}}}
 - For final response: {{"type": "final", "final": "..."}}"""
@@ -463,34 +469,19 @@ Your response should be in JSON format with one of these structures:
         """
         # Use the provided llm_service if available, otherwise create a new one
         llm_service = self.llm_service
-
-        # If no llm_service was provided, create a new one with the workspace
-        if llm_service is None:
-            llm_service = LlmService(self.workspace)
-
         # For testing purposes, we'll return a mock response if no API key is configured
         try:
-            # Check if LLM service is properly configured
-            if not llm_service.validate_config():
-                # Return a mock response for testing
-                if self.base_prompt_template and "test" in self.base_prompt_template.lower():
-                    # If this is a test prompt, return a simple response
-                    return '{"type": "final", "final": "Test response"}'
-                else:
-                    # Return a default response
-                    return '{"type": "final", "final": "Default response"}'
-
             # Use the sync completion method in a thread executor to avoid async conflicts
             import asyncio
             loop = asyncio.get_event_loop()
 
             # Use the model and temperature from the LLM service's configuration (which comes from global settings)
-            model_to_use = llm_service.default_model if llm_service.default_model else "qwen-plus"
-            temperature_to_use = llm_service.temperature if hasattr(llm_service, 'temperature') else 0.7
+            model_to_use = self.llm_service.default_model if self.llm_service.default_model else "qwen-plus"
+            temperature_to_use = self.llm_service.temperature if hasattr(self.llm_service, 'temperature') else 0.7
 
             response = await loop.run_in_executor(
                 None,
-                lambda: llm_service.completion(
+                lambda: self.llm_service.completion(
                     model=model_to_use,
                     messages=messages,
                     temperature=temperature_to_use,
@@ -499,32 +490,20 @@ Your response should be in JSON format with one of these structures:
             )
 
             # Extract the content from the response
-            if isinstance(response, dict):
-                choices = response.get("choices", [])
-                if choices:
-                    choice = choices[0]
-                    message = choice.get("message") if isinstance(choice, dict) else None
-                    if message and isinstance(message, dict):
-                        return message.get("content", "")
-                    return choice.get("text", "")
+            # Handle both dictionary responses and LiteLLM ModelResponse objects
+            if hasattr(response, 'choices') and response.choices:
+                # This is a ModelResponse object from LiteLLM
+                choice = response.choices[0]
+                if hasattr(choice, 'message') and choice.message:
+                    if hasattr(choice.message, 'content'):
+                        return choice.message.content or ""
+                    elif isinstance(choice.message, dict):
+                        return choice.message.get("content", "")
+                elif hasattr(choice, 'text'):
+                    return choice.text or ""
             return ""
         except Exception as e:
-            # If there's an error calling the LLM (e.g., no API key), return a mock response
-            if "Authentication" in str(e) or "api_key" in str(e):
-                # For testing purposes, return a mock response based on the prompt template
-                # If the prompt template contains "calculate" or similar terms, return a tool call
-                prompt_lower = self.base_prompt_template.lower() if self.base_prompt_template else ""
-
-                if "calculate" in prompt_lower or "perform calculations" in prompt_lower:
-                    # If calculating, return a tool call for calculation
-                    return '{"type": "tool", "tool_name": "calculate", "tool_args": {"expression": "5 + 3"}}'
-                elif "search" in prompt_lower:
-                    return '{"type": "tool", "tool_name": "search", "tool_args": {"query": "test query"}}'
-                else:
-                    # For other prompts, return a final response
-                    return '{"type": "final", "final": "Mock response for testing"}'
-            else:
-                raise e
+            raise e
     
     def _parse_action(self, response_text: str) -> Dict[str, Any]:
         """

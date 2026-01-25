@@ -26,7 +26,7 @@ async def validate_crew_member_integration():
     
     # Show that the CrewMember now uses the React module internally
     print("\nThe CrewMember.chat_stream() method now:")
-    print("- Creates a React instance with project_name, react_type, base_prompt_template, and tool_call_function")
+    print("- Creates a React instance with project_name, react_type, build_prompt_function, and tool_call_function")
     print("- Maps skill execution to the React module's tool calling mechanism")
     print("- Streams events from the React instance to the existing UI signals")
     print("- Maintains backward compatibility with existing interfaces")

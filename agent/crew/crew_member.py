@@ -141,11 +141,15 @@ class CrewMember:
             # If it's not a skill, return an error
             return {"error": f"Unknown tool: {tool_name}"}
 
+        # Define a build_prompt_function that uses the crew member's _build_user_prompt method
+        def build_prompt_function(user_input: str) -> str:
+            return self._build_user_prompt(user_input, plan_id=plan_id)
+
         # Get or create the React instance using the ReactService for reuse
         react_instance = react_service.get_or_create_react(
             project_name=self.project_name,
             react_type=self.config.name,  # Use crew member name as react type
-            base_prompt_template="react_base",  # Use the same template as before
+            build_prompt_function=build_prompt_function,  # Use the dynamic prompt builder
             react_tool_call_function=tool_call_function,
             workspace=self.workspace,
             llm_service=self.llm_service,
