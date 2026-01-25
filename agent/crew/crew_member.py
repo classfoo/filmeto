@@ -16,6 +16,10 @@ from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
 
+# Import the new React module
+from agent.react.react import React
+from agent.react.types import ReactEvent, ReactEventType
+
 
 @dataclass
 class CrewMemberConfig:
@@ -113,76 +117,48 @@ class CrewMember:
         on_complete: Optional[Callable[[str], None]] = None,
         plan_id: Optional[str] = None,
     ) -> AsyncIterator[str]:
-        if not self.llm_service.validate_config():
-            error_message = "LLM service is not configured."
-            if on_token:
-                on_token(error_message)
-            msg = AgentMessage(
-                message_type=MessageType.ERROR,
-                sender_id=self.config.name,
-                sender_name=self.config.name,
-                metadata={"session_id": getattr(self, "_session_id", "unknown")},
-                structured_content=[StructureContent(
-                    content_type=ContentType.TEXT,
-                    data=error_message
-                )]
-            )
-            await self.signals.send_agent_message(msg)
-            yield error_message
-            if on_complete:
-                on_complete(error_message)
-            return
+        # Create a React instance to handle the ReAct loop
+        async def tool_call_function(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
+            # Map the skill execution to the new React module
+            if tool_name == "skill":
+                # Extract skill name and args from tool_args
+                skill_name = tool_args.get("skill_name") or tool_args.get("name")
+                skill_args = tool_args.get("args") or tool_args.get("arguments") or {}
 
-        # Embed the user's question into the react_base template
-        user_prompt = self._build_user_prompt(message, plan_id=plan_id)
-        messages = [{"role": "user", "content": user_prompt}]
-        messages.extend(self.conversation_history)
+                if skill_name:
+                    action = CrewMemberAction(
+                        action_type="skill",
+                        skill=skill_name,
+                        args=skill_args
+                    )
+                    result = await self._execute_skill_with_structured_content(
+                        action,
+                        message_id=getattr(self, "_current_message_id", None),
+                    )
+                    return {"result": result}
 
+            # If it's not a skill, return an error
+            return {"error": f"Unknown tool: {tool_name}"}
 
-        final_response = None
-        for step in range(self.config.max_steps):
-            msg = AgentMessage(
-                message_type=MessageType.SYSTEM,
-                sender_id=self.config.name,
-                sender_name=self.config.name,
-                metadata={
-                    "session_id": getattr(self, "_session_id", "unknown"),
-                    "event_type": "llm_call_start",
-                    "step": step + 1,
-                    "total_steps": self.config.max_steps,
-                },
-                structured_content=[StructureContent(
-                    content_type=ContentType.TEXT,
-                    data=f"{self.config.name} is calling the LLM (Step {step + 1}/{self.config.max_steps})"
-                )]
-            )
-            await self.signals.send_agent_message(msg)
+        # Create the React instance
+        react_instance = React(
+            project_name=self.project_name,
+            react_type=self.config.name,  # Use crew member name as react type
+            base_prompt_template="react_base",  # Use the same template as before
+            react_tool_call_function=tool_call_function,
+            workspace_root=getattr(self.workspace, 'workspace_dir', 'workspace') if self.workspace else 'workspace',
+            max_steps=self.config.max_steps
+        )
 
-            response_text = await self._complete(messages)
-
-            msg = AgentMessage(
-                message_type=MessageType.SYSTEM,
-                sender_id=self.config.name,
-                sender_name=self.config.name,
-                metadata={
-                    "session_id": getattr(self, "_session_id", "unknown"),
-                    "event_type": "llm_call_end",
-                    "step": step + 1,
-                    "response_preview": response_text[:100] + "..." if len(response_text) > 100 else response_text,
-                },
-                structured_content=[StructureContent(
-                    content_type=ContentType.TEXT,
-                    data=f"{self.config.name} LLM response (Step {step + 1})"
-                )]
-            )
-            await self.signals.send_agent_message(msg)
-
-            action = self._parse_action(response_text)
-
-            if action.thinking:
+        # Stream the events from the React instance
+        final_response = ""
+        async for event in react_instance.chat_stream(message):
+            # Handle different event types
+            if event.event_type == ReactEventType.LLM_THINKING:
+                # Send thinking event to UI
                 thinking_structure = StructureContent(
                     content_type=ContentType.THINKING,
-                    data=action.thinking,
+                    data=event.payload.get("message", ""),
                     title="Thinking Process",
                     description="Agent's thought process",
                 )
@@ -202,27 +178,79 @@ class CrewMember:
                     msg.message_id = mid
                 await self.signals.send_agent_message(msg)
 
-            if action.action_type == "skill":
-                observation = await self._execute_skill_with_structured_content(
-                    action,
-                    message_id=getattr(self, "_current_message_id", None),
+            elif event.event_type == ReactEventType.TOOL_START:
+                # Send tool start event to UI
+                tool_start = StructureContent(
+                    content_type=ContentType.SKILL,
+                    data={
+                        "status": "starting",
+                        "skill_name": event.payload.get("tool_name", ""),
+                        "message": f"Starting skill: {event.payload.get('tool_name', '')}",
+                    },
+                    title=f"Skill: {event.payload.get('tool_name', '')}",
+                    description="Skill execution starting",
                 )
-                messages.append({"role": "assistant", "content": response_text})
-                messages.append({"role": "user", "content": f"Observation: {observation}"})
-                continue
+                meta = {"session_id": getattr(self, "_session_id", "unknown")}
+                msg = AgentMessage(
+                    message_type=MessageType.SYSTEM,
+                    sender_id=self.config.name,
+                    sender_name=self.config.name,
+                    metadata=meta,
+                    structured_content=[tool_start],
+                )
+                await self.signals.send_agent_message(msg)
 
-            final_response = action.response or response_text
-            break
+            elif event.event_type == ReactEventType.TOOL_END:
+                # Send tool end event to UI
+                success = event.payload.get("ok", False)
+                result_message = event.payload.get("result", "") if success else event.payload.get("error", "")
+                skill_end = StructureContent(
+                    content_type=ContentType.SKILL,
+                    data={
+                        "status": "completed",
+                        "skill_name": event.payload.get("tool_name", ""),
+                        "message": result_message,
+                        "result": result_message,
+                        "success": success,
+                    },
+                    title=f"Skill: {event.payload.get('tool_name', '')}",
+                    description="Skill execution completed",
+                )
+                meta = {"session_id": getattr(self, "_session_id", "unknown")}
+                msg = AgentMessage(
+                    message_type=MessageType.SYSTEM,
+                    sender_id=self.config.name,
+                    sender_name=self.config.name,
+                    metadata=meta,
+                    structured_content=[skill_end],
+                )
+                await self.signals.send_agent_message(msg)
 
-        if final_response is None:
-            final_response = "Reached max steps without a final response."
+            elif event.event_type == ReactEventType.LLM_OUTPUT:
+                # Send LLM output to UI
+                content = event.payload.get("content", "")
+                if on_token:
+                    on_token(content)
+                yield content
 
+            elif event.event_type == ReactEventType.FINAL:
+                # Capture final response
+                final_response = event.payload.get("final_response", "")
+                break
+
+            elif event.event_type == ReactEventType.ERROR:
+                # Handle error
+                error_message = event.payload.get("error", "Unknown error occurred")
+                if on_token:
+                    on_token(error_message)
+                yield error_message
+                break
+
+        # Add the conversation to history
         self.conversation_history.append({"role": "user", "content": message})
-        self.conversation_history.append({"role": "assistant", "content": final_response})
+        if final_response:
+            self.conversation_history.append({"role": "assistant", "content": final_response})
 
-        if on_token:
-            on_token(final_response)
-        yield final_response
         if on_complete:
             on_complete(final_response)
 
