@@ -130,7 +130,9 @@ class BaseMessageCard(QFrame):
         self.bubble_container = QFrame(self.content_area)
         self.bubble_container.setObjectName("message_bubble")
         # Allow the bubble to expand horizontally up to max width and vertically as needed
-        self.bubble_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        # For right-aligned messages, we want the bubble to expand as much as possible
+        h_policy = QSizePolicy.Expanding if self.alignment == Qt.AlignRight else QSizePolicy.Maximum
+        self.bubble_container.setSizePolicy(h_policy, QSizePolicy.MinimumExpanding)
         self.bubble_layout = QVBoxLayout(self.bubble_container)
         self.bubble_layout.setContentsMargins(10, 8, 10, 8)
         self.bubble_layout.setSpacing(0)
@@ -168,7 +170,9 @@ class BaseMessageCard(QFrame):
         self._apply_style()
 
         # Set size policy to allow the card to expand as needed
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        # For right-aligned messages, we want to expand horizontally to fill available space
+        h_policy = QSizePolicy.Expanding if self.alignment == Qt.AlignRight else QSizePolicy.Preferred
+        self.setSizePolicy(h_policy, QSizePolicy.MinimumExpanding)
 
         # Set size policy for content area to expand vertically as needed
         self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
@@ -189,12 +193,27 @@ class BaseMessageCard(QFrame):
         """)
 
     def _calculate_available_bubble_width(self) -> int:
-        total_width = max(0, self.width())
-        max_width = max(0, total_width - (self.avatar_size * 2))
+        # Get the available width from the parent container
+        parent_width = self.parent().width() if self.parent() else self.width()
+        if parent_width <= 0:
+            # If parent width is not available, use the widget's geometry as a fallback
+            parent_width = self.width() or self.sizeHint().width()
+
+        # Calculate max available width
+        # For right-aligned messages, we want to leave space only on the left side for avatar
+        # For left-aligned messages, we want to leave space on both sides to center the bubble
+        if self.alignment == Qt.AlignRight:
+            # For right-aligned messages, leave space only on the left for avatar
+            max_width = max(0, parent_width - self.avatar_size)
+        else:
+            # For left-aligned messages, leave space on both sides for symmetry
+            max_width = max(0, parent_width - (self.avatar_size * 2))
+
         if self.content_layout:
             margins = self.content_layout.contentsMargins()
             content_width = max(0, self.content_area.width() - margins.left() - margins.right())
             max_width = min(max_width, content_width)
+
         return max(80, max_width)
 
     def _available_bubble_width(self) -> int:
