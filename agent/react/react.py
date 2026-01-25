@@ -25,34 +25,43 @@ class React:
         base_prompt_template: str,
         react_tool_call_function: Callable[[str, Dict[str, Any]], Any],
         *,
-        workspace_root: str = "workspace",
+        workspace,
+        llm_service,
         max_steps: int = 20,
     ):
         """
         Initialize the React processor.
-        
+
         Args:
             project_name: Name of the project (used for identification and storage)
             react_type: Type of ReAct process (used for identification and storage)
             base_prompt_template: Template for the base prompt
             react_tool_call_function: Async function to call tools (tool_name, tool_args) -> result
-            workspace_root: Root directory for workspace storage
+            workspace: Workspace instance to use for the React process
+            llm_service: LlmService instance to use for LLM calls
             max_steps: Maximum number of ReAct steps to perform
         """
         self.project_name = project_name
         self.react_type = react_type
         self.base_prompt_template = base_prompt_template
         self.react_tool_call_function = react_tool_call_function
-        self.workspace_root = workspace_root
+        self.workspace = workspace
+        self.llm_service = llm_service
         self.max_steps = max_steps
-        
+
+        # Determine workspace root from workspace if available, otherwise default
+        if workspace and hasattr(workspace, 'workspace_dir'):
+            self.workspace_root = workspace.workspace_dir
+        else:
+            self.workspace_root = "workspace"
+
         # Initialize storage
         self.storage = ReactStorage(
             project_name=project_name,
             react_type=react_type,
-            workspace_root=workspace_root
+            workspace_root=self.workspace_root
         )
-        
+
         # Initialize state variables
         self.run_id: str = ""
         self.step_id: int = 0
@@ -389,12 +398,15 @@ Your response should be in JSON format with one of these structures:
         """
         Call the LLM with the given messages.
         """
+        # Use the provided llm_service if available, otherwise create a new one
+        llm_service = self.llm_service
+
+        # If no llm_service was provided, create a new one with the workspace
+        if llm_service is None:
+            llm_service = LlmService(self.workspace)
+
         # For testing purposes, we'll return a mock response if no API key is configured
         try:
-            # For now, we'll simulate an LLM call
-            # In a real implementation, this would use the LLM service
-            llm_service = LlmService(None)  # Assuming workspace can be None for now
-
             # Check if LLM service is properly configured
             if not llm_service.validate_config():
                 # Return a mock response for testing

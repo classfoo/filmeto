@@ -146,7 +146,8 @@ class CrewMember:
             react_type=self.config.name,  # Use crew member name as react type
             base_prompt_template="react_base",  # Use the same template as before
             react_tool_call_function=tool_call_function,
-            workspace_root=getattr(self.workspace, 'workspace_dir', 'workspace') if self.workspace else 'workspace',
+            workspace=self.workspace,
+            llm_service=self.llm_service,
             max_steps=self.config.max_steps
         )
 
