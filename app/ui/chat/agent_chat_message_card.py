@@ -129,7 +129,8 @@ class BaseMessageCard(QFrame):
 
         self.bubble_container = QFrame(self.content_area)
         self.bubble_container.setObjectName("message_bubble")
-        self.bubble_container.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+        # Allow the bubble to expand horizontally up to max width and vertically as needed
+        self.bubble_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
         self.bubble_layout = QVBoxLayout(self.bubble_container)
         self.bubble_layout.setContentsMargins(10, 8, 10, 8)
         self.bubble_layout.setSpacing(0)
@@ -154,6 +155,12 @@ class BaseMessageCard(QFrame):
 
         # Apply card styling
         self._apply_style()
+
+        # Set size policy to allow the card to expand as needed
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+
+        # Set size policy for content area to expand vertically as needed
+        self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
 
     def _apply_style(self):
         """Apply card styling."""
@@ -233,6 +240,7 @@ class BaseMessageCard(QFrame):
         bubble_width = min(max_width, content_width + padding)
         actual_content_width = max(0, bubble_width - padding)
 
+        # Set the bubble width
         self.bubble_container.setFixedWidth(max(1, bubble_width))
 
         # Update available width for all structured content widgets
@@ -242,6 +250,20 @@ class BaseMessageCard(QFrame):
                 widget = item.widget()
                 if widget and hasattr(widget, 'update_available_width'):
                     widget.update_available_width(actual_content_width)
+
+        # Force layout update to ensure proper sizing
+        self.bubble_layout.update()
+        self.bubble_container.adjustSize()
+        self.content_area.adjustSize()
+        self.adjustSize()
+
+        # Ensure the bubble container has a minimum height to accommodate content
+        # Calculate the minimum height needed for the content
+        content_height = self.bubble_layout.sizeHint().height()
+        min_bubble_height = max(content_height, self.avatar_size)  # At least as tall as the avatar
+
+        # Set minimum height to ensure avatar is fully visible
+        self.bubble_container.setMinimumHeight(min_bubble_height)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -299,6 +321,8 @@ class BaseMessageCard(QFrame):
                         if child is not None:
                             child.setParent(None)
                     widget._setup_ui()
+                    self._update_bubble_width()
+                    self.adjustSize()
                     return  # Exit after updating the first text widget
         # If no TextContentWidget was found, create one
         text_structure = StructureContent(
@@ -328,6 +352,7 @@ class BaseMessageCard(QFrame):
                             child.setParent(None)
                     widget._setup_ui()
                     self._update_bubble_width()
+                    self.adjustSize()
                     return  # Exit after updating the first text widget
         # If no TextContentWidget was found, create one with the content
         self.set_content(content)
@@ -376,12 +401,14 @@ class BaseMessageCard(QFrame):
         # Show error in content
         error_content = f"❌ Error: {error_message}"
         self.set_content(error_content)
-        self.structure_content.get_content_label().setStyleSheet(f"""
-            QLabel#message_content {{
-                color: #e74c3c;
-                font-size: 13px;
-            }}
-        """)
+        content_label = self.get_content_label()
+        if content_label:
+            content_label.setStyleSheet("""
+                QLabel {
+                    color: #e74c3c;
+                    font-size: 13px;
+                }
+            """)
 
     def add_structured_content(self, structured: StructureContent):
         """Add structured content widget (alias for backward compatibility)."""
@@ -390,10 +417,10 @@ class BaseMessageCard(QFrame):
     def clear_structured_content(self):
         """Clear all structured content."""
         # Remove all structured content widgets except the first text content widget if it exists
-        # We'll iterate backwards to safely remove widgets
+        # We'll iterate backwards to safely remove widgets from the structured_content_layout
         text_widget_kept = False
-        for i in reversed(range(self.bubble_layout.count())):
-            item = self.bubble_layout.itemAt(i)
+        for i in reversed(range(self.structured_content_layout.count())):
+            item = self.structured_content_layout.itemAt(i)
             if item and item.widget():
                 widget = item.widget()
                 # Keep the first TextContentWidget as the main content
@@ -513,6 +540,10 @@ class AgentMessageCard(BaseMessageCard):
         # Add all structured content
         for structure_content in all_structured_content:
             self.add_structure_content_widget(structure_content)
+
+        # Ensure proper sizing after updating content
+        self._update_bubble_width()
+        self.adjustSize()
 
 class UserMessageCard(BaseMessageCard):
     """Card widget for displaying user messages."""
