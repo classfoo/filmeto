@@ -176,5 +176,14 @@ class Workspace():
         logger.info(f"切换到项目: {project_name}")
         return self.project
 
+    def get_path(self) -> str:
+        """
+        Get the workspace path.
+
+        Returns:
+            The workspace path as a string.
+        """
+        return self.workspace_path
+
     def get_current_timeline_item(self):
         return self.project.get_timeline().get_current_item()

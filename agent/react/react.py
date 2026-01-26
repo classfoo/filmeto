@@ -35,8 +35,8 @@ class React:
         self.llm_service = llm_service or LlmService(workspace)
         self.max_steps = max_steps
 
-        if workspace and hasattr(workspace, "workspace_dir"):
-            self.workspace_root = workspace.workspace_dir
+        if workspace and hasattr(workspace, "get_path"):
+            self.workspace_root = workspace.get_path()
         else:
             self.workspace_root = "workspace"
 
