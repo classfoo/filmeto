@@ -674,44 +674,9 @@ def _normalize_list(value: Any) -> List[str]:
 
 
 def _extract_json_payload(text: str) -> Optional[Dict[str, Any]]:
-    json_block_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-    if json_block_match:
-        candidate = json_block_match.group(1)
-        return _safe_json_load(candidate)
-
-    candidate = text.strip()
-    if candidate.startswith("{") and candidate.endswith("}"):
-        payload = _safe_json_load(candidate)
-        if payload is not None:
-            return payload
-
-    candidate = _find_balanced_json(text)
-    if candidate:
-        return _safe_json_load(candidate)
-    return None
-
-
-def _safe_json_load(candidate: str) -> Optional[Dict[str, Any]]:
-    try:
-        payload = json.loads(candidate)
-        return payload if isinstance(payload, dict) else None
-    except Exception:
-        return None
-
-
-def _find_balanced_json(text: str) -> Optional[str]:
-    start = text.find("{")
-    if start == -1:
-        return None
-    depth = 0
-    for idx in range(start, len(text)):
-        if text[idx] == "{":
-            depth += 1
-        elif text[idx] == "}":
-            depth -= 1
-            if depth == 0:
-                return text[start : idx + 1]
-    return None
+    """Extract JSON payload from text using shared JsonExtractor."""
+    from agent.react.json_utils import JsonExtractor
+    return JsonExtractor.extract_json(text)
 
 
 def _extract_response_content(response: Any) -> str:

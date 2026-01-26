@@ -1,9 +1,9 @@
 """Parser for converting LLM responses into ReactAction objects."""
 from typing import Any, Dict, Optional
-import json
-import re
 
 from .actions import ActionType, ReactAction, ToolAction, FinalAction, ErrorAction
+from .constants import StopReason, ReactConfig
+from .json_utils import JsonExtractor
 
 
 class ReactActionParser:
@@ -20,22 +20,15 @@ class ReactActionParser:
     FINAL_ALIASES = ["final", "response", "answer", "output"]
     THINKING_ALIASES = ["thinking", "thought", "reasoning", "reasoning"]
 
-    # Default stop reason constants
-    STOP_REASON_FINAL_ACTION = "final_action"
-    STOP_REASON_MAX_STEPS = "max_steps_reached"
-    STOP_REASON_NO_JSON = "no_json_payload"
-    STOP_REASON_UNKNOWN_TYPE = "unknown_action_type"
-    STOP_REASON_USER_INTERRUPTED = "user_interrupted"
-
     @classmethod
     def get_default_stop_reason(cls) -> str:
         """Get the default stop reason for final actions."""
-        return cls.STOP_REASON_FINAL_ACTION
+        return StopReason.FINAL_ACTION.value
 
     @classmethod
     def get_max_steps_stop_reason(cls) -> str:
         """Get the stop reason when max steps is reached."""
-        return cls.STOP_REASON_MAX_STEPS
+        return StopReason.MAX_STEPS.value
 
     @classmethod
     def get_error_summary(cls, error: Exception) -> str:
@@ -84,7 +77,7 @@ class ReactActionParser:
         return FinalAction(
             final=final,
             thinking=thinking,
-            stop_reason=stop_reason or cls.STOP_REASON_FINAL_ACTION
+            stop_reason=stop_reason or StopReason.FINAL_ACTION.value
         )
 
     @classmethod
@@ -107,18 +100,18 @@ class ReactActionParser:
             return cls.create_final_action(
                 final=response_text,
                 thinking=None,
-                stop_reason=cls.STOP_REASON_NO_JSON
+                stop_reason=StopReason.NO_JSON.value
             )
 
         action_type = cls._get_field(payload, cls.TYPE_ALIASES)
 
-        if action_type == ActionType.TOOL:
+        if action_type == ActionType.TOOL.value:
             return cls._parse_tool_action(payload)
-        elif action_type == ActionType.FINAL:
+        elif action_type == ActionType.FINAL.value:
             return cls._parse_final_action(payload, response_text)
         else:
             # Unknown or missing action type, default to final
-            return cls._parse_final_action(payload, response_text, stop_reason=cls.STOP_REASON_UNKNOWN_TYPE)
+            return cls._parse_final_action(payload, response_text, stop_reason=StopReason.UNKNOWN_TYPE.value)
 
     @classmethod
     def _parse_tool_action(cls, payload: Dict[str, Any]) -> ToolAction:
@@ -166,59 +159,5 @@ class ReactActionParser:
 
     @classmethod
     def _extract_json_payload(cls, text: str) -> Optional[Dict[str, Any]]:
-        """
-        Extract JSON payload from text.
-
-        Looks for JSON in:
-        1. ```json ... ``` code blocks
-        2. Top-level JSON object
-        3. First balanced JSON object in text
-        """
-        # Try ```json ... ``` code block
-        json_block_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if json_block_match:
-            candidate = json_block_match.group(1)
-            result = cls._safe_json_load(candidate)
-            if result is not None:
-                return result
-
-        # Try text that starts and ends with braces
-        candidate = text.strip()
-        if candidate.startswith("{") and candidate.endswith("}"):
-            result = cls._safe_json_load(candidate)
-            if result is not None:
-                return result
-
-        # Try to find balanced JSON in text
-        result = cls._find_balanced_json(text)
-        if result:
-            parsed = cls._safe_json_load(result)
-            if parsed is not None:
-                return parsed
-
-        return None
-
-    @classmethod
-    def _safe_json_load(cls, candidate: str) -> Optional[Dict[str, Any]]:
-        """Safely parse JSON, returning None on failure."""
-        try:
-            payload = json.loads(candidate)
-            return payload if isinstance(payload, dict) else None
-        except Exception:
-            return None
-
-    @classmethod
-    def _find_balanced_json(cls, text: str) -> Optional[str]:
-        """Find the first balanced JSON object in text."""
-        start = text.find("{")
-        if start == -1:
-            return None
-        depth = 0
-        for idx in range(start, len(text)):
-            if text[idx] == "{":
-                depth += 1
-            elif text[idx] == "}":
-                depth -= 1
-                if depth == 0:
-                    return text[start : idx + 1]
-        return None
+        """Extract JSON payload from text using JsonExtractor."""
+        return JsonExtractor.extract_json(text)
