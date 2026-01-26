@@ -456,7 +456,7 @@ class LlmService:
     def get_current_config(self) -> Dict[str, Any]:
         """
         Get the current configuration of the LLM service.
-        
+
         Returns:
             Dictionary containing current configuration
         """
@@ -466,3 +466,40 @@ class LlmService:
             'default_model': self.default_model,
             'temperature': self.temperature
         }
+
+    @staticmethod
+    def extract_content(response: Any) -> str:
+        """
+        Extract content from LLM response.
+
+        Handles litellm ModelResponse objects (Pydantic models) and extracts
+        the message content. Supports both regular content and reasoning_content
+        for reasoning models.
+
+        Args:
+            response: The response object from litellm (ModelResponse)
+
+        Returns:
+            The extracted content as a string, or empty string if extraction fails.
+        """
+        # Handle litellm ModelResponse object (Pydantic model)
+        # ModelResponse structure: response.choices[0].message.content
+        if hasattr(response, 'choices'):
+            choices = response.choices
+            if choices and len(choices) > 0:
+                choice = choices[0]
+                if hasattr(choice, 'message'):
+                    message = choice.message
+                    # First try to get regular content
+                    if hasattr(message, 'content') and message.content is not None:
+                        return str(message.content)
+                    # Check for reasoning_content (for reasoning models like o1)
+                    if hasattr(message, 'reasoning_content') and message.reasoning_content:
+                        return str(message.reasoning_content)
+                # Fallback to text attribute (for some older response formats)
+                text = getattr(choice, 'text', None)
+                if text:
+                    return str(text)
+
+        # Fallback: convert to string
+        return str(response) if response else ""
