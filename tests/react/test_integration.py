@@ -38,7 +38,7 @@ class TestReactIntegration:
             workspace=MockWorkspace(),
             project_name="test_project",
             react_type="test_type",
-            build_prompt_function=lambda: "You are a helpful assistant.",
+            build_prompt_function=lambda user_question: f"You are a helpful assistant. User question: {user_question}",
             tool_call_function=lambda name, args: {"result": f"Called {name}"},
             llm_service=mock_llm_service,
             max_steps=5,
@@ -56,12 +56,12 @@ class TestReactIntegration:
     @pytest.mark.asyncio
     async def test_start_new_run(self, sample_react):
         """Test starting a new run."""
-        sample_react._start_new_run()
+        sample_react._start_new_run(["What is the weather?"])
         assert sample_react.status == "RUNNING"
         assert sample_react.step_id == 0
         assert sample_react.run_id != ""
-        assert len(sample_react.messages) == 1  # System prompt
-        assert sample_react.messages[0]["role"] == "system"
+        assert len(sample_react.messages) == 1  # User prompt
+        assert sample_react.messages[0]["role"] == "user"
 
     @pytest.mark.asyncio
     async def test_create_event(self, sample_react):
