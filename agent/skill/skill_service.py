@@ -656,25 +656,9 @@ class SkillService:
         return repaired
 
     def _extract_llm_response(self, response: Any) -> str:
-        """Extract content from LLM response."""
-        if isinstance(response, dict):
-            choices = response.get("choices", [])
-            if choices:
-                choice = choices[0]
-                message = choice.get("message") if isinstance(choice, dict) else None
-                if message and isinstance(message, dict):
-                    return message.get("content", "")
-                return choice.get("text", "")
-            return ""
-        choices = getattr(response, "choices", None)
-        if choices:
-            choice = choices[0]
-            message = getattr(choice, "message", None)
-            if message and hasattr(message, "content"):
-                return message.content
-            content = getattr(choice, "text", None)
-            return content or ""
-        return str(response)
+        """Extract content from LLM response using LlmService."""
+        from agent.llm.llm_service import LlmService
+        return LlmService.extract_content(response)
 
     def get_skill_prompt_info(self, skill_name: str) -> str:
         """

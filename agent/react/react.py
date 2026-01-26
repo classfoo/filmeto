@@ -145,7 +145,11 @@ class React:
         self.messages = [{"role": "user", "content": user_prompt}]
 
     async def _call_llm(self, messages: List[Dict[str, str]]) -> str:
-        """Call LLM service with timing and metrics tracking."""
+        """Call LLM service with timing and metrics tracking.
+
+        Returns:
+            The content of the LLM response message.
+        """
         if not self.llm_service.validate_config():
             logger.warning("LLM service is not configured")
             return '{"type": "final", "final": "LLM service is not configured."}'
@@ -170,15 +174,8 @@ class React:
             self._llm_duration_ms += duration_ms
             logger.debug(f"LLM call completed in {duration_ms:.2f}ms")
 
-            if isinstance(response, dict):
-                choices = response.get("choices", [])
-                if choices:
-                    choice = choices[0]
-                    message = choice.get("message") if isinstance(choice, dict) else None
-                    if message and isinstance(message, dict):
-                        return message.get("content", "")
-                    return choice.get("text", "")
-            return ""
+            # Extract content using LlmService's extract_content method
+            return self.llm_service.extract_content(response)
         except Exception as exc:
             logger.error(f"LLM call failed: {exc}", exc_info=True)
             return f'{{"type": "final", "final": "LLM call failed: {str(exc)}"}}'
