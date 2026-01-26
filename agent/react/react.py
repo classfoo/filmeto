@@ -16,6 +16,8 @@ from .types import (
     ErrorAction,
     ReactActionParser,
     ActionType,
+    YamlFormatSpec,
+    YamlStreamParser,
 )
 from .storage import ReactStorage
 
@@ -105,20 +107,17 @@ class React:
         self.messages = [{"role": "system", "content": system_prompt}]
 
     async def _call_llm(self, messages: List[Dict[str, str]]) -> str:
+        """Non-streaming LLM call (kept for backward compatibility)."""
         if not self.llm_service.validate_config():
             return '{"type": "final", "final": "LLM service is not configured."}'
 
-        loop = asyncio.get_event_loop()
         model_to_use = self.llm_service.default_model or "qwen-plus"
         temperature_to_use = getattr(self.llm_service, "temperature", 0.7)
-        response = await loop.run_in_executor(
-            None,
-            lambda: self.llm_service.completion(
-                model=model_to_use,
-                messages=messages,
-                temperature=temperature_to_use,
-                stream=False,
-            ),
+        response = await self.llm_service.acompletion(
+            model=model_to_use,
+            messages=messages,
+            temperature=temperature_to_use,
+            stream=False,
         )
         if isinstance(response, dict):
             choices = response.get("choices", [])
@@ -130,13 +129,126 @@ class React:
                 return choice.get("text", "")
         return ""
 
+    async def _call_llm_stream(self, messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
+        """
+        Streaming LLM call that yields text chunks.
+
+        Yields:
+            str: Text chunks from the LLM stream
+        """
+        if not self.llm_service.validate_config():
+            yield '{"type": "final", "final": "LLM service is not configured."}'
+            return
+
+        model_to_use = self.llm_service.default_model or "qwen-plus"
+        temperature_to_use = getattr(self.llm_service, "temperature", 0.7)
+
+        try:
+            response_stream = await self.llm_service.acompletion(
+                model=model_to_use,
+                messages=messages,
+                temperature=temperature_to_use,
+                stream=True,
+            )
+
+            # Handle different streaming response formats
+            if hasattr(response_stream, '__aiter__'):
+                async for chunk in response_stream:
+                    content = self._extract_content_from_chunk(chunk)
+                    if content:
+                        yield content
+            elif isinstance(response_stream, dict):
+                # Fallback for non-streaming response
+                content = self._extract_content_from_chunk(response_stream)
+                if content:
+                    yield content
+        except Exception as e:
+            # On error, yield an error response
+            yield f'{{"type": "final", "final": "LLM call failed: {str(e)}"}}'
+
+    def _extract_content_from_chunk(self, chunk: Any) -> str:
+        """
+        Extract content from a streaming chunk.
+
+        Args:
+            chunk: A chunk from the LLM stream
+
+        Returns:
+            str: Extracted content text
+        """
+        if not chunk:
+            return ""
+
+        # Handle OpenAI-style chunks
+        if isinstance(chunk, dict):
+            choices = chunk.get("choices", [])
+            if choices:
+                choice = choices[0]
+                if isinstance(choice, dict):
+                    delta = choice.get("delta", {})
+                    if isinstance(delta, dict):
+                        return delta.get("content", "")
+                # Handle direct content in choice
+                if hasattr(choice, "content"):
+                    return choice.content
+            # Direct content in chunk
+            if "content" in chunk:
+                return chunk.get("content", "")
+
+        # Handle object-style chunks (like pydantic models)
+        if hasattr(chunk, "choices") and chunk.choices:
+            choice = chunk.choices[0]
+            if hasattr(choice, "delta") and choice.delta:
+                if hasattr(choice.delta, "content"):
+                    return choice.delta.content or ""
+            if hasattr(choice, "content"):
+                return choice.content or ""
+
+        # Handle direct content attribute
+        if hasattr(chunk, "content"):
+            return chunk.content or ""
+
+        return ""
+
     def _parse_action(self, response_text: str) -> ReactAction:
         """
         Parse LLM response into a ReactAction.
 
-        Uses ReactActionParser for robust parsing with multiple fallback strategies.
+        Uses ReactActionParser for YAML parsing.
         """
         return ReactActionParser.parse(response_text)
+
+    def _create_action_from_stream_data(
+        self,
+        action_data: Dict[str, Any],
+        collected_thinking: str,
+        raw_response: str
+    ) -> Optional[ReactAction]:
+        """Create a ReactAction from parsed YAML stream data."""
+        try:
+            action_type = action_data.get("type", "")
+
+            if action_type == ActionType.TOOL:
+                return ToolAction(
+                    tool_name=action_data.get("tool_name", ""),
+                    tool_args=action_data.get("tool_args", {}),
+                    thinking=collected_thinking or action_data.get("thinking")
+                )
+            elif action_type == ActionType.FINAL:
+                return FinalAction(
+                    final=action_data.get("final", ""),
+                    thinking=collected_thinking or action_data.get("thinking"),
+                    stop_reason=action_data.get("stop_reason", "final_action")
+                )
+            elif action_type == ActionType.ERROR:
+                return ErrorAction(
+                    error=action_data.get("error", ""),
+                    thinking=collected_thinking or action_data.get("thinking"),
+                    raw_response=raw_response
+                )
+        except Exception:
+            pass
+        return None
 
     async def _execute_tool(
         self,
@@ -186,17 +298,84 @@ class React:
                 for msg in new_pending:
                     self.messages.append({"role": "user", "content": msg})
 
-                response_text = await self._call_llm(self.messages)
-                action = self._parse_action(response_text)
-                thinking = ReactActionParser.get_thinking_message(action, step + 1, self.max_steps)
+                # Stream LLM response with YAML format
+                yaml_parser = YamlStreamParser()
+                full_response = ""
+                collected_thinking = ""
+                action_from_stream = None
+
+                # Emit stream start event
+                yield self._create_event(ReactEventType.LLM_STREAM_START, {
+                    "step": step + 1,
+                    "total_steps": self.max_steps,
+                })
+
+                # Process streaming chunks
+                async for chunk in self._call_llm_stream(self.messages):
+                    full_response += chunk
+                    parse_result = yaml_parser.feed(chunk)
+
+                    # Emit thinking stream events
+                    if parse_result.has_thinking():
+                        if parse_result.thinking_complete:
+                            collected_thinking = yaml_parser.get_thinking()
+                        yield self._create_event(ReactEventType.LLM_THINKING_STREAM, {
+                            "content": parse_result.thinking_delta,
+                            "complete": parse_result.thinking_complete,
+                        })
+
+                    # Emit content stream events (action data)
+                    if parse_result.has_content():
+                        yield self._create_event(ReactEventType.LLM_CONTENT_STREAM, {
+                            "content": parse_result.content_delta,
+                        })
+
+                    # Check if action is complete from stream
+                    if parse_result.action_complete and parse_result.action_data:
+                        action_from_stream = cls._create_action_from_stream_data(
+                            parse_result.action_data,
+                            collected_thinking,
+                            full_response
+                        )
+
+                # Finalize parser
+                final_result = yaml_parser.finalize()
+                if final_result.has_content():
+                    yield self._create_event(ReactEventType.LLM_CONTENT_STREAM, {
+                        "content": final_result.content_delta,
+                    })
+
+                if not action_from_stream and final_result.action_complete and final_result.action_data:
+                    action_from_stream = cls._create_action_from_stream_data(
+                        final_result.action_data,
+                        collected_thinking,
+                        full_response
+                    )
+
+                # Emit stream end event
+                yield self._create_event(ReactEventType.LLM_STREAM_END, {
+                    "complete": True,
+                })
+
+                # Parse action from the full response (or use action from stream)
+                action = action_from_stream or self._parse_action(full_response)
+
+                # If thinking was extracted from stream, use it; otherwise use action's thinking
+                if collected_thinking:
+                    thinking = collected_thinking
+                else:
+                    thinking = ReactActionParser.get_thinking_message(action, step + 1, self.max_steps)
+
+                # Emit thinking event with collected thinking
                 yield self._create_event(ReactEventType.LLM_THINKING, {
                     "message": thinking,
                     "step": step + 1,
                     "total_steps": self.max_steps,
                 })
 
+                # Emit full output event for backward compatibility
                 yield self._create_event(ReactEventType.LLM_OUTPUT, {
-                    "content": response_text,
+                    "content": full_response,
                 })
 
                 if action.is_tool():
@@ -210,11 +389,11 @@ class React:
                             if "result" in item:
                                 tool_result = item["result"]
                         yield self._create_event(ReactEventType.TOOL_END, action.to_end_payload(result=tool_result, ok=True))
-                        self.messages.append({"role": "assistant", "content": response_text})
+                        self.messages.append({"role": "assistant", "content": full_response})
                         self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
                     except Exception as exc:
                         yield self._create_event(ReactEventType.TOOL_END, action.to_end_payload(ok=False, error=str(exc)))
-                        self.messages.append({"role": "assistant", "content": response_text})
+                        self.messages.append({"role": "assistant", "content": full_response})
                         self.messages.append({"role": "user", "content": f"Error: {str(exc)}"})
                     continue
 

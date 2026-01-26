@@ -14,6 +14,8 @@ from .types import (
     FinalAction,
     ErrorAction,
     ReactActionParser,
+    YamlFormatSpec,
+    YamlStreamParser,
 )
 from .storage import ReactStorage
 from .react_service import ReactService, react_service
@@ -33,4 +35,6 @@ __all__ = [
     "FinalAction",
     "ErrorAction",
     "ReactActionParser",
+    "YamlFormatSpec",
+    "YamlStreamParser",
 ]
