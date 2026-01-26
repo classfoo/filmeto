@@ -41,8 +41,12 @@ version: 1.0
 {% endif %}
 
 {% if context_info %}
-{% if "User's question:" in context_info %}
+{% if "User's question:" in context_info or "User's questions:" in context_info %}
+{% if "User's questions:" in context_info %}
+{% set parts = context_info.split("User's questions:") %}
+{% else %}
 {% set parts = context_info.split("User's question:") %}
+{% endif %}
 {% set main_context = parts[0] %}
 {% set user_question = parts[1].strip() %}
 {{ main_context }}
@@ -52,8 +56,12 @@ version: 1.0
 {% endif %}
 
 {{ action_instructions }}
-{% if context_info and "User's question:" in context_info %}
+{% if context_info and ("User's question:" in context_info or "User's questions:" in context_info) %}
+{% if "User's questions:" in context_info %}
+{% set parts = context_info.split("User's questions:") %}
+{% else %}
 {% set parts = context_info.split("User's question:") %}
+{% endif %}
 {% set user_question = parts[1].strip() %}
 
 ## 关键指令：关注用户问题

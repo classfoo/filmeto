@@ -56,7 +56,7 @@ class ReactService:
         self,
         project_name: str,
         react_type: str,
-        build_prompt_function: Callable[[], str],
+        build_prompt_function: Callable[[str], str],
         tool_call_function: Callable[[str, Dict[str, Any]], Any],
         *,
         workspace=None,

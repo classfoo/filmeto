@@ -134,8 +134,8 @@ class CrewMember:
                 on_complete(error_message)
             return
 
-        def build_prompt_function() -> str:
-            return self._build_system_prompt(plan_id=plan_id)
+        def build_prompt_function(user_question: str) -> str:
+            return self._build_user_prompt(user_question, plan_id=plan_id)
 
         async def tool_call_function(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
             if tool_name == "skill":
@@ -224,13 +224,18 @@ class CrewMember:
             on_complete(final_response)
 
     def _build_user_prompt(self, user_question: str, plan_id: Optional[str] = None) -> str:
-        """Build a user prompt that embeds the user's question into the react_base template."""
+        """Build a user prompt that embeds the user's question into the react_base template.
+
+        Args:
+            user_question: The user's question(s). May contain multiple questions separated by newlines.
+            plan_id: Optional plan ID for context.
+        """
         soul_content = self._get_formatted_soul_prompt()
 
         # Prepare skills as structured data for the template
         skills_list = self._get_skills_as_structured_list()
 
-        # Add the user's question to the context info
+        # Build context info
         context_info_parts = []
         if plan_id:
             context_info_parts.append(f"Active plan id: {plan_id}.")
@@ -238,8 +243,12 @@ class CrewMember:
             context_info_parts.append(f"Project name: {self.project_name}.")
 
         # Add the user's question to the context
-        context_info_parts.append(f"User's question: {user_question}")
-        context_info = " ".join(context_info_parts)
+        # Use newline separator for context parts to properly format multi-line questions
+        user_question_prefix = "User's questions:" if "\n" in user_question else "User's question:"
+        context_info_parts.append(f"{user_question_prefix} {user_question}")
+
+        # Join with newlines to preserve multi-line formatting
+        context_info = "\n".join(context_info_parts)
 
         user_prompt = prompt_service.render_prompt(
             name="react_base",

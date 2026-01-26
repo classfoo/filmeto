@@ -35,7 +35,7 @@ class React:
         workspace,
         project_name: str,
         react_type: str,
-        build_prompt_function: Callable[[], str],
+        build_prompt_function: Callable[[str], str],
         tool_call_function: Callable[[str, Dict[str, Any]], Any],
         llm_service: Optional[LlmService] = None,
         max_steps: int = 20,
@@ -122,7 +122,12 @@ class React:
         self.pending_user_messages.clear()
         return messages
 
-    def _start_new_run(self) -> None:
+    def _start_new_run(self, user_questions: List[str]) -> None:
+        """Start a new run with user questions.
+
+        Args:
+            user_questions: List of user questions to build the prompt.
+        """
         self.run_id = f"run_{uuid.uuid4().hex[:16]}_{self.project_name}_{self.react_type}"
         self.step_id = 0
         self.status = ReactStatus.RUNNING
@@ -134,8 +139,10 @@ class React:
         self._llm_duration_ms = 0.0
         self._tool_duration_ms = 0.0
 
-        system_prompt = self.build_prompt_function()
-        self.messages = [{"role": "system", "content": system_prompt}]
+        # Concatenate multiple user questions if present
+        combined_question = "\n".join(user_questions) if user_questions else ""
+        user_prompt = self.build_prompt_function(combined_question)
+        self.messages = [{"role": "user", "content": user_prompt}]
 
     async def _call_llm(self, messages: List[Dict[str, str]]) -> str:
         """Call LLM service with timing and metrics tracking."""
@@ -228,18 +235,16 @@ class React:
                     self._maybe_update_checkpoint()
                 return
 
-            # Start new run if needed
-            if not self.run_id or self.status in {ReactStatus.IDLE, ReactStatus.FINAL, ReactStatus.FAILED}:
-                self._start_new_run()
-
             # Add initial user message
             if user_message:
                 self.pending_user_messages.append(user_message)
 
-            # Add all pending messages to conversation
+            # Gather all pending messages for starting new run
             pending_messages = self._drain_pending_messages()
-            for msg in pending_messages:
-                self.messages.append({"role": "user", "content": msg})
+
+            # Start new run if needed (with user questions)
+            if not self.run_id or self.status in {ReactStatus.IDLE, ReactStatus.FINAL, ReactStatus.FAILED}:
+                self._start_new_run(pending_messages)
 
             self._in_react_loop = True
             self._maybe_update_checkpoint()
@@ -316,11 +321,9 @@ class React:
                 async with self._loop_lock:
                     if not self.pending_user_messages:
                         break
-                    # Prepare for next iteration
-                    self._start_new_run()
+                    # Prepare for next iteration with new pending messages
                     pending_messages = self._drain_pending_messages()
-                    for msg in pending_messages:
-                        self.messages.append({"role": "user", "content": msg})
+                    self._start_new_run(pending_messages)
                     self._in_react_loop = True
                     self._maybe_update_checkpoint()
 
