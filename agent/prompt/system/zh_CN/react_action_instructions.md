@@ -11,16 +11,22 @@ version: 1.0
 当您需要使用可用技能之一执行操作时：
 ```json
 {
-  "type": "skill",
+  "type": "tool",
   "thinking": "您的思维过程，解释为什么选择此操作",
-  "skill": "{{ skill_name }}",
-  "args": {
-    "param1": "value1",
-    "param2": "value2"
+  "tool_name": "skill",
+  "tool_args": {
+    "skill_name": "{{ skill_name }}",
+    "args": {
+      "param1": "value1",
+      "param2": "value2"
+    }
   }
 }
 ```
-重要提示：使用每个技能参数部分中指定的确切参数名称。
+重要提示：
+- 调用技能时始终使用 `"type": "tool"` 和 `"tool_name": "skill"`
+- 实际的技能名称放在 `tool_args.skill_name` 中
+- 使用每个技能参数部分中指定的确切参数名称，放在 `tool_args.args` 中
 
 ### 2. 最终回复
 当您的任务完成并准备报告结果时：
@@ -28,7 +34,7 @@ version: 1.0
 {
   "type": "final",
   "thinking": "您的思维过程，解释为什么结束此任务",
-  "response": "{{ response_message }}"
+  "final": "{{ response_message }}"
 }
 ```
 

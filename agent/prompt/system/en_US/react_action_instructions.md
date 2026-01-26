@@ -11,16 +11,22 @@ You MUST respond ONLY with a JSON object. Choose one of these action types:
 When you need to perform an action using one of your available skills:
 ```json
 {
-  "type": "skill",
+  "type": "tool",
   "thinking": "Your thought process explaining why you're choosing this action",
-  "skill": "{{ skill_name }}",
-  "args": {
-    "param1": "value1",
-    "param2": "value2"
+  "tool_name": "skill",
+  "tool_args": {
+    "skill_name": "{{ skill_name }}",
+    "args": {
+      "param1": "value1",
+      "param2": "value2"
+    }
   }
 }
 ```
-IMPORTANT: Use the exact parameter names as specified in each skill's parameters section.
+IMPORTANT:
+- Always use `"type": "tool"` and `"tool_name": "skill"` when calling a skill
+- The actual skill name goes inside `tool_args.skill_name`
+- Use the exact parameter names as specified in each skill's parameters section inside `tool_args.args`
 
 ### 2. Final Response
 When your task is complete and you're ready to report results:
@@ -28,7 +34,7 @@ When your task is complete and you're ready to report results:
 {
   "type": "final",
   "thinking": "Your thought process explaining why you're concluding this task",
-  "response": "{{ response_message }}"
+  "final": "{{ response_message }}"
 }
 ```
 
