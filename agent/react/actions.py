@@ -1,10 +1,11 @@
 """Action types for ReAct pattern."""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Dict, Optional
 
 
-class ActionType:
+class ActionType(str, Enum):
     """Constants for ReAct action types."""
     TOOL = "tool"
     FINAL = "final"
@@ -27,25 +28,25 @@ class ReactAction(ABC):
 
     def is_tool(self) -> bool:
         """Check if this is a tool action."""
-        return self.type == ActionType.TOOL
+        return self.type == ActionType.TOOL.value
 
     def is_final(self) -> bool:
         """Check if this is a final action."""
-        return self.type == ActionType.FINAL
+        return self.type == ActionType.FINAL.value
 
     def is_error(self) -> bool:
         """Check if this is an error action."""
-        return self.type == ActionType.ERROR
+        return self.type == ActionType.ERROR.value
 
     def get_status_for(self) -> str:
         """Get the React status associated with this action."""
         if self.is_tool():
-            return ReactStatus.RUNNING
+            return "RUNNING"
         elif self.is_final():
-            return ReactStatus.FINAL
+            return "FINAL"
         elif self.is_error():
-            return ReactStatus.FAILED
-        return ReactStatus.RUNNING
+            return "FAILED"
+        return "RUNNING"
 
     def to_event_payload(self, **kwargs) -> Dict[str, Any]:
         """Build event payload for this action. Subclasses can override."""
@@ -78,7 +79,7 @@ class ToolAction(ReactAction):
         tool_args: Arguments to pass to the tool
         thinking: The agent's thinking process
     """
-    type: str = ActionType.TOOL
+    type: str = ActionType.TOOL.value
     tool_name: str = ""
     tool_args: Dict[str, Any] = None
     thinking: Optional[str] = None
@@ -140,7 +141,7 @@ class FinalAction(ReactAction):
         thinking: The agent's thinking process
         stop_reason: Reason for stopping (final_action, max_steps_reached, etc.)
     """
-    type: str = ActionType.FINAL
+    type: str = ActionType.FINAL.value
     final: str = ""
     thinking: Optional[str] = None
     stop_reason: str = "final_action"
@@ -159,9 +160,10 @@ class FinalAction(ReactAction):
 
     def get_summary(self) -> str:
         """Get summary for final action."""
-        if self.stop_reason == "max_steps_reached":
+        from .constants import StopReason
+        if self.stop_reason == StopReason.MAX_STEPS.value:
             return "ReAct process stopped after reaching maximum steps"
-        elif self.stop_reason == "user_interrupted":
+        elif self.stop_reason == StopReason.USER_INTERRUPTED.value:
             return "ReAct process interrupted by user"
         return "ReAct process completed successfully"
 
@@ -185,7 +187,7 @@ class ErrorAction(ReactAction):
         thinking: The agent's thinking process (if available)
         raw_response: The raw LLM response that caused the error
     """
-    type: str = ActionType.ERROR
+    type: str = ActionType.ERROR.value
     error: str = ""
     thinking: Optional[str] = None
     raw_response: str = ""
@@ -218,7 +220,3 @@ class ErrorAction(ReactAction):
         elif self.raw_response:
             payload["details"] = self.raw_response[:500]
         return payload
-
-
-# Import at end to avoid circular dependency
-from .status import ReactStatus
