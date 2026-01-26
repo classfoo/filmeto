@@ -1,13 +1,22 @@
 import asyncio
 import inspect
-import json
-import re
 import time
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 from agent.llm.llm_service import LlmService
 
-from .types import ReactEvent, ReactEventType, ReactStatus, CheckpointData
+from .types import (
+    ReactEvent,
+    ReactEventType,
+    ReactStatus,
+    CheckpointData,
+    ReactAction,
+    ToolAction,
+    FinalAction,
+    ErrorAction,
+    ReactActionParser,
+    ActionType,
+)
 from .storage import ReactStorage
 
 
@@ -121,66 +130,13 @@ class React:
                 return choice.get("text", "")
         return ""
 
-    def _parse_action(self, response_text: str) -> Dict[str, Any]:
-        payload = self._extract_json_payload(response_text)
-        if payload:
-            action_type = payload.get("type") or payload.get("action")
-            if action_type == "tool":
-                return {
-                    "type": "tool",
-                    "tool_name": payload.get("tool_name") or payload.get("name"),
-                    "tool_args": payload.get("tool_args") or payload.get("arguments") or payload.get("input") or {},
-                    "thinking": payload.get("thinking") or payload.get("thought") or payload.get("reasoning"),
-                }
-            if action_type == "final":
-                return {
-                    "type": "final",
-                    "final": payload.get("final") or payload.get("response") or response_text,
-                    "thinking": payload.get("thinking") or payload.get("thought") or payload.get("reasoning"),
-                }
-        return {
-            "type": "final",
-            "final": response_text,
-            "thinking": None,
-        }
+    def _parse_action(self, response_text: str) -> ReactAction:
+        """
+        Parse LLM response into a ReactAction.
 
-    def _extract_json_payload(self, text: str) -> Optional[Dict[str, Any]]:
-        json_block_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if json_block_match:
-            candidate = json_block_match.group(1)
-            return self._safe_json_load(candidate)
-
-        candidate = text.strip()
-        if candidate.startswith("{") and candidate.endswith("}"):
-            payload = self._safe_json_load(candidate)
-            if payload is not None:
-                return payload
-
-        candidate = self._find_balanced_json(text)
-        if candidate:
-            return self._safe_json_load(candidate)
-        return None
-
-    def _safe_json_load(self, candidate: str) -> Optional[Dict[str, Any]]:
-        try:
-            payload = json.loads(candidate)
-            return payload if isinstance(payload, dict) else None
-        except Exception:
-            return None
-
-    def _find_balanced_json(self, text: str) -> Optional[str]:
-        start = text.find("{")
-        if start == -1:
-            return None
-        depth = 0
-        for idx in range(start, len(text)):
-            if text[idx] == "{":
-                depth += 1
-            elif text[idx] == "}":
-                depth -= 1
-                if depth == 0:
-                    return text[start : idx + 1]
-        return None
+        Uses ReactActionParser for robust parsing with multiple fallback strategies.
+        """
+        return ReactActionParser.parse(response_text)
 
     async def _execute_tool(
         self,
@@ -232,7 +188,7 @@ class React:
 
                 response_text = await self._call_llm(self.messages)
                 action = self._parse_action(response_text)
-                thinking = action.get("thinking") or f"Processing step {step + 1}/{self.max_steps}"
+                thinking = ReactActionParser.get_thinking_message(action, step + 1, self.max_steps)
                 yield self._create_event(ReactEventType.LLM_THINKING, {
                     "message": thinking,
                     "step": step + 1,
@@ -243,61 +199,45 @@ class React:
                     "content": response_text,
                 })
 
-                if action["type"] == "tool":
-                    yield self._create_event(ReactEventType.TOOL_START, {
-                        "tool_name": action["tool_name"],
-                        "tool_args": action["tool_args"],
-                    })
+                if action.is_tool():
+                    assert isinstance(action, ToolAction), f"Expected ToolAction, got {type(action)}"
+                    yield self._create_event(ReactEventType.TOOL_START, action.to_start_payload())
                     try:
                         tool_result = None
-                        async for item in self._execute_tool(action["tool_name"], action["tool_args"]):
+                        async for item in self._execute_tool(action.tool_name, action.tool_args):
                             if "progress" in item:
-                                yield self._create_event(ReactEventType.TOOL_PROGRESS, {
-                                    "tool_name": action["tool_name"],
-                                    "progress": item["progress"],
-                                })
+                                yield self._create_event(ReactEventType.TOOL_PROGRESS, action.to_progress_payload(item["progress"]))
                             if "result" in item:
                                 tool_result = item["result"]
-                        yield self._create_event(ReactEventType.TOOL_END, {
-                            "tool_name": action["tool_name"],
-                            "ok": True,
-                            "result": tool_result,
-                        })
+                        yield self._create_event(ReactEventType.TOOL_END, action.to_end_payload(result=tool_result, ok=True))
                         self.messages.append({"role": "assistant", "content": response_text})
                         self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
                     except Exception as exc:
-                        yield self._create_event(ReactEventType.TOOL_END, {
-                            "tool_name": action["tool_name"],
-                            "ok": False,
-                            "error": str(exc),
-                        })
+                        yield self._create_event(ReactEventType.TOOL_END, action.to_end_payload(ok=False, error=str(exc)))
                         self.messages.append({"role": "assistant", "content": response_text})
                         self.messages.append({"role": "user", "content": f"Error: {str(exc)}"})
                     continue
 
-                if action["type"] == "final":
+                if action.is_final():
+                    assert isinstance(action, FinalAction), f"Expected FinalAction, got {type(action)}"
                     self.status = ReactStatus.FINAL
                     self._update_checkpoint()
-                    yield self._create_event(ReactEventType.FINAL, {
-                        "final_response": action["final"],
-                        "stop_reason": "final_action",
-                        "summary": "ReAct process completed successfully",
-                    })
+                    yield self._create_event(ReactEventType.FINAL, action.to_final_payload())
                     break
 
             if self.status != ReactStatus.FINAL:
+                max_steps_action = ReactActionParser.create_final_action(
+                    final="Reached maximum steps without completion",
+                    stop_reason=ReactActionParser.get_max_steps_stop_reason()
+                )
                 self.status = ReactStatus.FINAL
                 self._update_checkpoint()
-                yield self._create_event(ReactEventType.FINAL, {
-                    "final_response": "Reached maximum steps without completion",
-                    "stop_reason": "max_steps_reached",
-                    "summary": f"ReAct process stopped after {self.max_steps} steps",
-                })
+                yield self._create_event(ReactEventType.FINAL, max_steps_action.to_final_payload())
         except Exception as exc:
             self.status = ReactStatus.FAILED
             self._update_checkpoint()
             yield self._create_event(ReactEventType.ERROR, {
-                "error": str(exc),
+                "error": ReactActionParser.get_error_summary(exc),
                 "details": repr(exc),
             })
         finally:
