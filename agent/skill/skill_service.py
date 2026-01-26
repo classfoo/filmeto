@@ -14,6 +14,9 @@ from pathlib import Path
 import subprocess
 import json
 
+from app.data.project import Project
+from app.data.workspace import Workspace
+
 
 @dataclass
 class SkillParameter:
@@ -829,8 +832,8 @@ class SkillService:
         self,
         skill: Skill,
         user_message: Optional[str] = None,
-        workspace: Any = None,
-        project: Any = None,
+        workspace: Workspace = None,
+        project: Project = None,
         args: Optional[Dict[str, Any]] = None,
         llm_service: Any = None,
         max_steps: int = 10,

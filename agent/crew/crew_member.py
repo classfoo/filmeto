@@ -16,6 +16,8 @@ from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
 from agent.react import ReactEventType, react_service, ReactEvent
+from app.data.project import Project
+from app.data.workspace import Workspace
 
 
 @dataclass
@@ -86,8 +88,8 @@ class CrewMember:
     def __init__(
         self,
         config_path: str,
-        workspace: Optional[Any] = None,
-        project: Optional[Any] = None,
+        workspace: Optional[Workspace] = None,
+        project: Optional[Project] = None,
         llm_service: Optional[LlmService] = None,
         skill_service: Optional[SkillService] = None,
         soul_service: Optional[SoulService] = None,

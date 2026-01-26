@@ -16,6 +16,8 @@ from agent.plan.service import PlanService
 from agent.crew.crew_member import CrewMember
 from agent.crew.crew_title import sort_crew_members_by_title_importance
 from agent.crew.crew_service import CrewService
+from app.data.project import Project
+from app.data.workspace import Workspace
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +56,8 @@ class FilmetoAgent:
 
     def __init__(
         self,
-        workspace=None,
-        project=None,
+        workspace:Workspace=None,
+        project:Project=None,
         model='gpt-4o-mini',
         temperature=0.7,
         streaming=True,

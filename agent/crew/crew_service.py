@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Any
 from agent.crew.crew_member import CrewMember
 from agent.crew.crew_title import sort_crew_members_by_title_importance, CrewTitle
 from agent.soul.soul_service import SoulService
+from app.data.project import Project
 from utils.i18n_utils import translation_manager
 
 
@@ -157,7 +158,7 @@ class CrewService:
 
         return initialized_files
 
-    def read_project_crew_members(self, project: Any) -> Dict[str, CrewMember]:
+    def read_project_crew_members(self, project: Project) -> Dict[str, CrewMember]:
         """
         Read crew members from a project's crew_members directory.
 
@@ -320,7 +321,7 @@ class CrewService:
         except OSError:
             return False
 
-    def load_project_crew_members(self, project: Any, refresh: bool = False) -> Dict[str, CrewMember]:
+    def load_project_crew_members(self, project: Project, refresh: bool = False) -> Dict[str, CrewMember]:
         """
         Load crew members for a project, initializing defaults if needed.
         """
