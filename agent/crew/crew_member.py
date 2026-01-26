@@ -15,7 +15,7 @@ from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
-from agent.react import ReactEventType, react_service
+from agent.react import ReactEventType, react_service, ReactEvent
 
 
 @dataclass
@@ -141,17 +141,31 @@ class CrewMember:
             if tool_name == "skill":
                 skill_name = tool_args.get("skill_name") or tool_args.get("name")
                 skill_args = tool_args.get("args") or tool_args.get("arguments") or {}
+
                 if skill_name:
-                    action = CrewMemberAction(
-                        action_type="skill",
-                        skill=skill_name,
+                    skill = self.skill_service.get_skill(skill_name)
+                    if not skill:
+                        return {"error": f"Skill '{skill_name}' not found"}
+
+                    result_parts = []
+                    async for event in self.skill_service.chat_stream(
+                        skill=skill,
+                        user_message=tool_args.get("message"),
+                        workspace=self.workspace,
+                        project=self.project,
                         args=skill_args,
-                    )
-                    result = await self._execute_skill_with_structured_content(
-                        action,
-                        message_id=getattr(self, "_current_message_id", None),
-                    )
-                    return {"result": result}
+                        llm_service=self.llm_service,
+                        max_steps=10,
+                    ):
+                        await self._forward_skill_event(event, getattr(self, "_current_message_id", None))
+                        if event.event_type == ReactEventType.FINAL:
+                            result_parts.append(event.payload.get("final_response", ""))
+                        elif event.event_type == ReactEventType.ERROR:
+                            result_parts.append(event.payload.get("error", ""))
+
+                    final_result = "\n".join(result_parts) if result_parts else "Skill execution completed"
+                    return {"result": final_result}
+
             return {"error": f"Unknown tool: {tool_name}"}
 
         react_instance = react_service.get_or_create_react(
@@ -654,6 +668,48 @@ class CrewMember:
 
         return result_message
 
+    async def _forward_skill_event(self, event: ReactEvent, message_id: Optional[str] = None):
+        """转发 skill 的 React 事件到 UI
+
+        Args:
+            event: The ReactEvent from skill execution
+            message_id: Optional message ID to associate with the event
+        """
+        # 事件类型映射
+        event_mapping = {
+            ReactEventType.LLM_THINKING: (ContentType.THINKING, MessageType.THINKING, "Skill Thinking"),
+            ReactEventType.TOOL_START: (ContentType.TOOL, MessageType.SYSTEM, "Tool Starting"),
+            ReactEventType.TOOL_PROGRESS: (ContentType.TOOL, MessageType.SYSTEM, "Tool Progress"),
+            ReactEventType.TOOL_END: (ContentType.TOOL, MessageType.SYSTEM, "Tool Completed"),
+        }
+
+        if event.event_type not in event_mapping:
+            return
+
+        content_type, message_type, title = event_mapping[event.event_type]
+
+        content = StructureContent(
+            content_type=content_type,
+            data={"status": event.event_type, **event.payload},
+            title=title,
+            description=f"Skill execution: {event.event_type}",
+        )
+
+        meta = {"session_id": getattr(self, "_session_id", "unknown")}
+        if message_id:
+            meta["message_id"] = message_id
+
+        kw = {
+            "message_type": message_type,
+            "sender_id": self.config.name,
+            "sender_name": self.config.name,
+            "metadata": meta,
+            "structured_content": [content],
+        }
+        if message_id:
+            kw["message_id"] = message_id
+
+        await self.signals.send_agent_message(AgentMessage(**kw))
 
 
 def _parse_frontmatter(content: str) -> (Dict[str, Any], str):

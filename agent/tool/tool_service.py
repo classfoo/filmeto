@@ -151,7 +151,58 @@ class ToolService:
             raise FileNotFoundError(f"Script file not found: {script_path}")
         except Exception as e:
             raise RuntimeError(f"Error executing script: {str(e)}")
-    
+
+    def execute_script_content(self, script_content: str, argv: list = None) -> Any:
+        """
+        Execute a Python script from content string.
+
+        Supports executing dynamically generated Python code.
+
+        Args:
+            script_content: Python code as string
+            argv: Optional list of command-line arguments to pass to the script
+
+        Returns:
+            Result of the script execution (captured stdout)
+        """
+        import tempfile
+        import os
+
+        # Define execute_tool function for the script
+        def script_execute_tool(tool_name: str, parameters: Dict[str, Any]):
+            return self.execute_tool(tool_name, parameters)
+
+        script_globals = {
+            '__builtins__': __builtins__,
+            'execute_tool': script_execute_tool,
+        }
+
+        # Create temp file and execute
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            temp_script_path = f.name
+            f.write(script_content)
+
+        try:
+            captured_output = io.StringIO()
+            project_root = self._find_project_root(Path.cwd())
+
+            with self._sys_path_manager(str(project_root)), self._sys_argv_manager(argv), \
+                 contextlib.redirect_stdout(captured_output):
+                runpy.run_path(temp_script_path, init_globals=script_globals, run_name="__main__")
+
+            output = captured_output.getvalue()
+            return output.rstrip() if output else None
+
+        except SyntaxError as e:
+            raise ValueError(f"Syntax error: {str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"Execution error: {str(e)}")
+        finally:
+            try:
+                os.unlink(temp_script_path)
+            except OSError:
+                pass
+
     def set_context(self, context: Dict[str, Any]):
         """Set the context that will be passed to tools."""
         self.context.update(context)
