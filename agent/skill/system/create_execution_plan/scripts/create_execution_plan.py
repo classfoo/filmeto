@@ -13,7 +13,7 @@ import os
 import ast
 
 if TYPE_CHECKING:
-    from agent.skill.skill_executor import SkillContext
+    from agent.skill.skill_service import SkillContext
 
 
 def execute(context: 'SkillContext', args: Dict[str, Any]) -> Dict[str, Any]:

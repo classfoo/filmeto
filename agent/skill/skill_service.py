@@ -9,7 +9,6 @@ import os
 import re
 import yaml
 from typing import AsyncGenerator, Dict, List, Optional, Any
-from dataclasses import dataclass, field
 from pathlib import Path
 import subprocess
 import json
@@ -17,64 +16,8 @@ import json
 from app.data.project import Project
 from app.data.workspace import Workspace
 
-
-@dataclass
-class SkillParameter:
-    """Represents a parameter for a skill."""
-    name: str
-    param_type: str
-    required: bool = False
-    default: Any = None
-    description: str = ""
-
-
-@dataclass
-class Skill:
-    """
-    Represents a skill with its metadata and content.
-    """
-    name: str
-    description: str
-    knowledge: str  # The detailed description part of SKILL.md
-    skill_path: str
-    reference: Optional[str] = None
-    examples: Optional[str] = None
-    scripts: Optional[List[str]] = None
-    parameters: List[SkillParameter] = field(default_factory=list)
-
-    def get_parameters_prompt(self) -> str:
-        """Generate a prompt description of the skill's parameters."""
-        if not self.parameters:
-            return "No parameters required."
-        
-        lines = ["Parameters:"]
-        for param in self.parameters:
-            req = "(required)" if param.required else "(optional)"
-            default_str = f", default: {param.default}" if param.default is not None else ""
-            lines.append(f"  - {param.name} ({param.param_type}) {req}{default_str}: {param.description}")
-        return "\n".join(lines)
-
-    def get_example_call(self) -> str:
-        """Generate an example JSON call for this skill."""
-        args = {}
-        for param in self.parameters:
-            if param.required:
-                if param.param_type == "string":
-                    args[param.name] = f"<{param.name}>"
-                elif param.param_type == "integer":
-                    args[param.name] = 0
-                elif param.param_type == "array":
-                    args[param.name] = []
-                elif param.param_type == "boolean":
-                    args[param.name] = True
-                else:
-                    args[param.name] = f"<{param.name}>"
-        
-        return json.dumps({
-            "type": "skill",
-            "skill": self.name,
-            "args": args
-        }, indent=2)
+# Import data models
+from agent.skill.skill_models import Skill, SkillParameter, SkillContext
 
 
 class SkillService:
@@ -332,8 +275,6 @@ class SkillService:
         Returns:
             String with execution result
         """
-        from agent.skill.skill_executor import SkillExecutor, SkillContext
-
         if skill is None:
             return "Error: No skill object was provided."
 
@@ -365,16 +306,14 @@ class SkillService:
                 updated_args = self._parse_llm_response_for_args(script_execution_details, args)
 
                 # Then execute the script with the updated arguments
-                executor = SkillExecutor()
-                result = executor.execute_skill(skill, context, updated_args, script_name)
+                result_str = self._execute_skill_script(skill, updated_args, script_name, project)
                 # Convert the string result to a dictionary format for consistency
-                result = {"success": True, "output": result, "message": result}
+                result = {"success": True, "output": result_str, "message": result_str}
             else:
                 # If LLM didn't provide execution details, proceed with direct script execution
-                executor = SkillExecutor()
-                result = executor.execute_skill(skill, context, args, script_name)
+                result_str = self._execute_skill_script(skill, args, script_name, project)
                 # Convert the string result to a dictionary format for consistency
-                result = {"success": True, "output": result, "message": result}
+                result = {"success": True, "output": result_str, "message": result_str}
         else:
             # Strategy 2: Use knowledge prompt to generate output via LLM
             result = await self._execute_skill_from_knowledge(skill, context, args, llm_service)
@@ -993,14 +932,7 @@ class SkillService:
         Returns:
             Dictionary with execution result
         """
-        from agent.skill.skill_executor import SkillExecutor, SkillContext
-        context = SkillContext(
-            workspace=workspace,
-            project=project,
-            llm_service=llm_service
-        )
-        executor = SkillExecutor()
-        result = executor.execute_skill(skill, context, tool_args)
+        result = self._execute_skill_script(skill, tool_args, tool_name, project)
         return {"success": True, "result": result}
 
     async def _execute_generated_script(
@@ -1040,6 +972,107 @@ class SkillService:
         for key, value in args_dict.items():
             argv.extend([f"--{key}", str(value)])
         return argv
+
+    def _find_script_path(self, skill: Skill, script_name: Optional[str] = None) -> Optional[str]:
+        """Find the script path for a skill.
+
+        Args:
+            skill: The Skill object
+            script_name: Optional specific script to execute (uses first by default)
+
+        Returns:
+            Script path if found, None otherwise
+        """
+        if not skill.scripts:
+            return None
+
+        if script_name:
+            for script in skill.scripts:
+                if os.path.basename(script) == script_name or script.endswith(script_name):
+                    return script
+        else:
+            # Use the first script by default
+            return skill.scripts[0]
+
+        return None
+
+    def _build_argv_from_args(
+        self,
+        args: Optional[Dict[str, Any]],
+        project: Any = None
+    ) -> List[str]:
+        """Build argv from arguments dictionary.
+
+        Args:
+            args: Arguments dictionary
+            project: Optional project object for context
+
+        Returns:
+            List of command-line arguments
+        """
+        argv = []
+
+        # Add project path if available
+        if project and hasattr(project, 'project_path'):
+            argv.extend(["--project-path", project.project_path])
+
+        if not args:
+            return argv
+
+        # Separate positional and named arguments
+        positional_args = []
+        named_args = []
+
+        for key, value in args.items():
+            # Handle positional arguments (like plan_name in create_execution_plan)
+            if key in ['plan_name']:  # Common positional arguments
+                positional_args.append(str(value))
+            else:
+                named_args.extend([f"--{key.replace('_', '-')}", str(value)])
+
+        # Add positional arguments first, then named arguments
+        argv.extend(positional_args)
+        argv.extend(named_args)
+
+        return argv
+
+    def _execute_skill_script(
+        self,
+        skill: Skill,
+        args: Optional[Dict[str, Any]] = None,
+        script_name: Optional[str] = None,
+        project: Any = None,
+        argv: Optional[list] = None
+    ) -> str:
+        """Execute a skill script directly using ToolService.
+
+        This method replaces SkillExecutor.execute_skill() by inlining the logic.
+
+        Args:
+            skill: The Skill object to execute
+            args: Arguments to pass to the skill function
+            script_name: Optional specific script to execute (uses first by default)
+            project: Optional project for context
+            argv: Optional command-line arguments to pass to the script
+
+        Returns:
+            String with execution result
+        """
+        script_path = self._find_script_path(skill, script_name)
+        if not script_path or not os.path.exists(script_path):
+            return f"Error: Script not found for skill '{skill.name}'."
+
+        # Prepare argv for the script execution if not provided
+        if argv is None:
+            argv = self._build_argv_from_args(args, project)
+
+        try:
+            from agent.tool.tool_service import ToolService
+            tool_service = ToolService()
+            output = tool_service.execute_script(script_path, argv)
+            return str(output) if output is not None else ""
+        except Exception as e:
+            return f"Error executing skill script: {str(e)}"
 
     def delete_skill(self, skill_name: str) -> bool:
         """

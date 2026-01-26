@@ -3,7 +3,7 @@ Comprehensive unit tests for the skill execution chain.
 
 Tests the entire flow from skill loading to execution:
 1. Skill loading with parameters from SKILL.md
-2. SkillExecutor in-context execution
+2. SkillService in-context execution
 3. Crew member skill prompt generation
 4. End-to-end skill execution with screenplay manager
 """
@@ -85,23 +85,21 @@ class TestSkillLoading:
         assert 'scene_id' in param_names
         assert 'title' in param_names
         assert 'content' in param_names
-        
+
         # Check required parameters
         scene_id_param = next(p for p in skill.parameters if p.name == 'scene_id')
         assert scene_id_param.required is True
 
 
-class TestSkillExecutor:
-    """Tests for the SkillExecutor class."""
+class TestSkillContext:
+    """Tests for the SkillContext class."""
 
     def setup_method(self):
         """Set up test fixtures."""
-        from agent.skill.skill_executor import SkillExecutor, SkillContext
-        from agent.skill.skill_service import SkillService
-        
-        self.executor = SkillExecutor()
+        from agent.skill.skill_service import SkillContext, SkillService
+        self.SkillContext = SkillContext
         self.skill_service = SkillService(workspace=None)
-        
+
         # Create a temp directory for test project
         self.temp_dir = Path(tempfile.mkdtemp())
         self.project_path = self.temp_dir / "test_project"
@@ -113,53 +111,29 @@ class TestSkillExecutor:
 
     def test_skill_context_creation(self):
         """Test creating a SkillContext."""
-        from agent.skill.skill_executor import SkillContext
-        
         mock_workspace = MagicMock()
         mock_project = MagicMock()
         mock_project.project_path = str(self.project_path)
-        
-        context = SkillContext(
+
+        context = self.SkillContext(
             workspace=mock_workspace,
             project=mock_project
         )
-        
+
         assert context.workspace == mock_workspace
         assert context.project == mock_project
         assert context.get_project_path() == str(self.project_path)
 
     def test_skill_context_auto_initializes_screenplay_manager(self):
         """Test that SkillContext auto-initializes screenplay_manager from project."""
-        from agent.skill.skill_executor import SkillContext
-        
         mock_screenplay_manager = MagicMock()
         mock_project = MagicMock()
         mock_project.screenplay_manager = mock_screenplay_manager
         mock_project.project_path = str(self.project_path)
-        
-        context = SkillContext(project=mock_project)
-        
+
+        context = self.SkillContext(project=mock_project)
+
         assert context.screenplay_manager == mock_screenplay_manager
-
-    def test_execute_skill_with_missing_skill(self):
-        """Test executing a non-existent skill."""
-        from agent.skill.skill_executor import SkillContext
-        from agent.skill.skill_service import Skill
-
-        fake_skill = Skill(
-            name='nonexistent_skill',
-            description='A skill that does not exist',
-            knowledge='',
-            skill_path='/fake/path',
-            scripts=[]
-        )
-
-        context = SkillContext()
-        result = self.executor.execute_skill(fake_skill, context)
-
-        assert isinstance(result, str)
-        assert 'no executable scripts' in result
-
 
 
 class TestSkillServiceInContextExecution:
@@ -214,10 +188,12 @@ class TestSkillServiceInContextExecution:
 
     def test_execute_skill_in_context_with_none_skill(self):
         """Test execute_skill_in_context with None skill."""
-        result = self.skill_service.execute_skill_in_context(
+        import asyncio
+
+        result = asyncio.run(self.skill_service.execute_skill_in_context(
             skill=None,
             args={}
-        )
+        ))
 
         assert isinstance(result, str)
         assert 'No skill object was provided' in result
@@ -232,6 +208,7 @@ class TestSkillServiceInContextExecution:
 
     def test_execute_skill_from_knowledge_without_llm(self):
         """Test execute_skill_in_context with a skill that has no scripts (knowledge-based)."""
+        import asyncio
         from agent.skill.skill_service import Skill
 
         # Create a skill with knowledge but no scripts
@@ -246,11 +223,11 @@ class TestSkillServiceInContextExecution:
             scripts=None  # No scripts
         )
 
-        result = self.skill_service.execute_skill_in_context(
+        result = asyncio.run(self.skill_service.execute_skill_in_context(
             skill=knowledge_skill,
             args={'input': 'test input'},
             llm_service=None  # No LLM service, should return knowledge guidance
-        )
+        ))
 
         assert isinstance(result, str)
         assert 'guidance' in result.lower() or 'instructions' in result.lower()
@@ -427,7 +404,7 @@ class TestWriteScreenplayOutlineSkill:
     def test_execute_in_context(self):
         """Test the execute_in_context function."""
         from app.data.screen_play import ScreenPlayManager
-        from agent.skill.skill_executor import SkillContext
+        from agent.skill.skill_service import SkillContext
         from agent.skill.system.write_screenplay_outline.scripts.write_screenplay_outline import (
             execute_in_context
         )
@@ -534,7 +511,7 @@ class TestWriteSingleSceneSkill:
     def test_execute_in_context_creates_scene(self):
         """Test execute_in_context creates a scene properly."""
         from app.data.screen_play import ScreenPlayManager
-        from agent.skill.skill_executor import SkillContext
+        from agent.skill.skill_service import SkillContext
         from agent.skill.system.write_single_scene.scripts.write_single_scene import (
             execute_in_context
         )
@@ -623,13 +600,15 @@ You are a screenwriter.
                 'genre': 'Test',
                 'num_scenes': 2
             }
+
         )
-        
+
         # Execute skill
-        result = crew_member._execute_skill(action)
-        
+        import asyncio
+        result = asyncio.run(crew_member._execute_skill(action))
+
         assert 'Successfully created' in result or 'success' in result.lower()
-        
+
         # Verify scenes were created
         scenes = screenplay_manager.list_scenes()
         assert len(scenes) == 2
@@ -666,19 +645,20 @@ You are a screenwriter.
                 'content': '# INT. TEST - DAY\n\nStructured content test.'
             }
         )
-        
-        result = crew_member._execute_skill_with_structured_content(
+
+        import asyncio
+        result = asyncio.run(crew_member._execute_skill_with_structured_content(
             action,
             on_stream_event=on_stream_event,
             message_id='test_msg_001'
-        )
-        
+        ))
+
         # Check that events were emitted
         event_types = [e.event_type for e in events]
         assert 'skill_start' in event_types
         assert 'skill_progress' in event_types
         assert 'skill_end' in event_types
-        
+
         # Check result
         assert 'success' in result.lower() or 'created' in result.lower()
 

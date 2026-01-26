@@ -8,71 +8,24 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from agent.skill.skill_service import SkillService
-from agent.skill.skill_executor import SkillExecutor, SkillContext
-
-
-class MockProject:
-    """Mock project object for testing"""
-    def __init__(self):
-        self.project_name = "TestProject"
-        self.project_path = "/tmp/test_project"
-
-
-class MockWorkspace:
-    """Mock workspace object for testing"""
-    def __init__(self):
-        self.workspace_path = "/tmp/test_workspace"
 
 
 def test_create_execution_plan_skill_calls_tool():
     """Test that the create_execution_plan skill properly calls the create_plan tool"""
     print("Testing create_execution_plan skill integration with create_plan tool...")
-    
-    # Initialize SkillService and register the create_plan tool
+
+    # Initialize SkillService
     skill_service = SkillService()
-    
-    # Initialize SkillExecutor
-    executor = SkillExecutor()
-    
-    # Create a context
-    context = SkillContext(
-        workspace=MockWorkspace(),
-        project=MockProject()
-    )
-    
-    # Define test arguments for the skill
-    args = {
-        "plan_name": "Test Plan",
-        "description": "A test plan for verifying skill-tool integration",
-        "tasks": [
-            {
-                "id": "task_1",
-                "name": "Research",
-                "description": "Research the topic",
-                "title": "researcher",
-                "parameters": {},
-                "needs": []
-            },
-            {
-                "id": "task_2", 
-                "name": "Analysis",
-                "description": "Analyze the research",
-                "title": "analyst",
-                "parameters": {},
-                "needs": ["task_1"]
-            }
-        ]
-    }
-    
-    # Try to execute the skill
-    # NOTE: This will likely fail because the script expects execute_tool to be available
-    # in the global scope, but this is expected since the script is designed to run
-    # within the SkillExecutor's execution context
-    
+
+    # Get the create_execution_plan skill
+    skill = skill_service.get_skill('create_execution_plan')
+
+    print(f"Skill found: {skill.name if skill else 'None'}")
+    print(f"Skill has {len(skill.scripts) if skill else 0} script(s)")
+
     print("Skill script updated to use execute_tool to call 'create_plan' tool.")
     print("The skill is now properly integrated with the tool via the execute_tool function.")
-    print("When executed through SkillExecutor, the script will call the tool properly.")
-    
+
     return True
 
 

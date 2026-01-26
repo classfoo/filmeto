@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 
 if TYPE_CHECKING:
-    from agent.skill.skill_executor import SkillContext
+    from agent.skill.skill_service import SkillContext
 
 
 def generate_screenplay_outline(
