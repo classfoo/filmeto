@@ -13,7 +13,6 @@ from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
 from agent.react import ReactEventType, react_service, ReactEvent
-from agent.react.tool import ReactTool
 
 
 @dataclass
@@ -92,77 +91,6 @@ class CrewMember:
         self.conversation_history: List[Dict[str, str]] = []
         self.signals = AgentChatSignals()
 
-    def _build_available_tools(self) -> List[ReactTool]:
-        """Build the list of available tools for the ReAct process."""
-        available_tools = []
-        if self.config.skills:
-            # Only include configured skills
-            for skill_name in self.config.skills:
-                skill = self.skill_service.get_skill(skill_name)
-                if skill:
-                    # Build arguments schema for the skill
-                    args_schema = {
-                        "type": "object",
-                        "properties": {
-                            "skill_name": {
-                                "type": "string",
-                                "const": skill.name,
-                                "description": "Name of the skill to execute"
-                            },
-                            "args": {
-                                "type": "object",
-                                "properties": {
-                                    param.name: {
-                                        "type": param.param_type,
-                                        "description": param.description
-                                    } for param in skill.parameters
-                                },
-                                "required": [param.name for param in skill.parameters if param.required]
-                            }
-                        },
-                        "required": ["skill_name", "args"]
-                    }
-
-                    available_tools.append(ReactTool(
-                        name="skill",
-                        description=skill.description,
-                        args=args_schema
-                    ))
-        else:
-            # Include all available skills if no specific skills are configured
-            all_skills = self.skill_service.get_all_skills()
-            for skill in all_skills:
-                # Build arguments schema for the skill
-                args_schema = {
-                    "type": "object",
-                    "properties": {
-                        "skill_name": {
-                            "type": "string",
-                            "const": skill.name,
-                            "description": "Name of the skill to execute"
-                        },
-                        "args": {
-                            "type": "object",
-                            "properties": {
-                                param.name: {
-                                    "type": param.param_type,
-                                    "description": param.description
-                                } for param in skill.parameters
-                            },
-                            "required": [param.name for param in skill.parameters if param.required]
-                        }
-                    },
-                    "required": ["skill_name", "args"]
-                }
-
-                available_tools.append(ReactTool(
-                    name="skill",
-                    description=skill.description,
-                    args=args_schema
-                ))
-
-        return available_tools
-
     async def chat_stream(
         self,
         message: str,
@@ -193,50 +121,26 @@ class CrewMember:
         def build_prompt_function(user_question: str) -> str:
             return self._build_user_prompt(user_question, plan_id=plan_id)
 
-        async def tool_call_function(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
-            if tool_name == "skill":
-                skill_name = tool_args.get("skill_name") or tool_args.get("name")
-                skill_args = tool_args.get("args") or tool_args.get("arguments") or {}
-
-                if skill_name:
-                    skill = self.skill_service.get_skill(skill_name)
-                    if not skill:
-                        return {"error": f"Skill '{skill_name}' not found"}
-
-                    result_parts = []
-                    async for event in self.skill_service.chat_stream(
-                        skill=skill,
-                        user_message=tool_args.get("message"),
-                        workspace=self.workspace,
-                        project=self.project,
-                        args=skill_args,
-                        llm_service=self.llm_service,
-                        max_steps=10,
-                    ):
-                        await self._forward_skill_event(event, getattr(self, "_current_message_id", None))
-                        if event.event_type == ReactEventType.FINAL:
-                            result_parts.append(event.payload.get("final_response", ""))
-                        elif event.event_type == ReactEventType.ERROR:
-                            result_parts.append(event.payload.get("error", ""))
-
-                    final_result = "\n".join(result_parts) if result_parts else "Skill execution completed"
-                    return {"result": final_result}
-
-            return {"error": f"Unknown tool: {tool_name}"}
-
-        # Prepare available tools for the ReAct process
-        available_tools = self._build_available_tools()
+        # Build available tool names - use execute_skill as the tool
+        available_tool_names = ["execute_skill"]
 
         react_instance = react_service.get_or_create_react(
             project_name=self.project_name,
             react_type=self.config.name,
             build_prompt_function=build_prompt_function,
-            tool_call_function=tool_call_function,
-            available_tools=available_tools,
+            available_tool_names=available_tool_names,
             workspace=self.workspace,
             llm_service=self.llm_service,
             max_steps=self.config.max_steps,
         )
+
+        # Set context on the react instance's tool_service for skill execution
+        react_instance.tool_service.set_context({
+            "skill_service": self.skill_service,
+            "workspace": self.workspace,
+            "project": self.project,
+            "llm_service": self.llm_service,
+        })
 
         final_response = None
         saw_event = False
@@ -570,48 +474,6 @@ class CrewMember:
             + "\n\n".join(details)
         )
 
-    async def _forward_skill_event(self, event: ReactEvent, message_id: Optional[str] = None):
-        """转发 skill 的 React 事件到 UI
-
-        Args:
-            event: The ReactEvent from skill execution
-            message_id: Optional message ID to associate with the event
-        """
-        # 事件类型映射
-        event_mapping = {
-            ReactEventType.LLM_THINKING: (ContentType.THINKING, MessageType.THINKING, "Skill Thinking"),
-            ReactEventType.TOOL_START: (ContentType.TOOL, MessageType.SYSTEM, "Tool Starting"),
-            ReactEventType.TOOL_PROGRESS: (ContentType.TOOL, MessageType.SYSTEM, "Tool Progress"),
-            ReactEventType.TOOL_END: (ContentType.TOOL, MessageType.SYSTEM, "Tool Completed"),
-        }
-
-        if event.event_type not in event_mapping:
-            return
-
-        content_type, message_type, title = event_mapping[event.event_type]
-
-        content = StructureContent(
-            content_type=content_type,
-            data={"status": event.event_type, **event.payload},
-            title=title,
-            description=f"Skill execution: {event.event_type}",
-        )
-
-        meta = {"session_id": getattr(self, "_session_id", "unknown")}
-        if message_id:
-            meta["message_id"] = message_id
-
-        kw = {
-            "message_type": message_type,
-            "sender_id": self.config.name,
-            "sender_name": self.config.name,
-            "metadata": meta,
-            "structured_content": [content],
-        }
-        if message_id:
-            kw["message_id"] = message_id
-
-        await self.signals.send_agent_message(AgentMessage(**kw))
 
 
 def _parse_frontmatter(content: str) -> (Dict[str, Any], str):

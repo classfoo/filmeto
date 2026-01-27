@@ -6,6 +6,7 @@ import uuid
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 from agent.llm.llm_service import LlmService
+from agent.tool.tool_service import ToolService
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,6 @@ from .types import (
     ActionType,
 )
 from .storage import ReactStorage
-from .tool import ReactTool
 
 
 class React:
@@ -38,8 +38,7 @@ class React:
         project_name: str,
         react_type: str,
         build_prompt_function: Callable[[str], str],
-        tool_call_function: Callable[[str, Dict[str, Any]], Any],
-        available_tools: Optional[List[ReactTool]] = None,
+        available_tool_names: Optional[List[str]] = None,
         llm_service: Optional[LlmService] = None,
         max_steps: int = 20,
         checkpoint_interval: int = 1,
@@ -48,11 +47,11 @@ class React:
         self.project_name = project_name
         self.react_type = react_type
         self.build_prompt_function = build_prompt_function
-        self.tool_call_function = tool_call_function
-        self.available_tools = available_tools or []
+        self.available_tool_names = available_tool_names or []
         self.llm_service = llm_service or LlmService(workspace)
         self.max_steps = max_steps
         self.checkpoint_interval = checkpoint_interval
+        self.tool_service = ToolService()
 
         if workspace and hasattr(workspace, "get_path"):
             self.workspace_root = workspace.get_path()
@@ -149,16 +148,29 @@ class React:
         # Build the task context using the build_prompt_function
         task_context = self.build_prompt_function(combined_question)
 
-        # Format tools for the prompt
+        # Format tools from ToolService for the prompt
+        import json
         tools_formatted = ""
-        for tool in self.available_tools:
-            tools_formatted += f"### {tool.name}\n"
-            tools_formatted += f"**Description**: {tool.description}\n\n"
-            tools_formatted += "**Arguments**:\n"
-            tools_formatted += "```json\n"
-            import json
-            tools_formatted += json.dumps(tool.args, indent=2)
-            tools_formatted += "\n```\n\n"
+        for tool_name in self.available_tool_names:
+            metadata = self.tool_service.get_tool_metadata(tool_name)
+            tools_formatted += f"### {metadata.name}\n"
+            tools_formatted += f"**Description**: {metadata.description}\n\n"
+
+            if metadata.parameters:
+                tools_formatted += "**Arguments**:\n"
+                tools_formatted += "```json\n"
+                args_schema = {
+                    "type": "object",
+                    "properties": {
+                        p.name: {
+                            "type": p.param_type,
+                            "description": p.description
+                        } for p in metadata.parameters
+                    },
+                    "required": [p.name for p in metadata.parameters if p.required]
+                }
+                tools_formatted += json.dumps(args_schema, indent=2)
+                tools_formatted += "\n```\n\n"
 
         # Use the prompt service to render the template
         from agent.prompt.prompt_service import prompt_service
@@ -225,7 +237,7 @@ class React:
         """Execute tool with timing and metrics tracking."""
         start_time = time.time()
         try:
-            result = self.tool_call_function(tool_name, tool_args)
+            result = self.tool_service.execute_tool(tool_name, tool_args)
             if inspect.isawaitable(result):
                 result = await result
 
