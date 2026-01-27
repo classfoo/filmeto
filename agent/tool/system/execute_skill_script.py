@@ -1,7 +1,9 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional, TYPE_CHECKING
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
+if TYPE_CHECKING:
+    from ...tool_context import ToolContext
 
 class ExecuteSkillScriptTool(BaseTool):
     """
@@ -71,13 +73,13 @@ class ExecuteSkillScriptTool(BaseTool):
                 return_description="Returns the execution result from the script"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Dict[str, Any] = None) -> Any:
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
         """
         Execute a skill script using ToolService.
 
         Args:
             parameters: Parameters including skill_path, script_name, and args
-            context: Context containing workspace and project info
+            context: ToolContext containing workspace and project info
 
         Returns:
             Execution result from the script
@@ -92,10 +94,6 @@ class ExecuteSkillScriptTool(BaseTool):
             return "Error: skill_path and script_name are required"
 
         tool_service = ToolService()
-
-        # Set context if provided
-        if context:
-            tool_service.set_context(context)
 
         # Find the script path
         full_script_path = os.path.join(skill_path, script_name)
@@ -113,7 +111,7 @@ class ExecuteSkillScriptTool(BaseTool):
             argv.extend([f"--{key}", str(value)])
 
         try:
-            result = tool_service.execute_script(full_script_path, argv)
+            result = tool_service.execute_script(full_script_path, argv, context)
             return str(result) if result is not None else ""
         except Exception as e:
             return f"Error executing skill script: {str(e)}"

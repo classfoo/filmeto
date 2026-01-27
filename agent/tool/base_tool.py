@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from dataclasses import dataclass, field
+
+if TYPE_CHECKING:
+    from .tool_context import ToolContext
 
 
 @dataclass
@@ -71,13 +74,13 @@ class BaseTool(ABC):
         self.description = description
 
     @abstractmethod
-    def execute(self, parameters: Dict[str, Any], context: Dict[str, Any] = None) -> Any:
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
         """
         Execute the tool with given parameters and context.
 
         Args:
             parameters: Dictionary of parameters for the tool
-            context: Optional context information (workspace, project, etc.)
+            context: Optional ToolContext object containing workspace, project_name, etc.
 
         Returns:
             Result of the tool execution

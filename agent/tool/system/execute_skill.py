@@ -1,5 +1,8 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
+
+if TYPE_CHECKING:
+    from ...tool_context import ToolContext
 
 
 class ExecuteSkillTool(BaseTool):
@@ -8,12 +11,11 @@ class ExecuteSkillTool(BaseTool):
     This is a bridge tool that allows React to execute skills.
     """
 
-    def __init__(self, skill_service=None):
+    def __init__(self):
         super().__init__(
             name="execute_skill",
             description="Execute a skill with given parameters"
         )
-        self.skill_service = skill_service
 
     def metadata(self, lang: str = "en_US") -> ToolMetadata:
         """Get metadata for the execute_skill tool."""
@@ -72,26 +74,25 @@ class ExecuteSkillTool(BaseTool):
                 return_description="Returns the execution result from the skill"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Dict[str, Any] = None) -> Any:
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
         """
         Execute a skill using SkillService.
 
         Args:
             parameters: Parameters including skill_name, message, and args
-            context: Context containing workspace, project, llm_service, skill_service, etc.
+            context: ToolContext containing workspace and project info
 
         Returns:
             Execution result from the skill
         """
-        # Prefer skill_service from context over constructor
-        skill_service = None
-        if context and "skill_service" in context:
-            skill_service = context["skill_service"]
-        elif self.skill_service:
-            skill_service = self.skill_service
+        # Get workspace from context and create SkillService
+        workspace = context.workspace if context else None
 
-        if not skill_service:
-            return "Error: SkillService not available"
+        if not workspace:
+            return "Error: Workspace not available in context"
+
+        from agent.skill.skill_service import SkillService
+        skill_service = SkillService(workspace)
 
         skill_name = parameters.get("skill_name")
         message = parameters.get("message")
@@ -100,7 +101,7 @@ class ExecuteSkillTool(BaseTool):
         if not skill_name:
             return "Error: skill_name is required"
 
-        skill = self.skill_service.get_skill(skill_name)
+        skill = skill_service.get_skill(skill_name)
         if not skill:
             return f"Error: Skill '{skill_name}' not found"
 
@@ -116,21 +117,15 @@ class ExecuteSkillTool(BaseTool):
 
                 from ..tool_service import ToolService
                 tool_service = ToolService()
-                if context:
-                    tool_service.set_context(context)
 
                 # Build argv from args
                 argv = []
                 for key, value in args.items():
                     argv.extend([f"--{key}", str(value)])
 
-                result = tool_service.execute_script(script_path, argv)
+                result = tool_service.execute_script(script_path, argv, context)
                 return str(result) if result is not None else ""
             else:
                 return f"Error: Skill '{skill_name}' has no executable scripts"
         except Exception as e:
             return f"Error executing skill: {str(e)}"
-
-    def set_skill_service(self, skill_service):
-        """Set the skill service for this tool."""
-        self.skill_service = skill_service

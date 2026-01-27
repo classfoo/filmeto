@@ -1,10 +1,9 @@
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING, Optional
 from ...plan.service import PlanService
 from ...plan.models import PlanTask, Plan
 from datetime import datetime
 import uuid
-
 
 class CreatePlanTool(BaseTool):
     """
@@ -78,13 +77,13 @@ class CreatePlanTool(BaseTool):
                 return_description="Returns the created plan details including plan ID, title, description, task list, creation time, and status"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Dict[str, Any]:
         """
         Execute the plan creation using PlanService.
 
         Args:
             parameters: Parameters for the plan including title, description, tasks
-            context: Context containing project/workspace info
+            context: ToolContext containing workspace and project info
 
         Returns:
             Created plan details
@@ -95,27 +94,15 @@ class CreatePlanTool(BaseTool):
         raw_tasks = parameters.get('tasks', [])
 
         # Extract project information from context
-        project_info = context.get('project', {}) if context else {}
-        workspace = context.get('workspace', '') if context else ''
-
-        project_name = project_info.get('name', 'Unknown Project')
+        workspace = context.workspace if context else None
+        project_name = context.project_name if context else 'Unknown Project'
 
         # Initialize PlanService
         plan_service = PlanService()
 
         # Set workspace if provided
         if workspace:
-            # Assuming workspace object has a workspace_path attribute
-            # If not, we'll use the string directly
-            if hasattr(workspace, 'workspace_path'):
-                plan_service.set_workspace(workspace)
-            else:
-                # Create a mock workspace object if needed
-                class MockWorkspace:
-                    def __init__(self, path):
-                        self.workspace_path = path
-                mock_workspace = MockWorkspace(workspace)
-                plan_service.set_workspace(mock_workspace)
+            plan_service.set_workspace(workspace)
 
         # Convert raw tasks to PlanTask objects
         plan_tasks = []

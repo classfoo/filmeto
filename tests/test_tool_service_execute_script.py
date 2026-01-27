@@ -10,6 +10,7 @@ import tempfile
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from agent.tool.tool_service import ToolService
+from agent.tool.tool_context import ToolContext
 from agent.tool.system import GetProjectCrewMembersTool
 
 
@@ -24,6 +25,12 @@ class MockWorkspace:
     """Mock workspace object for testing"""
     def __init__(self):
         self.workspace_path = "/tmp/test_workspace"
+        self.project_name = "TestProject"
+        self._project = MockProject()
+
+    def get_project(self):
+        """Get the mock project"""
+        return self._project
 
 
 class TestToolServiceExecuteScript(unittest.TestCase):
@@ -32,19 +39,14 @@ class TestToolServiceExecuteScript(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures before each test method."""
         self.tool_service = ToolService()
-        
+
         # Register the GetProjectCrewMembersTool
         self.get_crew_members_tool = GetProjectCrewMembersTool()
         self.tool_service.register_tool(self.get_crew_members_tool)
-        
+
         # Set up context with mock project and workspace
-        mock_project = MockProject()
         mock_workspace = MockWorkspace()
-        context = {
-            'project': mock_project,
-            'workspace': mock_workspace
-        }
-        self.tool_service.set_context(context)
+        self.context = ToolContext(workspace=mock_workspace, project_name="TestProject")
 
     def test_execute_script_with_get_project_crew_members(self):
         """Test that execute_script can call get_project_crew_members tool and return correct results"""
@@ -62,8 +64,8 @@ print(json.dumps(result))
             script_path = f.name
 
         try:
-            # Execute the script
-            output = self.tool_service.execute_script(script_path)
+            # Execute the script with context
+            output = self.tool_service.execute_script(script_path, context=self.context)
             # Extract the last line which should be the JSON result
             if output:
                 lines = output.strip().split('\n')
@@ -84,14 +86,14 @@ print(json.dumps(result))
         finally:
             # Clean up the temporary file
             os.remove(script_path)
-        
+
         # Verify the result
         self.assertIsNotNone(result, "Result should not be None")
         self.assertIsInstance(result, list, "Result should be a list of crew members")
-        
+
         # Verify that we got some crew members
         self.assertGreater(len(result), 0, "Should have at least one crew member")
-        
+
         # Verify the structure of each crew member
         for member in result:
             self.assertIn('name', member, "Each crew member should have a 'name' field")
@@ -103,7 +105,7 @@ print(json.dumps(result))
             self.assertIn('max_steps', member, "Each crew member should have a 'max_steps' field")
             self.assertIn('color', member, "Each crew member should have a 'color' field")
             self.assertIn('icon', member, "Each crew member should have an 'icon' field")
-            
+
             # Verify that the name is a non-empty string
             self.assertIsInstance(member['name'], str, "Name should be a string")
             self.assertGreater(len(member['name']), 0, "Name should not be empty")
@@ -123,7 +125,7 @@ print(json.dumps(result))
             script_path = f.name
 
         try:
-            output = self.tool_service.execute_script(script_path)
+            output = self.tool_service.execute_script(script_path, context=self.context)
             # Extract the last line which should be the JSON result
             if output:
                 lines = output.strip().split('\n')
@@ -144,7 +146,7 @@ print(json.dumps(result))
         finally:
             # Clean up the temporary file
             os.remove(script_path)
-        
+
         # Verify the result
         self.assertIsNotNone(result)
         self.assertIsInstance(result, list)
@@ -152,13 +154,13 @@ print(json.dumps(result))
 
     def test_execute_tool_directly(self):
         """Test that the tool can be called directly as well"""
-        result = self.tool_service.execute_tool("get_project_crew_members", {})
-        
+        result = self.tool_service.execute_tool("get_project_crew_members", {}, context=self.context)
+
         # Verify the result
         self.assertIsNotNone(result)
         self.assertIsInstance(result, list)
         self.assertGreater(len(result), 0)
-        
+
         # Verify structure
         for member in result:
             self.assertIn('name', member)
@@ -178,7 +180,7 @@ result = execute_tool("get_project_crew_members", {}
 
         try:
             with self.assertRaises(ValueError) as context:
-                self.tool_service.execute_script(script_path)
+                self.tool_service.execute_script(script_path, context=self.context)
 
             self.assertIn("Syntax error in script", str(context.exception))
         finally:
@@ -198,7 +200,7 @@ result = execute_tool("nonexistent_tool", {})
 
         try:
             with self.assertRaises(RuntimeError) as context:
-                self.tool_service.execute_script(script_path)
+                self.tool_service.execute_script(script_path, context=self.context)
 
             self.assertIn("Tool 'nonexistent_tool' not found", str(context.exception))
         finally:

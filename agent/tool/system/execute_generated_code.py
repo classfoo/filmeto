@@ -1,5 +1,8 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional, TYPE_CHECKING
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
+
+if TYPE_CHECKING:
+    from ...tool_context import ToolContext
 
 
 class ExecuteGeneratedCodeTool(BaseTool):
@@ -58,13 +61,13 @@ class ExecuteGeneratedCodeTool(BaseTool):
                 return_description="Returns the execution result from the generated code"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Dict[str, Any] = None) -> Any:
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
         """
         Execute dynamically generated Python code using ToolService.
 
         Args:
             parameters: Parameters including code and args
-            context: Context containing workspace and project info
+            context: ToolContext containing workspace and project info
 
         Returns:
             Execution result from the generated code
@@ -79,17 +82,13 @@ class ExecuteGeneratedCodeTool(BaseTool):
 
         tool_service = ToolService()
 
-        # Set context if provided
-        if context:
-            tool_service.set_context(context)
-
         # Build argv from args
         argv = []
         for key, value in args.items():
             argv.extend([f"--{key}", str(value)])
 
         try:
-            result = tool_service.execute_script_content(code, argv)
+            result = tool_service.execute_script_content(code, argv, context)
             return str(result) if result is not None else ""
         except Exception as e:
             return f"Error executing generated code: {str(e)}"

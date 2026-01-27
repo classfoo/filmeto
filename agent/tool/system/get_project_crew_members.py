@@ -1,8 +1,7 @@
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from agent.crew.crew_service import CrewService
 from agent.crew.crew_member import CrewMember
-
 
 class GetProjectCrewMembersTool(BaseTool):
     """
@@ -48,23 +47,25 @@ class GetProjectCrewMembersTool(BaseTool):
                 return_description="Returns a list of crew members, each member contains id, name, role, description, soul, skills, model, temperature, max_steps, color, and icon"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Dict[str, Any] = None) -> List[Dict[str, str]]:
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> List[Dict[str, str]]:
         """
         Execute the crew member retrieval using CrewService.
 
         Args:
             parameters: Additional parameters (currently unused)
-            context: Context containing project/workspace info
+            context: ToolContext containing workspace and project info
 
         Returns:
             List of crew members with their details
         """
         # Extract project information from context
-        project = context.get('project') if context else None
-        workspace = context.get('workspace') if context else None
+        workspace = context.workspace if context else None
 
-        if not project:
+        if not workspace:
             return []
+
+        # Get the project from workspace
+        project = workspace.get_project()
 
         # Initialize CrewService
         crew_service = CrewService()
