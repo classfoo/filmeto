@@ -134,17 +134,6 @@ class CrewMember:
             max_steps=self.config.max_steps,
         )
 
-        # Set tool context on the react instance for skill execution
-        from agent.tool.tool_context import ToolContext
-        tool_context = ToolContext(
-            workspace=self.workspace,
-            project_name=self.project_name
-        )
-        tool_context.set("skill_service", self.skill_service)
-        tool_context.set("project", self.project)
-        tool_context.set("llm_service", self.llm_service)
-        react_instance.set_tool_context(tool_context)
-
         final_response = None
         saw_event = False
         emitted_final = False

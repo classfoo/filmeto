@@ -83,22 +83,6 @@ class SkillChat:
             llm_service=llm_service,
             max_steps=max_steps,
         )
-
-        # Set tool context for tool execution
-        from agent.tool.tool_context import ToolContext
-        tool_context = ToolContext(
-            workspace=workspace,
-            project_name=project_name
-        )
-        tool_context.set("skill", skill)
-        tool_context.set("project", project)
-        tool_context.set("llm_service", llm_service)
-        # Include skill path for script execution if scripts exist
-        if skill.scripts:
-            skill_path = os.path.dirname(skill.scripts[0]) if skill.scripts else ""
-            tool_context.set("skill_path", skill_path)
-        react_instance.set_tool_context(tool_context)
-
         async for event in react_instance.chat_stream(user_message or skill.description):
             yield event
 
