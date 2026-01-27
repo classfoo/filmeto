@@ -8,6 +8,7 @@ New code should import directly from the specific modules:
 - status: ReactStatus
 - actions: ActionType, ReactAction, ToolAction, FinalAction, ErrorAction
 - parser: ReactActionParser
+- todo: TodoItem, TodoPatch, TodoState, TodoStatus, TodoPatchType
 """
 
 # Event types
@@ -25,6 +26,15 @@ from .actions import ActionType, ReactAction, ToolAction, FinalAction, ErrorActi
 # Parser
 from .parser import ReactActionParser
 
+# TODO types
+from .todo import (
+    TodoItem,
+    TodoPatch,
+    TodoState,
+    TodoStatus,
+    TodoPatchType,
+)
+
 __all__ = [
     # Event types
     "ReactEvent",
@@ -41,4 +51,10 @@ __all__ = [
     "ErrorAction",
     # Parser
     "ReactActionParser",
+    # TODO
+    "TodoItem",
+    "TodoPatch",
+    "TodoState",
+    "TodoStatus",
+    "TodoPatchType",
 ]
