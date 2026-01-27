@@ -1,4 +1,4 @@
-from ..base_tool import BaseTool
+from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 from typing import Any, Dict
 from ...plan.service import PlanService
 from ...plan.models import PlanTask, Plan
@@ -16,6 +16,67 @@ class CreatePlanTool(BaseTool):
             name="create_plan",
             description="Create a plan execution for the current project"
         )
+
+    def metadata(self, lang: str = "en_US") -> ToolMetadata:
+        """Get metadata for the create_plan tool."""
+        if lang == "zh_CN":
+            return ToolMetadata(
+                name=self.name,
+                description="为当前项目创建一个执行计划",
+                parameters=[
+                    ToolParameter(
+                        name="title",
+                        description="计划标题",
+                        param_type="string",
+                        required=True,
+                        default="未命名计划"
+                    ),
+                    ToolParameter(
+                        name="description",
+                        description="计划描述",
+                        param_type="string",
+                        required=False,
+                        default="未提供描述"
+                    ),
+                    ToolParameter(
+                        name="tasks",
+                        description="任务列表，每个任务包含 id、name、description、title、parameters、needs 等字段",
+                        param_type="array",
+                        required=True,
+                        default=[]
+                    ),
+                ],
+                return_description="返回创建的计划详情，包括计划 ID、标题、描述、任务列表、创建时间和状态"
+            )
+        else:
+            return ToolMetadata(
+                name=self.name,
+                description="Create a plan execution for the current project",
+                parameters=[
+                    ToolParameter(
+                        name="title",
+                        description="Plan title",
+                        param_type="string",
+                        required=True,
+                        default="Untitled Plan"
+                    ),
+                    ToolParameter(
+                        name="description",
+                        description="Plan description",
+                        param_type="string",
+                        required=False,
+                        default="No description provided"
+                    ),
+                    ToolParameter(
+                        name="tasks",
+                        description="List of tasks, each task contains fields like id, name, description, title, parameters, needs",
+                        param_type="array",
+                        required=True,
+                        default=[]
+                    ),
+                ],
+                return_description="Returns the created plan details including plan ID, title, description, task list, creation time, and status"
+            )
 
     def execute(self, parameters: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
         """
