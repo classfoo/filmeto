@@ -6,7 +6,7 @@ import contextlib
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List
-from .base_tool import BaseTool
+from .base_tool import BaseTool, ToolMetadata
 
 
 class ToolService:
@@ -210,3 +210,57 @@ class ToolService:
     def get_available_tools(self) -> List[str]:
         """Get list of available tool names."""
         return list(self.tools.keys())
+
+    def get_tool_metadata(self, tool_name: str, lang: str = "en_US") -> ToolMetadata:
+        """
+        Get metadata for a specific tool.
+
+        Args:
+            tool_name: Name of the tool
+            lang: Language code for localized metadata (e.g., "en_US", "zh_CN")
+
+        Returns:
+            ToolMetadata object containing the tool's metadata
+
+        Raises:
+            ValueError: If tool is not found
+        """
+        if tool_name not in self.tools:
+            raise ValueError(f"Tool '{tool_name}' not found")
+
+        tool = self.tools[tool_name]
+        return tool.metadata(lang)
+
+    def get_all_tools_metadata(self, lang: str = "en_US") -> List[ToolMetadata]:
+        """
+        Get metadata for all available tools.
+
+        Args:
+            lang: Language code for localized metadata (e.g., "en_US", "zh_CN")
+
+        Returns:
+            List of ToolMetadata objects for all available tools
+        """
+        return [tool.metadata(lang) for tool in self.tools.values()]
+
+    def get_tools_metadata_by_names(self, tool_names: List[str], lang: str = "en_US") -> List[ToolMetadata]:
+        """
+        Get metadata for tools by their names.
+
+        Args:
+            tool_names: List of tool names to get metadata for
+            lang: Language code for localized metadata (e.g., "en_US", "zh_CN")
+
+        Returns:
+            List of ToolMetadata objects for the specified tools
+
+        Raises:
+            ValueError: If any tool is not found
+        """
+        metadata_list = []
+        for tool_name in tool_names:
+            if tool_name not in self.tools:
+                raise ValueError(f"Tool '{tool_name}' not found")
+            tool = self.tools[tool_name]
+            metadata_list.append(tool.metadata(lang))
+        return metadata_list
