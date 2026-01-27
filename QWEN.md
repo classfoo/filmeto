@@ -6,14 +6,61 @@ The Filmeto project follows a well-defined structure to maintain organization an
 
 ### Directory Organization
 
-- `app/` - Main application code including UI components, data models, and business logic
-- `tests/` - **ALL test files must be placed in this directory** - This includes unit tests, integration tests, and end-to-end tests
-- `docs/` - **ALL documentation files must be placed in this directory** - This includes API documentation, architecture guides, and user manuals
-- `agent/` - AI agent module and related components
-- `server/` - Backend server implementations
-- `utils/` - Utility functions and helpers
-- `style/` - Styling assets and themes
-- `textures/` - Texture and asset files
+```
+filmeto/
+├── agent/           # AI agent module with chat, crew, llm, plan, prompt, react, skill, soul, tool
+├── app/             # Main application code (config, data, plugins, spi, ui)
+├── bin/             # Executable scripts and binaries
+├── docs/            # **ALL documentation files must be placed here**
+├── examples/        # Example code and demonstrations
+├── i18n/            # Internationalization files (en_US, zh_CN)
+├── server/          # Backend server implementations (api, plugins, service)
+├── style/           # QSS styling files (dark_style.qss, light_style.qss)
+├── tests/           # **ALL test files must be placed here**
+├── textures/        # Texture and asset files
+├── utils/           # Utility functions and helpers
+└── workspace/       # Working directory for projects and demos
+```
+
+### Detailed Subdirectories
+
+#### agent/ - AI Agent Module
+- `chat/` - Chat functionality and conversation handling
+- `crew/` - Crew management and orchestration
+- `llm/` - Large Language Model integrations
+- `plan/` - Planning and execution logic
+- `prompt/` - Prompt templates and management
+- `react/` - ReAct (Reasoning + Acting) framework
+- `skill/` - Skill definitions and implementations
+- `soul/` - Agent personality and soul traits
+- `tool/` - Tool definitions and integrations
+
+#### app/ - Main Application
+- `config/` - Application configuration
+- `data/` - Data models and storage
+- `plugins/` - Application plugins
+- `spi/` - Service Provider Interface
+- `ui/` - User interface components
+
+#### server/ - Backend Server
+- `api/` - API endpoints
+- `plugins/` - Server plugins
+- `service/` - Business logic services
+
+#### tests/ - Test Suite
+- `react/` - React framework tests
+- Test files should mirror the source structure
+
+#### utils/ - Utilities
+- `async_queue_utils.py` - Async queue utilities
+- `comfy_ui_utils.py` - ComfyUI integration
+- `download_utils.py` - Download handling
+- `ffmpeg_utils.py` - FFmpeg operations
+- `i18n_utils.py` - Internationalization helpers
+- `plan_service.py` - Planning service
+- `queue_utils.py` - Queue management
+- `signal_utils.py` - Qt signal utilities
+- `thread_utils.py` - Threading helpers
 
 ## Testing Guidelines
 
@@ -29,12 +76,10 @@ The Filmeto project follows a well-defined structure to maintain organization an
 Tests should be organized in subdirectories mirroring the structure of the code being tested:
 ```
 tests/
-├── test_app/
-│   ├── test_data/
-│   ├── test_ui/
-│   └── test_plugins/
-├── test_agent/
-└── test_utils/
+├── test_app/        # Application tests
+├── test_agent/      # Agent module tests
+├── test_server/     # Server tests
+└── react/           # React framework tests (existing)
 ```
 
 ## Documentation Guidelines
@@ -61,9 +106,11 @@ The docs directory should contain:
 1. **Always place new test files in the `tests/` directory**
 2. **Always place new documentation files in the `docs/` directory**
 3. **Component styles must be defined in global style files (dark_style.qss and light_style.qss) to ensure components can switch between different themes**
-4. **Code text should use English and be extracted to global internationalization files, providing both en_US and zh_CN language sets**
+4. **Code text should use English and be extracted to global internationalization files (i18n/), providing both en_US and zh_CN language sets**
 5. Maintain consistent naming conventions across all directories
 6. Keep documentation up-to-date with code changes
 7. Write meaningful test cases that cover edge cases and error conditions
+8. Use existing utilities from `utils/` before creating new ones
+9. Follow the existing module structure when adding new features
 
 Following these guidelines ensures a maintainable, scalable, and well-documented codebase.
