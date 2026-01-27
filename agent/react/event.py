@@ -17,6 +17,7 @@ class ReactEventType(str, Enum):
     PAUSE = "pause"
     RESUME = "resume"
     STATUS_CHANGE = "status_change"
+    TODO_UPDATE = "todo_update"
 
     @classmethod
     def is_tool_event(cls, event_type: str) -> bool:
