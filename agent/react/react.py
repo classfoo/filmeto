@@ -7,6 +7,7 @@ from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 from agent.llm.llm_service import LlmService
 from agent.tool.tool_service import ToolService
+from agent.tool.tool_context import ToolContext
 
 
 logger = logging.getLogger(__name__)
@@ -295,7 +296,7 @@ class React:
         """Execute tool with timing and metrics tracking."""
         start_time = time.time()
         try:
-            result = self.tool_service.execute_tool(tool_name, tool_args)
+            result = self.tool_service.execute_tool(tool_name, tool_args, ToolContext(workspace=self.workspace,project_name=self.project_name))
             if inspect.isawaitable(result):
                 result = await result
 

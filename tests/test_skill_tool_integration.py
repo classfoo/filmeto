@@ -7,8 +7,9 @@ import os
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from agent.skill.skill_service import SkillService, SkillContext
+from agent.skill.skill_service import SkillService
 from agent.tool.tool_service import ToolService
+from agent.tool.tool_context import ToolContext
 from agent.tool.system import GetProjectCrewMembersTool, CreatePlanTool
 
 
@@ -35,16 +36,11 @@ def test_skill_tool_integration():
     tool_service.register_tool(create_plan_tool)
 
     # Set up context with project and workspace
-    context = SkillContext(
+    tool_context = ToolContext(
         workspace=MockWorkspace(),
-        project=MockProject()
+        project_name="TestProject"
     )
-
-    # Set the context in the tool service
-    tool_service.set_context({
-        'project': context.project,
-        'workspace': context.workspace
-    })
+    tool_context.set("project", MockProject())
 
     # Initialize SkillService
     skill_service = SkillService()

@@ -134,13 +134,16 @@ class CrewMember:
             max_steps=self.config.max_steps,
         )
 
-        # Set context on the react instance's tool_service for skill execution
-        react_instance.tool_service.set_context({
-            "skill_service": self.skill_service,
-            "workspace": self.workspace,
-            "project": self.project,
-            "llm_service": self.llm_service,
-        })
+        # Set tool context on the react instance for skill execution
+        from agent.tool.tool_context import ToolContext
+        tool_context = ToolContext(
+            workspace=self.workspace,
+            project_name=self.project_name
+        )
+        tool_context.set("skill_service", self.skill_service)
+        tool_context.set("project", self.project)
+        tool_context.set("llm_service", self.llm_service)
+        react_instance.set_tool_context(tool_context)
 
         final_response = None
         saw_event = False
