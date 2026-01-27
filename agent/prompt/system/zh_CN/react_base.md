@@ -15,31 +15,6 @@ version: 1.0
 {{ soul_profile }}
 {% endif %}
 
-{% if skills_list %}
-## 可用技能
-{% for skill in skills_list %}
-### {{ skill.name }}
-**描述**: {{ skill.description }}
-
-**使用时机**: {% if skill.usage_criteria %}{{ skill.usage_criteria }}{% else %}{{ skill.description }}{% endif %}
-
-{% if skill.parameters %}
-**参数**:
-{% for param in skill.parameters %}
-  - `{{ param.name }}` ({{ param.type }}, {% if param.required %}必填{% else %}可选{% endif %}{% if param.default %}, 默认值: {{ param.default }}{% endif %}): {{ param.description }}
-{% endfor %}
-{% endif %}
-
-**示例调用**:
-```json
-{{ skill.example_call | indent(2) }}
-```
-
-{% endfor %}
-{% else %}
-{{ available_skills }}
-{% endif %}
-
 {% if context_info %}
 {% if "User's question:" in context_info or "User's questions:" in context_info %}
 {% if "User's questions:" in context_info %}

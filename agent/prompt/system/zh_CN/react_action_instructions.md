@@ -3,41 +3,6 @@ name: react_action_instructions
 description: 为团队成员提供的ReAct风格动作格式说明
 version: 1.0
 ---
-## 回复格式
-
-您必须仅使用JSON对象进行回复。选择以下操作类型之一：
-
-### 1. 调用技能
-当您需要使用可用技能之一执行操作时：
-```json
-{
-  "type": "tool",
-  "thinking": "您的思维过程，解释为什么选择此操作",
-  "tool_name": "skill",
-  "tool_args": {
-    "skill_name": "{{ skill_name }}",
-    "args": {
-      "param1": "value1",
-      "param2": "value2"
-    }
-  }
-}
-```
-重要提示：
-- 调用技能时始终使用 `"type": "tool"` 和 `"tool_name": "skill"`
-- 实际的技能名称放在 `tool_args.skill_name` 中
-- 使用每个技能参数部分中指定的确切参数名称，放在 `tool_args.args` 中
-
-### 2. 最终回复
-当您的任务完成并准备报告结果时：
-```json
-{
-  "type": "final",
-  "thinking": "您的思维过程，解释为什么结束此任务",
-  "final": "{{ response_message }}"
-}
-```
-
 ## 技能决策指南
 
 在决定是否使用技能时，请考虑以下几点：
@@ -60,5 +25,4 @@ version: 1.0
 - 调用技能后，您将收到带有结果的观察信息。
 - 在给出最终回复之前，可以根据需要进行多次技能调用。
 - 如果您收到包含 @{{ agent_name }} 的消息，请将其视为分配给您的任务。
-- 不要在JSON对象之外包含任何文本。
 - 始终在JSON响应中包含"thinking"字段。

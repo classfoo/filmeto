@@ -24,11 +24,6 @@ version: 1.0
 此技能无预定义脚本。请生成Python脚本并调用 `execute_generated_script` 工具。
 {% endif %}
 
-## 可用工具
-{% for tool in available_tools %}
-- `{{ tool.name }}`: {{ tool.description }}
-{% endfor %}
-
 ## 当前任务
 {{ user_question }}
 
@@ -38,40 +33,3 @@ version: 1.0
 {{ args | tojson(indent=2) }}
 ```
 {% endif %}
-
-## 回复格式
-
-### 1. 直接执行预定义脚本
-```json
-{
-  "type": "tool",
-  "thinking": "说明原因",
-  "tool_name": "execute_existing_script",
-  "tool_args": {
-    "script_name": "{{ script_name }}",
-    "args": {...}
-  }
-}
-```
-
-### 2. 生成并执行脚本
-```json
-{
-  "type": "tool",
-  "thinking": "说明原因",
-  "tool_name": "execute_generated_script",
-  "tool_args": {
-    "code": "生成的Python代码",
-    "args": {...}
-  }
-}
-```
-
-### 3. 最终回复
-```json
-{
-  "type": "final",
-  "thinking": "总结",
-  "final": "结果"
-}
-```

@@ -15,31 +15,6 @@ Soul profile:
 {{ soul_profile }}
 {% endif %}
 
-{% if skills_list %}
-## Available Skills
-{% for skill in skills_list %}
-### {{ skill.name }}
-**Description**: {{ skill.description }}
-
-**When to use this skill**: {% if skill.usage_criteria %}{{ skill.usage_criteria }}{% else %}{{ skill.description }}{% endif %}
-
-{% if skill.parameters %}
-**Parameters**:
-{% for param in skill.parameters %}
-  - `{{ param.name }}` ({{ param.type }}, {% if param.required %}required{% else %}optional{% endif %}{% if param.default %}, default: {{ param.default }}{% endif %}): {{ param.description }}
-{% endfor %}
-{% endif %}
-
-**Example call**:
-```json
-{{ skill.example_call | indent(2) }}
-```
-
-{% endfor %}
-{% else %}
-{{ available_skills }}
-{% endif %}
-
 {% if context_info %}
 {% if "User's question:" in context_info or "User's questions:" in context_info %}
 {% if "User's questions:" in context_info %}
