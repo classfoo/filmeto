@@ -8,6 +8,7 @@ import os
 from typing import AsyncGenerator, Any, Dict, List, Optional
 
 from agent.skill.skill_models import Skill
+from agent.react.tool import ReactTool
 
 
 class SkillChat:
@@ -52,16 +53,17 @@ class SkillChat:
             ReactEvent objects for skill execution progress
         """
         from agent.react import React, ReactEvent
+        from agent.react.tool import ReactTool
 
         if llm_service is None:
             from agent.llm.llm_service import LlmService
             llm_service = LlmService(workspace)
 
-        available_tools = self._get_available_tools_for_skill(workspace, skill)
+        available_tools_raw = self._get_available_tools_for_skill(workspace, skill)
 
         def build_prompt_function(user_question: str) -> str:
             return self._build_skill_react_prompt(
-                skill, user_question, available_tools, args
+                skill, user_question, available_tools_raw, args
             )
 
         async def tool_call_function(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
@@ -84,6 +86,8 @@ class SkillChat:
                 else:
                     return await self._execute_generated_script(tool_args, workspace)
 
+        available_tools = self._build_available_tools(available_tools_raw)
+
         project_name = getattr(project, 'project_name', 'default_project') if project else 'default_project'
         react_instance = React(
             workspace=workspace,
@@ -91,12 +95,58 @@ class SkillChat:
             react_type=f"skill_{skill.name}",
             build_prompt_function=build_prompt_function,
             tool_call_function=tool_call_function,
+            available_tools=available_tools,
             llm_service=llm_service,
             max_steps=max_steps,
         )
 
         async for event in react_instance.chat_stream(user_message or skill.description):
             yield event
+
+    def _build_available_tools(self, available_tools_raw: List[Dict[str, Any]]) -> List[ReactTool]:
+        """Build ReactTool objects from raw tool definitions."""
+        available_tools = []
+        for tool_dict in available_tools_raw:
+            # Define arguments schema for each tool
+            args_schema = {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+
+            # For execute_existing_script and execute_generated_script, define specific schemas
+            if tool_dict['name'] == 'execute_existing_script':
+                args_schema['properties'] = {
+                    "script_name": {
+                        "type": "string",
+                        "description": "Name of the script to execute"
+                    },
+                    "args": {
+                        "type": "object",
+                        "description": "Arguments to pass to the script"
+                    }
+                }
+                args_schema['required'] = ["script_name"]
+            elif tool_dict['name'] == 'execute_generated_script':
+                args_schema['properties'] = {
+                    "code": {
+                        "type": "string",
+                        "description": "Python code to execute"
+                    },
+                    "args": {
+                        "type": "object",
+                        "description": "Arguments to pass to the code"
+                    }
+                }
+                args_schema['required'] = ["code"]
+
+            available_tools.append(ReactTool(
+                name=tool_dict['name'],
+                description=tool_dict['description'],
+                args=args_schema
+            ))
+
+        return available_tools
 
     def _get_available_tools_for_skill(self, workspace, skill: Skill = None) -> List[Dict]:
         """Get available tools for skill execution.
