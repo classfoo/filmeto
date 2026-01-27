@@ -13,6 +13,7 @@ from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
 from agent.react import ReactEventType, react_service, ReactEvent
+from agent.react.tool import ReactTool
 
 
 @dataclass
@@ -91,6 +92,77 @@ class CrewMember:
         self.conversation_history: List[Dict[str, str]] = []
         self.signals = AgentChatSignals()
 
+    def _build_available_tools(self) -> List[ReactTool]:
+        """Build the list of available tools for the ReAct process."""
+        available_tools = []
+        if self.config.skills:
+            # Only include configured skills
+            for skill_name in self.config.skills:
+                skill = self.skill_service.get_skill(skill_name)
+                if skill:
+                    # Build arguments schema for the skill
+                    args_schema = {
+                        "type": "object",
+                        "properties": {
+                            "skill_name": {
+                                "type": "string",
+                                "const": skill.name,
+                                "description": "Name of the skill to execute"
+                            },
+                            "args": {
+                                "type": "object",
+                                "properties": {
+                                    param.name: {
+                                        "type": param.param_type,
+                                        "description": param.description
+                                    } for param in skill.parameters
+                                },
+                                "required": [param.name for param in skill.parameters if param.required]
+                            }
+                        },
+                        "required": ["skill_name", "args"]
+                    }
+
+                    available_tools.append(ReactTool(
+                        name="skill",
+                        description=skill.description,
+                        args=args_schema
+                    ))
+        else:
+            # Include all available skills if no specific skills are configured
+            all_skills = self.skill_service.get_all_skills()
+            for skill in all_skills:
+                # Build arguments schema for the skill
+                args_schema = {
+                    "type": "object",
+                    "properties": {
+                        "skill_name": {
+                            "type": "string",
+                            "const": skill.name,
+                            "description": "Name of the skill to execute"
+                        },
+                        "args": {
+                            "type": "object",
+                            "properties": {
+                                param.name: {
+                                    "type": param.param_type,
+                                    "description": param.description
+                                } for param in skill.parameters
+                            },
+                            "required": [param.name for param in skill.parameters if param.required]
+                        }
+                    },
+                    "required": ["skill_name", "args"]
+                }
+
+                available_tools.append(ReactTool(
+                    name="skill",
+                    description=skill.description,
+                    args=args_schema
+                ))
+
+        return available_tools
+
     async def chat_stream(
         self,
         message: str,
@@ -152,11 +224,15 @@ class CrewMember:
 
             return {"error": f"Unknown tool: {tool_name}"}
 
+        # Prepare available tools for the ReAct process
+        available_tools = self._build_available_tools()
+
         react_instance = react_service.get_or_create_react(
             project_name=self.project_name,
             react_type=self.config.name,
             build_prompt_function=build_prompt_function,
             tool_call_function=tool_call_function,
+            available_tools=available_tools,
             workspace=self.workspace,
             llm_service=self.llm_service,
             max_steps=self.config.max_steps,

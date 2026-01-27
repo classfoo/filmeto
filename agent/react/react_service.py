@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Optional
 import logging
 
 from .react import React
+from .tool import ReactTool
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class ReactService:
         react_type: str,
         build_prompt_function: Callable[[str], str],
         tool_call_function: Callable[[str, Dict[str, Any]], Any],
+        available_tools=None,
         *,
         workspace=None,
         llm_service=None,
@@ -79,6 +81,7 @@ class ReactService:
                 react_type=react_type,
                 build_prompt_function=build_prompt_function,
                 tool_call_function=tool_call_function,
+                available_tools=available_tools,
                 llm_service=llm_service,
                 max_steps=max_steps,
                 checkpoint_interval=checkpoint_interval,

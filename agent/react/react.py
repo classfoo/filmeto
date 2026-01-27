@@ -7,6 +7,7 @@ from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 from agent.llm.llm_service import LlmService
 
+
 logger = logging.getLogger(__name__)
 
 from .types import (
@@ -22,6 +23,7 @@ from .types import (
     ActionType,
 )
 from .storage import ReactStorage
+from .tool import ReactTool
 
 
 class React:
@@ -37,6 +39,7 @@ class React:
         react_type: str,
         build_prompt_function: Callable[[str], str],
         tool_call_function: Callable[[str, Dict[str, Any]], Any],
+        available_tools: Optional[List[ReactTool]] = None,
         llm_service: Optional[LlmService] = None,
         max_steps: int = 20,
         checkpoint_interval: int = 1,
@@ -46,6 +49,7 @@ class React:
         self.react_type = react_type
         self.build_prompt_function = build_prompt_function
         self.tool_call_function = tool_call_function
+        self.available_tools = available_tools or []
         self.llm_service = llm_service or LlmService(workspace)
         self.max_steps = max_steps
         self.checkpoint_interval = checkpoint_interval
@@ -141,7 +145,32 @@ class React:
 
         # Concatenate multiple user questions if present
         combined_question = "\n".join(user_questions) if user_questions else ""
-        user_prompt = self.build_prompt_function(combined_question)
+
+        # Build the task context using the build_prompt_function
+        task_context = self.build_prompt_function(combined_question)
+
+        # Format tools for the prompt
+        tools_formatted = ""
+        for tool in self.available_tools:
+            tools_formatted += f"### {tool.name}\n"
+            tools_formatted += f"**Description**: {tool.description}\n\n"
+            tools_formatted += "**Arguments**:\n"
+            tools_formatted += "```json\n"
+            import json
+            tools_formatted += json.dumps(tool.args, indent=2)
+            tools_formatted += "\n```\n\n"
+
+        # Use the prompt service to render the template
+        from agent.prompt.prompt_service import prompt_service
+        user_prompt = prompt_service.render_prompt(
+            name="react_global_template",
+            tools_formatted=tools_formatted,
+            task_context=task_context
+        )
+
+        if user_prompt is None:
+            raise RuntimeError("Global ReAct prompt template 'react_global_template' not found. Please ensure the template exists in the prompt system.")
+
         self.messages = [{"role": "user", "content": user_prompt}]
 
     async def _call_llm(self, messages: List[Dict[str, str]]) -> str:
