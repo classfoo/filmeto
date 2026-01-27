@@ -1,6 +1,4 @@
-import json
 import os
-import re
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
@@ -10,7 +8,6 @@ from agent.chat.agent_chat_message import AgentMessage, StructureContent
 from agent.chat.agent_chat_signals import AgentChatSignals
 from agent.chat.agent_chat_types import ContentType, MessageType
 from agent.llm.llm_service import LlmService
-from agent.plan.models import PlanTask, TaskStatus
 from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
@@ -63,19 +60,6 @@ class CrewMemberConfig:
             metadata=metadata,
             config_path=file_path,
         )
-
-
-@dataclass
-class CrewMemberAction:
-    action_type: str
-    response: Optional[str] = None
-    skill: Optional[str] = None
-    script: Optional[str] = None
-    args: Optional[Any] = None
-    plan_id: Optional[str] = None
-    plan_update: Optional[Dict[str, Any]] = None
-    thinking: Optional[str] = None
-    raw: Optional[str] = None
 
 
 class CrewMember:
@@ -510,164 +494,6 @@ class CrewMember:
             + "\n\n".join(details)
         )
 
-    async def _complete(self, messages: List[Dict[str, str]]) -> str:
-        try:
-            # Use the sync completion method in a thread executor to avoid async conflicts
-            # This prevents the Qt async loop from interfering with LiteLLM's internal async operations
-            import asyncio
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.llm_service.completion(
-                    model=self.config.model,
-                    messages=messages,
-                    temperature=self.config.temperature,
-                    stream=False,
-                )
-            )
-            return _extract_response_content(response)
-        except Exception as exc:
-            return f"Error calling LLM: {exc}"
-
-    def _parse_action(self, response_text: str) -> CrewMemberAction:
-        payload = _extract_json_payload(response_text)
-        if not payload:
-            return CrewMemberAction(action_type="final", response=response_text, raw=response_text)
-
-        action_type = payload.get("type") or payload.get("action") or "final"
-        action_type = str(action_type).strip().lower()
-        if action_type not in {"final", "skill"}:
-            action_type = "final"
-
-        # Extract thinking if present in the payload
-        thinking = payload.get("thinking") or payload.get("thought") or payload.get("reasoning")
-
-        return CrewMemberAction(
-            action_type=action_type,
-            response=payload.get("response") or payload.get("final"),
-            skill=payload.get("skill") or payload.get("tool"),
-            script=payload.get("script"),
-            args=payload.get("args") or payload.get("arguments") or payload.get("input"),
-            thinking=thinking,
-            raw=response_text,
-        )
-
-    async def _execute_skill(self, action: CrewMemberAction) -> str:
-        if not action.skill:
-            return "No skill specified in action."
-        skill = self.skill_service.get_skill(action.skill)
-        if not skill:
-            return f"Skill '{action.skill}' not found."
-
-        # Use in-context execution for better integration
-        # Pass the skill object directly, allowing knowledge-based execution if no scripts
-        args = _normalize_skill_args_dict(action.args)
-
-        result = await self.skill_service.execute_skill_in_context(
-            skill=skill,
-            workspace=self.workspace,
-            project=self.project,
-            args=args,
-            script_name=action.script,
-            llm_service=self.llm_service
-        )
-
-        # The result is now a string, so return it directly
-        return str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
-
-    async def _execute_skill_with_structured_content(
-        self,
-        action: CrewMemberAction,
-        on_stream_event: Optional[Callable[[Any], None]] = None,
-        message_id: Optional[str] = None
-    ) -> str:
-        """
-        Execute a skill with structured content reporting for the UI.
-
-        Args:
-            action: The skill action to execute
-            on_stream_event: Callback for stream events
-            message_id: The message ID to associate with the skill execution
-
-        Returns:
-            The result of the skill execution
-        """
-        if not action.skill:
-            return "No skill specified in action."
-
-        skill = self.skill_service.get_skill(action.skill)
-        if not skill:
-            return f"Skill '{action.skill}' not found."
-
-        args = _normalize_skill_args_dict(action.args)
-        execution_mode = "script" if skill.scripts else "knowledge"
-        meta = {"session_id": getattr(self, "_session_id", "unknown")}
-        if message_id:
-            meta["message_id"] = message_id
-
-        skill_start = StructureContent(
-            content_type=ContentType.SKILL,
-            data={
-                "status": "starting",
-                "skill_name": action.skill,
-                "message": f"Starting skill: {action.skill}",
-            },
-            title=f"Skill: {action.skill}",
-            description="Skill execution starting",
-        )
-        kw = {
-            "message_type": MessageType.SYSTEM,
-            "sender_id": self.config.name,
-            "sender_name": self.config.name,
-            "metadata": dict(meta),
-            "structured_content": [skill_start],
-        }
-        if message_id:
-            kw["message_id"] = message_id
-        await self.signals.send_agent_message(AgentMessage(**kw))
-
-        progress_text = f"Executing skill '{action.skill}' via {execution_mode} with args: {list(args.keys())}..."
-        skill_progress = StructureContent(
-            content_type=ContentType.SKILL,
-            data={
-                "status": "in_progress",
-                "skill_name": action.skill,
-                "message": progress_text,
-            },
-            title=f"Skill: {action.skill}",
-            description="Skill execution in progress",
-        )
-        kw["structured_content"] = [skill_progress]
-        await self.signals.send_agent_message(AgentMessage(**kw))
-
-        result = await self.skill_service.execute_skill_in_context(
-            skill=skill,
-            workspace=self.workspace,
-            project=self.project,
-            args=args,
-            script_name=action.script,
-            llm_service=self.llm_service
-        )
-        result_message = str(result) if result is not None else f"Skill '{action.skill}' execution returned no output."
-        success = result.get("success", True) if isinstance(result, dict) else True
-
-        skill_end = StructureContent(
-            content_type=ContentType.SKILL,
-            data={
-                "status": "completed",
-                "skill_name": action.skill,
-                "message": result_message,
-                "result": result_message,
-                "success": success,
-            },
-            title=f"Skill: {action.skill}",
-            description="Skill execution completed",
-        )
-        kw["structured_content"] = [skill_end]
-        await self.signals.send_agent_message(AgentMessage(**kw))
-
-        return result_message
-
     async def _forward_skill_event(self, event: ReactEvent, message_id: Optional[str] = None):
         """转发 skill 的 React 事件到 UI
 
@@ -738,18 +564,6 @@ def _normalize_list(value: Any) -> List[str]:
     return [str(value).strip()]
 
 
-def _extract_json_payload(text: str) -> Optional[Dict[str, Any]]:
-    """Extract JSON payload from text using shared JsonExtractor."""
-    from agent.react.json_utils import JsonExtractor
-    return JsonExtractor.extract_json(text)
-
-
-def _extract_response_content(response: Any) -> str:
-    """Extract content from LLM response using LlmService."""
-    from agent.llm.llm_service import LlmService
-    return LlmService.extract_content(response)
-
-
 def _format_skill_entry(skill: Skill) -> str:
     """Legacy simple skill formatting."""
     description = skill.description or ""
@@ -809,89 +623,6 @@ def _format_skill_entry_detailed(skill: Skill) -> str:
         lines.append(f"**Additional Details**: {knowledge_preview}")
 
     return "\n".join(lines)
-
-
-def _normalize_skill_args(args: Any) -> List[str]:
-    """Normalize args to list of strings for CLI execution (legacy)."""
-    if args is None:
-        return []
-    if isinstance(args, list):
-        return [str(item) for item in args]
-    if isinstance(args, dict):
-        return _dict_to_cli_args(args)
-    if isinstance(args, str):
-        return [args]
-    return [str(args)]
-
-
-def _normalize_skill_args_dict(args: Any) -> Dict[str, Any]:
-    """Normalize args to dictionary for in-context execution."""
-    if args is None:
-        return {}
-    if isinstance(args, dict):
-        return args
-    if isinstance(args, str):
-        # Try to parse as JSON
-        try:
-            parsed = json.loads(args)
-            if isinstance(parsed, dict):
-                return parsed
-        except json.JSONDecodeError:
-            pass
-        return {"input": args}
-    if isinstance(args, list):
-        return {"inputs": args}
-    return {"value": args}
-
-
-def _dict_to_cli_args(values: Dict[str, Any]) -> List[str]:
-    """Convert dictionary to CLI arguments (legacy)."""
-    cli_args = []
-    for key, value in values.items():
-        flag = f"--{str(key).replace('_', '-')}"
-        if isinstance(value, bool):
-            if value:
-                cli_args.append(flag)
-            continue
-        cli_args.extend([flag, str(value)])
-    return cli_args
-
-
-def _coerce_tasks(value: Any) -> Optional[List[PlanTask]]:
-    if value is None:
-        return None
-    if isinstance(value, list):
-        tasks = []
-        for item in value:
-            if isinstance(item, PlanTask):
-                tasks.append(item)
-            elif isinstance(item, dict):
-                tasks.append(_task_from_dict(item))
-        return tasks
-    return None
-
-
-def _task_from_dict(data: Dict[str, Any]) -> PlanTask:
-    task_id = data.get("id") or data.get("task_id") or os.urandom(4).hex()
-    status = data.get("status")
-    if isinstance(status, TaskStatus):
-        status = status
-    elif status:
-        try:
-            status = TaskStatus(str(status))
-        except ValueError:
-            status = TaskStatus.CREATED
-    else:
-        status = TaskStatus.CREATED
-    return PlanTask(
-        id=task_id,
-        name=data.get("name", "Task"),
-        description=data.get("description", ""),
-        title=data.get("title", "crew"),
-        parameters=data.get("parameters", {}),
-        needs=data.get("needs", []),
-        status=status,
-    )
 
 
 def _resolve_project_name(project: Optional[Any]) -> Optional[str]:
