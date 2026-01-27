@@ -147,5 +147,4 @@ class SkillChat:
             user_question=user_question or skill.description,
             available_tools=available_tools,
             args=args or {},
-            action_instructions=prompt_service.get_prompt_template("react_action_instructions")
         )

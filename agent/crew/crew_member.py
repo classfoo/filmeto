@@ -229,15 +229,13 @@ class CrewMember:
         context_info = "\n".join(context_info_parts)
 
         user_prompt = prompt_service.render_prompt(
-            name="react_base",
+            name="crew_member_react",
             title="crew member",
             agent_name=self.config.name,
             role_description=f"Role description: {self.config.description}" if self.config.description else "",
             soul_profile=soul_content,
-            available_skills=self._format_skills_prompt(),  # Fallback for backward compatibility
             skills_list=skills_list,
             context_info=context_info,
-            action_instructions=prompt_service.get_prompt_template("react_action_instructions")
         )
 
         # If the base prompt template is not available, fall back to the original method
@@ -261,9 +259,6 @@ class CrewMember:
             # Include context info with user question
             prompt_sections.append(context_info)
 
-            # Use the prompt template instead of the hardcoded constant
-            action_instructions = prompt_service.get_prompt_template("react_action_instructions")
-            prompt_sections.append(action_instructions)
             user_prompt = "\n\n".join(section for section in prompt_sections if section)
 
         return user_prompt
@@ -281,15 +276,13 @@ class CrewMember:
         skills_list = self._get_skills_as_structured_list()
 
         base_prompt = prompt_service.render_prompt(
-            name="react_base",
+            name="crew_member_react",
             title="crew member",
             agent_name=self.config.name,
             role_description=f"Role description: {self.config.description}" if self.config.description else "",
             soul_profile=soul_content,
-            available_skills=self._format_skills_prompt(),  # Fallback for backward compatibility
             skills_list=skills_list,
             context_info=f"Active plan id: {plan_id}." if plan_id else f"Project name: {self.project_name}." if self.project_name else "",
-            action_instructions=prompt_service.get_prompt_template("react_action_instructions")
         )
 
         # If the base prompt template is not available, fall back to the original method
@@ -315,9 +308,6 @@ class CrewMember:
             elif self.project_name:
                 prompt_sections.append(f"Project name: {self.project_name}.")
 
-            # Use the prompt template instead of the hardcoded constant
-            action_instructions = prompt_service.get_prompt_template("react_action_instructions")
-            prompt_sections.append(action_instructions)
             return "\n\n".join(section for section in prompt_sections if section)
 
         return base_prompt

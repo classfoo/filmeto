@@ -19,11 +19,11 @@ agent/
     ├── prompt_service.py
     └── system/
         ├── en_US/
-        │   ├── react_action_instructions.md
-        │   └── react_base.md
+        │   ├── react_base.md
+        │   └── skill_react.md
         └── zh_CN/
-            ├── react_action_instructions.md
-            └── react_base.md
+            ├── react_base.md
+            └── skill_react.md
 ```
 
 ## Usage
@@ -34,19 +34,21 @@ agent/
 from agent.prompt.prompt_service import prompt_service
 
 # Get a prompt template
-template = prompt_service.get_prompt_template("react_action_instructions", "en_US")
+template = prompt_service.get_prompt_template("react_base", "en_US")
 
 # Render a prompt with parameters
 rendered_prompt = prompt_service.render_prompt(
-    "react_action_instructions", 
-    "en_US", 
-    skill_name="my_skill", 
-    plan_id="my_plan", 
-    response_message="my response"
+    "react_base",
+    title="crew member",
+    agent_name="my_agent",
+    role_description="Role description",
+    soul_profile="Soul profile",
+    skills_list=[...],
+    context_info="Context information"
 )
 
 # Get metadata for a prompt
-metadata = prompt_service.get_prompt_metadata("react_action_instructions", "en_US")
+metadata = prompt_service.get_prompt_metadata("react_base", "en_US")
 ```
 
 ### Template Format
