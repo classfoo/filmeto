@@ -192,7 +192,7 @@ class SkillChat:
         Returns:
             Dictionary with execution result
         """
-        result = self.skill_service._execute_skill_script(skill, tool_args, tool_name, project)
+        result = self._execute_skill_script(skill, tool_args, tool_name, project)
         return {"success": True, "result": result}
 
     async def _execute_generated_script(
@@ -232,3 +232,102 @@ class SkillChat:
         for key, value in args_dict.items():
             argv.extend([f"--{key}", str(value)])
         return argv
+
+    def _find_script_path(self, skill: Skill, script_name: Optional[str] = None) -> Optional[str]:
+        """Find the script path for a skill.
+
+        Args:
+            skill: The Skill object
+            script_name: Optional specific script to execute (uses first by default)
+
+        Returns:
+            Script path if found, None otherwise
+        """
+        if not skill.scripts:
+            return None
+
+        if script_name:
+            for script in skill.scripts:
+                if os.path.basename(script) == script_name or script.endswith(script_name):
+                    return script
+        else:
+            # Use the first script by default
+            return skill.scripts[0]
+
+        return None
+
+    def _build_argv_from_args(
+        self,
+        args: Optional[Dict[str, Any]],
+        project: Any = None
+    ) -> List[str]:
+        """Build argv from arguments dictionary.
+
+        Args:
+            args: Arguments dictionary
+            project: Optional project object for context
+
+        Returns:
+            List of command-line arguments
+        """
+        argv = []
+
+        # Add project path if available
+        if project and hasattr(project, 'project_path'):
+            argv.extend(["--project-path", project.project_path])
+
+        if not args:
+            return argv
+
+        # Separate positional and named arguments
+        positional_args = []
+        named_args = []
+
+        for key, value in args.items():
+            # Handle positional arguments (like plan_name in create_execution_plan)
+            if key in ['plan_name']:  # Common positional arguments
+                positional_args.append(str(value))
+            else:
+                named_args.extend([f"--{key.replace('_', '-')}", str(value)])
+
+        # Add positional arguments first, then named arguments
+        argv.extend(positional_args)
+        argv.extend(named_args)
+
+        return argv
+
+    def _execute_skill_script(
+        self,
+        skill: Skill,
+        args: Optional[Dict[str, Any]] = None,
+        script_name: Optional[str] = None,
+        project: Any = None,
+        argv: Optional[list] = None
+    ) -> str:
+        """Execute a skill script directly using ToolService.
+
+        Args:
+            skill: The Skill object to execute
+            args: Arguments to pass to the skill function
+            script_name: Optional specific script to execute (uses first by default)
+            project: Optional project for context
+            argv: Optional command-line arguments to pass to the script
+
+        Returns:
+            String with execution result
+        """
+        script_path = self._find_script_path(skill, script_name)
+        if not script_path or not os.path.exists(script_path):
+            return f"Error: Script not found for skill '{skill.name}'."
+
+        # Prepare argv for the script execution if not provided
+        if argv is None:
+            argv = self._build_argv_from_args(args, project)
+
+        try:
+            from agent.tool.tool_service import ToolService
+            tool_service = ToolService()
+            output = tool_service.execute_script(script_path, argv)
+            return str(output) if output is not None else ""
+        except Exception as e:
+            return f"Error executing skill script: {str(e)}"
