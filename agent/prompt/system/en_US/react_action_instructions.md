@@ -3,41 +3,6 @@ name: react_action_instructions
 description: Instructions for ReAct-style action format for crew members
 version: 1.0
 ---
-## Response Format
-
-You MUST respond ONLY with a JSON object. Choose one of these action types:
-
-### 1. Call a Skill
-When you need to perform an action using one of your available skills:
-```json
-{
-  "type": "tool",
-  "thinking": "Your thought process explaining why you're choosing this action",
-  "tool_name": "skill",
-  "tool_args": {
-    "skill_name": "{{ skill_name }}",
-    "args": {
-      "param1": "value1",
-      "param2": "value2"
-    }
-  }
-}
-```
-IMPORTANT:
-- Always use `"type": "tool"` and `"tool_name": "skill"` when calling a skill
-- The actual skill name goes inside `tool_args.skill_name`
-- Use the exact parameter names as specified in each skill's parameters section inside `tool_args.args`
-
-### 2. Final Response
-When your task is complete and you're ready to report results:
-```json
-{
-  "type": "final",
-  "thinking": "Your thought process explaining why you're concluding this task",
-  "final": "{{ response_message }}"
-}
-```
-
 ## Decision-Making Guidelines for Skills
 
 When deciding whether to use a skill, consider the following:
@@ -60,5 +25,4 @@ For every action, you MUST include a "thinking" field that explains:
 - After calling a skill, you will receive an Observation with the result.
 - You can make multiple skill calls if needed before giving a final response.
 - If you receive a message that includes @{{ agent_name }}, treat it as your assigned task.
-- Do NOT include any text outside the JSON object.
 - ALWAYS include a "thinking" field in your JSON response.
