@@ -293,30 +293,67 @@ class React:
         tool_name: str,
         tool_args: Dict[str, Any],
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        """Execute tool with timing and metrics tracking."""
-        start_time = time.time()
-        try:
-            result = self.tool_service.execute_tool(tool_name, tool_args, ToolContext(workspace=self.workspace,project_name=self.project_name))
-            if inspect.isawaitable(result):
-                result = await result
+        """
+        Execute tool with timing and metrics tracking.
 
-            if inspect.isasyncgen(result) or hasattr(result, "__aiter__"):
-                last_item = None
-                async for item in result:
-                    last_item = item
-                    yield {"progress": item}
+        ToolService.execute_tool now returns AsyncGenerator[ReactEvent, None],
+        which we process to extract results and progress updates.
+        """
+        start_time = time.time()
+        tool_context = ToolContext(workspace=self.workspace, project_name=self.project_name)
+
+        try:
+            # ToolService.execute_tool now yields ReactEvent objects
+            final_result = None
+            has_error = False
+
+            async for event in self.tool_service.execute_tool(
+                tool_name,
+                tool_args,
+                tool_context,
+                project_name=self.project_name,
+                react_type=self.react_type,
+                run_id=self.run_id,
+                step_id=self.step_id,
+            ):
+                # Process different event types from ToolService
+                if event.event_type == "tool_start":
+                    # Tool started - yield progress
+                    yield {"progress": f"Starting tool: {tool_name}"}
+
+                elif event.event_type == "tool_progress":
+                    # Tool progress update
+                    progress = event.payload.get("progress")
+                    if progress:
+                        yield {"progress": progress}
+
+                elif event.event_type == "tool_end":
+                    # Tool completed successfully
+                    final_result = event.payload.get("result")
+                    duration_ms = (time.time() - start_time) * 1000
+                    self._total_tool_calls += 1
+                    self._tool_duration_ms += duration_ms
+                    logger.debug(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                    yield {"result": final_result}
+                    return
+
+                elif event.event_type == "error":
+                    # Tool execution error
+                    error_msg = event.payload.get("error", "Unknown error")
+                    duration_ms = (time.time() - start_time) * 1000
+                    logger.error(f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {error_msg}")
+                    yield {"error": error_msg}
+                    has_error = True
+                    return
+
+            # If we get here without a tool_end event, something went wrong
+            if not has_error:
                 duration_ms = (time.time() - start_time) * 1000
                 self._total_tool_calls += 1
                 self._tool_duration_ms += duration_ms
-                logger.debug(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms (stream)")
-                yield {"result": last_item}
-                return
+                logger.debug(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms (no final event)")
+                yield {"result": final_result}
 
-            duration_ms = (time.time() - start_time) * 1000
-            self._total_tool_calls += 1
-            self._tool_duration_ms += duration_ms
-            logger.debug(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
-            yield {"result": result}
         except Exception as exc:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {exc}", exc_info=True)
