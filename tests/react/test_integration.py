@@ -3,7 +3,7 @@ import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, MagicMock
 
-from agent.react import React, ReactEventType
+from agent.react import React, AgentEventType
 from agent.react.storage import ReactStorage
 from agent.react.types import CheckpointData
 

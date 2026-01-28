@@ -3,7 +3,7 @@ from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
-    from ...react.event import ReactEvent
+    from agent.event.agent_event import AgentEvent
 
 
 class ExecuteSkillTool(BaseTool):
@@ -83,7 +83,7 @@ class ExecuteSkillTool(BaseTool):
         react_type: str = "",
         run_id: str = "",
         step_id: int = 0,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         """
         Execute a skill using SkillService.chat_stream().
 
@@ -115,7 +115,7 @@ class ExecuteSkillTool(BaseTool):
             return
 
         from agent.skill.skill_service import SkillService
-        from agent.react.event import ReactEventType
+        from agent.event.agent_event import AgentEventType
 
         skill_service = SkillService(workspace)
 
@@ -158,7 +158,7 @@ class ExecuteSkillTool(BaseTool):
                 max_steps=max_steps,
             ):
                 # Transform ReactEvent to tool_progress events for ToolService
-                if event.event_type == ReactEventType.LLM_THINKING:
+                if event.event_type == AgentEventType.LLM_THINKING:
                     yield self._create_event(
                         "tool_progress",
                         project_name,
@@ -167,7 +167,7 @@ class ExecuteSkillTool(BaseTool):
                         step_id,
                         progress=event.payload.get("message", "Thinking...")
                     )
-                elif event.event_type == ReactEventType.TOOL_START:
+                elif event.event_type == AgentEventType.TOOL_START:
                     tool_name = event.payload.get("tool_name", "unknown")
                     yield self._create_event(
                         "tool_progress",
@@ -177,7 +177,7 @@ class ExecuteSkillTool(BaseTool):
                         step_id,
                         progress=f"Executing tool: {tool_name}"
                     )
-                elif event.event_type == ReactEventType.TOOL_PROGRESS:
+                elif event.event_type == AgentEventType.TOOL_PROGRESS:
                     progress = event.payload.get("progress")
                     if progress:
                         yield self._create_event(
@@ -188,7 +188,7 @@ class ExecuteSkillTool(BaseTool):
                             step_id,
                             progress=str(progress)
                         )
-                elif event.event_type == ReactEventType.TOOL_END:
+                elif event.event_type == AgentEventType.TOOL_END:
                     result = event.payload.get("result")
                     if result:
                         yield self._create_event(
@@ -199,7 +199,7 @@ class ExecuteSkillTool(BaseTool):
                             step_id,
                             progress=f"Tool result: {str(result)[:100]}..."
                         )
-                elif event.event_type == ReactEventType.FINAL:
+                elif event.event_type == AgentEventType.FINAL:
                     final_response = event.payload.get("final_response")
                     yield self._create_event(
                         "tool_end",
@@ -211,7 +211,7 @@ class ExecuteSkillTool(BaseTool):
                         result=final_response
                     )
                     return
-                elif event.event_type == ReactEventType.ERROR:
+                elif event.event_type == AgentEventType.ERROR:
                     error = event.payload.get("error", "Unknown error")
                     yield self._create_event(
                         "error",

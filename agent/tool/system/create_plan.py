@@ -1,13 +1,12 @@
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 from typing import Any, Dict, TYPE_CHECKING, Optional, AsyncGenerator
 from ...plan.service import PlanService
-from ...plan.models import PlanTask, Plan
+from ...plan.models import PlanTask
 from datetime import datetime
-import uuid
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
-    from ...react.event import ReactEvent
+    from agent.event.agent_event import AgentEvent
 
 
 class CreatePlanTool(BaseTool):
@@ -90,7 +89,7 @@ class CreatePlanTool(BaseTool):
         react_type: str = "",
         run_id: str = "",
         step_id: int = 0,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         """
         Execute the plan creation using PlanService.
 

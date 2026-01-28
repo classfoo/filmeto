@@ -4,8 +4,8 @@ React module for ReAct (Reasoning and Acting) pattern implementation.
 
 from .react import React
 from .types import (
-    ReactEvent,
-    ReactEventType,
+    AgentEvent,
+    AgentEventType,
     ReactStatus,
     CheckpointData,
     ActionType,
@@ -20,8 +20,8 @@ from .react_service import ReactService, react_service
 
 __all__ = [
     "React",
-    "ReactEvent",
-    "ReactEventType",
+    "AgentEvent",
+    "AgentEventType",
     "ReactStatus",
     "CheckpointData",
     "ReactStorage",

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
     from .tool_context import ToolContext
-    from ..react.event import ReactEvent
+    from agent.event.agent_event import AgentEvent
 
 
 @dataclass
@@ -83,7 +83,7 @@ class BaseTool(ABC):
         react_type: str = "",
         run_id: str = "",
         step_id: int = 0,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         """
         Execute the tool with given parameters and context.
 
@@ -132,7 +132,7 @@ class BaseTool(ABC):
         run_id: str = "",
         step_id: int = 0,
         **kwargs
-    ) -> "ReactEvent":
+    ) -> "AgentEvent":
         """
         Create a ReactEvent for tool execution.
 
@@ -147,11 +147,11 @@ class BaseTool(ABC):
         Returns:
             ReactEvent object
         """
-        from ..react.event import ReactEvent
+        from agent.event.agent_event import AgentEvent
 
         payload = {"tool_name": self.name, **kwargs}
 
-        return ReactEvent(
+        return AgentEvent(
             event_type=event_type,
             project_name=project_name,
             react_type=react_type,

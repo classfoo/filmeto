@@ -1,11 +1,10 @@
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, AsyncGenerator
+from typing import Any, Dict, Optional, TYPE_CHECKING, AsyncGenerator
 from agent.crew.crew_service import CrewService
-from agent.crew.crew_member import CrewMember
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
-    from ...react.event import ReactEvent
+    from agent.event.agent_event import AgentEvent
 
 
 class GetProjectCrewMembersTool(BaseTool):
@@ -60,7 +59,7 @@ class GetProjectCrewMembersTool(BaseTool):
         react_type: str = "",
         run_id: str = "",
         step_id: int = 0,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         """
         Execute the crew member retrieval using CrewService.
 

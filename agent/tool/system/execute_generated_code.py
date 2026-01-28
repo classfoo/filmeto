@@ -3,7 +3,7 @@ from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
-    from ...react.event import ReactEvent
+    from agent.event.agent_event import AgentEvent
 
 
 class ExecuteGeneratedCodeTool(BaseTool):
@@ -70,7 +70,7 @@ class ExecuteGeneratedCodeTool(BaseTool):
         react_type: str = "",
         run_id: str = "",
         step_id: int = 0,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         """
         Execute dynamically generated Python code using ToolService.execute_script_content.
 

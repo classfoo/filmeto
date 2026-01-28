@@ -14,8 +14,8 @@ from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
 
 if TYPE_CHECKING:
-    from agent.react.event import ReactEvent
-    from agent.react.types import ReactEventType
+    from agent.event.agent_event import AgentEvent
+    from agent.react.types import AgentEventType
 
 
 @dataclass
@@ -98,7 +98,7 @@ class CrewMember:
         self,
         message: str,
         plan_id: Optional[str] = None,
-    ) -> AsyncIterator["ReactEvent"]:
+    ) -> AsyncIterator["AgentEvent"]:
         """
         Stream chat responses as ReactEvent objects.
 
@@ -109,11 +109,11 @@ class CrewMember:
         Yields:
             ReactEvent: Events from the ReAct execution process
         """
-        from agent.react import react_service, ReactEventType, ReactEvent
+        from agent.react import react_service, AgentEventType, AgentEvent
 
         if not self.llm_service.validate_config():
-            error_event = ReactEvent(
-                event_type=ReactEventType.ERROR.value,
+            error_event = AgentEvent(
+                event_type=AgentEventType.ERROR.value,
                 project_name=self.project_name,
                 react_type=self.config.name,
                 run_id=getattr(self, "_run_id", ""),
@@ -145,7 +145,7 @@ class CrewMember:
         async for event in react_instance.chat_stream(message):
             saw_event = True
             # Send thinking events via AgentChatSignals for UI
-            if event.event_type == ReactEventType.LLM_THINKING:
+            if event.event_type == AgentEventType.LLM_THINKING:
                 thinking_structure = StructureContent(
                     content_type=ContentType.THINKING,
                     data=event.payload.get("message", ""),
@@ -168,7 +168,7 @@ class CrewMember:
                     msg.message_id = mid
                 await self.signals.send_agent_message(msg)
                 yield event
-            elif event.event_type == ReactEventType.FINAL:
+            elif event.event_type == AgentEventType.FINAL:
                 final_response = event.payload.get("final_response", "")
                 # Store conversation history
                 if final_response:
@@ -176,7 +176,7 @@ class CrewMember:
                     self.conversation_history.append({"role": "assistant", "content": final_response})
                 yield event
                 break
-            elif event.event_type == ReactEventType.ERROR:
+            elif event.event_type == AgentEventType.ERROR:
                 error_message = event.payload.get("error", "Unknown error occurred")
                 self.conversation_history.append({"role": "user", "content": message})
                 self.conversation_history.append({"role": "assistant", "content": error_message})
@@ -191,8 +191,8 @@ class CrewMember:
 
         if final_response is None:
             # Create an error event if we didn't get a final response
-            error_event = ReactEvent(
-                event_type=ReactEventType.ERROR.value,
+            error_event = AgentEvent(
+                event_type=AgentEventType.ERROR.value,
                 project_name=self.project_name,
                 react_type=self.config.name,
                 run_id=getattr(self, "_run_id", ""),

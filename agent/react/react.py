@@ -13,8 +13,8 @@ from agent.tool.tool_context import ToolContext
 logger = logging.getLogger(__name__)
 
 from .types import (
-    ReactEvent,
-    ReactEventType,
+    AgentEvent,
+    AgentEventType,
     ReactStatus,
     CheckpointData,
     ReactAction,
@@ -96,8 +96,8 @@ class React:
             if checkpoint.todo_state:
                 self.todo_state = TodoState.from_dict(checkpoint.todo_state)
 
-    def _create_event(self, event_type: str, payload: Dict[str, Any]) -> ReactEvent:
-        return ReactEvent(
+    def _create_event(self, event_type: str, payload: Dict[str, Any]) -> AgentEvent:
+        return AgentEvent(
             event_type=event_type,
             project_name=self.project_name,
             react_type=self.react_type,
@@ -314,7 +314,7 @@ class React:
             logger.error(f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {exc}", exc_info=True)
             yield {"error": str(exc)}
 
-    async def chat_stream(self, user_message: Optional[str]) -> AsyncGenerator[ReactEvent, None]:
+    async def chat_stream(self, user_message: Optional[str]) -> AsyncGenerator[AgentEvent, None]:
         """Main ReAct loop with thread safety and iterative pending message processing."""
         async with self._loop_lock:
             if self._in_react_loop:
@@ -354,13 +354,13 @@ class React:
                     response_text = await self._call_llm(self.messages)
                     action = self._parse_action(response_text)
                     thinking = ReactActionParser.get_thinking_message(action, step + 1, self.max_steps)
-                    yield self._create_event(ReactEventType.LLM_THINKING, {
+                    yield self._create_event(AgentEventType.LLM_THINKING, {
                         "message": thinking,
                         "step": step + 1,
                         "total_steps": self.max_steps,
                     })
 
-                    yield self._create_event(ReactEventType.LLM_OUTPUT, {
+                    yield self._create_event(AgentEventType.LLM_OUTPUT, {
                         "content": response_text,
                     })
 
@@ -370,19 +370,19 @@ class React:
                         if not action.tool_name:
                             error_msg = "Tool name is empty - LLM returned a tool action without specifying which tool to use"
                             logger.warning(error_msg)
-                            yield self._create_event(ReactEventType.ERROR, {
+                            yield self._create_event(AgentEventType.ERROR, {
                                 "error": error_msg,
                                 "details": f"Response: {response_text[:200]}"
                             })
                             self.messages.append({"role": "assistant", "content": response_text})
                             self.messages.append({"role": "user", "content": f"Error: {error_msg}. Please specify a valid tool name."})
                             continue
-                        yield self._create_event(ReactEventType.TOOL_START, action.to_start_payload())
+                        yield self._create_event(AgentEventType.TOOL_START, action.to_start_payload())
                         try:
                             tool_result = None
                             async for item in self._execute_tool(action.tool_name, action.tool_args):
                                 if "progress" in item:
-                                    yield self._create_event(ReactEventType.TOOL_PROGRESS, action.to_progress_payload(item["progress"]))
+                                    yield self._create_event(AgentEventType.TOOL_PROGRESS, action.to_progress_payload(item["progress"]))
                                 if "result" in item:
                                     tool_result = item["result"]
                                 if "error" in item:
@@ -390,18 +390,18 @@ class React:
                                     break
                             if tool_result is None:
                                 tool_result = "Tool execution completed"
-                            yield self._create_event(ReactEventType.TOOL_END, action.to_end_payload(result=tool_result, ok=True))
+                            yield self._create_event(AgentEventType.TOOL_END, action.to_end_payload(result=tool_result, ok=True))
 
                             # Check for pending TODO update and emit event
                             if self._pending_todo_update:
-                                yield self._create_event(ReactEventType.TODO_UPDATE, self._pending_todo_update)
+                                yield self._create_event(AgentEventType.TODO_UPDATE, self._pending_todo_update)
                                 self._pending_todo_update = None
 
                             self.messages.append({"role": "assistant", "content": response_text})
                             self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
                         except Exception as exc:
                             logger.error(f"Tool execution error: {exc}", exc_info=True)
-                            yield self._create_event(ReactEventType.TOOL_END, action.to_end_payload(ok=False, error=str(exc)))
+                            yield self._create_event(AgentEventType.TOOL_END, action.to_end_payload(ok=False, error=str(exc)))
                             self.messages.append({"role": "assistant", "content": response_text})
                             self.messages.append({"role": "user", "content": f"Error: {str(exc)}"})
                         continue
@@ -410,7 +410,7 @@ class React:
                         assert isinstance(action, FinalAction), f"Expected FinalAction, got {type(action)}"
                         self.status = ReactStatus.FINAL
                         self._update_checkpoint()
-                        yield self._create_event(ReactEventType.FINAL, action.to_final_payload())
+                        yield self._create_event(AgentEventType.FINAL, action.to_final_payload())
                         break
 
                 # Check if we've reached max steps
@@ -421,7 +421,7 @@ class React:
                     )
                     self.status = ReactStatus.FINAL
                     self._update_checkpoint()
-                    yield self._create_event(ReactEventType.FINAL, max_steps_action.to_final_payload())
+                    yield self._create_event(AgentEventType.FINAL, max_steps_action.to_final_payload())
 
                 # Check if there are more messages to process (iterative, not recursive!)
                 async with self._loop_lock:
@@ -437,7 +437,7 @@ class React:
             logger.error(f"React loop error: {exc}", exc_info=True)
             self.status = ReactStatus.FAILED
             self._update_checkpoint()
-            yield self._create_event(ReactEventType.ERROR, {
+            yield self._create_event(AgentEventType.ERROR, {
                 "error": ReactActionParser.get_error_summary(exc),
                 "details": repr(exc),
             })
@@ -446,10 +446,10 @@ class React:
                 self._in_react_loop = False
                 self._update_checkpoint()
 
-    async def resume(self) -> AsyncGenerator[ReactEvent, None]:
+    async def resume(self) -> AsyncGenerator[AgentEvent, None]:
         checkpoint = self.storage.load_checkpoint()
         if not checkpoint:
-            yield self._create_event(ReactEventType.ERROR, {
+            yield self._create_event(AgentEventType.ERROR, {
                 "error": "No checkpoint found to resume from",
                 "details": "Cannot resume ReAct process without a saved checkpoint",
             })

@@ -1,16 +1,15 @@
-import ast
 import sys
 import runpy
 import io
 import contextlib
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING, AsyncGenerator
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, AsyncGenerator
 from .base_tool import BaseTool, ToolMetadata
 from .tool_context import ToolContext
 
 if TYPE_CHECKING:
-    from app.data.workspace import Workspace
+    pass
 
 
 class ToolService:
@@ -116,11 +115,11 @@ class ToolService:
         Returns:
             ReactEvent object
         """
-        from agent.react.event import ReactEvent
+        from agent.event.agent_event import AgentEvent
 
         payload = {"tool_name": tool_name, **kwargs}
 
-        return ReactEvent(
+        return AgentEvent(
             event_type=event_type,
             project_name=project_name,
             react_type=react_type,

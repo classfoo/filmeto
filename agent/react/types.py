@@ -12,7 +12,7 @@ New code should import directly from the specific modules:
 """
 
 # Event types
-from .event import ReactEvent, ReactEventType
+from agent.event.agent_event import AgentEvent, AgentEventType
 
 # Checkpoint data
 from .checkpoint import CheckpointData
@@ -35,8 +35,8 @@ from .todo import (
 
 __all__ = [
     # Event types
-    "ReactEvent",
-    "ReactEventType",
+    "AgentEvent",
+    "AgentEventType",
     # Checkpoint
     "CheckpointData",
     # Status

@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Dict, Set
 
 
-class ReactEventType(str, Enum):
+class AgentEventType(str, Enum):
     """Constants for ReAct event types."""
     LLM_THINKING = "llm_thinking"
     TOOL_START = "tool_start"
@@ -36,7 +36,7 @@ class ReactEventType(str, Enum):
 
 
 @dataclass
-class ReactEvent:
+class AgentEvent:
     """
     Represents an event in the ReAct process.
 
@@ -58,7 +58,7 @@ class ReactEvent:
     def __post_init__(self):
         """Validate event fields."""
         # Validate event_type
-        valid_types = ReactEventType.get_valid_types()
+        valid_types = AgentEventType.get_valid_types()
         if self.event_type not in valid_types:
             raise ValueError(
                 f"Invalid event_type: '{self.event_type}'. "

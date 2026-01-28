@@ -1,9 +1,8 @@
 """Unit tests for React events and enums."""
 import pytest
 
-from agent.react.event import ReactEvent, ReactEventType
+from agent.event.agent_event import AgentEvent, AgentEventType
 from agent.react.status import ReactStatus
-from agent.react.actions import ActionType
 
 
 class TestReactEventType:
@@ -11,37 +10,37 @@ class TestReactEventType:
 
     def test_event_type_values(self):
         """Test that ReactEventType has correct values."""
-        assert ReactEventType.LLM_THINKING.value == "llm_thinking"
-        assert ReactEventType.TOOL_START.value == "tool_start"
-        assert ReactEventType.TOOL_PROGRESS.value == "tool_progress"
-        assert ReactEventType.TOOL_END.value == "tool_end"
-        assert ReactEventType.LLM_OUTPUT.value == "llm_output"
-        assert ReactEventType.FINAL.value == "final"
-        assert ReactEventType.ERROR.value == "error"
+        assert AgentEventType.LLM_THINKING.value == "llm_thinking"
+        assert AgentEventType.TOOL_START.value == "tool_start"
+        assert AgentEventType.TOOL_PROGRESS.value == "tool_progress"
+        assert AgentEventType.TOOL_END.value == "tool_end"
+        assert AgentEventType.LLM_OUTPUT.value == "llm_output"
+        assert AgentEventType.FINAL.value == "final"
+        assert AgentEventType.ERROR.value == "error"
 
     def test_event_type_is_string_enum(self):
         """Test that ReactEventType is a string Enum."""
-        assert isinstance(ReactEventType.LLM_THINKING, str)
-        assert ReactEventType.LLM_THINKING == "llm_thinking"  # String enum compares directly
+        assert isinstance(AgentEventType.LLM_THINKING, str)
+        assert AgentEventType.LLM_THINKING == "llm_thinking"  # String enum compares directly
 
     def test_is_tool_event(self):
         """Test is_tool_event class method."""
-        assert ReactEventType.is_tool_event("tool_start")
-        assert ReactEventType.is_tool_event("tool_progress")
-        assert ReactEventType.is_tool_event("tool_end")
-        assert not ReactEventType.is_tool_event("llm_thinking")
-        assert not ReactEventType.is_tool_event("final")
+        assert AgentEventType.is_tool_event("tool_start")
+        assert AgentEventType.is_tool_event("tool_progress")
+        assert AgentEventType.is_tool_event("tool_end")
+        assert not AgentEventType.is_tool_event("llm_thinking")
+        assert not AgentEventType.is_tool_event("final")
 
     def test_is_terminal_event(self):
         """Test is_terminal_event class method."""
-        assert ReactEventType.is_terminal_event("final")
-        assert ReactEventType.is_terminal_event("error")
-        assert not ReactEventType.is_terminal_event("tool_start")
-        assert not ReactEventType.is_terminal_event("llm_thinking")
+        assert AgentEventType.is_terminal_event("final")
+        assert AgentEventType.is_terminal_event("error")
+        assert not AgentEventType.is_terminal_event("tool_start")
+        assert not AgentEventType.is_terminal_event("llm_thinking")
 
     def test_get_valid_types(self):
         """Test get_valid_types returns all event type values."""
-        valid_types = ReactEventType.get_valid_types()
+        valid_types = AgentEventType.get_valid_types()
         assert "llm_thinking" in valid_types
         assert "tool_start" in valid_types
         assert "final" in valid_types
@@ -93,7 +92,7 @@ class TestReactEvent:
 
     def test_create_valid_event(self):
         """Test creating a valid ReactEvent."""
-        event = ReactEvent(
+        event = AgentEvent(
             event_type="llm_thinking",
             project_name="test_project",
             react_type="test_type",
@@ -107,7 +106,7 @@ class TestReactEvent:
     def test_event_validation_invalid_type(self):
         """Test that invalid event_type raises ValueError."""
         with pytest.raises(ValueError, match="Invalid event_type"):
-            ReactEvent(
+            AgentEvent(
                 event_type="invalid_type",
                 project_name="test",
                 react_type="test",
@@ -119,7 +118,7 @@ class TestReactEvent:
     def test_event_validation_negative_step_id(self):
         """Test that negative step_id raises ValueError."""
         with pytest.raises(ValueError, match="step_id must be >= 0"):
-            ReactEvent(
+            AgentEvent(
                 event_type="llm_thinking",
                 project_name="test",
                 react_type="test",
@@ -131,7 +130,7 @@ class TestReactEvent:
     def test_event_validation_invalid_payload(self):
         """Test that non-dict payload raises ValueError."""
         with pytest.raises(ValueError, match="payload must be a dict"):
-            ReactEvent(
+            AgentEvent(
                 event_type="llm_thinking",
                 project_name="test",
                 react_type="test",
@@ -142,7 +141,7 @@ class TestReactEvent:
 
     def test_event_validation_zero_step_id(self):
         """Test that zero step_id is valid."""
-        event = ReactEvent(
+        event = AgentEvent(
             event_type="llm_thinking",
             project_name="test",
             react_type="test",
@@ -154,7 +153,7 @@ class TestReactEvent:
 
     def test_event_validation_empty_payload(self):
         """Test that empty dict payload is valid."""
-        event = ReactEvent(
+        event = AgentEvent(
             event_type="llm_thinking",
             project_name="test",
             react_type="test",

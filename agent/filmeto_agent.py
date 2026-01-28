@@ -18,8 +18,8 @@ from agent.crew.crew_title import sort_crew_members_by_title_importance
 from agent.crew.crew_service import CrewService
 
 if TYPE_CHECKING:
-    from agent.react.event import ReactEvent
-    from agent.react.types import ReactEventType
+    from agent.event.agent_event import AgentEvent
+    from agent.react.types import AgentEventType
 
 logger = logging.getLogger(__name__)
 
@@ -305,8 +305,8 @@ class FilmetoAgent:
         self,
         responses: AsyncIterator[AgentMessage],
         session_id: str,
-    ) -> AsyncGenerator["ReactEvent", None]:
-        from agent.react import ReactEvent, ReactEventType
+    ) -> AsyncGenerator["AgentEvent", None]:
+        from agent.react import AgentEvent, AgentEventType
 
         async for response in responses:
             self.conversation_history.append(response)
@@ -315,8 +315,8 @@ class FilmetoAgent:
 
             # Convert AgentMessage to ReactEvent for upstream consumption
             if response.message_type == MessageType.TEXT:
-                yield ReactEvent(
-                    event_type=ReactEventType.FINAL.value,
+                yield AgentEvent(
+                    event_type=AgentEventType.FINAL.value,
                     project_name=self._resolve_project_name() or "default",
                     react_type=response.sender_id,
                     run_id=getattr(self, "_run_id", ""),
@@ -324,8 +324,8 @@ class FilmetoAgent:
                     payload={"final_response": response.get_text_content()}
                 )
             elif response.message_type == MessageType.ERROR:
-                yield ReactEvent(
-                    event_type=ReactEventType.ERROR.value,
+                yield AgentEvent(
+                    event_type=AgentEventType.ERROR.value,
                     project_name=self._resolve_project_name() or "default",
                     react_type=response.sender_id,
                     run_id=getattr(self, "_run_id", ""),
@@ -340,8 +340,8 @@ class FilmetoAgent:
         plan_id: Optional[str],
         session_id: str,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> AsyncGenerator["ReactEvent", None]:
-        from agent.react import ReactEventType
+    ) -> AsyncGenerator["AgentEvent", None]:
+        from agent.react import AgentEventType
 
         # Set the current message ID on the crew member for skill tracking
         crew_member._current_message_id = str(uuid.uuid4())
@@ -355,7 +355,7 @@ class FilmetoAgent:
                 event_payload["plan_id"] = plan_id
 
             # Create a new event with enhanced metadata
-            enhanced_event = ReactEvent(
+            enhanced_event = AgentEvent(
                 event_type=event.event_type,
                 project_name=event.project_name,
                 react_type=event.react_type,
@@ -365,7 +365,7 @@ class FilmetoAgent:
             )
 
             # Also send via AgentChatSignals for UI compatibility
-            if event.event_type == ReactEventType.FINAL:
+            if event.event_type == AgentEventType.FINAL:
                 final_text = event.payload.get("final_response", "")
                 if final_text:
                     response = AgentMessage(
@@ -381,7 +381,7 @@ class FilmetoAgent:
                     )
                     logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{final_text[:50]}{'...' if len(final_text) > 50 else ''}'")
                     await self.signals.send_agent_message(response)
-            elif event.event_type == ReactEventType.ERROR:
+            elif event.event_type == AgentEventType.ERROR:
                 error_text = event.payload.get("error", "Unknown error")
                 response = AgentMessage(
                     message_type=MessageType.ERROR,
@@ -404,8 +404,8 @@ class FilmetoAgent:
         self,
         message: str,
         session_id: str,
-    ) -> AsyncGenerator["ReactEvent", None]:
-        from agent.react import ReactEvent, ReactEventType
+    ) -> AsyncGenerator["AgentEvent", None]:
+        from agent.react import AgentEvent, AgentEventType
 
         error_msg = AgentMessage(
             message_type=MessageType.ERROR,
@@ -422,8 +422,8 @@ class FilmetoAgent:
         await self.signals.send_agent_message(error_msg)
 
         # Also yield as ReactEvent
-        yield ReactEvent(
-            event_type=ReactEventType.ERROR.value,
+        yield AgentEvent(
+            event_type=AgentEventType.ERROR.value,
             project_name=self._resolve_project_name() or "default",
             react_type="system",
             run_id=getattr(self, "_run_id", ""),
@@ -435,7 +435,7 @@ class FilmetoAgent:
         """Get the current streaming session."""
         return self.current_session
 
-    async def chat_stream(self, message: str) -> AsyncGenerator["ReactEvent", None]:
+    async def chat_stream(self, message: str) -> AsyncGenerator["AgentEvent", None]:
         """
         Stream responses for a chat conversation with the agents.
 
@@ -586,7 +586,7 @@ class FilmetoAgent:
         initial_prompt: AgentMessage,
         producer_agent: CrewMember,
         session_id: str,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         project_name = self._resolve_project_name()
 
         # Determine the active plan ID - get the last active plan for the project
@@ -632,7 +632,7 @@ class FilmetoAgent:
         self,
         plan: Plan,
         session_id: str,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         plan_instance = self.plan_service.create_plan_instance(plan)
         self.plan_service.start_plan_execution(plan_instance)
 
@@ -744,7 +744,7 @@ class FilmetoAgent:
         Yields:
             AgentMessage: Responses from all agents
         """
-        from agent.react import ReactEventType
+        from agent.react import AgentEventType
 
         for agent in self.members.values():
             try:
@@ -758,7 +758,7 @@ class FilmetoAgent:
 
                 # Iterate over ReactEvent from crew_member.chat_stream
                 async for event in agent.chat_stream(message_text, plan_id=None):
-                    if event.event_type == ReactEventType.FINAL:
+                    if event.event_type == AgentEventType.FINAL:
                         final_text = event.payload.get("final_response", "")
                         if final_text:
                             response = AgentMessage(
@@ -773,7 +773,7 @@ class FilmetoAgent:
                             )
                             self.conversation_history.append(response)
                             yield response
-                    elif event.event_type == ReactEventType.ERROR:
+                    elif event.event_type == AgentEventType.ERROR:
                         error_text = event.payload.get("error", "Unknown error")
                         error_msg = AgentMessage(
                             message_type=MessageType.ERROR,

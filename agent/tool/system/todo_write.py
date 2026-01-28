@@ -7,7 +7,7 @@ from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
-    from ...react.event import ReactEvent
+    from agent.event.agent_event import AgentEvent
 
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class TodoWriteTool(BaseTool):
         react_type: str = "",
         run_id: str = "",
         step_id: int = 0,
-    ) -> AsyncGenerator["ReactEvent", None]:
+    ) -> AsyncGenerator["AgentEvent", None]:
         """
         Execute the todo_write tool asynchronously.
 
@@ -174,8 +174,7 @@ class TodoWriteTool(BaseTool):
 
     def _update_react_todo_state(self, react_instance, todos: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Update the React instance's TODO state."""
-        from ...react.types import TodoItem, TodoState
-        from ...react.event import ReactEventType
+        from ...react.types import TodoState
 
         existing_ids = {item.id for item in react_instance.todo_state.items}
         new_items = list(react_instance.todo_state.items)
