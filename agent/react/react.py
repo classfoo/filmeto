@@ -96,15 +96,33 @@ class React:
             if checkpoint.todo_state:
                 self.todo_state = TodoState.from_dict(checkpoint.todo_state)
 
-    def _create_event(self, event_type: str, **payload_kwargs) -> AgentEvent:
-        """Create an AgentEvent with instance context."""
+    def _create_event(self, event_type: str, payload=None, **payload_kwargs) -> AgentEvent:
+        """
+        Create an AgentEvent with instance context.
+
+        Args:
+            event_type: Type of event
+            payload: Optional dict of payload data (for backward compatibility)
+            **payload_kwargs: Additional payload data as keyword arguments
+
+        Returns:
+            AgentEvent object
+        """
+        # Merge payload dict and kwargs (kwargs take precedence)
+        if payload is None:
+            payload = {}
+        if isinstance(payload, dict):
+            merged = {**payload, **payload_kwargs}
+        else:
+            merged = payload_kwargs
+
         return AgentEvent.create(
             event_type=event_type,
             project_name=self.project_name,
             react_type=self.react_type,
             run_id=self.run_id,
             step_id=self.step_id,
-            **payload_kwargs
+            **merged
         )
 
     def _update_checkpoint(self) -> None:
