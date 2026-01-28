@@ -24,7 +24,6 @@ from .types import (
     ReactActionParser,
     ActionType,
     TodoState,
-    TodoPatch,
 )
 from .storage import ReactStorage
 
@@ -84,6 +83,7 @@ class React:
 
         # TODO state
         self.todo_state = TodoState()
+        self._pending_todo_update = None
 
         checkpoint = self.storage.load_checkpoint()
         if checkpoint and checkpoint.status == ReactStatus.RUNNING:
@@ -122,51 +122,6 @@ class React:
             self.storage.save_checkpoint(checkpoint_data)
         except (IOError, OSError) as e:
             logger.error(f"Failed to save checkpoint: {e}")
-
-    def _apply_todo_patch(self, patch: TodoPatch) -> bool:
-        """Apply a TODO patch to the current state.
-
-        Returns:
-            True if the patch was applied successfully, False otherwise
-        """
-        try:
-            old_state = self.todo_state
-            self.todo_state = self.todo_state.apply_patch(patch)
-            logger.debug(f"Applied TODO patch: {patch.type.value}, version: {old_state.version} -> {self.todo_state.version}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to apply TODO patch: {e}")
-            return False
-
-    def _get_todo_context_for_prompt(self) -> str:
-        """Get TODO context for inclusion in prompts."""
-        if not self.todo_state.items:
-            return ""
-
-        summary = self.todo_state.get_summary()
-        lines = [
-            "\n## Current TODO List",
-            f"Total: {summary['total']}, Pending: {summary['pending']}, In Progress: {summary['in_progress']}, Completed: {summary['completed']}",
-            ""
-        ]
-
-        # Show pending items first
-        pending = self.todo_state.get_pending_items()
-        in_progress = self.todo_state.get_in_progress_items()
-
-        if pending:
-            lines.append("### Pending Tasks:")
-            for item in pending[:5]:  # Show first 5 pending
-                lines.append(f"- [{item.id}] {item.title}")
-                if item.description:
-                    lines.append(f"  {item.description}")
-
-        if in_progress:
-            lines.append("\n### In Progress:")
-            for item in in_progress:
-                lines.append(f"- [{item.id}] {item.title}")
-
-        return "\n".join(lines)
 
     def _maybe_update_checkpoint(self) -> None:
         """Update checkpoint only if enough steps have passed."""
@@ -227,16 +182,12 @@ class React:
                 tools_formatted += json.dumps(args_schema, indent=2)
                 tools_formatted += "\n```\n\n"
 
-        # Get TODO context for the prompt
-        todo_context = self._get_todo_context_for_prompt()
-
         # Use the prompt service to render the template
         from agent.prompt.prompt_service import prompt_service
         user_prompt = prompt_service.render_prompt(
             name="react_global_template",
             tools_formatted=tools_formatted,
-            task_context=task_context,
-            todo_context=todo_context
+            task_context=task_context
         )
 
         if user_prompt is None:
@@ -300,7 +251,11 @@ class React:
         which we process to extract results and progress updates.
         """
         start_time = time.time()
-        tool_context = ToolContext(workspace=self.workspace, project_name=self.project_name)
+        tool_context = ToolContext(
+            workspace=self.workspace,
+            project_name=self.project_name,
+            _react_instance=self,  # Pass reference to React instance for TodoWriteTool
+        )
 
         try:
             # ToolService.execute_tool now yields ReactEvent objects
@@ -409,15 +364,6 @@ class React:
                         "content": response_text,
                     })
 
-                    # Handle TODO patch from action
-                    todo_patch = getattr(action, 'todo_patch', None)
-                    if todo_patch:
-                        if self._apply_todo_patch(todo_patch):
-                            yield self._create_event(ReactEventType.TODO_UPDATE, {
-                                "patch": todo_patch.to_dict(),
-                                "todo_state": self.todo_state.to_dict(),
-                            })
-
                     if action.is_tool():
                         assert isinstance(action, ToolAction), f"Expected ToolAction, got {type(action)}"
                         # Validate tool_name before execution
@@ -445,6 +391,12 @@ class React:
                             if tool_result is None:
                                 tool_result = "Tool execution completed"
                             yield self._create_event(ReactEventType.TOOL_END, action.to_end_payload(result=tool_result, ok=True))
+
+                            # Check for pending TODO update and emit event
+                            if self._pending_todo_update:
+                                yield self._create_event(ReactEventType.TODO_UPDATE, self._pending_todo_update)
+                                self._pending_todo_update = None
+
                             self.messages.append({"role": "assistant", "content": response_text})
                             self.messages.append({"role": "user", "content": f"Observation: {tool_result}"})
                         except Exception as exc:
