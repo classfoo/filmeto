@@ -29,10 +29,8 @@ from .parser import ReactActionParser
 # TODO types
 from .todo import (
     TodoItem,
-    TodoPatch,
     TodoState,
     TodoStatus,
-    TodoPatchType,
 )
 
 __all__ = [
@@ -53,8 +51,6 @@ __all__ = [
     "ReactActionParser",
     # TODO
     "TodoItem",
-    "TodoPatch",
     "TodoState",
     "TodoStatus",
-    "TodoPatchType",
 ]

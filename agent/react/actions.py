@@ -2,10 +2,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .todo import TodoPatch
+from typing import Any, Dict, Optional
 
 
 class ActionType(str, Enum):
@@ -81,13 +78,11 @@ class ToolAction(ReactAction):
         tool_name: Name of the tool to invoke
         tool_args: Arguments to pass to the tool
         thinking: The agent's thinking process
-        todo_patch: Optional TODO patch for this action
     """
     type: str = ActionType.TOOL.value
     tool_name: str = ""
     tool_args: Dict[str, Any] = None
     thinking: Optional[str] = None
-    todo_patch: Optional["TodoPatch"] = None
 
     def __post_init__(self):
         if self.tool_args is None:
@@ -103,8 +98,6 @@ class ToolAction(ReactAction):
             "tool_name": self.tool_name,
             "tool_args": self.tool_args,
         })
-        if self.todo_patch:
-            payload["todo_patch"] = self.todo_patch.to_dict()
         return payload
 
     def get_summary(self) -> str:
@@ -147,13 +140,11 @@ class FinalAction(ReactAction):
         final: The final response content
         thinking: The agent's thinking process
         stop_reason: Reason for stopping (final_action, max_steps_reached, etc.)
-        todo_patch: Optional TODO patch for this action
     """
     type: str = ActionType.FINAL.value
     final: str = ""
     thinking: Optional[str] = None
     stop_reason: str = "final_action"
-    todo_patch: Optional["TodoPatch"] = None
 
     def get_thinking(self) -> Optional[str]:
         return self.thinking
@@ -165,8 +156,6 @@ class FinalAction(ReactAction):
             "final_response": self.final,
             "stop_reason": self.stop_reason,
         })
-        if self.todo_patch:
-            payload["todo_patch"] = self.todo_patch.to_dict()
         return payload
 
     def get_summary(self) -> str:
@@ -185,8 +174,6 @@ class FinalAction(ReactAction):
             "stop_reason": self.stop_reason,
             "summary": self.get_summary(),
         }
-        if self.todo_patch:
-            payload["todo_patch"] = self.todo_patch.to_dict()
         return payload
 
 

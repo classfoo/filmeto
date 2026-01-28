@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 from .actions import ActionType, ReactAction, ToolAction, FinalAction, ErrorAction
 from .constants import StopReason, ReactConfig
 from .json_utils import JsonExtractor
-from .todo import TodoPatch
 
 
 class ReactActionParser:
@@ -20,7 +19,6 @@ class ReactActionParser:
     TOOL_ARGS_ALIASES = ["tool_args", "arguments", "args", "input"]
     FINAL_ALIASES = ["final", "response", "answer", "output"]
     THINKING_ALIASES = ["thinking", "thought", "reasoning", "reasoning"]
-    TODO_PATCH_ALIASES = ["todo_patch", "todo", "plan_update"]
 
     @classmethod
     def get_default_stop_reason(cls) -> str:
@@ -74,14 +72,12 @@ class ReactActionParser:
         final: str,
         thinking: Optional[str] = None,
         stop_reason: Optional[str] = None,
-        todo_patch: Optional[TodoPatch] = None
     ) -> FinalAction:
         """Create a FinalAction with default values."""
         return FinalAction(
             final=final,
             thinking=thinking,
             stop_reason=stop_reason or StopReason.FINAL_ACTION.value,
-            todo_patch=todo_patch
         )
 
     @classmethod
@@ -109,19 +105,16 @@ class ReactActionParser:
 
         action_type = cls._get_field(payload, cls.TYPE_ALIASES)
 
-        # Parse todo_patch if present
-        todo_patch = cls._parse_todo_patch(payload)
-
         if action_type == ActionType.TOOL.value:
-            return cls._parse_tool_action(payload, todo_patch)
+            return cls._parse_tool_action(payload)
         elif action_type == ActionType.FINAL.value:
-            return cls._parse_final_action(payload, response_text, todo_patch=todo_patch)
+            return cls._parse_final_action(payload, response_text)
         else:
             # Unknown or missing action type, default to final
-            return cls._parse_final_action(payload, response_text, stop_reason=StopReason.UNKNOWN_TYPE.value, todo_patch=todo_patch)
+            return cls._parse_final_action(payload, response_text, stop_reason=StopReason.UNKNOWN_TYPE.value)
 
     @classmethod
-    def _parse_tool_action(cls, payload: Dict[str, Any], todo_patch: Optional[TodoPatch] = None) -> ToolAction:
+    def _parse_tool_action(cls, payload: Dict[str, Any]) -> ToolAction:
         """Parse a tool action from the payload."""
         tool_name = cls._get_field(payload, cls.TOOL_NAME_ALIASES, default="")
         tool_args = cls._get_field(payload, cls.TOOL_ARGS_ALIASES, default={})
@@ -134,7 +127,6 @@ class ReactActionParser:
             tool_name=tool_name or "",
             tool_args=tool_args,
             thinking=thinking,
-            todo_patch=todo_patch
         )
 
     @classmethod
@@ -143,7 +135,6 @@ class ReactActionParser:
         payload: Dict[str, Any],
         response_text: str,
         stop_reason: str = "final_action",
-        todo_patch: Optional[TodoPatch] = None
     ) -> FinalAction:
         """Parse a final action from the payload."""
         final = cls._get_field(payload, cls.FINAL_ALIASES)
@@ -156,30 +147,7 @@ class ReactActionParser:
             final=final,
             thinking=thinking,
             stop_reason=stop_reason,
-            todo_patch=todo_patch
         )
-
-    @classmethod
-    def _parse_todo_patch(cls, payload: Dict[str, Any]) -> Optional[TodoPatch]:
-        """Parse a TODO patch from the payload."""
-        todo_data = cls._get_field(payload, cls.TODO_PATCH_ALIASES)
-
-        if not todo_data:
-            return None
-
-        # If it's already a TodoPatch, return it
-        if isinstance(todo_data, TodoPatch):
-            return todo_data
-
-        # If it's a dict, try to parse it
-        if isinstance(todo_data, dict):
-            try:
-                return TodoPatch.from_dict(todo_data)
-            except (KeyError, ValueError):
-                # Invalid patch format, ignore
-                return None
-
-        return None
 
     @classmethod
     def _get_field(cls, payload: Dict[str, Any], aliases: list, default: Any = None) -> Any:

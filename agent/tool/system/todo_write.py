@@ -1,0 +1,258 @@
+"""TodoWrite tool for managing TODO lists in React process."""
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, AsyncGenerator
+from datetime import datetime
+import logging
+
+from ..base_tool import BaseTool, ToolMetadata, ToolParameter
+
+if TYPE_CHECKING:
+    from ...tool_context import ToolContext
+
+
+logger = logging.getLogger(__name__)
+
+
+class TodoWriteTool(BaseTool):
+    """
+    Tool for creating and managing structured task lists during the React process.
+
+    This tool helps the AI assistant track progress and organize complex tasks,
+    providing clear visibility into the work being performed.
+
+    The tool should be used for:
+    - Complex tasks requiring multiple steps
+    - Feature implementation involving multiple components
+    - Refactoring operations across multiple files
+    - Work involving three or more different operations
+
+    For simple single-step tasks or pure information queries, this tool should not be used.
+
+    Usage:
+    - First call creates the initial TODO list with all items
+    - Subsequent calls update the status of existing items
+    - TODO state is persisted in the React checkpoint for recovery
+    - Each React loop has its own isolated TODO state
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="todo_write",
+            description="Create and manage structured task lists for tracking progress during complex tasks"
+        )
+
+    def metadata(self, lang: str = "en_US") -> ToolMetadata:
+        """Get metadata for the todo_write tool."""
+        if lang == "zh_CN":
+            return ToolMetadata(
+                name=self.name,
+                description="为你当前的编码会话创建和管理结构化的任务列表。此工具帮助 AI 助手跟踪进度并组织复杂的任务。",
+                parameters=[
+                    ToolParameter(
+                        name="todos",
+                        description="待办事项列表，每个项目包含 content（任务描述）、status（状态：pending/in_progress/completed）、activeForm（进行时形式）",
+                        param_type="array",
+                        required=True
+                    ),
+                ],
+                return_description="返回任务列表的更新状态"
+            )
+        else:
+            return ToolMetadata(
+                name=self.name,
+                description="Create and manage structured task lists for your current coding session. This tool helps the AI assistant track progress and organize complex tasks.",
+                parameters=[
+                    ToolParameter(
+                        name="todos",
+                        description="Array of TODO items, each containing content (task description), status (pending/in_progress/completed), and activeForm (present continuous form)",
+                        param_type="array",
+                        required=True
+                    ),
+                ],
+                return_description="Returns the updated state of the task list"
+            )
+
+    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Execute the todo_write tool asynchronously.
+
+        This method updates the TODO state in the React instance through the ToolContext.
+        The React instance is responsible for storing the TODO state in checkpoints.
+
+        Args:
+            parameters: Dictionary containing:
+                - todos: List of TODO items, each with:
+                    - content (str): Task description
+                    - status (str): Task status (pending, in_progress, completed)
+                    - activeForm (str): Present continuous form of the action
+            context: ToolContext containing workspace and project info
+
+        Yields:
+            Dict with progress updates and the updated TODO state summary
+        """
+        todos = parameters.get("todos")
+        if not todos:
+            yield {"error": "todos parameter is required and must be a non-empty array"}
+            return
+
+        if not isinstance(todos, list):
+            yield {"error": "todos parameter must be an array"}
+            return
+
+        # Get the React instance from the context to update its todo_state
+        # The React instance is passed through context._data['_react_instance']
+        if context:
+            react_instance = context.get('_react_instance')
+            if react_instance:
+                result = self._update_react_todo_state(react_instance, todos)
+                yield {"result": result}
+                return
+
+        # If no React instance available, just return the parsed todos
+        # This allows the tool to work in isolation for testing
+        parsed_items = []
+        for todo in todos:
+            item = self._parse_todo_item(todo)
+            if item:
+                parsed_items.append(item)
+
+        yield {
+            "message": "TODO list updated",
+            "result": {
+                "count": len(parsed_items),
+                "items": [item.to_dict() for item in parsed_items]
+            }
+        }
+
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+        """
+        Synchronous entry point for todo_write.
+
+        Since the actual execution is async, this method returns an async generator
+        that the React framework will handle.
+
+        Args:
+            parameters: Parameters including todos array
+            context: ToolContext containing workspace and project info
+
+        Returns:
+            AsyncGenerator for streaming execution results
+        """
+        return self.execute_async(parameters, context)
+
+    def _update_react_todo_state(self, react_instance, todos: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Update the React instance's TODO state."""
+        from ...react.types import TodoItem, TodoState, TodoStatus
+        from ...react.event import ReactEventType
+
+        existing_ids = {item.id for item in react_instance.todo_state.items}
+        new_items = list(react_instance.todo_state.items)
+        updated_count = 0
+        created_count = 0
+
+        for todo in todos:
+            item = self._parse_todo_item(todo, existing_ids)
+            if not item:
+                continue
+
+            # Check if this is an update to an existing item
+            found = False
+            for i, existing_item in enumerate(new_items):
+                if existing_item.id == item.id or existing_item.title == item.title:
+                    # Update existing item
+                    new_items[i] = item
+                    updated_count += 1
+                    found = True
+                    break
+
+            if not found:
+                # Add new item
+                new_items.append(item)
+                created_count += 1
+
+        # Create new TodoState
+        new_state = TodoState(
+            items=new_items,
+            version=react_instance.todo_state.version + 1
+        )
+
+        # Update React's todo_state
+        react_instance.todo_state = new_state
+
+        # Create a TODO update event that React can emit
+        # Store it in a special attribute that React's tool execution loop can check
+        if hasattr(react_instance, '_pending_todo_update'):
+            react_instance._pending_todo_update = {
+                "todo_state": new_state.to_dict(),
+            }
+        else:
+            # React class might not have this attribute yet, so we'll skip event emission
+            # The TODO state is still updated and will be checkpointed
+            pass
+
+        # Emit TODO update event
+        summary = new_state.get_summary()
+        logger.debug(f"TODO state updated: {created_count} created, {updated_count} updated")
+
+        return {
+            "message": "TODO list updated successfully",
+            "created": created_count,
+            "updated": updated_count,
+            "total": summary["total"],
+            "pending": summary["pending"],
+            "in_progress": summary["in_progress"],
+            "completed": summary["completed"],
+            "version": new_state.version
+        }
+
+    def _parse_todo_item(self, todo: Dict[str, Any], existing_ids: Optional[set] = None) -> Optional[Any]:
+        """Parse a TODO item from the input format.
+
+        Args:
+            todo: Dict containing content, status, and activeForm
+            existing_ids: Set of existing TODO item IDs (for deduplication)
+
+        Returns:
+            TodoItem or None if parsing fails
+        """
+        from ...react.types import TodoItem, TodoStatus
+
+        if not isinstance(todo, dict):
+            return None
+
+        content = todo.get("content") or todo.get("title", "")
+        status_str = todo.get("status", "pending")
+        active_form = todo.get("activeForm", "")
+
+        if not content:
+            return None
+
+        # Map status string to TodoStatus enum
+        status_map = {
+            "pending": TodoStatus.PENDING,
+            "in_progress": TodoStatus.IN_PROGRESS,
+            "completed": TodoStatus.COMPLETED,
+            "failed": TodoStatus.FAILED,
+            "blocked": TodoStatus.BLOCKED,
+        }
+        status = status_map.get(status_str, TodoStatus.PENDING)
+
+        # Use activeForm as the title if available, otherwise use content
+        title = active_form if active_form else content
+
+        # Generate a unique ID based on the title (for deduplication)
+        import hashlib
+        id_hash = hashlib.md5(title.encode()).hexdigest()[:8]
+        item_id = f"todo_{id_hash}"
+
+        # Create TodoItem
+        return TodoItem(
+            id=item_id,
+            title=title,
+            description=content,
+            status=status,
+            priority=3,
+            dependencies=[],
+            metadata={"activeForm": active_form},
+            created_at=datetime.now().timestamp(),
+            updated_at=datetime.now().timestamp(),
+        )
