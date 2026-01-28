@@ -7,9 +7,13 @@ from .conversation import (
     ConversationManager
 )
 from .agent_chat_message import (
-    AgentMessage,
+    AgentMessage
+)
+from .agent_chat_types import (
     MessageType,
-    ContentType,
+    ContentType
+)
+from .structure_content import (
     StructureContent
 )
 from .agent_chat_signals import (

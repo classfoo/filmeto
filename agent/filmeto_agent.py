@@ -315,22 +315,18 @@ class FilmetoAgent:
 
             # Convert AgentMessage to ReactEvent for upstream consumption
             if response.message_type == MessageType.TEXT:
-                yield AgentEvent(
-                    event_type=AgentEventType.FINAL.value,
+                yield AgentEvent.final(
+                    final_response=response.get_text_content(),
                     project_name=self._resolve_project_name() or "default",
                     react_type=response.sender_id,
                     run_id=getattr(self, "_run_id", ""),
-                    step_id=0,
-                    payload={"final_response": response.get_text_content()}
                 )
             elif response.message_type == MessageType.ERROR:
-                yield AgentEvent(
-                    event_type=AgentEventType.ERROR.value,
+                yield AgentEvent.error(
+                    error_message=response.get_text_content(),
                     project_name=self._resolve_project_name() or "default",
                     react_type=response.sender_id,
                     run_id=getattr(self, "_run_id", ""),
-                    step_id=0,
-                    payload={"error": response.get_text_content()}
                 )
 
     async def _stream_crew_member(
@@ -355,13 +351,13 @@ class FilmetoAgent:
                 event_payload["plan_id"] = plan_id
 
             # Create a new event with enhanced metadata
-            enhanced_event = AgentEvent(
+            enhanced_event = AgentEvent.create(
                 event_type=event.event_type,
                 project_name=event.project_name,
                 react_type=event.react_type,
                 run_id=event.run_id,
                 step_id=event.step_id,
-                payload=event_payload
+                **event_payload
             )
 
             # Also send via AgentChatSignals for UI compatibility
@@ -422,13 +418,11 @@ class FilmetoAgent:
         await self.signals.send_agent_message(error_msg)
 
         # Also yield as ReactEvent
-        yield AgentEvent(
-            event_type=AgentEventType.ERROR.value,
+        yield AgentEvent.error(
+            error_message=message,
             project_name=self._resolve_project_name() or "default",
             react_type="system",
             run_id=getattr(self, "_run_id", ""),
-            step_id=0,
-            payload={"error": message}
         )
 
     def get_current_session(self) -> Optional[AgentStreamSession]:

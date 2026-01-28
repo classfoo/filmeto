@@ -112,15 +112,12 @@ class CrewMember:
         from agent.react import react_service, AgentEventType, AgentEvent
 
         if not self.llm_service.validate_config():
-            error_event = AgentEvent(
-                event_type=AgentEventType.ERROR.value,
+            yield AgentEvent.error(
+                error_message="LLM service is not configured.",
                 project_name=self.project_name,
                 react_type=self.config.name,
                 run_id=getattr(self, "_run_id", ""),
-                step_id=0,
-                payload={"error": "LLM service is not configured."}
             )
-            yield error_event
             return
 
         def build_prompt_function(user_question: str) -> str:
@@ -191,15 +188,13 @@ class CrewMember:
 
         if final_response is None:
             # Create an error event if we didn't get a final response
-            error_event = AgentEvent(
-                event_type=AgentEventType.ERROR.value,
+            yield AgentEvent.error(
+                error_message="Reached max steps without a final response.",
                 project_name=self.project_name,
                 react_type=self.config.name,
                 run_id=getattr(self, "_run_id", ""),
-                step_id=0,
-                payload={"error": "Reached max steps without a final response."}
             )
-            yield error_event
+            return
 
     def _build_user_prompt(self, user_question: str, plan_id: Optional[str] = None) -> str:
         """Build a user prompt that embeds the user's question into the react_base template.

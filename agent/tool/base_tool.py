@@ -149,13 +149,12 @@ class BaseTool(ABC):
         """
         from agent.event.agent_event import AgentEvent
 
-        payload = {"tool_name": self.name, **kwargs}
-
-        return AgentEvent(
+        return AgentEvent.create(
             event_type=event_type,
             project_name=project_name,
             react_type=react_type,
             run_id=run_id,
             step_id=step_id,
-            payload=payload
+            tool_name=self.name,
+            **kwargs
         )

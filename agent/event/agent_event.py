@@ -72,3 +72,224 @@ class AgentEvent:
         # Validate payload is a dict
         if not isinstance(self.payload, dict):
             raise ValueError(f"payload must be a dict, got {type(self.payload).__name__}")
+
+    @staticmethod
+    def create(
+        event_type: str,
+        project_name: str,
+        react_type: str,
+        run_id: str,
+        step_id: int,
+        **payload_kwargs
+    ) -> "AgentEvent":
+        """
+        Create an AgentEvent with the given parameters.
+
+        Args:
+            event_type: Type of event (from AgentEventType)
+            project_name: Name of the project
+            react_type: Type of ReAct process
+            run_id: Unique identifier for the current run
+            step_id: Step number in the current run
+            **payload_kwargs: Event-specific data for the payload
+
+        Returns:
+            AgentEvent object
+
+        Example:
+            event = AgentEvent.create(
+                AgentEventType.TOOL_START.value,
+                project_name="my_project",
+                react_type="crew",
+                run_id="run_123",
+                step_id=1,
+                tool_name="my_tool",
+                parameters={"arg": "value"}
+            )
+        """
+        return AgentEvent(
+            event_type=event_type,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            payload=payload_kwargs
+        )
+
+    @staticmethod
+    def error(
+        error_message: str,
+        project_name: str,
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+        **details
+    ) -> "AgentEvent":
+        """
+        Create an error event.
+
+        Args:
+            error_message: The error message
+            project_name: Name of the project
+            react_type: Type of ReAct process
+            run_id: Unique identifier for the current run
+            step_id: Step number in the current run
+            **details: Additional error details
+
+        Returns:
+            AgentEvent with type ERROR
+        """
+        return AgentEvent.create(
+            AgentEventType.ERROR.value,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            error=error_message,
+            **details
+        )
+
+    @staticmethod
+    def final(
+        final_response: str,
+        project_name: str,
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+        **details
+    ) -> "AgentEvent":
+        """
+        Create a final response event.
+
+        Args:
+            final_response: The final response content
+            project_name: Name of the project
+            react_type: Type of ReAct process
+            run_id: Unique identifier for the current run
+            step_id: Step number in the current run
+            **details: Additional details
+
+        Returns:
+            AgentEvent with type FINAL
+        """
+        return AgentEvent.create(
+            AgentEventType.FINAL.value,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            final_response=final_response,
+            **details
+        )
+
+    @staticmethod
+    def tool_start(
+        tool_name: str,
+        project_name: str,
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+        **details
+    ) -> "AgentEvent":
+        """
+        Create a tool start event.
+
+        Args:
+            tool_name: Name of the tool being started
+            project_name: Name of the project
+            react_type: Type of ReAct process
+            run_id: Unique identifier for the current run
+            step_id: Step number in the current run
+            **details: Additional details (e.g., parameters)
+
+        Returns:
+            AgentEvent with type TOOL_START
+        """
+        return AgentEvent.create(
+            AgentEventType.TOOL_START.value,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            tool_name=tool_name,
+            **details
+        )
+
+    @staticmethod
+    def tool_progress(
+        tool_name: str,
+        progress: str,
+        project_name: str,
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+        **details
+    ) -> "AgentEvent":
+        """
+        Create a tool progress event.
+
+        Args:
+            tool_name: Name of the tool
+            progress: Progress message
+            project_name: Name of the project
+            react_type: Type of ReAct process
+            run_id: Unique identifier for the current run
+            step_id: Step number in the current run
+            **details: Additional details
+
+        Returns:
+            AgentEvent with type TOOL_PROGRESS
+        """
+        return AgentEvent.create(
+            AgentEventType.TOOL_PROGRESS.value,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            tool_name=tool_name,
+            progress=progress,
+            **details
+        )
+
+    @staticmethod
+    def tool_end(
+        tool_name: str,
+        result: Any = None,
+        ok: bool = True,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+        **details
+    ) -> "AgentEvent":
+        """
+        Create a tool end event.
+
+        Args:
+            tool_name: Name of the tool
+            result: Tool execution result
+            ok: Whether execution succeeded
+            project_name: Name of the project
+            react_type: Type of ReAct process
+            run_id: Unique identifier for the current run
+            step_id: Step number in the current run
+            **details: Additional details
+
+        Returns:
+            AgentEvent with type TOOL_END
+        """
+        payload = {
+            "tool_name": tool_name,
+            "ok": ok,
+            **details
+        }
+        if result is not None:
+            payload["result"] = result
+        return AgentEvent.create(
+            AgentEventType.TOOL_END.value,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            **payload
+        )

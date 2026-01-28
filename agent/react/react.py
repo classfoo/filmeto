@@ -96,14 +96,15 @@ class React:
             if checkpoint.todo_state:
                 self.todo_state = TodoState.from_dict(checkpoint.todo_state)
 
-    def _create_event(self, event_type: str, payload: Dict[str, Any]) -> AgentEvent:
-        return AgentEvent(
+    def _create_event(self, event_type: str, **payload_kwargs) -> AgentEvent:
+        """Create an AgentEvent with instance context."""
+        return AgentEvent.create(
             event_type=event_type,
             project_name=self.project_name,
             react_type=self.react_type,
             run_id=self.run_id,
             step_id=self.step_id,
-            payload=payload,
+            **payload_kwargs
         )
 
     def _update_checkpoint(self) -> None:
