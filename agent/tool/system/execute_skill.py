@@ -87,8 +87,9 @@ class ExecuteSkillTool(BaseTool):
 
         Yields:
             Dict with progress updates containing:
-            - event_type: Type of the event (e.g., "llm_thinking", "tool_start", "final")
-            - event_data: Event-specific data
+            - progress: Progress information
+            - result: Final result
+            - error: Error message if any
         """
         workspace = context.workspace if context else None
 
@@ -97,6 +98,7 @@ class ExecuteSkillTool(BaseTool):
             return
 
         from agent.skill.skill_service import SkillService
+        from agent.react.event import ReactEventType
 
         skill_service = SkillService(workspace)
 
@@ -115,6 +117,7 @@ class ExecuteSkillTool(BaseTool):
 
         try:
             # Use SkillService.chat_stream to execute the skill
+            final_response = None
             async for event in skill_service.chat_stream(
                 skill=skill,
                 user_message=message,
@@ -123,11 +126,35 @@ class ExecuteSkillTool(BaseTool):
                 llm_service=None,  # Will use default LLM service
                 max_steps=max_steps,
             ):
-                # Yield event data for the React framework to process
-                yield {
-                    "event_type": event.event_type,
-                    "event_data": event.payload
-                }
+                # Transform ReactEvent to progress/result/error dicts for ToolService
+                if event.event_type == ReactEventType.LLM_THINKING:
+                    yield {"progress": event.payload.get("message", "Thinking...")}
+                elif event.event_type == ReactEventType.TOOL_START:
+                    tool_name = event.payload.get("tool_name", "unknown")
+                    yield {"progress": f"Executing tool: {tool_name}"}
+                elif event.event_type == ReactEventType.TOOL_PROGRESS:
+                    progress = event.payload.get("progress")
+                    if progress:
+                        yield {"progress": str(progress)}
+                elif event.event_type == ReactEventType.TOOL_END:
+                    result = event.payload.get("result")
+                    if result:
+                        yield {"progress": f"Tool result: {str(result)[:100]}..."}
+                elif event.event_type == ReactEventType.FINAL:
+                    final_response = event.payload.get("final_response")
+                    yield {"result": final_response}
+                    return
+                elif event.event_type == ReactEventType.ERROR:
+                    error = event.payload.get("error", "Unknown error")
+                    yield {"error": error}
+                    return
+
+            # If we get here without a FINAL event, return whatever we collected
+            if final_response:
+                yield {"result": final_response}
+            else:
+                yield {"result": "Skill execution completed"}
+
         except Exception as e:
             yield {"error": f"Error executing skill: {str(e)}"}
 

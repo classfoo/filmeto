@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING, AsyncGenerator
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ class ExecuteGeneratedCodeTool(BaseTool):
                         default={}
                     ),
                 ],
-                return_description="返回代码的执行结果"
+                return_description="返回代码的执行结果（流式输出）"
             )
         else:
             return ToolMetadata(
@@ -58,19 +58,19 @@ class ExecuteGeneratedCodeTool(BaseTool):
                         default={}
                     ),
                 ],
-                return_description="Returns the execution result from the generated code"
+                return_description="Returns the execution result from the generated code (streamed)"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Execute dynamically generated Python code using ToolService.
+        Execute dynamically generated Python code using ToolService.execute_script_content.
 
         Args:
             parameters: Parameters including code and args
             context: ToolContext containing workspace and project info
 
-        Returns:
-            Execution result from the generated code
+        Yields:
+            Dict with progress updates or final result
         """
         from ..tool_service import ToolService
 
@@ -78,7 +78,8 @@ class ExecuteGeneratedCodeTool(BaseTool):
         args = parameters.get("args", {})
 
         if not code:
-            return "Error: code is required"
+            yield {"error": "code is required"}
+            return
 
         tool_service = ToolService()
 
@@ -88,7 +89,28 @@ class ExecuteGeneratedCodeTool(BaseTool):
             argv.extend([f"--{key}", str(value)])
 
         try:
-            result = tool_service.execute_script_content(code, argv, context)
-            return str(result) if result is not None else ""
+            # Yield progress before execution
+            yield {"progress": "Executing generated code..."}
+
+            # execute_script_content now returns the result directly (not an async generator)
+            result = await tool_service.execute_script_content(
+                code,
+                argv,
+                context,
+                project_name=context.project_name if context else "",
+                react_type="",
+                run_id="",
+                step_id=0,
+            )
+
+            # Yield the final result
+            yield {"result": result}
+
         except Exception as e:
-            return f"Error executing generated code: {str(e)}"
+            yield {"error": f"Error executing generated code: {str(e)}"}
+
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+        """
+        Synchronous entry point that returns the async generator.
+        """
+        return self.execute_async(parameters, context)

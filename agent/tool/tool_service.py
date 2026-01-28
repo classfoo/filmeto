@@ -5,7 +5,7 @@ import io
 import contextlib
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING, AsyncGenerator
 from .base_tool import BaseTool, ToolMetadata
 from .tool_context import ToolContext
 
@@ -91,39 +91,285 @@ class ToolService:
         """Register a new tool with the service."""
         self.tools[tool.name] = tool
 
-    def execute_tool(self, tool_name: str, parameters: Dict[str, Any], context: Optional[ToolContext] = None) -> Any:
+    def _create_tool_event(
+        self,
+        event_type: str,
+        tool_name: str,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+        **kwargs
+    ) -> Any:
+        """
+        Create a ReactEvent for tool execution.
+
+        Args:
+            event_type: Type of event (tool_start, tool_progress, tool_end, error)
+            tool_name: Name of the tool being executed
+            project_name: Project name
+            react_type: React type
+            run_id: Run ID
+            step_id: Step ID
+            **kwargs: Additional event-specific data
+
+        Returns:
+            ReactEvent object
+        """
+        from agent.react.event import ReactEvent
+
+        payload = {"tool_name": tool_name, **kwargs}
+
+        return ReactEvent(
+            event_type=event_type,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            payload=payload
+        )
+
+    async def execute_tool(
+        self,
+        tool_name: str,
+        parameters: Dict[str, Any],
+        context: Optional[ToolContext] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator[Any, None]:
         """
         Execute a specific tool with given parameters.
+
+        Yields ReactEvent objects for tracking execution progress.
 
         Args:
             tool_name: Name of the tool to execute
             parameters: Parameters for the tool
             context: Optional ToolContext object containing workspace and project info
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
-        Returns:
-            Result of the tool execution
+        Yields:
+            ReactEvent objects with types: tool_start, tool_progress, tool_end, error
+
+        Raises:
+            ValueError: If tool is not found
         """
         if tool_name not in self.tools:
-            raise ValueError(f"Tool '{tool_name}' not found")
+            yield self._create_tool_event(
+                "error",
+                tool_name,
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=f"Tool '{tool_name}' not found"
+            )
+            return
 
         tool = self.tools[tool_name]
-        return tool.execute(parameters, context)
 
-    def execute_script(self, script_path: str, argv: list = None, context: Optional[ToolContext] = None) -> Any:
+        # Yield tool_start event
+        yield self._create_tool_event(
+            "tool_start",
+            tool_name,
+            project_name,
+            react_type,
+            run_id,
+            step_id,
+            parameters=parameters
+        )
+
+        try:
+            result = tool.execute(parameters, context)
+
+            # Handle async results
+            import inspect
+            if inspect.isawaitable(result):
+                result = await result
+
+            # Handle async generators (streaming results)
+            if inspect.isasyncgen(result) or hasattr(result, "__aiter__"):
+                async for item in result:
+                    # Yield progress events for streaming results
+                    if isinstance(item, dict):
+                        if "event_type" in item:
+                            # Already an event-like dict, wrap it properly
+                            yield self._create_tool_event(
+                                "tool_progress",
+                                tool_name,
+                                project_name,
+                                react_type,
+                                run_id,
+                                step_id,
+                                **item
+                            )
+                        elif "progress" in item:
+                            yield self._create_tool_event(
+                                "tool_progress",
+                                tool_name,
+                                project_name,
+                                react_type,
+                                run_id,
+                                step_id,
+                                progress=item["progress"]
+                            )
+                        elif "error" in item:
+                            yield self._create_tool_event(
+                                "error",
+                                tool_name,
+                                project_name,
+                                react_type,
+                                run_id,
+                                step_id,
+                                error=item["error"]
+                            )
+                            return
+                        elif "result" in item:
+                            # Final result from streaming
+                            yield self._create_tool_event(
+                                "tool_end",
+                                tool_name,
+                                project_name,
+                                react_type,
+                                run_id,
+                                step_id,
+                                ok=True,
+                                result=item["result"]
+                            )
+                            return
+                    else:
+                        # Raw item, treat as progress
+                        yield self._create_tool_event(
+                            "tool_progress",
+                            tool_name,
+                            project_name,
+                            react_type,
+                            run_id,
+                            step_id,
+                            progress=item
+                        )
+
+                # If we get here, the async generator completed without a final result
+                yield self._create_tool_event(
+                    "tool_end",
+                    tool_name,
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                    ok=True,
+                    result=None
+                )
+            else:
+                # Simple synchronous result
+                yield self._create_tool_event(
+                    "tool_end",
+                    tool_name,
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                    ok=True,
+                    result=result
+                )
+
+        except Exception as e:
+            yield self._create_tool_event(
+                "error",
+                tool_name,
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=str(e)
+            )
+
+    async def execute_script(
+        self,
+        script_path: str,
+        argv: list = None,
+        context: Optional[ToolContext] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> Any:
         """
         Execute a script that can call various tools.
+
+        Returns the script execution result (captured stdout).
 
         Args:
             script_path: Absolute path to the script file to execute
             argv: Optional list of command-line arguments to pass to the script
             context: Optional ToolContext object containing workspace and project info
+            project_name: Project name for event tracking (unused, for compatibility)
+            react_type: React type for event tracking (unused, for compatibility)
+            run_id: Run ID for event tracking (unused, for compatibility)
+            step_id: Step ID for event tracking (unused, for compatibility)
 
         Returns:
-            Result of the script execution (captured stdout)
+            The script execution result (captured stdout), or raises an exception on error
         """
         # Define the execute_tool function that will be available in the script
-        def script_execute_tool(tool_name: str, parameters: Dict[str, Any]):
-            return self.execute_tool(tool_name, parameters, context)
+        # Note: Scripts get a simplified sync interface for backward compatibility
+        def script_execute_tool(script_tool_name: str, parameters: Dict[str, Any]):
+            """Synchronous execute_tool wrapper for script execution.
+
+            This function is called from synchronous scripts and needs to
+            properly handle the async execute_tool method.
+            """
+            import asyncio
+            import concurrent.futures
+
+            async def _collect_result():
+                """Collect the final result from execute_tool events."""
+                result = None
+                async for event in self.execute_tool(
+                    script_tool_name,
+                    parameters,
+                    context,
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                ):
+                    if event.event_type == "tool_end":
+                        result = event.payload.get("result")
+                        return result
+                    elif event.event_type == "error":
+                        error_msg = event.payload.get("error", "Unknown error")
+                        raise RuntimeError(error_msg)
+                return result
+
+            # Get the current event loop (if any)
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # We're in an async context - we need to run the coroutine
+                    # Use a more robust approach: run in a separate thread with its own loop
+                    def run_in_new_loop():
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(_collect_result())
+                        finally:
+                            new_loop.close()
+
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(run_in_new_loop)
+                        return future.result(timeout=30)  # 30 second timeout
+                else:
+                    # No loop running, safe to use asyncio.run
+                    return asyncio.run(_collect_result())
+            except RuntimeError:
+                # No event loop exists, create one
+                return asyncio.run(_collect_result())
 
         # Prepare globals for the script execution
         script_globals = {
@@ -146,11 +392,10 @@ class ToolService:
                 # Run the script with the prepared globals
                 runpy.run_path(script_path, init_globals=script_globals, run_name="__main__")
 
-            # Get the captured output
+            # Get the captured output and return it
             output = captured_output.getvalue()
-
-            # Return the captured output (strip trailing newline if present)
             return output.rstrip() if output else None
+
         except SyntaxError as e:
             raise ValueError(f"Syntax error in script: {str(e)}")
         except FileNotFoundError:
@@ -158,26 +403,86 @@ class ToolService:
         except Exception as e:
             raise RuntimeError(f"Error executing script: {str(e)}")
 
-    def execute_script_content(self, script_content: str, argv: list = None, context: Optional[ToolContext] = None) -> Any:
+    async def execute_script_content(
+        self,
+        script_content: str,
+        argv: list = None,
+        context: Optional[ToolContext] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> Any:
         """
         Execute a Python script from content string.
 
         Supports executing dynamically generated Python code.
 
+        Returns the script execution result (captured stdout).
+
         Args:
             script_content: Python code as string
             argv: Optional list of command-line arguments to pass to the script
             context: Optional ToolContext object containing workspace and project info
+            project_name: Project name for event tracking (unused, for compatibility)
+            react_type: React type for event tracking (unused, for compatibility)
+            run_id: Run ID for event tracking (unused, for compatibility)
+            step_id: Step ID for event tracking (unused, for compatibility)
 
         Returns:
-            Result of the script execution (captured stdout)
+            The script execution result (captured stdout), or raises an exception on error
         """
         import tempfile
         import os
 
         # Define execute_tool function for the script
-        def script_execute_tool(tool_name: str, parameters: Dict[str, Any]):
-            return self.execute_tool(tool_name, parameters, context)
+        def script_execute_tool(script_tool_name: str, parameters: Dict[str, Any]):
+            """Synchronous execute_tool wrapper for script execution."""
+            import asyncio
+            import concurrent.futures
+
+            async def _collect_result():
+                """Collect the final result from execute_tool events."""
+                result = None
+                async for event in self.execute_tool(
+                    script_tool_name,
+                    parameters,
+                    context,
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                ):
+                    if event.event_type == "tool_end":
+                        result = event.payload.get("result")
+                        return result
+                    elif event.event_type == "error":
+                        error_msg = event.payload.get("error", "Unknown error")
+                        raise RuntimeError(error_msg)
+                return result
+
+            # Get the current event loop (if any)
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # We're in an async context - run in a separate thread with its own loop
+                    def run_in_new_loop():
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(_collect_result())
+                        finally:
+                            new_loop.close()
+
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(run_in_new_loop)
+                        return future.result(timeout=30)  # 30 second timeout
+                else:
+                    # No loop running, safe to use asyncio.run
+                    return asyncio.run(_collect_result())
+            except RuntimeError:
+                # No event loop exists, create one
+                return asyncio.run(_collect_result())
 
         script_globals = {
             '__builtins__': __builtins__,

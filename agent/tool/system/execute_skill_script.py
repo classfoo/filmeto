@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING, AsyncGenerator
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ class ExecuteSkillScriptTool(BaseTool):
                         default={}
                     ),
                 ],
-                return_description="返回脚本的执行结果"
+                return_description="返回脚本的执行结果（流式输出）"
             )
         else:
             return ToolMetadata(
@@ -70,19 +70,19 @@ class ExecuteSkillScriptTool(BaseTool):
                         default={}
                     ),
                 ],
-                return_description="Returns the execution result from the script"
+                return_description="Returns the execution result from the script (streamed)"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Execute a skill script using ToolService.
+        Execute a skill script using ToolService.execute_script.
 
         Args:
             parameters: Parameters including skill_path, script_name, and args
             context: ToolContext containing workspace and project info
 
-        Returns:
-            Execution result from the script
+        Yields:
+            Dict with progress updates or final result
         """
         from ..tool_service import ToolService
 
@@ -91,7 +91,8 @@ class ExecuteSkillScriptTool(BaseTool):
         args = parameters.get("args", {})
 
         if not skill_path or not script_name:
-            return "Error: skill_path and script_name are required"
+            yield {"error": "skill_path and script_name are required"}
+            return
 
         tool_service = ToolService()
 
@@ -103,7 +104,8 @@ class ExecuteSkillScriptTool(BaseTool):
             full_script_path = os.path.join(scripts_dir, script_name)
 
         if not os.path.exists(full_script_path):
-            return f"Error: Script not found at {full_script_path}"
+            yield {"error": f"Script not found at {full_script_path}"}
+            return
 
         # Build argv from args
         argv = []
@@ -111,7 +113,28 @@ class ExecuteSkillScriptTool(BaseTool):
             argv.extend([f"--{key}", str(value)])
 
         try:
-            result = tool_service.execute_script(full_script_path, argv, context)
-            return str(result) if result is not None else ""
+            # Yield progress before execution
+            yield {"progress": f"Executing script: {script_name}"}
+
+            # execute_script now returns the result directly (not an async generator)
+            result = await tool_service.execute_script(
+                full_script_path,
+                argv,
+                context,
+                project_name=context.project_name if context else "",
+                react_type="",
+                run_id="",
+                step_id=0,
+            )
+
+            # Yield the final result
+            yield {"result": result}
+
         except Exception as e:
-            return f"Error executing skill script: {str(e)}"
+            yield {"error": f"Error executing skill script: {str(e)}"}
+
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+        """
+        Synchronous entry point that returns the async generator.
+        """
+        return self.execute_async(parameters, context)
