@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING, AsyncGenerator
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
@@ -7,14 +7,14 @@ if TYPE_CHECKING:
 
 class ExecuteSkillTool(BaseTool):
     """
-    Tool to execute a skill through SkillService.
-    This is a bridge tool that allows React to execute skills.
+    Tool to execute a skill through SkillService's chat_stream method.
+    This is a bridge tool that allows React to execute skills using ReAct.
     """
 
     def __init__(self):
         super().__init__(
             name="execute_skill",
-            description="Execute a skill with given parameters"
+            description="Execute a skill through ReAct-based chat stream"
         )
 
     def metadata(self, lang: str = "en_US") -> ToolMetadata:
@@ -22,7 +22,7 @@ class ExecuteSkillTool(BaseTool):
         if lang == "zh_CN":
             return ToolMetadata(
                 name=self.name,
-                description="执行一个 skill",
+                description="通过 ReAct 执行一个 skill",
                 parameters=[
                     ToolParameter(
                         name="skill_name",
@@ -32,24 +32,24 @@ class ExecuteSkillTool(BaseTool):
                     ),
                     ToolParameter(
                         name="message",
-                        description="用户消息",
+                        description="用户消息/问题",
                         param_type="string",
                         required=False
                     ),
                     ToolParameter(
-                        name="args",
-                        description="传递给 skill 的参数",
-                        param_type="object",
+                        name="max_steps",
+                        description="最大执行步数",
+                        param_type="integer",
                         required=False,
-                        default={}
+                        default=10
                     ),
                 ],
-                return_description="返回 skill 的执行结果"
+                return_description="返回 skill 的执行结果（流式输出）"
             )
         else:
             return ToolMetadata(
                 name=self.name,
-                description="Execute a skill with given parameters",
+                description="Execute a skill through ReAct-based chat stream",
                 parameters=[
                     ToolParameter(
                         name="skill_name",
@@ -59,73 +59,90 @@ class ExecuteSkillTool(BaseTool):
                     ),
                     ToolParameter(
                         name="message",
-                        description="User message for the skill",
+                        description="User message/question for the skill",
                         param_type="string",
                         required=False
                     ),
                     ToolParameter(
-                        name="args",
-                        description="Arguments to pass to the skill",
-                        param_type="object",
+                        name="max_steps",
+                        description="Maximum number of execution steps",
+                        param_type="integer",
                         required=False,
-                        default={}
+                        default=10
                     ),
                 ],
-                return_description="Returns the execution result from the skill"
+                return_description="Returns the execution result from the skill (streamed)"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Execute a skill using SkillService.
+        Execute a skill using SkillService.chat_stream().
+
+        This method uses SkillService's ReAct-based chat stream to execute skills,
+        which allows the skill to use tools and have multi-step reasoning.
 
         Args:
-            parameters: Parameters including skill_name, message, and args
+            parameters: Parameters including skill_name, message, and max_steps
             context: ToolContext containing workspace and project info
 
-        Returns:
-            Execution result from the skill
+        Yields:
+            Dict with progress updates containing:
+            - event_type: Type of the event (e.g., "llm_thinking", "tool_start", "final")
+            - event_data: Event-specific data
         """
-        # Get workspace from context and create SkillService
         workspace = context.workspace if context else None
 
         if not workspace:
-            return "Error: Workspace not available in context"
+            yield {"error": "Workspace not available in context"}
+            return
 
         from agent.skill.skill_service import SkillService
+
         skill_service = SkillService(workspace)
 
         skill_name = parameters.get("skill_name")
         message = parameters.get("message")
-        args = parameters.get("args", {})
+        max_steps = parameters.get("max_steps", 10)
 
         if not skill_name:
-            return "Error: skill_name is required"
+            yield {"error": "skill_name is required"}
+            return
 
         skill = skill_service.get_skill(skill_name)
         if not skill:
-            return f"Error: Skill '{skill_name}' not found"
+            yield {"error": f"Skill '{skill_name}' not found"}
+            return
 
-        # Note: This is a simplified synchronous execution
-        # For full async support, the tool system would need async support
         try:
-            # Execute the skill script directly
-            if skill.scripts:
-                import os
-                script_path = skill.scripts[0]  # Use first script
-                if not os.path.exists(script_path):
-                    return f"Error: Script not found at {script_path}"
-
-                from ..tool_service import ToolService
-                tool_service = ToolService()
-
-                # Build argv from args
-                argv = []
-                for key, value in args.items():
-                    argv.extend([f"--{key}", str(value)])
-
-                result = tool_service.execute_script(script_path, argv, context)
-                return str(result) if result is not None else ""
-            else:
-                return f"Error: Skill '{skill_name}' has no executable scripts"
+            # Use SkillService.chat_stream to execute the skill
+            async for event in skill_service.chat_stream(
+                skill=skill,
+                user_message=message,
+                workspace=workspace,
+                project=context.project_name if context else None,
+                llm_service=None,  # Will use default LLM service
+                max_steps=max_steps,
+            ):
+                # Yield event data for the React framework to process
+                yield {
+                    "event_type": event.event_type,
+                    "event_data": event.payload
+                }
         except Exception as e:
-            return f"Error executing skill: {str(e)}"
+            yield {"error": f"Error executing skill: {str(e)}"}
+
+    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+        """
+        Synchronous entry point for skill execution.
+
+        Since the actual execution is async, this method returns an async generator
+        that the React framework will handle.
+
+        Args:
+            parameters: Parameters including skill_name, message, and max_steps
+            context: ToolContext containing workspace and project info
+
+        Returns:
+            AsyncGenerator for streaming execution results
+        """
+        return self.execute_async(parameters, context)
