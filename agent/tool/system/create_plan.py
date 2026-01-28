@@ -1,9 +1,14 @@
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
-from typing import Any, Dict, TYPE_CHECKING, Optional
+from typing import Any, Dict, TYPE_CHECKING, Optional, AsyncGenerator
 from ...plan.service import PlanService
 from ...plan.models import PlanTask, Plan
 from datetime import datetime
 import uuid
+
+if TYPE_CHECKING:
+    from ...tool_context import ToolContext
+    from ...react.event import ReactEvent
+
 
 class CreatePlanTool(BaseTool):
     """
@@ -77,16 +82,28 @@ class CreatePlanTool(BaseTool):
                 return_description="Returns the created plan details including plan ID, title, description, task list, creation time, and status"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Dict[str, Any]:
+    async def execute(
+        self,
+        parameters: Dict[str, Any],
+        context: Optional["ToolContext"] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator["ReactEvent", None]:
         """
         Execute the plan creation using PlanService.
 
         Args:
             parameters: Parameters for the plan including title, description, tasks
             context: ToolContext containing workspace and project info
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
-        Returns:
-            Created plan details
+        Yields:
+            ReactEvent objects with the created plan details
         """
         # Extract required parameters
         title = parameters.get('title', 'Untitled Plan')
@@ -136,24 +153,45 @@ class CreatePlanTool(BaseTool):
                 )
                 plan_tasks.append(plan_task)
 
-        # Create the plan using PlanService
-        plan = plan_service.create_plan(
-            project_name=project_name,
-            name=title,
-            description=description,
-            tasks=plan_tasks
-        )
+        try:
+            # Create the plan using PlanService
+            plan = plan_service.create_plan(
+                project_name=project_name,
+                name=title,
+                description=description,
+                tasks=plan_tasks
+            )
 
-        # Return the created plan details
-        return {
-            'id': plan.id,
-            'title': plan.name,
-            'description': plan.description,
-            'tasks': [self._convert_task_to_dict(task) for task in plan.tasks],
-            'created_at': plan.created_at.isoformat(),
-            'project': plan.project_name,
-            'status': plan.status.value
-        }
+            # Return the created plan details
+            result = {
+                'id': plan.id,
+                'title': plan.name,
+                'description': plan.description,
+                'tasks': [self._convert_task_to_dict(task) for task in plan.tasks],
+                'created_at': plan.created_at.isoformat(),
+                'project': plan.project_name,
+                'status': plan.status.value
+            }
+
+            yield self._create_event(
+                "tool_end",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                ok=True,
+                result=result
+            )
+
+        except Exception as e:
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=str(e)
+            )
 
     def _convert_task_to_dict(self, task: PlanTask) -> Dict[str, Any]:
         """Convert a PlanTask object to a dictionary."""

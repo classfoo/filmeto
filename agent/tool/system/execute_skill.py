@@ -3,6 +3,7 @@ from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
+    from ...react.event import ReactEvent
 
 
 class ExecuteSkillTool(BaseTool):
@@ -74,7 +75,15 @@ class ExecuteSkillTool(BaseTool):
                 return_description="Returns the execution result from the skill (streamed)"
             )
 
-    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
+    async def execute(
+        self,
+        parameters: Dict[str, Any],
+        context: Optional["ToolContext"] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator["ReactEvent", None]:
         """
         Execute a skill using SkillService.chat_stream().
 
@@ -84,17 +93,25 @@ class ExecuteSkillTool(BaseTool):
         Args:
             parameters: Parameters including skill_name, message, and max_steps
             context: ToolContext containing workspace and project info
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
         Yields:
-            Dict with progress updates containing:
-            - progress: Progress information
-            - result: Final result
-            - error: Error message if any
+            ReactEvent objects with progress updates and results
         """
         workspace = context.workspace if context else None
 
         if not workspace:
-            yield {"error": "Workspace not available in context"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error="Workspace not available in context"
+            )
             return
 
         from agent.skill.skill_service import SkillService
@@ -107,12 +124,26 @@ class ExecuteSkillTool(BaseTool):
         max_steps = parameters.get("max_steps", 10)
 
         if not skill_name:
-            yield {"error": "skill_name is required"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error="skill_name is required"
+            )
             return
 
         skill = skill_service.get_skill(skill_name)
         if not skill:
-            yield {"error": f"Skill '{skill_name}' not found"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=f"Skill '{skill_name}' not found"
+            )
             return
 
         try:
@@ -126,50 +157,100 @@ class ExecuteSkillTool(BaseTool):
                 llm_service=None,  # Will use default LLM service
                 max_steps=max_steps,
             ):
-                # Transform ReactEvent to progress/result/error dicts for ToolService
+                # Transform ReactEvent to tool_progress events for ToolService
                 if event.event_type == ReactEventType.LLM_THINKING:
-                    yield {"progress": event.payload.get("message", "Thinking...")}
+                    yield self._create_event(
+                        "tool_progress",
+                        project_name,
+                        react_type,
+                        run_id,
+                        step_id,
+                        progress=event.payload.get("message", "Thinking...")
+                    )
                 elif event.event_type == ReactEventType.TOOL_START:
                     tool_name = event.payload.get("tool_name", "unknown")
-                    yield {"progress": f"Executing tool: {tool_name}"}
+                    yield self._create_event(
+                        "tool_progress",
+                        project_name,
+                        react_type,
+                        run_id,
+                        step_id,
+                        progress=f"Executing tool: {tool_name}"
+                    )
                 elif event.event_type == ReactEventType.TOOL_PROGRESS:
                     progress = event.payload.get("progress")
                     if progress:
-                        yield {"progress": str(progress)}
+                        yield self._create_event(
+                            "tool_progress",
+                            project_name,
+                            react_type,
+                            run_id,
+                            step_id,
+                            progress=str(progress)
+                        )
                 elif event.event_type == ReactEventType.TOOL_END:
                     result = event.payload.get("result")
                     if result:
-                        yield {"progress": f"Tool result: {str(result)[:100]}..."}
+                        yield self._create_event(
+                            "tool_progress",
+                            project_name,
+                            react_type,
+                            run_id,
+                            step_id,
+                            progress=f"Tool result: {str(result)[:100]}..."
+                        )
                 elif event.event_type == ReactEventType.FINAL:
                     final_response = event.payload.get("final_response")
-                    yield {"result": final_response}
+                    yield self._create_event(
+                        "tool_end",
+                        project_name,
+                        react_type,
+                        run_id,
+                        step_id,
+                        ok=True,
+                        result=final_response
+                    )
                     return
                 elif event.event_type == ReactEventType.ERROR:
                     error = event.payload.get("error", "Unknown error")
-                    yield {"error": error}
+                    yield self._create_event(
+                        "error",
+                        project_name,
+                        react_type,
+                        run_id,
+                        step_id,
+                        error=error
+                    )
                     return
 
             # If we get here without a FINAL event, return whatever we collected
             if final_response:
-                yield {"result": final_response}
+                yield self._create_event(
+                    "tool_end",
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                    ok=True,
+                    result=final_response
+                )
             else:
-                yield {"result": "Skill execution completed"}
+                yield self._create_event(
+                    "tool_end",
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                    ok=True,
+                    result="Skill execution completed"
+                )
 
         except Exception as e:
-            yield {"error": f"Error executing skill: {str(e)}"}
-
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
-        """
-        Synchronous entry point for skill execution.
-
-        Since the actual execution is async, this method returns an async generator
-        that the React framework will handle.
-
-        Args:
-            parameters: Parameters including skill_name, message, and max_steps
-            context: ToolContext containing workspace and project info
-
-        Returns:
-            AsyncGenerator for streaming execution results
-        """
-        return self.execute_async(parameters, context)
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=f"Error executing skill: {str(e)}"
+            )
