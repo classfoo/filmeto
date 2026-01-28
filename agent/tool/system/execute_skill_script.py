@@ -4,6 +4,8 @@ from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
+    from ...react.event import ReactEvent
+
 
 class ExecuteSkillScriptTool(BaseTool):
     """
@@ -73,16 +75,28 @@ class ExecuteSkillScriptTool(BaseTool):
                 return_description="Returns the execution result from the script (streamed)"
             )
 
-    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
+    async def execute(
+        self,
+        parameters: Dict[str, Any],
+        context: Optional["ToolContext"] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator["ReactEvent", None]:
         """
         Execute a skill script using ToolService.execute_script.
 
         Args:
             parameters: Parameters including skill_path, script_name, and args
             context: ToolContext containing workspace and project info
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
         Yields:
-            Dict with progress updates or final result
+            ReactEvent objects with progress updates and results
         """
         from ..tool_service import ToolService
 
@@ -91,7 +105,14 @@ class ExecuteSkillScriptTool(BaseTool):
         args = parameters.get("args", {})
 
         if not skill_path or not script_name:
-            yield {"error": "skill_path and script_name are required"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error="skill_path and script_name are required"
+            )
             return
 
         tool_service = ToolService()
@@ -104,7 +125,14 @@ class ExecuteSkillScriptTool(BaseTool):
             full_script_path = os.path.join(scripts_dir, script_name)
 
         if not os.path.exists(full_script_path):
-            yield {"error": f"Script not found at {full_script_path}"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=f"Script not found at {full_script_path}"
+            )
             return
 
         # Build argv from args
@@ -114,27 +142,43 @@ class ExecuteSkillScriptTool(BaseTool):
 
         try:
             # Yield progress before execution
-            yield {"progress": f"Executing script: {script_name}"}
+            yield self._create_event(
+                "tool_progress",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                progress=f"Executing script: {script_name}"
+            )
 
-            # execute_script now returns the result directly (not an async generator)
+            # execute_script now returns the result directly
             result = await tool_service.execute_script(
                 full_script_path,
                 argv,
                 context,
-                project_name=context.project_name if context else "",
-                react_type="",
-                run_id="",
-                step_id=0,
+                project_name=project_name,
+                react_type=react_type,
+                run_id=run_id,
+                step_id=step_id,
             )
 
             # Yield the final result
-            yield {"result": result}
+            yield self._create_event(
+                "tool_end",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                ok=True,
+                result=result
+            )
 
         except Exception as e:
-            yield {"error": f"Error executing skill script: {str(e)}"}
-
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
-        """
-        Synchronous entry point that returns the async generator.
-        """
-        return self.execute_async(parameters, context)
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=str(e)
+            )

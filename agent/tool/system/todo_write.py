@@ -7,6 +7,7 @@ from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
+    from ...react.event import ReactEvent
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,15 @@ class TodoWriteTool(BaseTool):
                 return_description="Returns the updated state of the task list"
             )
 
-    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
+    async def execute(
+        self,
+        parameters: Dict[str, Any],
+        context: Optional["ToolContext"] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator["ReactEvent", None]:
         """
         Execute the todo_write tool asynchronously.
 
@@ -85,17 +94,35 @@ class TodoWriteTool(BaseTool):
                     - status (str): Task status (pending, in_progress, completed)
                     - activeForm (str): Present continuous form of the action
             context: ToolContext containing workspace and project info
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
         Yields:
-            Dict with progress updates and the updated TODO state summary
+            ReactEvent objects with progress updates and results
         """
         todos = parameters.get("todos")
         if not todos:
-            yield {"error": "todos parameter is required and must be a non-empty array"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error="todos parameter is required and must be a non-empty array"
+            )
             return
 
         if not isinstance(todos, list):
-            yield {"error": "todos parameter must be an array"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error="todos parameter must be an array"
+            )
             return
 
         # Get the React instance from the context to update its todo_state
@@ -104,7 +131,23 @@ class TodoWriteTool(BaseTool):
             react_instance = context.get('_react_instance')
             if react_instance:
                 result = self._update_react_todo_state(react_instance, todos)
-                yield {"result": result}
+                yield self._create_event(
+                    "tool_progress",
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                    progress="TODO list updated"
+                )
+                yield self._create_event(
+                    "tool_end",
+                    project_name,
+                    react_type,
+                    run_id,
+                    step_id,
+                    ok=True,
+                    result=result
+                )
                 return
 
         # If no React instance available, just return the parsed todos
@@ -115,33 +158,23 @@ class TodoWriteTool(BaseTool):
             if item:
                 parsed_items.append(item)
 
-        yield {
-            "message": "TODO list updated",
-            "result": {
+        yield self._create_event(
+            "tool_end",
+            project_name,
+            react_type,
+            run_id,
+            step_id,
+            ok=True,
+            result={
+                "message": "TODO list updated",
                 "count": len(parsed_items),
                 "items": [item.to_dict() for item in parsed_items]
             }
-        }
-
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
-        """
-        Synchronous entry point for todo_write.
-
-        Since the actual execution is async, this method returns an async generator
-        that the React framework will handle.
-
-        Args:
-            parameters: Parameters including todos array
-            context: ToolContext containing workspace and project info
-
-        Returns:
-            AsyncGenerator for streaming execution results
-        """
-        return self.execute_async(parameters, context)
+        )
 
     def _update_react_todo_state(self, react_instance, todos: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Update the React instance's TODO state."""
-        from ...react.types import TodoItem, TodoState, TodoStatus
+        from ...react.types import TodoItem, TodoState
         from ...react.event import ReactEventType
 
         existing_ids = {item.id for item in react_instance.todo_state.items}

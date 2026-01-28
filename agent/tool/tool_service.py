@@ -185,98 +185,17 @@ class ToolService:
         )
 
         try:
-            result = tool.execute(parameters, context)
-
-            # Handle async results
-            import inspect
-            if inspect.isawaitable(result):
-                result = await result
-
-            # Handle async generators (streaming results)
-            if inspect.isasyncgen(result) or hasattr(result, "__aiter__"):
-                async for item in result:
-                    # Yield progress events for streaming results
-                    if isinstance(item, dict):
-                        if "event_type" in item:
-                            # Already an event-like dict, wrap it properly
-                            yield self._create_tool_event(
-                                "tool_progress",
-                                tool_name,
-                                project_name,
-                                react_type,
-                                run_id,
-                                step_id,
-                                **item
-                            )
-                        elif "progress" in item:
-                            yield self._create_tool_event(
-                                "tool_progress",
-                                tool_name,
-                                project_name,
-                                react_type,
-                                run_id,
-                                step_id,
-                                progress=item["progress"]
-                            )
-                        elif "error" in item:
-                            yield self._create_tool_event(
-                                "error",
-                                tool_name,
-                                project_name,
-                                react_type,
-                                run_id,
-                                step_id,
-                                error=item["error"]
-                            )
-                            return
-                        elif "result" in item:
-                            # Final result from streaming
-                            yield self._create_tool_event(
-                                "tool_end",
-                                tool_name,
-                                project_name,
-                                react_type,
-                                run_id,
-                                step_id,
-                                ok=True,
-                                result=item["result"]
-                            )
-                            return
-                    else:
-                        # Raw item, treat as progress
-                        yield self._create_tool_event(
-                            "tool_progress",
-                            tool_name,
-                            project_name,
-                            react_type,
-                            run_id,
-                            step_id,
-                            progress=item
-                        )
-
-                # If we get here, the async generator completed without a final result
-                yield self._create_tool_event(
-                    "tool_end",
-                    tool_name,
-                    project_name,
-                    react_type,
-                    run_id,
-                    step_id,
-                    ok=True,
-                    result=None
-                )
-            else:
-                # Simple synchronous result
-                yield self._create_tool_event(
-                    "tool_end",
-                    tool_name,
-                    project_name,
-                    react_type,
-                    run_id,
-                    step_id,
-                    ok=True,
-                    result=result
-                )
+            # Tool.execute is now an async method that yields ReactEvent objects directly
+            async for event in tool.execute(
+                parameters=parameters,
+                context=context,
+                project_name=project_name,
+                react_type=react_type,
+                run_id=run_id,
+                step_id=step_id,
+            ):
+                # Yield the event directly - tools now create proper ReactEvent objects
+                yield event
 
         except Exception as e:
             yield self._create_tool_event(

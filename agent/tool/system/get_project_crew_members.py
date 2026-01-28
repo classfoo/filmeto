@@ -1,7 +1,12 @@
 from ..base_tool import BaseTool, ToolMetadata, ToolParameter
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, AsyncGenerator
 from agent.crew.crew_service import CrewService
 from agent.crew.crew_member import CrewMember
+
+if TYPE_CHECKING:
+    from ...tool_context import ToolContext
+    from ...react.event import ReactEvent
+
 
 class GetProjectCrewMembersTool(BaseTool):
     """
@@ -47,22 +52,42 @@ class GetProjectCrewMembersTool(BaseTool):
                 return_description="Returns a list of crew members, each member contains id, name, role, description, soul, skills, model, temperature, max_steps, color, and icon"
             )
 
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> List[Dict[str, str]]:
+    async def execute(
+        self,
+        parameters: Dict[str, Any],
+        context: Optional["ToolContext"] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator["ReactEvent", None]:
         """
         Execute the crew member retrieval using CrewService.
 
         Args:
             parameters: Additional parameters (currently unused)
             context: ToolContext containing workspace and project info
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
-        Returns:
-            List of crew members with their details
+        Yields:
+            ReactEvent objects with the crew members list
         """
         # Extract project information from context
         workspace = context.workspace if context else None
 
         if not workspace:
-            return []
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error="Workspace not available in context"
+            )
+            return
 
         # Get the project from workspace
         project = workspace.get_project()
@@ -91,4 +116,12 @@ class GetProjectCrewMembersTool(BaseTool):
             }
             crew_members_list.append(member_info)
 
-        return crew_members_list
+        yield self._create_event(
+            "tool_end",
+            project_name,
+            react_type,
+            run_id,
+            step_id,
+            ok=True,
+            result=crew_members_list
+        )

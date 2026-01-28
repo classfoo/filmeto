@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, AsyncGenerator
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
     from .tool_context import ToolContext
+    from ..react.event import ReactEvent
 
 
 @dataclass
@@ -74,16 +75,33 @@ class BaseTool(ABC):
         self.description = description
 
     @abstractmethod
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
+    async def execute(
+        self,
+        parameters: Dict[str, Any],
+        context: Optional["ToolContext"] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator["ReactEvent", None]:
         """
         Execute the tool with given parameters and context.
+
+        This is an async method that yields ReactEvent objects for tracking execution progress.
 
         Args:
             parameters: Dictionary of parameters for the tool
             context: Optional ToolContext object containing workspace, project_name, etc.
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
-        Returns:
-            Result of the tool execution
+        Yields:
+            ReactEvent objects with types:
+            - "tool_progress" - Progress update during execution
+            - "tool_end" - Tool execution completed (with result in payload)
+            - "error" - Tool execution failed (with error in payload)
         """
         pass
 
@@ -104,4 +122,40 @@ class BaseTool(ABC):
             description=self.description,
             parameters=[],
             return_description=""
+        )
+
+    def _create_event(
+        self,
+        event_type: str,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+        **kwargs
+    ) -> "ReactEvent":
+        """
+        Create a ReactEvent for tool execution.
+
+        Args:
+            event_type: Type of event (tool_progress, tool_end, error)
+            project_name: Project name
+            react_type: React type
+            run_id: Run ID
+            step_id: Step ID
+            **kwargs: Additional event-specific data
+
+        Returns:
+            ReactEvent object
+        """
+        from ..react.event import ReactEvent
+
+        payload = {"tool_name": self.name, **kwargs}
+
+        return ReactEvent(
+            event_type=event_type,
+            project_name=project_name,
+            react_type=react_type,
+            run_id=run_id,
+            step_id=step_id,
+            payload=payload
         )

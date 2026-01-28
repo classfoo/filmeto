@@ -3,6 +3,7 @@ from ..base_tool import BaseTool, ToolMetadata, ToolParameter
 
 if TYPE_CHECKING:
     from ...tool_context import ToolContext
+    from ...react.event import ReactEvent
 
 
 class ExecuteGeneratedCodeTool(BaseTool):
@@ -61,16 +62,28 @@ class ExecuteGeneratedCodeTool(BaseTool):
                 return_description="Returns the execution result from the generated code (streamed)"
             )
 
-    async def execute_async(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> AsyncGenerator[Dict[str, Any], None]:
+    async def execute(
+        self,
+        parameters: Dict[str, Any],
+        context: Optional["ToolContext"] = None,
+        project_name: str = "",
+        react_type: str = "",
+        run_id: str = "",
+        step_id: int = 0,
+    ) -> AsyncGenerator["ReactEvent", None]:
         """
         Execute dynamically generated Python code using ToolService.execute_script_content.
 
         Args:
             parameters: Parameters including code and args
             context: ToolContext containing workspace and project info
+            project_name: Project name for event tracking
+            react_type: React type for event tracking
+            run_id: Run ID for event tracking
+            step_id: Step ID for event tracking
 
         Yields:
-            Dict with progress updates or final result
+            ReactEvent objects with progress updates and results
         """
         from ..tool_service import ToolService
 
@@ -78,7 +91,14 @@ class ExecuteGeneratedCodeTool(BaseTool):
         args = parameters.get("args", {})
 
         if not code:
-            yield {"error": "code is required"}
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error="code is required"
+            )
             return
 
         tool_service = ToolService()
@@ -90,27 +110,43 @@ class ExecuteGeneratedCodeTool(BaseTool):
 
         try:
             # Yield progress before execution
-            yield {"progress": "Executing generated code..."}
+            yield self._create_event(
+                "tool_progress",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                progress="Executing generated code..."
+            )
 
-            # execute_script_content now returns the result directly (not an async generator)
+            # execute_script_content now returns the result directly
             result = await tool_service.execute_script_content(
                 code,
                 argv,
                 context,
-                project_name=context.project_name if context else "",
-                react_type="",
-                run_id="",
-                step_id=0,
+                project_name=project_name,
+                react_type=react_type,
+                run_id=run_id,
+                step_id=step_id,
             )
 
             # Yield the final result
-            yield {"result": result}
+            yield self._create_event(
+                "tool_end",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                ok=True,
+                result=result
+            )
 
         except Exception as e:
-            yield {"error": f"Error executing generated code: {str(e)}"}
-
-    def execute(self, parameters: Dict[str, Any], context: Optional["ToolContext"] = None) -> Any:
-        """
-        Synchronous entry point that returns the async generator.
-        """
-        return self.execute_async(parameters, context)
+            yield self._create_event(
+                "error",
+                project_name,
+                react_type,
+                run_id,
+                step_id,
+                error=str(e)
+            )
