@@ -383,6 +383,17 @@ class React:
 
                     if action.is_tool():
                         assert isinstance(action, ToolAction), f"Expected ToolAction, got {type(action)}"
+                        # Validate tool_name before execution
+                        if not action.tool_name:
+                            error_msg = "Tool name is empty - LLM returned a tool action without specifying which tool to use"
+                            logger.warning(error_msg)
+                            yield self._create_event(ReactEventType.ERROR, {
+                                "error": error_msg,
+                                "details": f"Response: {response_text[:200]}"
+                            })
+                            self.messages.append({"role": "assistant", "content": response_text})
+                            self.messages.append({"role": "user", "content": f"Error: {error_msg}. Please specify a valid tool name."})
+                            continue
                         yield self._create_event(ReactEventType.TOOL_START, action.to_start_payload())
                         try:
                             tool_result = None
