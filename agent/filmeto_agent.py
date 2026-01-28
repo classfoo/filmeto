@@ -6,7 +6,7 @@ import json
 import logging
 import re
 import uuid
-from typing import AsyncIterator, Dict, List, Optional, Callable, Any, TYPE_CHECKING
+from typing import AsyncIterator, AsyncGenerator, Callable, Dict, List, Optional, Any, TYPE_CHECKING
 from agent.chat.agent_chat_message import AgentMessage, StructureContent
 from agent.chat.agent_chat_types import ContentType, MessageType
 from agent.chat.agent_chat_signals import AgentChatSignals
@@ -305,15 +305,33 @@ class FilmetoAgent:
         self,
         responses: AsyncIterator[AgentMessage],
         session_id: str,
-        on_token: Optional[Callable[[str], None]],
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator["ReactEvent", None]:
+        from agent.react import ReactEvent, ReactEventType
+
         async for response in responses:
             self.conversation_history.append(response)
-            if on_token:
-                on_token(response.get_text_content())
             response.metadata["session_id"] = session_id
             await self.signals.send_agent_message(response)
-            yield response.get_text_content()
+
+            # Convert AgentMessage to ReactEvent for upstream consumption
+            if response.message_type == MessageType.TEXT:
+                yield ReactEvent(
+                    event_type=ReactEventType.FINAL.value,
+                    project_name=self._resolve_project_name() or "default",
+                    react_type=response.sender_id,
+                    run_id=getattr(self, "_run_id", ""),
+                    step_id=0,
+                    payload={"final_response": response.get_text_content()}
+                )
+            elif response.message_type == MessageType.ERROR:
+                yield ReactEvent(
+                    event_type=ReactEventType.ERROR.value,
+                    project_name=self._resolve_project_name() or "default",
+                    react_type=response.sender_id,
+                    run_id=getattr(self, "_run_id", ""),
+                    step_id=0,
+                    payload={"error": response.get_text_content()}
+                )
 
     async def _stream_crew_member(
         self,
@@ -321,73 +339,74 @@ class FilmetoAgent:
         message: str,
         plan_id: Optional[str],
         session_id: str,
-        on_token: Optional[Callable[[str], None]],
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator["ReactEvent", None]:
         from agent.react import ReactEventType
 
-        async def response_iter():
-            # Set the current message ID on the crew member for skill tracking
-            crew_member._current_message_id = str(uuid.uuid4())
+        # Set the current message ID on the crew member for skill tracking
+        crew_member._current_message_id = str(uuid.uuid4())
 
-            async for event in crew_member.chat_stream(message, plan_id=plan_id):
-                response_metadata = dict(metadata or {})
-                if plan_id:
-                    response_metadata.setdefault("plan_id", plan_id)
-                response_metadata.setdefault("message_id", crew_member._current_message_id)
+        async for event in crew_member.chat_stream(message, plan_id=plan_id):
+            # Add metadata to the event
+            event_payload = dict(event.payload)
+            if metadata:
+                event_payload.update(metadata)
+            if plan_id:
+                event_payload["plan_id"] = plan_id
 
-                # Convert ReactEvent to AgentMessage based on event type
-                if event.event_type == ReactEventType.LLM_THINKING:
-                    # Thinking events are already handled by crew_member via signals
-                    # Skip here to avoid duplicate messages
-                    continue
-                elif event.event_type == ReactEventType.FINAL:
-                    final_text = event.payload.get("final_response", "")
-                    if final_text:
-                        response = AgentMessage(
-                            message_type=MessageType.TEXT,
-                            sender_id=crew_member.config.name,
-                            sender_name=crew_member.config.name.capitalize(),
-                            metadata=response_metadata,
-                            message_id=crew_member._current_message_id,
-                            structured_content=[StructureContent(
-                                content_type=ContentType.TEXT,
-                                data=final_text
-                            )]
-                        )
-                        logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{final_text[:50]}{'...' if len(final_text) > 50 else ''}'")
-                        yield response
-                elif event.event_type == ReactEventType.ERROR:
-                    error_text = event.payload.get("error", "Unknown error")
+            # Create a new event with enhanced metadata
+            enhanced_event = ReactEvent(
+                event_type=event.event_type,
+                project_name=event.project_name,
+                react_type=event.react_type,
+                run_id=event.run_id,
+                step_id=event.step_id,
+                payload=event_payload
+            )
+
+            # Also send via AgentChatSignals for UI compatibility
+            if event.event_type == ReactEventType.FINAL:
+                final_text = event.payload.get("final_response", "")
+                if final_text:
                     response = AgentMessage(
-                        message_type=MessageType.ERROR,
+                        message_type=MessageType.TEXT,
                         sender_id=crew_member.config.name,
                         sender_name=crew_member.config.name.capitalize(),
-                        metadata=response_metadata,
+                        metadata={"message_id": crew_member._current_message_id},
                         message_id=crew_member._current_message_id,
                         structured_content=[StructureContent(
                             content_type=ContentType.TEXT,
-                            data=error_text
+                            data=final_text
                         )]
                     )
-                    logger.info(f"❌ Sending error message: id={response.message_id}, sender='{response.sender_id}', content_preview='{error_text[:50]}{'...' if len(error_text) > 50 else ''}'")
-                    yield response
-                # Tool events (tool_start, tool_progress, tool_end) could be handled here
-                # if we want to show them in the UI
+                    logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{final_text[:50]}{'...' if len(final_text) > 50 else ''}'")
+                    await self.signals.send_agent_message(response)
+            elif event.event_type == ReactEventType.ERROR:
+                error_text = event.payload.get("error", "Unknown error")
+                response = AgentMessage(
+                    message_type=MessageType.ERROR,
+                    sender_id=crew_member.config.name,
+                    sender_name=crew_member.config.name.capitalize(),
+                    metadata={"message_id": crew_member._current_message_id},
+                    message_id=crew_member._current_message_id,
+                    structured_content=[StructureContent(
+                        content_type=ContentType.TEXT,
+                        data=error_text
+                    )]
+                )
+                logger.info(f"❌ Sending error message: id={response.message_id}, sender='{response.sender_id}', content_preview='{error_text[:50]}{'...' if len(error_text) > 50 else ''}'")
+                await self.signals.send_agent_message(response)
 
-        async for content in self._stream_agent_messages(
-            response_iter(),
-            session_id,
-            on_token,
-        ):
-            yield content
+            # Yield the event for upstream
+            yield enhanced_event
 
     async def _stream_error_message(
         self,
         message: str,
         session_id: str,
-        on_token: Optional[Callable[[str], None]],
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator["ReactEvent", None]:
+        from agent.react import ReactEvent, ReactEventType
+
         error_msg = AgentMessage(
             message_type=MessageType.ERROR,
             sender_id="system",
@@ -399,24 +418,32 @@ class FilmetoAgent:
         )
         logger.info(f"❌ Sending error message: id={error_msg.message_id}, sender='system', content_preview='{message[:50]}{'...' if len(message) > 50 else ''}'")
         self.conversation_history.append(error_msg)
-        if on_token:
-            on_token(error_msg.get_text_content())
         error_msg.metadata["session_id"] = session_id
         await self.signals.send_agent_message(error_msg)
-        yield error_msg.get_text_content()
+
+        # Also yield as ReactEvent
+        yield ReactEvent(
+            event_type=ReactEventType.ERROR.value,
+            project_name=self._resolve_project_name() or "default",
+            react_type="system",
+            run_id=getattr(self, "_run_id", ""),
+            step_id=0,
+            payload={"error": message}
+        )
 
     def get_current_session(self) -> Optional[AgentStreamSession]:
         """Get the current streaming session."""
         return self.current_session
 
-    async def chat_stream(self, message: str, on_token=None, on_complete=None):
+    async def chat_stream(self, message: str) -> AsyncGenerator["ReactEvent", None]:
         """
         Stream responses for a chat conversation with the agents.
 
         Args:
             message: The message to process
-            on_token: Callback for each token received
-            on_complete: Callback when response is complete
+
+        Yields:
+            ReactEvent: Events from the ReAct execution process
         """
         # Ensure project is loaded if not provided but workspace exists
         if not self.project and self.workspace:
@@ -469,16 +496,13 @@ class FilmetoAgent:
                 crew_member_name=mentioned_crew_member.config.name,
                 message=message,
             )
-            async for content in self._stream_crew_member(
+            async for event in self._stream_crew_member(
                 mentioned_crew_member,
                 message,
                 plan_id=None,
                 session_id=session_id,
-                on_token=on_token,
             ):
-                yield content
-            if on_complete:
-                on_complete(message)
+                yield event
             return
 
         producer_agent = self._get_producer_crew_member()
@@ -489,15 +513,12 @@ class FilmetoAgent:
                 crew_member_name=producer_agent.config.name,
                 message=initial_prompt.get_text_content(),
             )
-            async for content in self._handle_producer_flow(
+            async for event in self._handle_producer_flow(
                 initial_prompt=initial_prompt,
                 producer_agent=producer_agent,
                 session_id=session_id,
-                on_token=on_token,
             ):
-                yield content
-            if on_complete:
-                on_complete(message)
+                yield event
             return
 
         mentioned_agent = self._resolve_mentioned_title(message)
@@ -508,17 +529,14 @@ class FilmetoAgent:
                 crew_member_name=mentioned_agent.config.name,
                 message=initial_prompt.get_text_content(),
             )
-            async for content in self._stream_crew_member(
+            async for event in self._stream_crew_member(
                 mentioned_agent,
                 initial_prompt.get_text_content(),
                 plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                 session_id=session_id,
-                on_token=on_token,
                 metadata=initial_prompt.metadata
             ):
-                yield content
-            if on_complete:
-                on_complete(message)
+                yield event
             return
 
         # Prioritize producer if available and no specific agent is mentioned
@@ -531,15 +549,14 @@ class FilmetoAgent:
                 message=initial_prompt.get_text_content(),
             )
             # Stream directly from the producer crew member
-            async for content in self._stream_crew_member(
+            async for event in self._stream_crew_member(
                 producer_agent,
                 initial_prompt.get_text_content(),
                 plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                 session_id=session_id,
-                on_token=on_token,
                 metadata=initial_prompt.metadata
             ):
-                yield content
+                yield event
         else:
             responding_agent = await self._select_responding_agent(initial_prompt)
             if responding_agent:
@@ -549,34 +566,27 @@ class FilmetoAgent:
                     crew_member_name=responding_agent.config.name,
                     message=initial_prompt.get_text_content(),
                 )
-                async for content in self._stream_crew_member(
+                async for event in self._stream_crew_member(
                     responding_agent,
                     initial_prompt.get_text_content(),
                     plan_id=initial_prompt.metadata.get("plan_id") if initial_prompt.metadata else None,
                     session_id=session_id,
-                    on_token=on_token,
                     metadata=initial_prompt.metadata
                 ):
-                    yield content
+                    yield event
             else:
-                async for content in self._stream_error_message(
+                async for event in self._stream_error_message(
                     "No suitable agent found to handle this request.",
                     session_id,
-                    on_token,
                 ):
-                    yield content
-
-        # Call on_complete callback if provided
-        if on_complete:
-            on_complete(message)
+                    yield event
 
     async def _handle_producer_flow(
         self,
         initial_prompt: AgentMessage,
         producer_agent: CrewMember,
         session_id: str,
-        on_token: Optional[Callable[[str], None]],
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator["ReactEvent", None]:
         project_name = self._resolve_project_name()
 
         # Determine the active plan ID - get the last active plan for the project
@@ -585,14 +595,13 @@ class FilmetoAgent:
 
         # Stream directly to the producer agent without creating a plan automatically
         # The producer will decide whether to create a plan using the create_execution_plan skill
-        async for content in self._stream_crew_member(
+        async for event in self._stream_crew_member(
             producer_agent,
             initial_prompt.get_text_content(),
             plan_id=active_plan_id,
             session_id=session_id,
-            on_token=on_token,
         ):
-            yield content
+            yield event
 
         # After the producer responds, check if a plan was created during the interaction
         # If a plan was created, execute the plan tasks
@@ -613,19 +622,17 @@ class FilmetoAgent:
 
                 # Check if the plan has tasks to execute
                 if latest_plan and latest_plan.tasks:
-                    async for content in self._execute_plan_tasks(
+                    async for event in self._execute_plan_tasks(
                         plan=latest_plan,
                         session_id=session_id,
-                        on_token=on_token,
                     ):
-                        yield content
+                        yield event
 
     async def _execute_plan_tasks(
         self,
         plan: Plan,
         session_id: str,
-        on_token: Optional[Callable[[str], None]],
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator["ReactEvent", None]:
         plan_instance = self.plan_service.create_plan_instance(plan)
         self.plan_service.start_plan_execution(plan_instance)
 
@@ -633,12 +640,11 @@ class FilmetoAgent:
             ready_tasks = self._get_ready_tasks(plan_instance)
             if not ready_tasks:
                 if self._has_incomplete_tasks(plan_instance):
-                    async for content in self._stream_error_message(
+                    async for event in self._stream_error_message(
                         "Plan execution blocked by unmet dependencies or missing agents.",
                         session_id,
-                        on_token,
                     ):
-                        yield content
+                        yield event
                 break
 
             for task in ready_tasks:
@@ -654,25 +660,23 @@ class FilmetoAgent:
                 if not target_agent:
                     error_message = f"Crew member '{task.title}' not found for task {task.id}."
                     self.plan_service.mark_task_failed(plan_instance, task.id, error_message)
-                    async for content in self._stream_error_message(
+                    async for event in self._stream_error_message(
                         error_message,
                         session_id,
-                        on_token,
                     ):
-                        yield content
+                        yield event
                     continue
 
                 task_message = self._build_task_message(task, plan.id)
-                async for content in self._stream_crew_member(
+                async for event in self._stream_crew_member(
                     target_agent,
                     task_message,
                     plan_id=plan.id,
                     session_id=session_id,
-                    on_token=on_token,
                     metadata={"plan_id": plan.id, "task_id": task.id},
                 ):
-                    yield content
-                
+                    yield event
+
                 self.plan_service.mark_task_completed(plan_instance, task.id)
                 await self._emit_system_event(
                     "plan_update",
