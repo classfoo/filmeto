@@ -122,7 +122,7 @@ class CrewMember:
             return self._build_user_prompt(user_question, plan_id=plan_id)
 
         # Build available tool names - use execute_skill as the tool
-        available_tool_names = ["execute_skill"]
+        available_tool_names = ["execute_skill", "todo_write"]
 
         react_instance = react_service.get_or_create_react(
             project_name=self.project_name,

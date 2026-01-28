@@ -62,6 +62,9 @@ class SkillChat:
         tool_service = ToolService()
         available_tool_names = list(tool_service.get_available_tools())
 
+        # Add todo_write tool for complex task tracking
+        available_tool_names.append("todo_write")
+
         # Add skill-specific tools based on whether skill has scripts
         if skill.scripts:
             available_tool_names.append("execute_skill_script")
