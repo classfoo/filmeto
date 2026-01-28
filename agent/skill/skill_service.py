@@ -7,11 +7,14 @@ plus optional reference.md, example.md, and scripts/ directory.
 """
 import os
 import re
-from typing import AsyncGenerator, Dict, List, Optional, Any
+from typing import AsyncGenerator, Dict, List, Optional, Any, TYPE_CHECKING
 from pathlib import Path
 
 # Import data models
 from agent.skill.skill_models import Skill, SkillParameter
+
+if TYPE_CHECKING:
+    from agent.react.event import ReactEvent
 
 
 class SkillService:
@@ -375,7 +378,7 @@ class SkillService:
         args: Optional[Dict[str, Any]] = None,
         llm_service: Any = None,
         max_steps: int = 10,
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator["ReactEvent", None]:
         """通过 React 流式执行 skill
 
         Args:

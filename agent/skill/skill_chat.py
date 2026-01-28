@@ -5,9 +5,12 @@ Provides ReAct-based streaming execution for skills.
 Handles tool calling, prompt building, and script execution for skill chat operations.
 """
 import os
-from typing import AsyncGenerator, Any, Dict, List, Optional
+from typing import AsyncGenerator, Any, Dict, List, Optional, TYPE_CHECKING
 
 from agent.skill.skill_models import Skill
+
+if TYPE_CHECKING:
+    from agent.react.event import ReactEvent
 
 
 class SkillChat:
@@ -36,7 +39,7 @@ class SkillChat:
         args: Optional[Dict[str, Any]] = None,
         llm_service: Any = None,
         max_steps: int = 10,
-    ) -> AsyncGenerator[Any, None]:
+    ) -> AsyncGenerator["ReactEvent", None]:
         """通过 React 流式执行 skill
 
         Args:

@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, TYPE_CHECKING
 
 import yaml
 
@@ -12,7 +12,10 @@ from agent.plan.service import PlanService
 from agent.skill.skill_service import SkillService, Skill
 from agent.soul import soul_service as soul_service_instance, SoulService
 from agent.prompt.prompt_service import prompt_service
-from agent.react import ReactEventType, react_service, ReactEvent
+
+if TYPE_CHECKING:
+    from agent.react.event import ReactEvent
+    from agent.react.types import ReactEventType
 
 
 @dataclass
@@ -94,28 +97,30 @@ class CrewMember:
     async def chat_stream(
         self,
         message: str,
-        on_token: Optional[Callable[[str], None]] = None,
-        on_complete: Optional[Callable[[str], None]] = None,
         plan_id: Optional[str] = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator["ReactEvent"]:
+        """
+        Stream chat responses as ReactEvent objects.
+
+        Args:
+            message: The user message to process
+            plan_id: Optional plan ID for context
+
+        Yields:
+            ReactEvent: Events from the ReAct execution process
+        """
+        from agent.react import react_service, ReactEventType, ReactEvent
+
         if not self.llm_service.validate_config():
-            error_message = "LLM service is not configured."
-            if on_token:
-                on_token(error_message)
-            msg = AgentMessage(
-                message_type=MessageType.ERROR,
-                sender_id=self.config.name,
-                sender_name=self.config.name,
-                metadata={"session_id": getattr(self, "_session_id", "unknown")},
-                structured_content=[StructureContent(
-                    content_type=ContentType.TEXT,
-                    data=error_message
-                )]
+            error_event = ReactEvent(
+                event_type=ReactEventType.ERROR.value,
+                project_name=self.project_name,
+                react_type=self.config.name,
+                run_id=getattr(self, "_run_id", ""),
+                step_id=0,
+                payload={"error": "LLM service is not configured."}
             )
-            await self.signals.send_agent_message(msg)
-            yield error_message
-            if on_complete:
-                on_complete(error_message)
+            yield error_event
             return
 
         def build_prompt_function(user_question: str) -> str:
@@ -136,10 +141,10 @@ class CrewMember:
 
         final_response = None
         saw_event = False
-        emitted_final = False
 
         async for event in react_instance.chat_stream(message):
             saw_event = True
+            # Send thinking events via AgentChatSignals for UI
             if event.event_type == ReactEventType.LLM_THINKING:
                 thinking_structure = StructureContent(
                     content_type=ContentType.THINKING,
@@ -162,36 +167,39 @@ class CrewMember:
                 if mid:
                     msg.message_id = mid
                 await self.signals.send_agent_message(msg)
-            elif event.event_type == ReactEventType.LLM_OUTPUT:
-                continue
+                yield event
             elif event.event_type == ReactEventType.FINAL:
                 final_response = event.payload.get("final_response", "")
+                # Store conversation history
+                if final_response:
+                    self.conversation_history.append({"role": "user", "content": message})
+                    self.conversation_history.append({"role": "assistant", "content": final_response})
+                yield event
                 break
             elif event.event_type == ReactEventType.ERROR:
                 error_message = event.payload.get("error", "Unknown error occurred")
-                if on_token:
-                    on_token(error_message)
-                yield error_message
-                emitted_final = True
-                final_response = error_message
+                self.conversation_history.append({"role": "user", "content": message})
+                self.conversation_history.append({"role": "assistant", "content": error_message})
+                yield event
                 break
+            else:
+                # Yield all other events (tool_start, tool_progress, tool_end, etc.)
+                yield event
 
         if not saw_event:
             return
 
         if final_response is None:
-            final_response = "Reached max steps without a final response."
-
-        self.conversation_history.append({"role": "user", "content": message})
-        self.conversation_history.append({"role": "assistant", "content": final_response})
-
-        if not emitted_final:
-            if on_token:
-                on_token(final_response)
-            yield final_response
-
-        if on_complete:
-            on_complete(final_response)
+            # Create an error event if we didn't get a final response
+            error_event = ReactEvent(
+                event_type=ReactEventType.ERROR.value,
+                project_name=self.project_name,
+                react_type=self.config.name,
+                run_id=getattr(self, "_run_id", ""),
+                step_id=0,
+                payload={"error": "Reached max steps without a final response."}
+            )
+            yield error_event
 
     def _build_user_prompt(self, user_question: str, plan_id: Optional[str] = None) -> str:
         """Build a user prompt that embeds the user's question into the react_base template.

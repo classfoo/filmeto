@@ -6,7 +6,7 @@ import json
 import logging
 import re
 import uuid
-from typing import AsyncIterator, Dict, List, Optional, Callable, Any
+from typing import AsyncIterator, Dict, List, Optional, Callable, Any, TYPE_CHECKING
 from agent.chat.agent_chat_message import AgentMessage, StructureContent
 from agent.chat.agent_chat_types import ContentType, MessageType
 from agent.chat.agent_chat_signals import AgentChatSignals
@@ -16,6 +16,10 @@ from agent.plan.service import PlanService
 from agent.crew.crew_member import CrewMember
 from agent.crew.crew_title import sort_crew_members_by_title_importance
 from agent.crew.crew_service import CrewService
+
+if TYPE_CHECKING:
+    from agent.react.event import ReactEvent
+    from agent.react.types import ReactEventType
 
 logger = logging.getLogger(__name__)
 
@@ -320,30 +324,56 @@ class FilmetoAgent:
         on_token: Optional[Callable[[str], None]],
         metadata: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[str]:
+        from agent.react import ReactEventType
+
         async def response_iter():
             # Set the current message ID on the crew member for skill tracking
             crew_member._current_message_id = str(uuid.uuid4())
 
-            async for token in crew_member.chat_stream(message, plan_id=plan_id):
+            async for event in crew_member.chat_stream(message, plan_id=plan_id):
                 response_metadata = dict(metadata or {})
                 if plan_id:
                     response_metadata.setdefault("plan_id", plan_id)
                 response_metadata.setdefault("message_id", crew_member._current_message_id)
-                from agent.chat.agent_chat_message import StructureContent
-                from agent.chat.agent_chat_types import ContentType
-                response = AgentMessage(
-                    message_type=MessageType.TEXT,
-                    sender_id=crew_member.config.name,
-                    sender_name=crew_member.config.name.capitalize(),
-                    metadata=response_metadata,
-                    message_id=crew_member._current_message_id,
-                    structured_content=[StructureContent(
-                        content_type=ContentType.TEXT,
-                        data=token
-                    )]
-                )
-                logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{token[:50]}{'...' if len(token) > 50 else ''}'")
-                yield response
+
+                # Convert ReactEvent to AgentMessage based on event type
+                if event.event_type == ReactEventType.LLM_THINKING:
+                    # Thinking events are already handled by crew_member via signals
+                    # Skip here to avoid duplicate messages
+                    continue
+                elif event.event_type == ReactEventType.FINAL:
+                    final_text = event.payload.get("final_response", "")
+                    if final_text:
+                        response = AgentMessage(
+                            message_type=MessageType.TEXT,
+                            sender_id=crew_member.config.name,
+                            sender_name=crew_member.config.name.capitalize(),
+                            metadata=response_metadata,
+                            message_id=crew_member._current_message_id,
+                            structured_content=[StructureContent(
+                                content_type=ContentType.TEXT,
+                                data=final_text
+                            )]
+                        )
+                        logger.info(f"📤 Sending agent message: id={response.message_id}, sender='{response.sender_id}', content_preview='{final_text[:50]}{'...' if len(final_text) > 50 else ''}'")
+                        yield response
+                elif event.event_type == ReactEventType.ERROR:
+                    error_text = event.payload.get("error", "Unknown error")
+                    response = AgentMessage(
+                        message_type=MessageType.ERROR,
+                        sender_id=crew_member.config.name,
+                        sender_name=crew_member.config.name.capitalize(),
+                        metadata=response_metadata,
+                        message_id=crew_member._current_message_id,
+                        structured_content=[StructureContent(
+                            content_type=ContentType.TEXT,
+                            data=error_text
+                        )]
+                    )
+                    logger.info(f"❌ Sending error message: id={response.message_id}, sender='{response.sender_id}', content_preview='{error_text[:50]}{'...' if len(error_text) > 50 else ''}'")
+                    yield response
+                # Tool events (tool_start, tool_progress, tool_end) could be handled here
+                # if we want to show them in the UI
 
         async for content in self._stream_agent_messages(
             response_iter(),
@@ -710,46 +740,50 @@ class FilmetoAgent:
         Yields:
             AgentMessage: Responses from all agents
         """
+        from agent.react import ReactEventType
+
         for agent in self.members.values():
             try:
-                # Create a temporary stream to collect the agent's response
-                async def agent_response_stream():
-                    # Extract text content from message structured_content
-                    message_text = ""
-                    if message.structured_content:
-                        for sc in message.structured_content:
-                            if sc.content_type.value == "text" and isinstance(sc.data, str):
-                                message_text = sc.data
-                                break
-                    
-                    async for token in agent.chat_stream(message_text, on_token=None, plan_id=None):
-                        from agent.chat.agent_chat_message import StructureContent
-                        from agent.chat.agent_chat_types import ContentType
-                        response = AgentMessage(
-                            message_type=MessageType.TEXT,
+                # Extract text content from message structured_content
+                message_text = ""
+                if message.structured_content:
+                    for sc in message.structured_content:
+                        if sc.content_type.value == "text" and isinstance(sc.data, str):
+                            message_text = sc.data
+                            break
+
+                # Iterate over ReactEvent from crew_member.chat_stream
+                async for event in agent.chat_stream(message_text, plan_id=None):
+                    if event.event_type == ReactEventType.FINAL:
+                        final_text = event.payload.get("final_response", "")
+                        if final_text:
+                            response = AgentMessage(
+                                message_type=MessageType.TEXT,
+                                sender_id=agent.config.name,
+                                sender_name=agent.config.name.capitalize(),
+                                metadata={},
+                                structured_content=[StructureContent(
+                                    content_type=ContentType.TEXT,
+                                    data=final_text
+                                )]
+                            )
+                            self.conversation_history.append(response)
+                            yield response
+                    elif event.event_type == ReactEventType.ERROR:
+                        error_text = event.payload.get("error", "Unknown error")
+                        error_msg = AgentMessage(
+                            message_type=MessageType.ERROR,
                             sender_id=agent.config.name,
                             sender_name=agent.config.name.capitalize(),
                             metadata={},
                             structured_content=[StructureContent(
                                 content_type=ContentType.TEXT,
-                                data=token
+                                data=error_text
                             )]
                         )
-                        yield response
-
-                async for response in agent_response_stream():
-                    self.conversation_history.append(response)
-                    # Extract text content from structured_content for backward compatibility
-                    text_content = ""
-                    if response.structured_content:
-                        for sc in response.structured_content:
-                            if sc.content_type.value == "text" and isinstance(sc.data, str):
-                                text_content = sc.data
-                                break
-                    yield text_content  # Yield just the content for consistency
+                        self.conversation_history.append(error_msg)
+                        yield error_msg
             except Exception as e:
-                from agent.chat.agent_chat_message import StructureContent
-                from agent.chat.agent_chat_types import ContentType
                 error_text = f"Error in agent {agent.config.name if hasattr(agent, 'config') else 'Unknown'}: {str(e)}"
                 error_msg = AgentMessage(
                     message_type=MessageType.ERROR,
@@ -762,4 +796,4 @@ class FilmetoAgent:
                 )
                 logger.info(f"❌ Broadcasting error message: id={error_msg.message_id}, sender='system', content_preview='{error_text[:50]}{'...' if len(error_text) > 50 else ''}'")
                 self.conversation_history.append(error_msg)
-                yield error_text  # Yield just the content for consistency
+                yield error_msg
